@@ -56,11 +56,22 @@ fvm flutter run --dart-define=REAPERS_SERVER_URL=http://localhost:8080/
 ## Work on it
 
 ```sh
+dart tool/hooks.dart install  # once per clone: guard main (see below)
 dart tool/check.dart          # format, analysis and every test
 dart tool/check.dart --fast   # the same without the server tests
 dart tool/build_art.dart      # rebuild every 3D model (needs Blender 5.1)
 dart tool/build_nft_art.dart  # redraw the stand-in NFT images
 ```
+
+There are no pull requests. Work happens on a branch and is merged into `main` locally:
+
+```sh
+git switch -c feat/your-change
+dart tool/merge.dart          # run every check, then fast-forward main
+dart tool/merge.dart --push   # the same, then push main
+```
+
+The hooks make that the only way in: `main` refuses any commit that `tool/merge.dart` has not just checked.
 
 | Read | For |
 | --- | --- |

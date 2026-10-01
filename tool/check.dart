@@ -1,4 +1,4 @@
-// Runs every check a change has to pass before it is shared: formatting,
+// Runs every check a change has to pass before it reaches main: formatting,
 // analysis and the tests of each package. Run it from the repository root:
 //
 //     dart tool/check.dart            # everything
@@ -6,11 +6,16 @@
 //                                     # a database to start
 //
 // It stops at the first step that fails and exits with that step's code.
+// `dart tool/merge.dart` runs the same checks, in full, before it lets a
+// branch into main.
 // ignore_for_file: avoid_print
 import 'dart:io';
 
 /// One command to run, and where.
 typedef Step = ({String name, String directory, List<String> command});
+
+/// How a run of the checks went.
+typedef CheckReport = ({bool passed, List<String> steps, int exitCode});
 
 const _packages = ['reapers_shared', 'reapers_flutter', 'reapers_server'];
 
@@ -85,13 +90,16 @@ List<String> _handWritten() {
   return files..sort();
 }
 
-Future<void> main(List<String> arguments) async {
-  final fast = arguments.contains('--fast');
-
+/// Runs the checks from the repository root and reports how they went.
+///
+/// A full run needs `reapers_server/config/passwords.yaml`. When it is
+/// missing the run fails before it starts, with the fix.
+Future<CheckReport> runChecks({required bool fast}) async {
   if (!File('pubspec.yaml').existsSync() ||
       !Directory('reapers_shared').existsSync()) {
-    stderr.writeln('Run this from the repository root: dart tool/check.dart');
-    exit(64);
+    stderr.writeln('Run this from the repository root.');
+
+    return (passed: false, steps: const <String>[], exitCode: 64);
   }
 
   if (!fast && !File('reapers_server/config/passwords.yaml').existsSync()) {
@@ -99,13 +107,13 @@ Future<void> main(List<String> arguments) async {
       'The server tests need reapers_server/config/passwords.yaml, which is '
       'git-ignored.\nCreate it from the committed example:\n'
       '    cp reapers_server/config/passwords.example.yaml '
-      'reapers_server/config/passwords.yaml\n'
-      'or run with --fast to skip the server tests.',
+      'reapers_server/config/passwords.yaml',
     );
-    exit(66);
+
+    return (passed: false, steps: const <String>[], exitCode: 66);
   }
 
-  final watch = Stopwatch()..start();
+  final passed = <String>[];
 
   for (final step in _steps(fast: fast)) {
     stdout.writeln('── ${step.name}');
@@ -120,8 +128,23 @@ Future<void> main(List<String> arguments) async {
 
     if (code != 0) {
       stderr.writeln('✗ ${step.name} failed (exit $code)');
-      exit(code);
+
+      return (passed: false, steps: passed, exitCode: code);
     }
+
+    passed.add(step.name);
+  }
+
+  return (passed: true, steps: passed, exitCode: 0);
+}
+
+Future<void> main(List<String> arguments) async {
+  final fast = arguments.contains('--fast');
+  final watch = Stopwatch()..start();
+  final report = await runChecks(fast: fast);
+
+  if (!report.passed) {
+    exit(report.exitCode);
   }
 
   print(

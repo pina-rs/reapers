@@ -25,13 +25,31 @@ Reapers is an AR game for phones: you are a reaper, and you hunt dead NFTs throu
 - **Tooling is Dart.** The only Python in the repository is what runs inside Blender, because Blender's API is Python.
 - **Use `dart analyze`, not `flutter analyze`.** In this workspace `flutter analyze` has reported no issues while `dart analyze` found real errors.
 
+## Landing a change
+
+There are no pull requests here. Work is merged into `main` locally, and `main` is guarded by git hooks so that the only way in is through the checks.
+
+```sh
+dart tool/hooks.dart install     # once per clone: guard main
+git switch -c feat/your-change   # work and commit on a branch
+dart tool/merge.dart             # run every check, then fast-forward main
+dart tool/merge.dart --push      # the same, then push main to origin
+```
+
+- Never commit on `main`, and never move it by hand with `git merge`, `git reset` or `git pull`. The hooks refuse all of these.
+- `main` only fast-forwards. If it has moved since the branch was cut, `git rebase main` first.
+- Clean up `wip:` commits into conventional commits before merging: what lands on `main` is what gets pushed.
+- Do not open pull requests, and do not use `gh pr`.
+- `REAPERS_SKIP_HOOKS=1` bypasses the hooks. It is for recovery work the user has asked for, never for getting past a failing check.
+
 ## Commands
 
 Flutter and Dart are pinned by `.fvmrc`. Use `fvm flutter` and `fvm dart`, or put the pinned SDK first on `PATH`.
 
 ```sh
-dart tool/check.dart          # format, analysis and every test: run before sharing a change
+dart tool/check.dart          # format, analysis and every test
 dart tool/check.dart --fast   # the same without the server tests
+dart tool/merge.dart          # the full checks, then merge this branch into main
 
 cd reapers_shared && dart test                 # the rules
 cd reapers_shared && dart tool/pacing.dart     # how long hunts take, by class and level
@@ -90,3 +108,4 @@ Tests need no Docker. `config/test.yaml` sets `database.dataPath`, so Serverpod 
 5. `dart tool/check.dart`.
 6. Look at the result running. Tests do not show a screen that looks wrong.
 7. Update `docs/gameplay.md` if a rule or a number changed.
+8. `dart tool/merge.dart` when the branch is ready for `main`.

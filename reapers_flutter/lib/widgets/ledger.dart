@@ -70,19 +70,27 @@ class LedgerButton extends HookWidget {
                         : Veil.hairline,
                   ),
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
+          // The label sits left and the detail right while both fit on one
+          // line. On a narrow phone the detail drops under the label rather
+          // than running into it.
+          child: SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 16,
+              runSpacing: 6,
+              children: [
+                Text(
                   label.toUpperCase(),
                   style: Veil.label(color: foreground, size: 13),
                 ),
-              ),
-              if (detail != null)
-                Text(detail!, style: Veil.figure(color: foreground, size: 13))
-              else if (enabled)
-                Text('→', style: Veil.figure(color: foreground, size: 16)),
-            ],
+                if (detail != null)
+                  Text(detail!, style: Veil.figure(color: foreground, size: 13))
+                else if (enabled)
+                  Text('→', style: Veil.figure(color: foreground, size: 16)),
+              ],
+            ),
           ),
         ),
       ),
