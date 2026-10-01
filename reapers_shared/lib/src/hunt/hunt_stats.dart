@@ -1,0 +1,237 @@
+import '../armory.dart';
+import '../progression.dart';
+import '../reaper_class.dart';
+import '../vec3.dart';
+
+/// Who is hunting: everything about a reaper that changes how a hunt plays.
+final class HuntLoadout {
+  const HuntLoadout({
+    required this.reaperClass,
+    required this.level,
+    required this.weapon,
+    this.completedSets = 0,
+  });
+
+  /// The fixed-strength reaper lent for a practice hunt.
+  static const borrowed = HuntLoadout(
+    reaperClass: ReaperClass.harvester,
+    level: 4,
+    weapon: Weapon(WeaponKind.scythe, Temper.shrouded),
+  );
+
+  final ReaperClass reaperClass;
+
+  final int level;
+
+  final Weapon weapon;
+
+  /// How many collection sets the reaper has absorbed in full.
+  final int completedSets;
+}
+
+/// The numbers one hunt is played with, derived from a [HuntLoadout].
+///
+/// Every tunable of the encounter lives here or in [HuntRules], so the game
+/// and the server read the same values.
+final class HuntStats {
+  const HuntStats({
+    required this.strikeDamage,
+    required this.reachRadians,
+    required this.swingTicks,
+    required this.resolve,
+    required this.captureTicks,
+    required this.reapToleranceRadians,
+    required this.flinchSpeed,
+    required this.perk,
+  });
+
+  /// Derives the hunt numbers for [loadout].
+  ///
+  /// [leniency] widens every window in the player's favour. The game plays at
+  /// 1.0; the server replays a little above it, so a hunt that was won on the
+  /// phone by a hair is never judged lost over a rounding difference.
+  factory HuntStats.derive(HuntLoadout loadout, {double leniency = 1}) {
+    final stats = loadout.reaperClass.stats;
+    final profile = loadout.weapon.profile;
+    final levelScale = 1 + Progression.strikePerLevel * (loadout.level - 1);
+    final setScale = 1 + Progression.strikePerSet * loadout.completedSets;
+
+    return HuntStats(
+      strikeDamage:
+          HuntRules.baseStrike *
+          (0.85 + 0.1 * stats.strike) *
+          profile.strike *
+          loadout.weapon.temper.strike *
+          levelScale *
+          setScale,
+      reachRadians:
+          radians(3.2 + 0.55 * stats.reach + profile.reachDegrees) * leniency,
+      swingTicks: profile.swingTicks,
+      resolve: 2 + (stats.resilience + 1) ~/ 2,
+      captureTicks:
+          ((3.5 + 0.5 * stats.capture) * HuntRules.tickRate * leniency).round(),
+      reapToleranceRadians: radians(5 + 0.8 * stats.capture) * leniency,
+      flinchSpeed: (0.42 + 0.035 * stats.resilience) * leniency,
+      perk: loadout.reaperClass.perk,
+    );
+  }
+
+  /// Ward removed by one strike on an open seal, before cadence and perks.
+  final double strikeDamage;
+
+  /// How far from a seal a tap may land and still strike it.
+  final double reachRadians;
+
+  /// Ticks between one strike and the next.
+  final int swingTicks;
+
+  /// Flinches the reaper can take before the husk slips away.
+  final int resolve;
+
+  /// How long a broken husk stays open to the reap.
+  final int captureTicks;
+
+  /// How far the phone may stray from the reap arc and still cut clean.
+  final double reapToleranceRadians;
+
+  /// The turning speed, in radians a second, above which a reaper is
+  /// flinching during a shriek.
+  final double flinchSpeed;
+
+  final ClassPerk perk;
+}
+
+/// The fixed numbers of an encounter.
+///
+/// These are playtest starting points, written down in docs/gameplay.md.
+abstract final class HuntRules {
+  /// The simulation advances this many times a second, whatever the display
+  /// refresh rate is.
+  static const tickRate = 60;
+
+  /// A level-one strike with a plain weapon, before the class's lean.
+  static const baseStrike = 4.0;
+
+  // Stalk -------------------------------------------------------------
+
+  /// Turning faster than this, in radians a second, alarms an unaware husk.
+  static const startleSpeed = 1.7;
+
+  /// Alarm added each second for every radian a second above
+  /// [startleSpeed]. The husk notices at 1.
+  static const startleGain = 0.55;
+
+  /// Alarm lost each second while the reaper moves slowly.
+  static const startleDecay = 0.2;
+
+  /// The aim must rest within this angle of the husk to steady an ambush.
+  static final ambushAim = radians(9);
+
+  /// Turning slower than this counts as steady, in radians a second.
+  static const steadySpeed = 0.6;
+
+  /// Steady ticks needed to spring an ambush.
+  static const ambushTicks = 66;
+
+  /// A husk that is never found notices the reaper after this long.
+  static const stalkLimitTicks = 25 * tickRate;
+
+  /// How long every seal stays open after an ambush or an unflinching hold.
+  static const exposedTicks = 170;
+
+  /// An ambush multiplies the first strike by this.
+  static const ambushStrike = 2.0;
+
+  /// An ambushed husk is worth this much more.
+  static const ambushReward = 1.1;
+
+  // Strike ------------------------------------------------------------
+
+  /// A tap made while the weapon is still swinging waits this long for the
+  /// swing to finish before it is dropped.
+  static const bufferTicks = 8;
+
+  /// A strike on the body, away from any seal, does this share of a strike.
+  static const glanceShare = 0.25;
+
+  /// Hits closer together than this keep the cadence going.
+  static const cadenceWindowTicks = 78;
+
+  /// Each hit in cadence adds this much to the next.
+  static const cadenceStep = 0.1;
+
+  /// Hits in cadence that count toward the bonus.
+  static const cadenceCap = 5;
+
+  /// The same cap for a reaper with the chain perk.
+  static const chainCadenceCap = 10;
+
+  /// A cleaving strike does this share to each further seal it catches.
+  static const cleaveShare = 0.4;
+
+  /// A cleaving strike catches seals within this many reaches of the tap.
+  static const cleaveReach = 2.4;
+
+  /// Striking seals in the order they opened multiplies the strike by this.
+  static const measureStrike = 1.2;
+
+  /// The strike after an unflinching hold, for a reaper with that perk.
+  static const chosenBlowStrike = 3.0;
+
+  /// How long a struck seal stays shut.
+  static const sealCooldownTicks = 44;
+
+  /// Seals open at once during an ordinary stretch of the fight.
+  static const openSeals = 2;
+
+  // Shriek ------------------------------------------------------------
+
+  /// The warning before a shriek.
+  static const windupTicks = 54;
+
+  /// How long the reaper has to hold still.
+  static const shriekTicks = 66;
+
+  /// Movement in the first moments of a shriek is forgiven.
+  static const shriekGraceTicks = 7;
+
+  /// The shortest and longest gaps between shrieks.
+  static const shriekGapMinTicks = 6 * tickRate + 30;
+  static const shriekGapMaxTicks = 10 * tickRate;
+
+  /// Each unflinching hold adds this to the reap window, with the toll perk.
+  static const tollTicks = 80;
+
+  // Relocation --------------------------------------------------------
+
+  /// How long a husk takes to dart to a new place.
+  static const relocateTicks = 70;
+
+  /// The nearest and farthest a husk darts, in degrees around the player.
+  static const relocateMinDegrees = 45.0;
+  static const relocateMaxDegrees = 105.0;
+
+  // Break and reap ----------------------------------------------------
+
+  /// The fight ends, with the husk escaping, after this long.
+  static const fightLimitTicks = 75 * tickRate;
+
+  /// Half the width of the reap arc.
+  static final reapHalfSpan = radians(26);
+
+  /// The aim must come within this of the arc's start to begin the cut.
+  static final reapStartAim = radians(7);
+
+  /// Sweeping faster than this, in radians a second, tears the cut.
+  static const reapSpeedLimit = 2.1;
+
+  /// A cut this much steadier than the tolerance is perfect.
+  static const perfectShare = 0.45;
+
+  /// Ward a husk regains, as a share of its full ward, when a reap window
+  /// closes unfinished.
+  static const recoverShare = 0.3;
+
+  /// Unfinished reaps a husk allows before it slips away.
+  static const reapAttempts = 2;
+}

@@ -1,0 +1,22 @@
+name: reapers_workspace
+description: Reapers workspace. The AR hunting game, its Serverpod backend, and the rules they share.
+publish_to: none
+
+environment:
+  sdk: ^3.13.3
+
+workspace:
+  - reapers_client
+  - reapers_flutter
+  - reapers_server
+  - reapers_shared
+
+# The tools under tool/ read the shared rules, so the art build shapes each
+# model to the same numbers the game plays by.
+dependencies:
+  reapers_shared:
+    path: reapers_shared
+
+dev_dependencies:
+  image: ^4.10.1
+  lints: ^6.1.0

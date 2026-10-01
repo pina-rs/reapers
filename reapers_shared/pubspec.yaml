@@ -1,0 +1,12 @@
+name: reapers_shared
+description: Rules, catalogues and reaper generation shared by the game client and the server.
+publish_to: none
+
+environment:
+  sdk: ^3.13.3
+
+resolution: workspace
+
+dev_dependencies:
+  lints: ^6.1.0
+  test: ^1.25.5

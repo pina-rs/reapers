@@ -1,0 +1,14 @@
+# Rules for the tools under tool/. Each workspace package has its own file.
+include: package:lints/recommended.yaml
+
+analyzer:
+  exclude:
+    - reapers_client/**
+    - reapers_flutter/**
+    - reapers_server/**
+    - reapers_shared/**
+    - art/**
+
+linter:
+  rules:
+    unawaited_futures: true
