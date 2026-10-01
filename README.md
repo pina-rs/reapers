@@ -1,0 +1,72 @@
+# Reapers
+
+An augmented reality game where you are a reaper and dead NFTs are what you hunt.
+
+## Why it exists
+
+Most NFT collections are dead: thousands of pictures nobody wants, sitting in wallets at a floor price near zero. Reapers gives them one last use. You buy one, release it into the spirit realm, hunt it down through your phone's camera, and absorb it to grow stronger. Absorbing destroys it, so every hunt takes a dead NFT out of circulation for good.
+
+## What makes it different
+
+You are bound to a reaper you did not choose, and the phone is its blade. The hunt is not won by tapping fast. It is won by keeping still: creep up on a husk without startling it, hold the phone steady while it shrieks at you, and reap it with one slow sweep. The biggest husks are a whole collection piled into one body at a real place, and take a circle of four who all have to hold still at the same moment.
+
+## What is in this version
+
+- The shuffle: six classes, each with its own silhouette, weapon and perk, and a few hundred looks apiece.
+- The full hunt over the camera feed: stalk, strike, shriek, reap.
+- A vault and a market, an armory of weapons and outfits, a codex, levels and collection sets.
+- Rifts: four-reaper raids, with shades filling the seats nobody takes.
+- A server that keeps players' books and replays every hunt before paying for it. The game also runs entirely offline.
+
+The NFT side is a stand-in on purpose: four invented collections, a mock wallet, no chain. [docs/nfts.md](docs/nfts.md) lists every stand-in and where the real thing plugs in. [docs/gameplay.md](docs/gameplay.md) is the rulebook, and ends with what is not built yet.
+
+## Run it
+
+You need [FVM](https://fvm.app) (Flutter is pinned in `.fvmrc`) and Xcode or Android Studio.
+
+```sh
+fvm flutter pub get
+cd reapers_flutter
+fvm flutter run
+```
+
+That is the whole game with no server. On a real phone you look around by turning; on a simulator, drag to look and tap to strike.
+
+To watch it play itself, which is the only way to see a full hunt on a simulator:
+
+```sh
+fvm flutter run --dart-define=REAPERS_AUTOPLAY=true
+```
+
+### With the server
+
+```sh
+cd reapers_server
+cp config/passwords.example.yaml config/passwords.yaml   # once
+serverpod start
+```
+
+`serverpod start` runs the server with an embedded database. Then point a build at it:
+
+```sh
+cd reapers_flutter
+fvm flutter run --dart-define=REAPERS_SERVER_URL=http://localhost:8080/
+```
+
+## Work on it
+
+```sh
+dart tool/check.dart          # format, analysis and every test
+dart tool/check.dart --fast   # the same without the server tests
+dart tool/build_art.dart      # rebuild every 3D model (needs Blender 5.1)
+dart tool/build_nft_art.dart  # redraw the stand-in NFT images
+```
+
+| Read | For |
+| --- | --- |
+| [docs/gameplay.md](docs/gameplay.md) | The rules and every number in them. |
+| [docs/architecture.md](docs/architecture.md) | How the pieces fit, and the known limits. |
+| [docs/nfts.md](docs/nfts.md) | What is fake, and how Solana comes in. |
+| [docs/research/dark-games-and-ar-hunting.md](docs/research/dark-games-and-ar-hunting.md) | The research the classes and the hunt came from. |
+| [art/blender/README.md](art/blender/README.md) | How the 3D art is built. |
+| [AGENTS.md](AGENTS.md) | Conventions for anyone, human or not, changing the code. |
