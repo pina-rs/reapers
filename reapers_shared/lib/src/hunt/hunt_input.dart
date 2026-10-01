@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../vec3.dart';
+import 'hunt_plan.dart';
 
 /// A direction stored as whole hundredths of a degree.
 ///
@@ -85,7 +86,7 @@ final class HuntInput {
 /// The server feeds the same log to the same rules and so reaches its own
 /// verdict; it never takes the phone's word for what happened.
 final class HuntLog {
-  HuntLog(this.inputs);
+  HuntLog(this.inputs, {this.plan = HuntPlan.open});
 
   /// Reads a log from the bytes written by [encode].
   ///
@@ -95,9 +96,17 @@ final class HuntLog {
       throw const FormatException('Not a hunt log');
     }
 
+    if (bytes.length < _headerBytes) {
+      throw const FormatException('Hunt log has no plan');
+    }
+
     final data = ByteData.sublistView(bytes);
+    final plan = HuntPlan(
+      centreCentidegrees: data.getInt16(1, Endian.little),
+      halfWidthCentidegrees: data.getUint16(3, Endian.little),
+    );
     final inputs = <HuntInput>[];
-    var offset = 1;
+    var offset = _headerBytes;
 
     while (offset < bytes.length) {
       if (offset + _tickBytes > bytes.length) {
@@ -128,23 +137,33 @@ final class HuntLog {
       inputs.add(HuntInput(aim: aim, turnSpeed: turnSpeed, taps: taps));
     }
 
-    return HuntLog(inputs);
+    return HuntLog(inputs, plan: plan);
   }
 
   /// The longest log the server accepts: the longest possible hunt, with
   /// room for the stalk, the fight and every reap window.
   static const maxTicks = 150 * 60;
 
-  static const _version = 1;
+  static const _version = 2;
+  static const _headerBytes = 5;
   static const _tickBytes = 7;
   static const _tapBytes = 4;
 
   /// One entry for every tick the hunt ran.
   final List<HuntInput> inputs;
 
-  /// Packs the log into bytes: seven for each tick, four more for each tap.
+  /// Where the husk was free to go. It is part of the record because the
+  /// husk's every move depends on it.
+  final HuntPlan plan;
+
+  /// Packs the log into bytes: five for the plan, then seven for each tick
+  /// and four more for each tap.
   Uint8List encode() {
-    final builder = BytesBuilder(copy: false)..addByte(_version);
+    final header = ByteData(_headerBytes)
+      ..setUint8(0, _version)
+      ..setInt16(1, plan.centreCentidegrees, Endian.little)
+      ..setUint16(3, plan.halfWidthCentidegrees, Endian.little);
+    final builder = BytesBuilder(copy: false)..add(header.buffer.asUint8List());
 
     for (final input in inputs) {
       final taps = input.taps.length > 255

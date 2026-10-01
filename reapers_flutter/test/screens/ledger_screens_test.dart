@@ -13,7 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/ledger_app.dart';
 
-const _saint = Nft(collection: NftCollection.tinSaints, serial: 1);
+const _saint = Nft(collection: NftCollection.degenApes, serial: 1);
 
 void main() {
   late SharedPreferences preferences;
@@ -62,7 +62,7 @@ void main() {
       expect(find.text(l10n.vaultStandIn), findsOneWidget);
       expect(
         tester.widget<Text>(find.byKey(const Key('vault-wallet'))).data,
-        l10n.commonSol('2.50'),
+        l10n.commonSol('3.00'),
       );
 
       await tester.tap(find.byKey(Key('vault-nft-${_saint.id}')));
@@ -73,7 +73,7 @@ void main() {
       expect(find.byKey(const Key('vault-release')), findsOneWidget);
       expect(
         tester.widget<Text>(find.byKey(const Key('vault-wallet'))).data,
-        l10n.commonSol('2.48'),
+        l10n.commonSol('2.98'),
       );
       expect((await backend.load()).vault, [_saint]);
     });

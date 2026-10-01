@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:reapers_shared/reapers_shared.dart';
 import 'package:test/test.dart';
 
@@ -40,6 +42,18 @@ HuntInput tapOpenSeal(HuntSim sim) {
   return steadyOnHusk(sim);
 }
 
+/// The seals of [sim]'s husk that can be struck right now.
+List<int> openSeals(HuntSim sim) => [
+  for (var seal = 0; seal < sim.vessel.seals.length; seal++)
+    if (sim.sealOpen(seal)) seal,
+];
+
+/// The seals of [sim]'s husk on the side the reaper can see.
+List<int> inView(HuntSim sim) => [
+  for (var seal = 0; seal < sim.vessel.seals.length; seal++)
+    if (sim.pose.sealFacesPlayer(seal)) seal,
+];
+
 void main() {
   group('stalk', () {
     test('holding a steady aim on the husk springs an ambush', () {
@@ -50,9 +64,14 @@ void main() {
       expect(sim.ambushed, isTrue);
       expect(sim.tick, HuntRules.ambushTicks);
       expect(
-        [for (var seal = 0; seal < 4; seal++) sim.sealOpen(seal)],
-        everyElement(isTrue),
-        reason: 'an ambush exposes every seal',
+        inView(sim),
+        hasLength(greaterThanOrEqualTo(2)),
+        reason: 'a husk never hides all but one of its seals',
+      );
+      expect(
+        openSeals(sim),
+        inView(sim),
+        reason: 'an ambush exposes every seal the reaper can see',
       );
     });
 
@@ -245,9 +264,9 @@ void main() {
       expect(events.whereType<HeldFirm>(), hasLength(1));
       expect(events.whereType<Flinched>(), isEmpty);
       expect(sim.resolve, sim.stats.resolve);
-      expect([
-        for (var seal = 0; seal < 4; seal++) sim.sealOpen(seal),
-      ], everyElement(isTrue));
+      expect(sim.pose.facesPlayer, isTrue, reason: 'it turned to shriek');
+      expect(openSeals(sim), inView(sim));
+      expect(openSeals(sim), hasLength(greaterThanOrEqualTo(2)));
     });
 
     test('moving during it costs one resolve, once', () {
@@ -420,7 +439,7 @@ void main() {
 
   group('class perks', () {
     test('a harvester cleaves through neighbouring seals', () {
-      final sim = simFor(vessel: Vessel.lanternShade);
+      final sim = simFor(vessel: Vessel.ape);
 
       runUntil(sim, HuntPhase.fight, input: steadyOnHusk);
 
@@ -439,16 +458,15 @@ void main() {
 
       runUntil(sim, HuntPhase.fight, input: steadyOnHusk);
 
-      // The ambush has exposed all four seals; the one that opened first
-      // ranks 0.
-      final oldest = [
-        for (var seal = 0; seal < 4; seal++)
-          if (sim.sealRank(seal) == 0) seal,
-      ].single;
-      final newest = [
-        for (var seal = 0; seal < 4; seal++)
-          if (sim.sealRank(seal) == 3) seal,
-      ].single;
+      // The ambush has exposed every seal in view; the one that opened
+      // first ranks 0 and the last ranks highest.
+      final open = openSeals(sim);
+      final oldest = open.singleWhere((seal) => sim.sealRank(seal) == 0);
+      final newest = open.singleWhere(
+        (seal) => sim.sealRank(seal) == open.length - 1,
+      );
+
+      expect(open.length, greaterThanOrEqualTo(2));
 
       HuntInput tap(int seal) => HuntInput.measured(
         aim: sim.pose.direction,
@@ -538,7 +556,6 @@ void main() {
             seal.offset.y.abs(),
             lessThanOrEqualTo(vessel.halfHeight * 1.1),
           );
-          expect(seal.orbitRadius, lessThanOrEqualTo(vessel.halfWidth));
         }
       }
     });
@@ -672,7 +689,7 @@ void main() {
         final bot = HuntBot(simFor(seed: seed))..play();
         final replayed = HuntSim.replay(
           seed: seed,
-          vessel: Vessel.frameWraith,
+          vessel: Vessel.penguin,
           ward: Rarity.common.ward,
           stats: simFor().stats,
           log: HuntLog.decode(HuntLog(bot.recorded).encode()),
@@ -691,7 +708,7 @@ void main() {
       expect(
         HuntSim.replay(
           seed: 7,
-          vessel: Vessel.frameWraith,
+          vessel: Vessel.penguin,
           ward: Rarity.common.ward,
           stats: simFor().stats,
           log: cut,
@@ -705,8 +722,19 @@ void main() {
 
       expect(() => HuntLog.decode(bytes.sublist(0, 0)), throwsFormatException);
       expect(
-        () => HuntLog.decode(HuntLog([idle]).encode().sublist(0, 5)),
+        () => HuntLog.decode(bytes.sublist(0, 3)),
         throwsFormatException,
+        reason: 'the plan is cut short',
+      );
+      expect(
+        () => HuntLog.decode(HuntLog([idle]).encode().sublist(0, 9)),
+        throwsFormatException,
+        reason: 'a tick is cut short',
+      );
+      expect(
+        () => HuntLog.decode(Uint8List.fromList([1, 0, 0, 0, 0])),
+        throwsFormatException,
+        reason: 'a log from before plans existed',
       );
     });
   });

@@ -4,6 +4,7 @@ import 'package:serverpod_auth_idp_server/core.dart';
 import 'package:serverpod_auth_idp_server/providers/anonymous.dart';
 
 import 'src/generated/serverpod.dart';
+import 'src/receipts/absorption_receipt.dart';
 
 /// The starting point of the Reapers server.
 ///
@@ -28,12 +29,14 @@ Future<void> run(List<String> args) async {
 }
 
 /// Every secret a deployed server cannot run without: the database password,
-/// the service secret, and the two keys that sign and pepper sign-in tokens.
+/// the service secret, the two keys that sign and pepper sign-in tokens, and
+/// the secret the receipt signing key is derived from.
 const requiredDeploymentSecrets = [
   'database',
   'serviceSecret',
   'jwtHmacSha512PrivateKey',
   'jwtRefreshTokenHashPepper',
+  ReceiptSigner.secretName,
 ];
 
 /// Fails fast when a deployed server is missing a secret it cannot run

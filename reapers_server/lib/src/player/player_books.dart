@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:reapers_shared/reapers_shared.dart';
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_auth_idp_server/core.dart';
@@ -14,7 +16,7 @@ abstract final class PlayerBooks {
   /// rules refuse reaches the game as a [Refused] naming the refusal.
   static Future<PlayerState> change(
     Session session,
-    PlayerState Function(PlayerState state) rule,
+    FutureOr<PlayerState> Function(PlayerState state) rule,
   ) => session.db.transaction((transaction) async {
     final authUserId = session.authenticated!.authUserId;
     final record =
@@ -32,7 +34,7 @@ abstract final class PlayerBooks {
     final PlayerState next;
 
     try {
-      next = rule(record.state);
+      next = await rule(record.state);
     } on RuleBreach catch (breach) {
       throw Refused(refusal: breach.refusal.name);
     }

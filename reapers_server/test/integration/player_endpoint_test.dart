@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:reapers_server/src/generated/protocol.dart';
+import 'package:reapers_server/src/receipts/absorption_receipt.dart';
 import 'package:reapers_shared/reapers_shared.dart';
 import 'package:test/test.dart';
 
@@ -29,7 +30,7 @@ void main() {
 
   const playerId = '550e8400-e29b-41d4-a716-446655440000';
   const otherId = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
-  const saint = 'tinSaints:1';
+  const saint = 'degenApes:1';
 
   withServerpod('Given a signed-in player', (sessionBuilder, endpoints) {
     final player = sessionBuilder.copyWith(
@@ -160,7 +161,7 @@ void main() {
       () async {
         await endpoints.player.takeOath(player);
 
-        for (final id in ['', 'nonsense', 'tinSaints:99', 'noSuchSet:1']) {
+        for (final id in ['', 'nonsense', 'degenApes:99', 'noSuchSet:1']) {
           await expectLater(
             endpoints.player.acquire(player, id),
             refuses(Refusal.notListed),
@@ -216,6 +217,158 @@ void main() {
     );
 
     test(
+      'when a husk is absorbed then the server rolls the feeding and signs it',
+      () async {
+        final before = await withLooseHusk();
+        final sighting = before.sightings.single;
+        final settlement = await endpoints.player.settleHunt(
+          player,
+          sighting.id,
+          packed(play(before, sighting)),
+        );
+        final entry = settlement.state.codex.single;
+        final feeding = settlement.feeding!;
+
+        expect(entry.feeding, feeding);
+        expect(Feeding.roll(entry.nonce), feeding, reason: 'rolled, not sent');
+        expect(
+          settlement.xp,
+          settlement.outcome.xpFor(sighting.nft.rarity, feeding),
+        );
+        expect(entry.xp, settlement.xp);
+
+        final signer = await ReceiptSigner.fromSecret(
+          ReceiptSigner.developmentSecret,
+        );
+        final message = await AbsorptionReceipt.message(
+          playerId: playerId,
+          absorption: entry,
+        );
+
+        expect(entry.signature, isNotNull);
+        expect(await signer.verifies(message, entry.signature!), isTrue);
+        expect(
+          (await endpoints.player.load(player)).codex.single.signature,
+          entry.signature,
+          reason: 'the receipt is kept with the books',
+        );
+
+        // What is signed is the whole of what was decided. Change any of it
+        // and the signature no longer holds.
+        for (final (label, forged) in [
+          (
+            'a richer feeding',
+            Absorption(
+              nft: entry.nft,
+              grade: entry.grade,
+              feeding: Feeding.feast,
+              xp: entry.xp * 2,
+              anima: entry.anima,
+              nonce: entry.nonce,
+              at: entry.at,
+            ),
+          ),
+          (
+            'another NFT',
+            Absorption(
+              nft: const Nft(collection: NftCollection.degenApes, serial: 2),
+              grade: entry.grade,
+              feeding: entry.feeding,
+              xp: entry.xp,
+              anima: entry.anima,
+              nonce: entry.nonce,
+              at: entry.at,
+            ),
+          ),
+        ]) {
+          expect(
+            await signer.verifies(
+              await AbsorptionReceipt.message(
+                playerId: playerId,
+                absorption: forged,
+              ),
+              entry.signature!,
+            ),
+            isFalse,
+            reason: label,
+          );
+        }
+
+        expect(
+          await signer.verifies(
+            await AbsorptionReceipt.message(
+              playerId: otherId,
+              absorption: entry,
+            ),
+            entry.signature!,
+          ),
+          isFalse,
+          reason: 'a receipt belongs to one player',
+        );
+      },
+    );
+
+    test('when asked then the server gives the key receipts are checked '
+        'against', () async {
+      final signer = await ReceiptSigner.fromSecret(
+        ReceiptSigner.developmentSecret,
+      );
+      final key = await endpoints.player.receiptKey(player);
+
+      expect(key, hasLength(64));
+      expect(
+        key,
+        [
+          for (final byte in signer.publicKey)
+            byte.toRadixString(16).padLeft(2, '0'),
+        ].join(),
+      );
+    });
+
+    test('a receipt is laid out as the documentation says', () async {
+      final at = DateTime.utc(2026, 10, 1, 12);
+      final message = await AbsorptionReceipt.message(
+        playerId: playerId,
+        absorption: Absorption(
+          nft: const Nft(collection: NftCollection.thugbirdz, serial: 3),
+          grade: ReapGrade.perfect,
+          feeding: Feeding.rich,
+          xp: 0x01020304,
+          anima: 77,
+          nonce: 0xCAFEF00D,
+          at: at,
+        ),
+      );
+      final data = ByteData.sublistView(message);
+
+      expect(message, hasLength(AbsorptionReceipt.length));
+      expect(String.fromCharCodes(message.sublist(0, 8)), 'RPRSABS1');
+      expect(message.sublist(8, 40), isNot(everyElement(0)));
+      expect(message.sublist(40, 72), isNot(message.sublist(8, 40)));
+      expect(data.getUint8(72), ReapGrade.perfect.index);
+      expect(data.getUint8(73), Feeding.rich.index);
+      expect(message.sublist(74, 78), [4, 3, 2, 1], reason: 'little-endian');
+      expect(data.getUint32(78, Endian.little), 77);
+      expect(
+        data.getInt64(82, Endian.little),
+        at.millisecondsSinceEpoch ~/ 1000,
+      );
+      expect(data.getUint64(90, Endian.little), 0xCAFEF00D);
+    });
+
+    test('a different secret signs with a different key', () async {
+      final ours = await ReceiptSigner.fromSecret(
+        ReceiptSigner.developmentSecret,
+      );
+      final theirs = await ReceiptSigner.fromSecret('some other secret');
+      final message = Uint8List.fromList(List.filled(98, 7));
+
+      expect(theirs.publicKey, isNot(ours.publicKey));
+      expect(await ours.verifies(message, await theirs.sign(message)), isFalse);
+      expect(await ours.verifies(message, await ours.sign(message)), isTrue);
+    });
+
+    test(
       'when the same hunt is submitted twice then it only pays once',
       () async {
         final before = await withLooseHusk();
@@ -241,6 +394,18 @@ void main() {
         ('empty', ByteData(0)),
         ('garbage', ByteData.sublistView(Uint8List.fromList([9, 9, 9, 9]))),
         ('cut short', packed(cut)),
+        (
+          'played in a corner too small to hunt in',
+          packed(
+            HuntLog(
+              whole.inputs,
+              plan: const HuntPlan(
+                centreCentidegrees: 0,
+                halfWidthCentidegrees: 1500,
+              ),
+            ),
+          ),
+        ),
       ]) {
         await expectLater(
           endpoints.player.settleHunt(player, sighting.id, log),

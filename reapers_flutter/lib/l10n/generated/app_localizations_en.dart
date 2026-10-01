@@ -194,7 +194,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get vaultStandIn =>
-      'Stand-in market. No real SOL changes hands, and these collections are invented.';
+      'A simulated market. No real SOL changes hands and no real NFT is touched. The collections are real ones from Solana\'s first wave; the creatures are our own models of them, and nothing here is licensed yet.';
 
   @override
   String get vaultBuy => 'Buy';
@@ -627,6 +627,70 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get refusalNotAttuned =>
       'This rift only answers a reaper who carries one of its dead. Absorb an NFT from its collection first.';
+
+  @override
+  String get scanLabel => 'Reading the room';
+
+  @override
+  String get scanTitle => 'Something is nearby.';
+
+  @override
+  String get scanFloor =>
+      'It keeps to the ground. Tip the phone down and sweep it slowly across the floor in front of you, so the veil knows where it can stand.';
+
+  @override
+  String get scanFloorDrag =>
+      'It keeps to the ground. Drag down to look at the floor, then drag slowly across it, so the veil knows where it can stand.';
+
+  @override
+  String get scanAir =>
+      'It keeps to the air. Look around slowly at about head height, so the veil knows where it can go.';
+
+  @override
+  String get scanAirDrag =>
+      'It keeps to the air. Drag slowly from side to side at about head height, so the veil knows where it can go.';
+
+  @override
+  String get scanReading => 'Reading. Keep going.';
+
+  @override
+  String get scanSlower => 'Slower. Nothing can be made out.';
+
+  @override
+  String get scanLower => 'Too high. Tip the phone down.';
+
+  @override
+  String get scanHigher => 'Too low. Tip the phone up.';
+
+  @override
+  String get scanProgress => 'Read';
+
+  @override
+  String get scanFound => 'It is here';
+
+  @override
+  String get feedingMeagre => 'Meagre ×0.85';
+
+  @override
+  String get feedingFair => 'Fair ×1';
+
+  @override
+  String get feedingRich => 'Rich ×1.25';
+
+  @override
+  String get feedingFeast => 'A feast ×2';
+
+  @override
+  String get huntFeeding => 'Feeding';
+
+  @override
+  String get huntReceipt => 'Receipt';
+
+  @override
+  String get huntReceiptSigned => 'Signed by the keeper';
+
+  @override
+  String get huntReceiptUnsigned => 'Unsigned, played offline';
 
   @override
   String get huntSightedLabel => 'Husk sighted';

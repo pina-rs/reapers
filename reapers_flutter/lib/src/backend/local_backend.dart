@@ -23,7 +23,7 @@ final class LocalBackend implements GameBackend {
 
   /// Where the player is stored. The name carries the schema's generation,
   /// so a future incompatible format starts fresh instead of failing to read.
-  static const storageKey = 'reapers.player.v1';
+  static const storageKey = 'reapers.player.v2';
 
   final SharedPreferences _preferences;
   final DateTime Function() _clock;
@@ -56,7 +56,12 @@ final class LocalBackend implements GameBackend {
 
   @override
   Future<HuntSettlement> settleHunt(int sightingId, HuntLog log) async {
-    final settlement = (await load()).judgeHunt(sightingId, log, now: _clock());
+    final settlement = (await load()).judgeHunt(
+      sightingId,
+      log,
+      now: _clock(),
+      feedingSeed: _seed(),
+    );
 
     await _save(settlement.state);
 

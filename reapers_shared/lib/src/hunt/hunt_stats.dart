@@ -202,14 +202,31 @@ abstract final class HuntRules {
   /// Each unflinching hold adds this to the reap window, with the toll perk.
   static const tollTicks = 80;
 
-  // Relocation --------------------------------------------------------
+  // Movement ----------------------------------------------------------
 
-  /// How long a husk takes to dart to a new place.
-  static const relocateTicks = 70;
+  /// How high the phone is taken to be above the floor, in metres. The
+  /// floor a husk walks on is this far below the player's eye, straight
+  /// down along gravity. See docs/gameplay.md for what that does and does
+  /// not know about the room.
+  static const eyeHeight = 1.45;
 
-  /// The nearest and farthest a husk darts, in degrees around the player.
-  static const relocateMinDegrees = 45.0;
-  static const relocateMaxDegrees = 105.0;
+  /// The shortest and longest a husk rests between one amble and the next.
+  static const restMinTicks = 50;
+  static const restMaxTicks = 170;
+
+  /// The farthest round the player a husk ambles in one go, in degrees.
+  static const ambleDegrees = 32.0;
+
+  /// The nearest and farthest a husk bolts, in degrees around the player.
+  static const boltMinDegrees = 45.0;
+  static const boltMaxDegrees = 105.0;
+
+  /// How long a husk waits after a shriek before it bolts.
+  static const boltDelayMinTicks = 110;
+  static const boltDelayMaxTicks = 200;
+
+  /// How fast a husk turns its body, in degrees a tick.
+  static const turnDegreesPerTick = 5.0;
 
   // Break and reap ----------------------------------------------------
 

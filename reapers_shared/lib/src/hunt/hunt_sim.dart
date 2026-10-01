@@ -7,6 +7,7 @@ import '../vec3.dart';
 import '../vessel.dart';
 import 'hunt_event.dart';
 import 'hunt_input.dart';
+import 'hunt_plan.dart';
 import 'hunt_stats.dart';
 import 'husk_pose.dart';
 
@@ -24,11 +25,13 @@ final class HuntSim {
     required Vessel vessel,
     required int ward,
     required HuntStats stats,
+    HuntPlan plan = HuntPlan.open,
   }) : this._(
          seed: seed,
          vessel: vessel,
          ward: ward.toDouble(),
          stats: stats,
+         plan: plan,
          inRift: false,
        );
 
@@ -49,6 +52,7 @@ final class HuntSim {
          vessel: vessel,
          ward: ward,
          stats: stats,
+         plan: HuntPlan.open,
          inRift: true,
        );
 
@@ -57,31 +61,43 @@ final class HuntSim {
     required this.vessel,
     required this.ward,
     required this.stats,
+    required this.plan,
     required this.inRift,
   }) : wardMax = ward,
        resolve = stats.resolve,
        reapAttemptsLeft = inRift ? 1 : HuntRules.reapAttempts,
        _schedule = SeededRandom(mixSeed([seed, 0x5EA1])),
        _shrieks = SeededRandom(mixSeed([seed, 0x5C81])),
+       _path = SeededRandom(mixSeed([seed, 0x9A7B])),
        _openUntil = List.filled(vessel.seals.length, 0),
        _shutUntil = List.filled(vessel.seals.length, 0),
        _openedOrder = List.filled(vessel.seals.length, 0) {
-    final path = SeededRandom(mixSeed([seed, 0x9A7B]));
-    final side = path.nextChance(0.5) ? 1 : -1;
+    if (!plan.isPlayable) {
+      throw ArgumentError.value(plan, 'plan', 'is too narrow to hunt in');
+    }
 
-    _anchorYaw = side * radians(path.nextRange(55, 180));
-    _basePitch = radians(path.nextRange(3, 10));
-    _driftPhaseA = path.nextRange(0, 2 * math.pi);
-    _driftPhaseB = path.nextRange(0, 2 * math.pi);
-    _bobPhase = path.nextRange(0, 2 * math.pi);
-    _circleSign = path.nextChance(0.5) ? 1 : -1;
-    _reapDirection = path.nextChance(0.5) ? 1 : -1;
+    _reapDirection = _path.nextChance(0.5) ? 1 : -1;
+    _bobPhase = _path.nextRange(0, 2 * math.pi);
+    _range = _path.nextRange(vessel.nearMetres, vessel.farMetres);
+    _height = _restingHeight();
+    _nextAmbleTick = _restTicks();
 
     if (inRift) {
-      _anchorYaw = 0;
+      // A rift's husk stands dead ahead, facing the circle.
+      _bearing = 0;
+      _heading = math.pi;
       phase = HuntPhase.fight;
       _scheduleShriek();
+
+      return;
     }
+
+    // With the whole circle to hide in, a husk starts somewhere the reaper
+    // has to turn to find. Inside a plan it starts anywhere in it.
+    _bearing = plan.isWholeCircle
+        ? (_path.nextChance(0.5) ? 1 : -1) * radians(_path.nextRange(55, 180))
+        : plan.clamp(plan.centre + _path.nextRange(-0.8, 0.8) * plan.halfWidth);
+    _heading = _path.nextRange(-math.pi, math.pi);
   }
 
   /// Replays [log] from the start and returns how the hunt ended, or null
@@ -93,7 +109,17 @@ final class HuntSim {
     required HuntStats stats,
     required HuntLog log,
   }) {
-    final sim = HuntSim(seed: seed, vessel: vessel, ward: ward, stats: stats);
+    if (!log.plan.isPlayable) {
+      return null;
+    }
+
+    final sim = HuntSim(
+      seed: seed,
+      vessel: vessel,
+      ward: ward,
+      stats: stats,
+      plan: log.plan,
+    );
 
     for (final input in log.inputs) {
       sim.step(input);
@@ -112,6 +138,9 @@ final class HuntSim {
 
   final HuntStats stats;
 
+  /// Where the husk may go.
+  final HuntPlan plan;
+
   /// Whether this is one reaper's place in a rift rather than a lone hunt.
   final bool inRift;
 
@@ -125,23 +154,36 @@ final class HuntSim {
   /// a rift is told to hold still at the same moment.
   final SeededRandom _shrieks;
 
-  // Pose ---------------------------------------------------------------
+  /// Decides where the husk goes, and nothing else.
+  final SeededRandom _path;
 
-  late double _anchorYaw;
-  late final double _basePitch;
-  late final double _driftPhaseA;
-  late final double _driftPhaseB;
+  // Movement -----------------------------------------------------------
+
+  /// Where the husk is: its bearing round the player, how far away it is
+  /// along the floor, and how high the middle of its body is above the
+  /// player's eye.
+  late double _bearing;
+  late double _range;
+  late double _height;
+
+  /// The way its body faces.
+  late double _heading;
+
   late final double _bobPhase;
-  late final int _circleSign;
 
-  /// Ticks the husk has spent moving. It stands still while broken, so this
-  /// falls behind [tick].
-  int _poseTicks = 0;
+  /// The move under way: where it started, how far it goes, when it began
+  /// and how long it takes. [_moveStart] is negative while the husk rests.
+  double _fromBearing = 0;
+  double _fromRange = 0;
+  double _fromHeight = 0;
+  double _byBearing = 0;
+  double _byRange = 0;
+  double _byHeight = 0;
+  int _moveStart = -1;
+  int _moveTicks = 1;
 
-  double _relocateFrom = 0;
-  double _relocateTo = 0;
-  int _relocateStart = -1;
-  int _nextRelocateTick = -1;
+  int _nextAmbleTick = 0;
+  int _nextBoltTick = -1;
 
   // Seals --------------------------------------------------------------
 
@@ -265,20 +307,37 @@ final class HuntSim {
 
   /// Where the husk is right now.
   HuskPose get pose {
-    final seconds = _poseTicks / HuntRules.tickRate;
-    final drift = radians(vessel.driftDegrees);
+    // A husk in the air never hangs quite still.
+    final bob = vessel.gait == Gait.air
+        ? 0.05 * math.sin(0.9 * tick / HuntRules.tickRate + _bobPhase)
+        : 0.0;
 
     return HuskPose(
       vessel: vessel,
-      yaw:
-          _currentAnchor +
-          drift *
-              (0.6 * math.sin(0.7 * seconds + _driftPhaseA) +
-                  0.4 * math.sin(1.3 * seconds + _driftPhaseB)),
-      pitch: _basePitch + radians(3) * math.sin(0.9 * seconds + _bobPhase),
-      spin: radians(vessel.spinDegreesPerSecond) * seconds,
-      orbit: radians(vessel.orbitDegreesPerSecond) * seconds,
+      position: Vec3(
+        math.sin(_bearing) * _range,
+        _height + bob,
+        math.cos(_bearing) * _range,
+      ),
+      heading: _heading,
     );
+  }
+
+  /// How fast the husk is covering ground right now, in metres a second.
+  /// Zero while it rests.
+  double get speed {
+    if (_moveStart < 0) {
+      return 0;
+    }
+
+    final meanRange = _fromRange + _byRange / 2;
+    final length = math.sqrt(
+      math.pow(meanRange * _byBearing, 2) +
+          math.pow(_byRange, 2) +
+          math.pow(_byHeight, 2),
+    );
+
+    return length / (_moveTicks / HuntRules.tickRate);
   }
 
   /// Whether seal [index] can be struck right now.
@@ -340,7 +399,7 @@ final class HuntSim {
   // Stalk --------------------------------------------------------------
 
   void _stepStalk(HuntInput input, List<HuntEvent> events) {
-    _advancePose();
+    _move(events);
 
     final current = pose;
     final speed = input.turnRadiansPerSecond;
@@ -397,7 +456,12 @@ final class HuntSim {
 
     if (ambush) {
       _exposeAllSeals(events);
+
+      return;
     }
+
+    // It has seen the reaper, and it runs.
+    _bolt(events);
   }
 
   // Fight --------------------------------------------------------------
@@ -408,7 +472,7 @@ final class HuntSim {
       phase == HuntPhase.shriek;
 
   void _stepFight(HuntInput input, List<HuntEvent> events) {
-    _advancePose();
+    _move(events);
     _fightTicks++;
 
     if (_fightTicks > _fightLimitTicks) {
@@ -426,7 +490,6 @@ final class HuntSim {
       return;
     }
 
-    _stepRelocation(events);
     _stepSeals(events);
     _stepStrikes(input, events);
 
@@ -472,7 +535,12 @@ final class HuntSim {
 
     phase = HuntPhase.fight;
     _scheduleShriek();
-    _nextRelocateTick = tick + _schedule.nextInt(90) + 110;
+    _nextBoltTick =
+        tick +
+        HuntRules.boltDelayMinTicks +
+        _path.nextInt(
+          HuntRules.boltDelayMaxTicks - HuntRules.boltDelayMinTicks + 1,
+        );
 
     if (_flinchedThisShriek) {
       return;
@@ -514,44 +582,6 @@ final class HuntSim {
 
     _nextShriekTick =
         tick + HuntRules.shriekGapMinTicks + _shrieks.nextInt(gap + 1);
-  }
-
-  void _stepRelocation(List<HuntEvent> events) {
-    final settled =
-        _relocateStart < 0 || tick - _relocateStart >= HuntRules.relocateTicks;
-
-    if (!settled) {
-      return;
-    }
-
-    if (_relocateStart >= 0) {
-      _anchorYaw = _relocateTo;
-      _relocateStart = -1;
-    }
-
-    final due =
-        phase == HuntPhase.fight &&
-        _nextRelocateTick >= 0 &&
-        tick >= _nextRelocateTick;
-
-    // A circling husk already makes the reaper turn; it never darts as well.
-    if (!due || vessel.circleDegreesPerSecond > 0 || vessel.driftDegrees == 0) {
-      return;
-    }
-
-    final side = _schedule.nextChance(0.5) ? 1 : -1;
-    final distance = radians(
-      _schedule.nextRange(
-        HuntRules.relocateMinDegrees,
-        HuntRules.relocateMaxDegrees,
-      ),
-    );
-
-    _relocateFrom = _anchorYaw;
-    _relocateTo = _anchorYaw + side * distance;
-    _relocateStart = tick;
-    _nextRelocateTick = -1;
-    events.add(const Relocating());
   }
 
   void _stepSeals(List<HuntEvent> events) {
@@ -753,6 +783,7 @@ final class HuntSim {
 
     phase = HuntPhase.broken;
     ward = 0;
+    _halt();
     _bufferedTap = null;
     _arcYaw = current.yaw;
     _arcPitch = current.pitch;
@@ -796,6 +827,8 @@ final class HuntSim {
     phase = HuntPhase.fight;
     ward = wardMax * HuntRules.recoverShare;
     cadence = 0;
+    // It pulls itself together and is off at once.
+    _nextBoltTick = tick + 30;
     _scheduleShriek();
     events.add(ReapRecovered(attemptsLeft: reapAttemptsLeft));
   }
@@ -853,25 +886,163 @@ final class HuntSim {
     events.add(HuskEscaped(cause));
   }
 
-  // Pose ---------------------------------------------------------------
+  // Movement -----------------------------------------------------------
 
-  void _advancePose() {
-    _poseTicks++;
-    _anchorYaw +=
-        _circleSign *
-        radians(vessel.circleDegreesPerSecond) /
-        HuntRules.tickRate;
-  }
-
-  double get _currentAnchor {
-    if (_relocateStart < 0) {
-      return _anchorYaw;
+  /// Moves the husk on by one tick: along the move it is making, or into a
+  /// new one when it is time to amble or to bolt.
+  void _move(List<HuntEvent> events) {
+    if (vessel.gait == Gait.still) {
+      return;
     }
 
-    final progress = smoothstep(
-      (tick - _relocateStart) / HuntRules.relocateTicks,
+    // Drawing breath, a husk stops where it is and turns on the reaper.
+    if (phase == HuntPhase.windup || phase == HuntPhase.shriek) {
+      _halt();
+      _turnToward(_bearing + math.pi);
+
+      return;
+    }
+
+    if (_moveStart >= 0) {
+      _continueMove();
+
+      return;
+    }
+
+    final bolting =
+        phase == HuntPhase.fight && _nextBoltTick >= 0 && tick >= _nextBoltTick;
+
+    if (bolting) {
+      _bolt(events);
+    } else if (tick >= _nextAmbleTick) {
+      _amble();
+    }
+  }
+
+  void _continueMove() {
+    final progress = (tick - _moveStart) / _moveTicks;
+
+    if (progress >= 1) {
+      _bearing = wrapAngle(_fromBearing + _byBearing);
+      _range = _fromRange + _byRange;
+      _height = _fromHeight + _byHeight;
+      _moveStart = -1;
+      _nextAmbleTick = tick + _restTicks();
+
+      return;
+    }
+
+    final eased = smoothstep(progress);
+
+    _bearing = wrapAngle(_fromBearing + _byBearing * eased);
+    _range = _fromRange + _byRange * eased;
+    _height = _fromHeight + _byHeight * eased;
+
+    // The body faces the way it is going: along the floor, the sum of going
+    // round the player and going toward or away from them.
+    final round = _range * _byBearing;
+
+    _turnToward(
+      math.atan2(
+        _byRange * math.sin(_bearing) + round * math.cos(_bearing),
+        _byRange * math.cos(_bearing) - round * math.sin(_bearing),
+      ),
+    );
+  }
+
+  /// A short, unhurried move to somewhere nearby.
+  void _amble() {
+    final by = radians(
+      _path.nextRange(-HuntRules.ambleDegrees, HuntRules.ambleDegrees),
     );
 
-    return _relocateFrom + (_relocateTo - _relocateFrom) * progress;
+    _setOff(
+      toBearing: plan.clamp(_bearing + by),
+      toRange: _path.nextRange(vessel.nearMetres, vessel.farMetres),
+      speed: vessel.walkSpeed,
+    );
   }
+
+  /// A dash to somewhere well away from where the reaper is aiming.
+  void _bolt(List<HuntEvent> events) {
+    _nextBoltTick = -1;
+
+    if (vessel.gait == Gait.still) {
+      return;
+    }
+
+    final side = _path.nextChance(0.5) ? 1 : -1;
+    final by = radians(
+      _path.nextRange(HuntRules.boltMinDegrees, HuntRules.boltMaxDegrees),
+    );
+    // If one way runs out of room, it goes the other.
+    final oneWay = plan.clamp(_bearing + side * by);
+    final otherWay = plan.clamp(_bearing - side * by);
+    final toBearing =
+        wrapAngle(oneWay - _bearing).abs() >=
+            wrapAngle(otherWay - _bearing).abs()
+        ? oneWay
+        : otherWay;
+    final middle = (vessel.nearMetres + vessel.farMetres) / 2;
+
+    _setOff(
+      toBearing: toBearing,
+      toRange: _path.nextRange(middle, vessel.farMetres),
+      speed: vessel.boltSpeed,
+    );
+    events.add(const Relocating());
+  }
+
+  void _setOff({
+    required double toBearing,
+    required double toRange,
+    required double speed,
+  }) {
+    _fromBearing = _bearing;
+    _fromRange = _range;
+    _fromHeight = _height;
+    _byBearing = wrapAngle(toBearing - _bearing);
+    _byRange = toRange - _range;
+    _byHeight = _restingHeight() - _height;
+
+    final meanRange = _range + _byRange / 2;
+    final length = math.sqrt(
+      math.pow(meanRange * _byBearing, 2) +
+          math.pow(_byRange, 2) +
+          math.pow(_byHeight, 2),
+    );
+
+    _moveTicks = math.max(12, (length / speed * HuntRules.tickRate).round());
+    _moveStart = tick;
+  }
+
+  /// Stops the husk where it stands.
+  void _halt() {
+    if (_moveStart < 0) {
+      return;
+    }
+
+    _moveStart = -1;
+    _nextAmbleTick = tick + _restTicks();
+  }
+
+  void _turnToward(double heading) {
+    final step = radians(HuntRules.turnDegreesPerTick);
+
+    _heading = wrapAngle(
+      _heading + wrapAngle(heading - _heading).clamp(-step, step),
+    );
+  }
+
+  int _restTicks() =>
+      HuntRules.restMinTicks +
+      _path.nextInt(HuntRules.restMaxTicks - HuntRules.restMinTicks + 1);
+
+  /// How high the middle of the body is while it rests: standing on the
+  /// floor, or somewhere in the band of air it keeps to.
+  double _restingHeight() => switch (vessel.gait) {
+    Gait.ground => vessel.halfHeight - HuntRules.eyeHeight,
+    Gait.air ||
+    Gait.still => _path.nextRange(vessel.lowMetres, vessel.highMetres),
+  };
 }

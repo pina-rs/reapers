@@ -5,7 +5,7 @@ import 'package:reapers_shared/reapers_shared.dart';
 
 HuntSim _sim() => HuntSim(
   seed: 7,
-  vessel: Vessel.frameWraith,
+  vessel: Vessel.penguin,
   ward: Rarity.common.ward,
   stats: HuntStats.derive(HuntLoadout.borrowed),
 );

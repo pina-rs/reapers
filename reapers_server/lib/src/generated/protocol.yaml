@@ -8,6 +8,7 @@ player:
   - acquire:
   - release:
   - settleHunt:
+  - receiptKey:
   - buyWeapon:
   - wield:
   - buyOutfit:

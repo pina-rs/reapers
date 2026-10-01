@@ -5,10 +5,10 @@ This is the rulebook as the code plays it. Every number here lives in `reapers_s
 ## The loop
 
 1. Take the oath. The shuffle binds you to one reaper. You do not choose it.
-2. Buy an NFT into your vault (a stand-in market for now; see [nfts.md](nfts.md)).
+2. Buy an NFT into your vault (a simulated market for now; see [nfts.md](nfts.md)).
 3. Release it into the veil. It becomes a husk and surfaces 6 to 14 seconds later, with a "husk sighted" notice.
-4. Hunt it through your phone. Break its ward, then reap it.
-5. Absorbing it pays experience and anima, and writes it in your codex. The NFT is gone for good: absorbing is a sink.
+4. Hunt it through your phone. Read the room so it has somewhere to be, break its ward, then reap it.
+5. Absorbing it feeds your reaper: experience (with a roll of luck), anima, and an entry in your codex. The NFT is gone for good: absorbing is a sink.
 6. Spend anima in the armory. Level up. Absorb three of a collection to complete its set.
 7. Carry one of a collection's dead and that collection's rift opens to you: a husk too big for one reaper, fought by a circle of four at a real place.
 
@@ -27,18 +27,42 @@ In a rift, everyone in the circle is told to hold still at the same instant. Fou
 
 The hunt runs at a fixed 60 ticks a second whatever the display does. You never see your reaper during it: you are the reaper.
 
+### Reading the room
+
+A hunt opens with "Something is nearby". Before the husk shows itself, you look around and the phone reads the room:
+
+- For a husk that walks, tip the phone down and sweep it slowly across the floor in front of you.
+- For one that flies, look around at about head height.
+- Turning faster than 1.5 rad/s reads nothing. Neither does pointing at the ceiling or at your own feet. The screen says which.
+
+The circle around you is cut into 72 slices. A slice is read once you have looked into it steadily for 0.3 seconds, and the dial on screen fills in as you go. When an unbroken arc of 115° has been read, the husk gathers itself into view somewhere inside it, with "It is here".
+
+That arc is the hunt's plan. The husk appears in it and never leaves it, so it is never anywhere you have not looked. A plan narrower than 100° is not allowed: it would pen the husk in.
+
+What the phone knows after reading is where you looked and which way is down. See "Reading the environment" below for what it does not know yet.
+
+### Where a husk is
+
+A husk has a real place around you, in metres, and it moves through it.
+
+- A husk that walks stands on the floor. The floor is taken to be 1.45 m below the phone, straight down along gravity. It ambles a short way every second or three.
+- A husk that flies keeps to a band of air around head height and drifts about in it.
+- It turns its body to face the way it is going, a little at a time, and its head turns to watch you.
+- It stays between its nearest and farthest distance from you (see the table of husks).
+
 ### Stalk
 
-The husk is somewhere around you, 55° to 180° from where you first faced. A marker at the edge of the screen shows which way.
+The husk has not noticed you. A marker at the edge of the screen shows which way it is.
 
 - Turn faster than 1.7 rad/s and it starts to notice, sooner the faster you turn. It notices on its own after 25 seconds.
-- Hold your aim within 9° of it while turning slower than 0.6 rad/s for 66 ticks (1.1 s) and you spring an ambush: every seal opens, your first strike is doubled, and the husk is worth 10% more.
-- Strike it first and the fight starts without the ambush.
+- Hold your aim within 9° of it while turning slower than 0.6 rad/s for 66 ticks (1.1 s) and you spring an ambush: every seal you can see opens, your first strike is doubled, and the husk is worth 10% more.
+- If it notices you, or you strike it first, the fight starts without the ambush and the husk bolts: it runs, or darts through the air, 45° to 105° round you at full speed.
 
 ### Fight
 
-Each husk has three or four seals. Up to two are open at a time, each for 2.5 to 4.3 seconds, and only where they face you.
+Each husk has four or five seals: on its brow, its chest, its flanks, its back. Up to two are open at a time, each for 2.5 to 4.3 seconds.
 
+- A seal can only be struck from a side you can see. One well round the far side of the body (more than about 105° from the nearest point) is hidden, so a husk with its back to you shows different seals from one facing you. From any angle at least two are in view.
 - Tap an open seal to strike it. A struck seal shuts for 44 ticks.
 - Your weapon sets how often you can strike. A tap made up to 8 ticks early is held and played when the swing finishes.
 - Strikes within 78 ticks of each other build cadence: +10% each, up to +50%.
@@ -47,22 +71,38 @@ Each husk has three or four seals. Up to two are open at a time, each for 2.5 to
 
 ### Shriek
 
-Every 6.5 to 10 seconds the husk draws breath (54 ticks of warning), then shrieks for 66 ticks.
+Every 6.5 to 10 seconds the husk stops where it is, turns on you and draws breath (54 ticks of warning, its mouth opening), then shrieks for 66 ticks.
 
 - Move faster than your flinch speed, or tap, and you flinch: you lose one resolve and your cadence. The first 7 ticks are forgiven.
 - Out of resolve, the husk escapes.
-- Hold still through the whole shriek and every seal opens for 170 ticks.
+- Hold still through the whole shriek and every seal in view opens for 170 ticks. It is facing you, so that is its front.
+- Two or three seconds after a shriek it bolts again.
 
 The warning is a darkening of the edges of the screen and a line of text. It is deliberately not a flash: see the safety notes below.
 
 ### Reap
 
-When the ward reaches zero the husk hangs open and an arc appears across it, 52° wide.
+When the ward reaches zero the husk stops dead, hangs open, and an arc appears across it, 52° wide.
 
 - Bring your aim to the start of the arc, then sweep along it.
 - Sweeping faster than 2.1 rad/s, or straying from the arc, tears the cut.
 - The grade decides the reward: ragged ×1.0, clean ×1.25, perfect ×1.5.
-- Run out of time and the husk recovers 30% of its ward. A second unfinished reap and it escapes.
+- Run out of time and the husk recovers 30% of its ward and runs. A second unfinished reap and it escapes.
+
+### Feeding
+
+Two reapers who cut the same husk equally well do not get exactly the same out of it. When a husk is absorbed, the keeper of the books rolls how well the reaper fed:
+
+| Feeding | Experience | Chance |
+| --- | --- | --- |
+| Meagre | ×0.85 | 25% |
+| Fair | ×1.0 | 50% |
+| Rich | ×1.25 | 20% |
+| A feast | ×2.0 | 5% |
+
+On average that is ×1.06: a small gift, never a tax. It scales experience only. Anima is not rolled.
+
+The roll is made by the keeper from a seed the player never sees: the server's own secure random number for an online player, the phone's for an offline one. It is made once, when the husk is absorbed, so it cannot be re-rolled. The server signs the result; see [nfts.md](nfts.md).
 
 ## Reapers
 
@@ -114,32 +154,36 @@ Each weapon has four tempers, and each outfit is one of the same four states. A 
 
 ## Husks
 
-A husk's body (its vessel) comes from its collection and wears the NFT's own image. Its ward and its worth come from its rarity.
+A husk is what is left of an NFT. Every supported collection has a creature of its own, and each NFT dresses it: three colours, the colour of the light in its eyes, and at most one thing it wears. The one epic of each collection is gilded. An NFT's picture in the game is a portrait of its own creature.
 
-| Rarity | Ward | Experience | Anima | Stand-in price |
+Its ward and its worth come from its rarity.
+
+| Rarity | Ward | Experience | Anima | Simulated price |
 | --- | --- | --- | --- | --- |
 | Common | 280 | 40 | 16 | 0.02 SOL |
 | Uncommon | 420 | 70 | 28 | 0.045 SOL |
 | Rare | 760 | 120 | 48 | 0.11 SOL |
 | Epic | 1400 | 210 | 85 | 0.26 SOL |
 
-| Vessel | Behaviour |
-| --- | --- |
-| Frame wraith | A floating frame. Four seals at the corner nails. |
-| Lantern shade | A turning paper lantern. Three seals that can only be struck while they face you. |
-| Shard swarm | Mirror shards around a core. One seal at the centre, three that orbit. |
-| Scroll eel | A ribbon that swims in a slow circle around you, so you have to follow it steadily. |
-| Reliquary stack | A tower of image cubes, 10 m tall and 17 m away. Rift only. Four seals at the seams. |
+| Collection | Creature | Gets about | Stays | Ambles | Bolts |
+| --- | --- | --- | --- | --- | --- |
+| Degenerate Ape Academy | A heavy ape on its knuckles, 1.1 m tall | On the floor | 2.6 to 4.6 m away | 0.7 m/s | 2.6 m/s |
+| Thugbirdz | A hunched bird in a visor | In the air, 0.15 m below the eye to 0.85 m above it | 2.2 to 3.6 m | 0.5 m/s | 3.2 m/s |
+| Pesky Penguins | A squat penguin that waddles, 0.9 m tall | On the floor | 2.2 to 4.2 m | 0.45 m/s | 1.8 m/s |
+| Sollamas | A long-necked llama under a striped blanket, 1.44 m tall | On the floor | 2.8 to 4.8 m | 0.6 m/s | 2.8 m/s |
+| Solarians | A robot of mismatched parts on two legs, 1.12 m tall | On the floor | 2.4 to 4.4 m | 0.5 m/s | 2.0 m/s |
 
-A husk that holds its ground (every one but the eel and the stack) darts 45° to 105° to one side a couple of seconds after each shriek.
+The body of a rift is not a creature: it is the reliquary stack, a tower of cubes 10 m tall and 17 m away, each face wearing one of the collection's portraits. It does not move. Four seals at the seams.
 
 A level-one reaper takes a common husk in about half a minute and cannot take an epic one. `dart reapers_shared/tool/pacing.dart` prints the whole table for every class and level.
+
+Why these five, and the hundred or so they were chosen from, is in [research/solana-collections.md](research/solana-collections.md).
 
 ## Rifts
 
 A rift is a whole dead collection piled into one body. It takes a circle of four.
 
-- **Where.** Each rift is at a real place: London Bridge (Tin Saints), Shibuya Crossing (Mothlight Parade), Third Mainland Bridge in Lagos (Static Choir), Brooklyn Bridge (Brine Hounds). This version does not check where you are standing. See the limits below.
+- **Where.** Each rift is at a real place: London Bridge (Degenerate Ape Academy), Shibuya Crossing (Thugbirdz), Third Mainland Bridge in Lagos (Sollamas), Brooklyn Bridge (Pesky Penguins), Golden Gate Bridge (Solarians). This version does not check where you are standing. See the limits below.
 - **Who.** A rift opens only to a reaper who has absorbed at least one NFT from its collection. The way to a collection's raid runs through buying that collection.
 - **Gathering.** Reapers join and stand ready. When everyone present is ready there is a three-second count. A rift waits at most 60 seconds. Seats nobody takes are filled by shades: bots one level below the circle's average, slower to react and wider of the mark than a careful person.
 - **The ward.** It is sized to the circle: the sum of everyone's best damage per second × 0.84 × 70 seconds. A rift is as hard for four beginners as for four veterans. What it asks for is company and care, not levels.
@@ -158,12 +202,29 @@ The game asks people to hold a phone up outdoors, so:
 - Nothing flashes. A strike lights the husk in its own colour rather than to white, and the shriek warning darkens the screen instead of flashing it.
 - Everything the hunt needs is on screen as text as well as colour, and every target is at least 44 points across.
 
-## What is a stand-in, and what is not built
+## Reading the environment
 
-- **Augmented reality is three degrees of freedom.** The camera feed is real and husks hold their direction as you turn, using the gyroscope and accelerometer. Husks are not anchored to surfaces and you cannot walk around one. That needs ARKit and ARCore; the pose source is behind one interface so it can be swapped in.
+What the game does today, on any phone:
+
+- It shows the real camera feed and keeps husks in place as you turn, from the gyroscope and accelerometer.
+- It knows which way is down, so it knows where a floor at standing height would be, and husks that walk stand on it with a soft shadow under them. Husks that fly stay in the air.
+- It only puts a husk where you have looked.
+
+What it does not know:
+
+- **What is standing on the floor.** A husk will walk through a sofa. Nothing reads furniture, walls or tables yet.
+- **How high the phone really is.** 1.45 m is a standing adult. Sit down and a husk floats above the carpet.
+- **Where you walk.** The game follows the phone turning, not moving. Step sideways and the husks come with you.
+
+Getting real surfaces is possible, and how depends on the phone. [environment.md](environment.md) lays out the options, what each costs, and the decision that is waiting on them.
+
+## What is simulated, and what is not built
+
+- **The NFTs.** The five collections are real ones from Solana's first wave. Nothing else about them is: no wallet, no mint, no chain, and the creatures are our own models. See [nfts.md](nfts.md).
 - **Rifts are not located.** The sites have real coordinates but nothing checks yours. Geofencing is the missing piece.
 - **Rift reports are trusted.** A lone hunt is replayed on the server before it pays. A rift takes each reaper's word for the damage they dealt.
 - **Rifts have no cost and no cooldown.** That is why they pay like one epic husk and no better. Before launch they need a key, a cooldown or both.
+- **Receipts are signed but go nowhere.** Nothing posts them to a chain yet.
 - **Reaper against reaper** is not built.
 - **Sound** is not built. Haptics are.
 - **The numbers** were tuned against a simulated player, not people. Expect to move them after the first playtest on real phones.

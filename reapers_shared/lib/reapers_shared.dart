@@ -6,13 +6,16 @@
 library;
 
 export 'src/armory.dart';
+export 'src/feeding.dart';
 export 'src/hunt/hunt_bot.dart';
 export 'src/hunt/hunt_event.dart';
 export 'src/hunt/hunt_input.dart';
+export 'src/hunt/hunt_plan.dart';
 export 'src/hunt/hunt_sim.dart';
 export 'src/hunt/hunt_stats.dart';
 export 'src/hunt/husk_pose.dart';
 export 'src/nft_catalogue.dart';
+export 'src/nft_look.dart';
 export 'src/player_state.dart';
 export 'src/progression.dart';
 export 'src/reaper_class.dart';

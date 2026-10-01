@@ -13,12 +13,14 @@ You are bound to a reaper you did not choose, and the phone is its blade. The hu
 ## What is in this version
 
 - The shuffle: six classes, each with its own silhouette, weapon and perk, and a few hundred looks apiece.
-- The full hunt over the camera feed: stalk, strike, shriek, reap.
+- The full hunt over the camera feed: read the room, stalk, strike, shriek, reap.
+- Husks that are creatures with a place in the room: walkers on the floor, fliers in the air.
+- A roll of luck on every absorption, decided and signed by the server.
 - A vault and a market, an armory of weapons and outfits, a codex, levels and collection sets.
 - Rifts: four-reaper raids, with shades filling the seats nobody takes.
 - A server that keeps players' books and replays every hunt before paying for it. The game also runs entirely offline.
 
-The NFT side is a stand-in on purpose: four invented collections, a mock wallet, no chain. [docs/nfts.md](docs/nfts.md) lists every stand-in and where the real thing plugs in. [docs/gameplay.md](docs/gameplay.md) is the rulebook, and ends with what is not built yet.
+The NFT side is a simulation on purpose. The five collections are real ones from Solana's first wave (Degenerate Ape Academy, Thugbirdz, Pesky Penguins, Sollamas, Solarians), each with a creature we modelled ourselves, but there is no wallet and no chain, and nothing is licensed. [docs/nfts.md](docs/nfts.md) lists every stand-in and where the real thing plugs in. [docs/gameplay.md](docs/gameplay.md) is the rulebook, and ends with what is not built yet.
 
 ## Run it
 
@@ -59,8 +61,7 @@ fvm flutter run --dart-define=REAPERS_SERVER_URL=http://localhost:8080/
 dart tool/hooks.dart install  # once per clone: guard main (see below)
 dart tool/check.dart          # format, analysis and every test
 dart tool/check.dart --fast   # the same without the server tests
-dart tool/build_art.dart      # rebuild every 3D model (needs Blender 5.1)
-dart tool/build_nft_art.dart  # redraw the stand-in NFT images
+dart tool/build_art.dart      # rebuild every 3D model and NFT portrait (needs Blender 5.1)
 ```
 
 There are no pull requests. Work happens on a branch and is merged into `main` locally:
@@ -77,7 +78,9 @@ The hooks make that the only way in: `main` refuses any commit that `tool/merge.
 | --- | --- |
 | [docs/gameplay.md](docs/gameplay.md) | The rules and every number in them. |
 | [docs/architecture.md](docs/architecture.md) | How the pieces fit, and the known limits. |
-| [docs/nfts.md](docs/nfts.md) | What is fake, and how Solana comes in. |
+| [docs/nfts.md](docs/nfts.md) | What is simulated, the signed receipt, and how Solana comes in. |
+| [docs/environment.md](docs/environment.md) | What the game knows about the room, and how it could know more. |
+| [docs/research/solana-collections.md](docs/research/solana-collections.md) | 116 old Solana collections, and why these five. |
 | [docs/research/dark-games-and-ar-hunting.md](docs/research/dark-games-and-ar-hunting.md) | The research the classes and the hunt came from. |
 | [art/blender/README.md](art/blender/README.md) | How the 3D art is built. |
 | [AGENTS.md](AGENTS.md) | Conventions for anyone, human or not, changing the code. |

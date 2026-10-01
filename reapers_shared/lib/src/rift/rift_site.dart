@@ -13,28 +13,35 @@ enum RiftSite {
     city: 'London',
     latitude: 51.5079,
     longitude: -0.0877,
-    collection: NftCollection.tinSaints,
+    collection: NftCollection.degenApes,
   ),
   shibuyaCrossing(
     title: 'Shibuya Crossing',
     city: 'Tokyo',
     latitude: 35.6595,
     longitude: 139.7005,
-    collection: NftCollection.mothlightParade,
+    collection: NftCollection.thugbirdz,
   ),
   thirdMainlandBridge(
     title: 'Third Mainland Bridge',
     city: 'Lagos',
     latitude: 6.5005,
     longitude: 3.4017,
-    collection: NftCollection.staticChoir,
+    collection: NftCollection.sollamas,
   ),
   brooklynBridge(
     title: 'Brooklyn Bridge',
     city: 'New York',
     latitude: 40.7061,
     longitude: -73.9969,
-    collection: NftCollection.brineHounds,
+    collection: NftCollection.peskyPenguins,
+  ),
+  goldenGateBridge(
+    title: 'Golden Gate Bridge',
+    city: 'San Francisco',
+    latitude: 37.8199,
+    longitude: -122.4783,
+    collection: NftCollection.solarians,
   );
 
   const RiftSite({

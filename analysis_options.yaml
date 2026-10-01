@@ -1,13 +1,10 @@
-# Rules for the tools under tool/. Each workspace package has its own file.
+# Rules for the tools under tool/. Each workspace package has its own file,
+# which applies to everything inside that package.
+#
+# Do not exclude the packages here. An exclude in this file also applies when
+# the analyzer is run from inside a package, where it silently analyses
+# nothing and reports no issues.
 include: package:lints/recommended.yaml
-
-analyzer:
-  exclude:
-    - reapers_client/**
-    - reapers_flutter/**
-    - reapers_server/**
-    - reapers_shared/**
-    - art/**
 
 linter:
   rules:

@@ -1,3 +1,4 @@
+import '../feeding.dart';
 import '../nft_catalogue.dart';
 import 'hunt_stats.dart';
 
@@ -231,13 +232,15 @@ final class HuntOutcome {
     'ticks': ticks,
   };
 
-  /// Experience earned from a husk of [rarity].
-  int xpFor(Rarity rarity) => _reward(rarity.xp);
+  /// Experience earned from a husk of [rarity] that fed the reaper as
+  /// [feeding] says.
+  int xpFor(Rarity rarity, Feeding feeding) =>
+      (_reward(rarity.xp) * feeding.share).round();
 
-  /// Anima earned from a husk of [rarity].
-  int animaFor(Rarity rarity) => _reward(rarity.anima);
+  /// Anima earned from a husk of [rarity]. The feeding does not change it.
+  int animaFor(Rarity rarity) => _reward(rarity.anima).round();
 
-  int _reward(int base) {
+  double _reward(int base) {
     final grade = this.grade;
 
     if (grade == null) {
@@ -246,6 +249,6 @@ final class HuntOutcome {
 
     final ambush = ambushed ? HuntRules.ambushReward : 1.0;
 
-    return (base * grade.reward * ambush).round();
+    return base * grade.reward * ambush;
   }
 }

@@ -6,11 +6,14 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:reapers_shared/reapers_shared.dart';
 
 import '../l10n/l10n.dart';
+import '../l10n/lookups.dart';
 import '../theme/veil.dart';
 import '../widgets/ledger.dart';
 import '../widgets/nft_thumbnail.dart';
 import 'hunt_arena.dart';
 import 'hunt_status.dart';
+import 'scan/room_reader.dart';
+import 'scan/scan_overlay.dart';
 
 /// What a hunt is for: which husk, and who is hunting it.
 final class HuntBrief {
@@ -34,11 +37,13 @@ final class HuntBrief {
 
   bool get isPractice => sightingId == null;
 
-  HuntSim newSim() => HuntSim(
+  /// The hunt for this husk, in the part of the room [plan] covers.
+  HuntSim newSim(HuntPlan plan) => HuntSim(
     seed: seed,
     vessel: nft.collection.vessel,
     ward: nft.rarity.ward,
     stats: HuntStats.derive(loadout),
+    plan: plan,
   );
 }
 
@@ -48,6 +53,8 @@ final class HuntReward {
     required this.outcome,
     required this.xp,
     required this.anima,
+    required this.feeding,
+    required this.signed,
     required this.levelBefore,
     required this.levelAfter,
   });
@@ -56,6 +63,8 @@ final class HuntReward {
   const HuntReward.practice(this.outcome)
     : xp = 0,
       anima = 0,
+      feeding = null,
+      signed = false,
       levelBefore = 0,
       levelAfter = 0;
 
@@ -65,6 +74,14 @@ final class HuntReward {
 
   final int xp;
   final int anima;
+
+  /// How well the reaper fed on the husk, or null when it fed on nothing.
+  final Feeding? feeding;
+
+  /// Whether the keeper signed a receipt for the absorption. A server does;
+  /// a phone keeping its own books cannot.
+  final bool signed;
+
   final int levelBefore;
   final int levelAfter;
 
@@ -87,20 +104,29 @@ class HuntScreen extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final arena = useMemoized(
-      () => HuntArena(
-        vessel: brief.nft.collection.vessel,
-        relics: [brief.nft],
-      )..engage(brief.newSim()),
+      () => HuntArena(vessel: brief.nft.collection.vessel, relics: [brief.nft]),
+      [brief],
+    );
+    final reader = useMemoized(
+      () => RoomReader(gait: brief.nft.collection.vessel.gait),
       [brief],
     );
     final loaded = useState(false);
     final begun = useState(false);
+    final engaged = useState(false);
     final failure = useState<Object?>(null);
     final reward = useState<HuntReward?>(null);
     final gone = useValueListenable(arena.gone);
     final banner = useState<String?>(null);
     final l10n = context.l10n;
-    final controller = arena.controller!;
+
+    /// Starts the hunt in the part of the room that has been read.
+    void engage(HuntPlan plan) {
+      arena.engage(brief.newSim(plan));
+      engaged.value = true;
+      banner.value = l10n.scanFound;
+      unawaited(HapticFeedback.heavyImpact());
+    }
 
     useEffect(() {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -155,6 +181,8 @@ class HuntScreen extends HookWidget {
           continue;
         }
 
+        final controller = arena.controller!;
+
         unawaited(
           settle(controller.log, controller.sim.outcome!).then(
             (paid) => reward.value = paid,
@@ -183,18 +211,42 @@ class HuntScreen extends HookWidget {
           HuntArenaView(
             arena: arena,
             loaded: loaded.value,
-            running: begun.value,
+            running: engaged.value,
             onEvents: onEvents,
+            // Before the hunt, the phone reads the room as the player looks
+            // around. The husk appears once there is somewhere for it to be.
+            onIdle: (deltaSeconds) {
+              if (!begun.value || engaged.value) {
+                return;
+              }
+
+              reader.observe(arena.pose, deltaSeconds);
+
+              if (reader.plan case final plan?) {
+                engage(plan);
+              }
+            },
             showSealOrder: brief.loadout.reaperClass.perk == ClassPerk.measure,
           ),
-          if (loaded.value && begun.value)
+          if (loaded.value && begun.value && !engaged.value)
+            ScanOverlay(
+              reader: reader,
+              pose: () => arena.pose,
+              followsDevice: arena.poseSource.followsDevice,
+              repaint: arena.frame,
+            ),
+          // While the room is read there is nothing to strike, so the whole
+          // screen is for looking around.
+          if (loaded.value && begun.value && !engaged.value)
+            _LookAround(arena: arena),
+          if (loaded.value && engaged.value)
             SafeArea(
               child: IgnorePointer(
                 child: ListenableBuilder(
                   listenable: arena.frame,
                   builder: (context, _) => HuntStatus(
                     title: brief.nft.title,
-                    sim: controller.sim,
+                    sim: arena.controller!.sim,
                     light: arena.rig.light,
                     followsDevice: arena.poseSource.followsDevice,
                     banner: banner.value,
@@ -206,7 +258,14 @@ class HuntScreen extends HookWidget {
             _Threshold(
               brief: brief,
               ready: loaded.value,
-              onBegin: () => begun.value = true,
+              onBegin: () {
+                begun.value = true;
+
+                // A hunt that plays itself has no room to read.
+                if (HuntArena.autoplay) {
+                  engage(HuntPlan.open);
+                }
+              },
             ),
           // The reckoning waits for the husk to finish coming apart: the
           // quiet after the reap is part of the hunt.
@@ -327,6 +386,19 @@ class _Reckoning extends HookWidget {
                 const SizedBox(height: 26),
                 LedgerRow(label: l10n.commonExperience, value: '+${reward.xp}'),
                 LedgerRow(label: l10n.commonAnima, value: '+${reward.anima}'),
+                if (reward.feeding case final feeding?)
+                  LedgerRow(
+                    label: l10n.huntFeeding,
+                    value: feedingName(l10n, feeding),
+                    emphasised: feeding == Feeding.feast,
+                  ),
+                if (reward.feeding != null)
+                  LedgerRow(
+                    label: l10n.huntReceipt,
+                    value: reward.signed
+                        ? l10n.huntReceiptSigned
+                        : l10n.huntReceiptUnsigned,
+                  ),
                 if (outcome.ambushed)
                   LedgerRow(
                     label: l10n.huntAmbush,
@@ -377,4 +449,27 @@ class _AbsorbedPlate extends HookWidget {
       ),
     );
   }
+}
+
+/// Lets a finger look around where the phone cannot feel itself turn, while
+/// the room is being read and there is nothing yet to strike.
+class _LookAround extends HookWidget {
+  const _LookAround({required this.arena});
+
+  final HuntArena arena;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final radiansPerPoint = huntFieldOfView / constraints.biggest.height * 3;
+
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanUpdate: (details) => arena.poseSource.drag(
+          details.delta.dx * radiansPerPoint,
+          -details.delta.dy * radiansPerPoint,
+        ),
+      );
+    },
+  );
 }

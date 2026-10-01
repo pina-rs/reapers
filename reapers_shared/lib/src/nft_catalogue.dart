@@ -1,3 +1,4 @@
+import 'nft_look.dart';
 import 'seeded_random.dart';
 import 'vessel.dart';
 
@@ -31,27 +32,35 @@ enum Rarity {
 
 /// A collection whose NFTs can be released into the veil and hunted.
 ///
-/// These four are invented stand-ins. They exist so the hunt can be played
-/// before any real collection is wired in; see docs/nfts.md.
+/// These are real collections from Solana's first wave, chosen because each
+/// has one clear creature and has long since gone quiet. They are simulated:
+/// the game owns no NFT of theirs, copies none of their art and has no
+/// agreement with their holders. Each is given a creature we modelled
+/// ourselves. See docs/nfts.md and docs/research/solana-collections.md.
 enum NftCollection {
-  tinSaints(
-    title: 'Tin Saints',
-    vessel: Vessel.frameWraith,
+  degenApes(
+    title: 'Degenerate Ape Academy',
+    vessel: Vessel.ape,
     rarities: _standardRarities,
   ),
-  mothlightParade(
-    title: 'Mothlight Parade',
-    vessel: Vessel.lanternShade,
+  thugbirdz(
+    title: 'Thugbirdz',
+    vessel: Vessel.bird,
     rarities: _standardRarities,
   ),
-  staticChoir(
-    title: 'Static Choir',
-    vessel: Vessel.shardSwarm,
+  peskyPenguins(
+    title: 'Pesky Penguins',
+    vessel: Vessel.penguin,
     rarities: _standardRarities,
   ),
-  brineHounds(
-    title: 'Brine Hounds',
-    vessel: Vessel.scrollEel,
+  sollamas(
+    title: 'Sollamas',
+    vessel: Vessel.llama,
+    rarities: _standardRarities,
+  ),
+  solarians(
+    title: 'Solarians',
+    vessel: Vessel.robot,
     rarities: _standardRarities,
   );
 
@@ -89,7 +98,7 @@ enum NftCollection {
 final class Nft {
   const Nft({required this.collection, required this.serial});
 
-  /// Reads an NFT back from its [id], such as `tinSaints:3`.
+  /// Reads an NFT back from its [id], such as `thugbirdz:3`.
   factory Nft.parse(String id) {
     final parts = id.split(':');
     final serial = parts.length == 2 ? int.tryParse(parts[1]) : null;
@@ -116,11 +125,14 @@ final class Nft {
 
   Rarity get rarity => collection.rarities[serial - 1];
 
-  /// The name shown on a market listing, such as "Tin Saints #3".
+  /// The name shown on a market listing, such as "Thugbirdz #3".
   String get title => '${collection.title} #$serial';
 
-  /// The file stem of the item's image.
+  /// The file stem of the item's portrait.
   String get imageKey => '${collection.name}_$serial';
+
+  /// How this NFT dresses its collection's creature.
+  NftLook get look => NftLook.of(this);
 
   /// A stand-in for the item's on-chain mint address.
   ///

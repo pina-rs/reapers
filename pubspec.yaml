@@ -18,5 +18,4 @@ dependencies:
     path: reapers_shared
 
 dev_dependencies:
-  image: ^4.10.1
   lints: ^6.1.0

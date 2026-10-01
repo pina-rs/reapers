@@ -53,12 +53,13 @@ abstract final class VeilLook {
       ..directionalLight = DirectionalLight(
         direction: vm.Vector3(-0.3, -1, 0.4),
         color: vm.Vector3(0.8, 0.9, 1),
-        intensity: 2.6,
+        // Kept low enough that a pale coat still shows its shape.
+        intensity: 1.7,
       )
       ..environmentSettings = EnvironmentSettings(
         toneMapping: ToneMappingMode.aces,
-        exposure: 1.1,
-        environmentIntensity: 0.7,
+        exposure: 1.0,
+        environmentIntensity: 0.6,
         bloomEnabled: true,
         bloomThreshold: 1,
         bloomIntensity: 0.4,

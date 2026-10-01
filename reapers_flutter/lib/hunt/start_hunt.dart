@@ -53,6 +53,10 @@ Future<void> startHunt(BuildContext context, WidgetRef ref, Sighting sighting) {
             outcome: settlement.outcome,
             xp: settlement.xp,
             anima: settlement.anima,
+            feeding: settlement.feeding,
+            signed:
+                settlement.outcome.absorbed &&
+                settlement.state.codex.last.signature != null,
             levelBefore: player.level,
             levelAfter: settlement.state.level,
           );

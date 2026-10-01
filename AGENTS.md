@@ -23,7 +23,7 @@ Reapers is an AR game for phones: you are a reaper, and you hunt dead NFTs throu
 - **3D models are built, never edited.** Change a script under `art/blender/`, run `dart tool/build_art.dart`, and commit the script with the model it produced. See `art/blender/README.md`.
 - **Models and materials need a full relaunch.** They are compiled by `reapers_flutter/hook/build.dart`, so a hot reload or hot restart will not pick up a changed `.glb` or `.fmat`.
 - **Tooling is Dart.** The only Python in the repository is what runs inside Blender, because Blender's API is Python.
-- **Use `dart analyze`, not `flutter analyze`.** In this workspace `flutter analyze` has reported no issues while `dart analyze` found real errors.
+- **Never add `analyzer: exclude:` entries for the packages to the root `analysis_options.yaml`.** They also apply when the analyzer runs inside a package, where it then analyses nothing and reports "No issues found".
 
 ## Landing a change
 

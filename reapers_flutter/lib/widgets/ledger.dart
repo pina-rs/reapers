@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -308,19 +310,42 @@ class LedgerHeading extends HookWidget {
   /// A count or a figure set at the far end of the rule.
   final String? trailing;
 
+  /// The width kept back from a long heading for the rule, and for the
+  /// figure when there is one, so the heading is cut short before either is
+  /// pushed off the page.
+  static const _ruleWidth = 36.0;
+  static const _figureWidth = 64.0;
+
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(top: 22, bottom: 10),
-    child: Row(
-      children: [
-        Text(text.toUpperCase(), style: Veil.label(color: Veil.bone)),
-        const SizedBox(width: 12),
-        const Expanded(child: Divider(height: 1)),
-        if (trailing != null) ...[
+    child: LayoutBuilder(
+      builder: (context, constraints) => Row(
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: math.max(
+                0,
+                constraints.maxWidth -
+                    _ruleWidth -
+                    (trailing == null ? 0 : _figureWidth),
+              ),
+            ),
+            child: Text(
+              text.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Veil.label(color: Veil.bone),
+            ),
+          ),
           const SizedBox(width: 12),
-          Text(trailing!, style: Veil.figure(color: Veil.ash, size: 12)),
+          const Expanded(child: Divider(height: 1)),
+          if (trailing != null) ...[
+            const SizedBox(width: 12),
+            Text(trailing!, style: Veil.figure(color: Veil.ash, size: 12)),
+          ],
         ],
-      ],
+      ),
     ),
   );
 }

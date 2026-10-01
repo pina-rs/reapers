@@ -19,7 +19,9 @@ Blender's authoring API is Python, so these scripts are Python. They only ever r
 | `lib/figure.py` | What every reaper shares: landmarks, the hidden face, both arms. |
 | `lib/armoury.py` | Parts every weapon is assembled from. |
 | `lib/preview.py` | Review sheets: front, three-quarter, back and silhouette. |
+| `lib/creature.py` | What every husk creature shares: pivots, seals, the shadow, and the checks a creature must pass. |
 | `reaper_classes/<class>.py` | One module per reaper class. `build()` returns the model's root. |
+| `creature_kinds/<vessel>.py` | One module per husk creature. `build(spec)` returns the model's root. |
 | `weapon_kinds/<kind>.py` | One module per weapon kind. `build()` returns the weapon's root. |
 | `reapers.py`, `weapons.py`, `husks.py` | The drivers `tool/build_art.dart` runs. |
 
@@ -80,3 +82,99 @@ The classes come from [the design research](../../docs/research/dark-games-and-a
 - Give every class one asymmetric element.
 - At most three materials on show at once.
 - Hands are larger than life.
+
+## Creatures
+
+A husk is what is left of an NFT. Every supported collection has a creature of its own: an ape for a collection of apes, a llama for a collection of llamas. The creature is our own model. It follows the spirit of a collection (its animal, its attitude, the kind of thing it wears) and copies none of its artwork, logos or named traits.
+
+One model serves every NFT of a collection. What tells one NFT from another is its look: three colours, the colour of its eyes, and at most one thing it wears. The looks are defined in `reapers_shared/lib/src/nft_look.dart` and reach the build through `art/build/vessels.json`.
+
+### Building one while you work
+
+```sh
+dart run tool/build_art.dart --specs-only     # write art/build/vessels.json
+
+blender --background --python-exit-code 1 --python art/blender/husks.py -- \
+  --out art/build/models --specs art/build/vessels.json \
+  --preview art/build/previews --portraits art/build/portraits --only penguin
+```
+
+That leaves three things to look at:
+
+- `art/build/previews/husk_<vessel>.png`: front, three-quarter, side, back and silhouette, wearing the first thing it can wear.
+- `art/build/previews/husk_<vessel>_trait2.png`: the same creature wearing the second.
+- `art/build/portraits/<collection>_<n>.png`: the eight NFTs' portraits, each in its own colours. These are the pictures the game shows, so they have to read at thumbnail size.
+
+The build fails, with a list of what to fix, if a creature breaks any rule below. `creature_kinds/penguin.py` is the reference: start by reading it.
+
+### The spec
+
+`build(spec)` is given the numbers the rules play by. Shape the model to them, never the other way round.
+
+- `spec["gait"]`: `"ground"` for a creature that walks, `"air"` for one that flies.
+- `spec["halfWidth"]`, `spec["halfHeight"]`: half the body's width and height in metres. The middle of the body is the origin. A walker's feet stand on the floor at `z = -halfHeight` (`creature.floor(spec)`), and the top of its head is near `z = +halfHeight`. Width and length should stay within about one and a half half-widths of the middle.
+- `spec["seals"]`: where strikes land. `creature.studs(root, spec)` puts a small glowing stud at each. Model the body so every stud sits on its surface or just proud of it, never buried and never floating.
+
+### Axes
+
+Metres, Z up. The creature faces -Y, so its left side is +X and its right side is -X, the same as a reaper.
+
+### Parts and pivots
+
+A creature is not skinned. It is built from rigid parts, and the game moves them. Each moving part hangs from a pivot made with `creature.pivot(name, parent, at)`: an empty at the joint, with the part's meshes parented to it and modelled in place. A pivot must never be rotated or scaled, because the game turns it about its own axes.
+
+| Pivot | What the game does with it | Where to put it |
+| --- | --- | --- |
+| `head` | Turns it to watch the player. Required. | The base of the skull or the top of the neck. |
+| `neck` | Bobs it as the creature walks. Holds `head`. | The base of a long neck. |
+| `jaw` | Drops it open when the creature shrieks. | The hinge of the jaw, as a child of `head`. |
+| `leg_l`, `leg_r` | Swings them about the X axis, opposite each other. | The hips of a two-legged creature. |
+| `leg_fl`, `leg_fr`, `leg_bl`, `leg_br` | Swings them in diagonal pairs. | The shoulders and hips of a four-legged one. |
+| `arm_l`, `arm_r` | Swings them against the legs. | The shoulders. |
+| `wing_l`, `wing_r` | Beats them about the Y axis. | The wing roots. |
+| `tail` | Sways it about the Z axis. | The base of the tail. |
+
+Use the ones the body has. A swinging limb needs its pivot at the joint and its length hanging below it, so that turning the pivot about X swings the foot forward and back.
+
+Those names are reserved for pivots. A mesh may not share one, and the build says so if it does.
+
+How far each part moves, so that parts can be shaped not to pass through each other:
+
+| Part | Range |
+| --- | --- |
+| Legs and arms | about 47° either way at a full run, 5° at rest |
+| Head | 20° to either side and 14° up or down. It is kept small because a seal on a head stays where the rules put it and the head must not leave it behind. |
+| Jaw | drops 43° |
+| Wings | from 20° below rest to 37° above |
+| Tail | 27° either way |
+| Neck | 9° forward and back |
+
+The numbers live in `reapers_flutter/lib/render/husk_rig.dart`.
+
+Two more nodes are required on every creature: `trait_1` and `trait_2`, pivots that each hold one thing the creature can wear (a cap, a crown, a chain). The game shows at most one. Parent them to `head` if the thing is worn on the head, so it follows when the head turns. Keep them generic: no brand, logo, team, band or real person.
+
+A walker also needs `creature.shadow(root, spec)`, the dark patch under it that makes it sit on the floor.
+
+### Materials
+
+Use only these. The game keeps the name and throws the rest away.
+
+| Material | What it is | In the game |
+| --- | --- | --- |
+| `body` | Fur, feathers, skin, plate. | The NFT's main colour. |
+| `trim` | The second colour: a belly, a face, a blanket. | The NFT's second colour. |
+| `detail` | Small hard things: beak, claws, teeth, and whatever it wears. | The NFT's third colour. |
+| `accent` | The light in its eyes. Keep it small. | Glows in the NFT's eye colour. |
+| `dark` | Sockets, a mouth, the inside of anything hollow. | Near black. |
+| `glow` | Seal studs. Made by `creature.studs`. | Glows. |
+| `shadow` | The floor shadow. Made by `creature.shadow`. | A soft dark patch. |
+
+Make organic parts with `creature.form(name, blobs, material, parent, triangles=...)`, which fuses spheres and cubes into one shape, trims it to a triangle count and paints its shading. Use `core.revolve`, `core.loft`, `core.tube` and `core.plate` for hard or regular shapes, and pass what they return through `creature.finish`.
+
+### What makes a creature read
+
+- It has to be the animal at a glance, as a black shape, from the side as well as the front. Check the silhouette panel and the side view first. An ape is heavy in the shoulders and walks on its knuckles; a llama is mostly neck.
+- It is a husk: what is left of something. The eyes are dark sockets with a small light far back in them. Nothing else about it needs to look dead.
+- Stylised and chunky, not realistic. Big clear forms, no fine detail that vanishes at three metres on a phone.
+- About 14,000 triangles at most for the whole creature. The build enforces it.
+- The portrait matters as much as the model. If the eight portraits do not look like a collection of the same creature in different colours, it is not done.

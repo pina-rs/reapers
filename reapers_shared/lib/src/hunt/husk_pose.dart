@@ -3,39 +3,48 @@ import 'dart:math' as math;
 import '../vec3.dart';
 import '../vessel.dart';
 
-/// Where a husk is and how it is turned at one instant.
+/// Where a husk is and which way it is turned at one instant.
 ///
 /// The rules own this, and the view draws exactly what it says: a model is
-/// placed at [centre], turned to face the player, then turned again by
-/// [spin]. Nothing about a hit is decided by what was drawn.
+/// placed at [position] and turned to [heading]. Nothing about a hit is
+/// decided by what was drawn.
 final class HuskPose {
   const HuskPose({
     required this.vessel,
-    required this.yaw,
-    required this.pitch,
-    required this.spin,
-    required this.orbit,
+    required this.position,
+    required this.heading,
   });
 
   final Vessel vessel;
 
+  /// The middle of the husk's body, in metres from the player's eye.
+  final Vec3 position;
+
+  /// The way the husk's body faces, as a bearing in radians: 0 is the way
+  /// the player first faced, and it grows to the right.
+  final double heading;
+
   /// The husk's bearing around the player, in radians.
-  final double yaw;
+  double get yaw => position.yaw;
 
   /// The husk's elevation above the horizon, in radians.
-  final double pitch;
+  double get pitch => position.pitch;
 
-  /// How far the body has turned about its upright axis, in radians.
-  final double spin;
-
-  /// How far orbiting seals have travelled around the centre, in radians.
-  final double orbit;
+  /// How far away the middle of the husk is, in metres.
+  double get distance => position.length;
 
   /// The direction from the player to the husk's centre.
-  Vec3 get direction => Vec3.fromAngles(yaw, pitch);
+  Vec3 get direction => position.normalized;
 
-  /// The husk's centre, in metres from the player.
-  Vec3 get centre => direction * vessel.distance;
+  /// The way the husk's chest points.
+  Vec3 get forward => Vec3(math.sin(heading), 0, math.cos(heading));
+
+  /// The way the husk's left side points.
+  Vec3 get left => Vec3(-math.cos(heading), 0, math.sin(heading));
+
+  /// Whether the husk is turned toward the player, give or take a quarter
+  /// turn.
+  bool get facesPlayer => forward.dot(-direction) > 0;
 
   /// Whether [ray], a direction out from the player, passes through the
   /// husk's body, taken as an ellipse and widened by [pad] radians.
@@ -45,74 +54,39 @@ final class HuskPose {
     final across =
         wrapAngle(ray.yaw - yaw) *
         math.cos(pitch) /
-        (math.atan2(vessel.halfWidth, vessel.distance) + pad);
+        (math.atan2(vessel.halfWidth, distance) + pad);
     final along =
-        (ray.pitch - pitch) /
-        (math.atan2(vessel.halfHeight, vessel.distance) + pad);
+        (ray.pitch - pitch) / (math.atan2(vessel.halfHeight, distance) + pad);
 
     return across * across + along * along <= 1;
   }
 
   /// Where seal [index] is, in metres from the player.
-  Vec3 sealPosition(int index) {
-    final local = _sealLocal(index);
-    final right = Vec3(math.cos(yaw), 0, -math.sin(yaw));
-    final towardPlayer = Vec3(-math.sin(yaw), 0, -math.cos(yaw));
-
-    return centre +
-        right * local.x +
-        Vec3.up * local.y +
-        towardPlayer * local.z;
-  }
+  Vec3 sealPosition(int index) => position + _sealOffset(index);
 
   /// The direction from the player to seal [index].
   Vec3 sealDirection(int index) => sealPosition(index).normalized;
 
-  /// Whether seal [index] is turned toward the player.
+  /// Whether seal [index] is on a side of the husk the player can see.
   ///
-  /// Only a turning body hides its seals: one that has come round to the
-  /// far side, or sits edge-on, cannot be struck.
+  /// A husk hides the seals on its far side, so one that turns its back
+  /// shows different seals from one that faces the reaper.
   bool sealFacesPlayer(int index) {
-    if (vessel.spinDegreesPerSecond == 0) {
-      return true;
-    }
+    final outward = _sealOffset(index);
 
-    final local = _sealLocal(index);
-    final radius = math.sqrt(local.x * local.x + local.z * local.z);
-
-    return local.z >= _facingShare * radius;
+    return outward.dot(-direction) >= _facingShare * outward.length;
   }
 
-  /// A seal counts as facing the player while it sits within about 70
-  /// degrees of the nearest point of the body.
-  static const _facingShare = 0.34;
+  /// A seal is hidden only once it is well round the far side: more than
+  /// about 105 degrees from the nearest point of the body. One on the very
+  /// edge of the silhouette can still be seen, and struck.
+  static const _facingShare = -0.25;
 
-  /// The seal's place in the husk's own frame after spin and orbit.
-  Vec3 _sealLocal(int index) {
-    final seal = vessel.seals[index];
-    var offset = seal.offset;
+  /// Seal [index]'s place relative to the middle of the body, in the hunt's
+  /// space.
+  Vec3 _sealOffset(int index) {
+    final offset = vessel.seals[index].offset;
 
-    if (seal.orbitRadius > 0) {
-      final angle = orbit + seal.orbitPhase;
-
-      offset = Vec3(
-        math.cos(angle) * seal.orbitRadius,
-        math.sin(angle) * seal.orbitRadius,
-        0.06,
-      );
-    }
-
-    if (spin == 0) {
-      return offset;
-    }
-
-    final cosine = math.cos(spin);
-    final sine = math.sin(spin);
-
-    return Vec3(
-      offset.x * cosine + offset.z * sine,
-      offset.y,
-      offset.z * cosine - offset.x * sine,
-    );
+    return left * offset.x + Vec3.up * offset.y + forward * offset.z;
   }
 }

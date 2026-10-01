@@ -32,10 +32,9 @@ final class RiftTable {
     required List<RiftEntrant> reapers,
     RiftSite site = RiftSite.londonBridge,
     int seed = 11,
-    HuntBot Function(HuntSim sim, int person) play = careful,
+    this._play = careful,
   }) : room = RiftRoom(site: site, seed: seed),
-       _reapers = reapers,
-       _play = play {
+       _reapers = reapers {
     for (final reaper in reapers) {
       seats.add(room.join(reaper));
     }

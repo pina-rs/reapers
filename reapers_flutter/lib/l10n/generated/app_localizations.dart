@@ -385,7 +385,7 @@ abstract class AppLocalizations {
   /// No description provided for @vaultStandIn.
   ///
   /// In en, this message translates to:
-  /// **'Stand-in market. No real SOL changes hands, and these collections are invented.'**
+  /// **'A simulated market. No real SOL changes hands and no real NFT is touched. The collections are real ones from Solana\'s first wave; the creatures are our own models of them, and nothing here is licensed yet.'**
   String get vaultStandIn;
 
   /// No description provided for @vaultBuy.
@@ -1143,6 +1143,126 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This rift only answers a reaper who carries one of its dead. Absorb an NFT from its collection first.'**
   String get refusalNotAttuned;
+
+  /// No description provided for @scanLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading the room'**
+  String get scanLabel;
+
+  /// No description provided for @scanTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Something is nearby.'**
+  String get scanTitle;
+
+  /// No description provided for @scanFloor.
+  ///
+  /// In en, this message translates to:
+  /// **'It keeps to the ground. Tip the phone down and sweep it slowly across the floor in front of you, so the veil knows where it can stand.'**
+  String get scanFloor;
+
+  /// No description provided for @scanFloorDrag.
+  ///
+  /// In en, this message translates to:
+  /// **'It keeps to the ground. Drag down to look at the floor, then drag slowly across it, so the veil knows where it can stand.'**
+  String get scanFloorDrag;
+
+  /// No description provided for @scanAir.
+  ///
+  /// In en, this message translates to:
+  /// **'It keeps to the air. Look around slowly at about head height, so the veil knows where it can go.'**
+  String get scanAir;
+
+  /// No description provided for @scanAirDrag.
+  ///
+  /// In en, this message translates to:
+  /// **'It keeps to the air. Drag slowly from side to side at about head height, so the veil knows where it can go.'**
+  String get scanAirDrag;
+
+  /// No description provided for @scanReading.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading. Keep going.'**
+  String get scanReading;
+
+  /// No description provided for @scanSlower.
+  ///
+  /// In en, this message translates to:
+  /// **'Slower. Nothing can be made out.'**
+  String get scanSlower;
+
+  /// No description provided for @scanLower.
+  ///
+  /// In en, this message translates to:
+  /// **'Too high. Tip the phone down.'**
+  String get scanLower;
+
+  /// No description provided for @scanHigher.
+  ///
+  /// In en, this message translates to:
+  /// **'Too low. Tip the phone up.'**
+  String get scanHigher;
+
+  /// No description provided for @scanProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Read'**
+  String get scanProgress;
+
+  /// No description provided for @scanFound.
+  ///
+  /// In en, this message translates to:
+  /// **'It is here'**
+  String get scanFound;
+
+  /// No description provided for @feedingMeagre.
+  ///
+  /// In en, this message translates to:
+  /// **'Meagre ×0.85'**
+  String get feedingMeagre;
+
+  /// No description provided for @feedingFair.
+  ///
+  /// In en, this message translates to:
+  /// **'Fair ×1'**
+  String get feedingFair;
+
+  /// No description provided for @feedingRich.
+  ///
+  /// In en, this message translates to:
+  /// **'Rich ×1.25'**
+  String get feedingRich;
+
+  /// No description provided for @feedingFeast.
+  ///
+  /// In en, this message translates to:
+  /// **'A feast ×2'**
+  String get feedingFeast;
+
+  /// No description provided for @huntFeeding.
+  ///
+  /// In en, this message translates to:
+  /// **'Feeding'**
+  String get huntFeeding;
+
+  /// No description provided for @huntReceipt.
+  ///
+  /// In en, this message translates to:
+  /// **'Receipt'**
+  String get huntReceipt;
+
+  /// No description provided for @huntReceiptSigned.
+  ///
+  /// In en, this message translates to:
+  /// **'Signed by the keeper'**
+  String get huntReceiptSigned;
+
+  /// No description provided for @huntReceiptUnsigned.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsigned, played offline'**
+  String get huntReceiptUnsigned;
 
   /// No description provided for @huntSightedLabel.
   ///

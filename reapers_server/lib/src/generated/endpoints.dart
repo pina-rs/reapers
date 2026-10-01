@@ -193,6 +193,16 @@ class Endpoints extends _is.EndpointDispatch {
                     params['log'],
                   ),
         ),
+        'receiptKey': _is.MethodConnector(
+          name: 'receiptKey',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['player'] as _ikcol2tc.PlayerEndpoint)
+                  .receiptKey(session),
+        ),
         'buyWeapon': _is.MethodConnector(
           name: 'buyWeapon',
           params: {

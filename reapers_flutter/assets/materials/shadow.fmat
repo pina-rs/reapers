@@ -1,0 +1,31 @@
+// The dark patch under a husk that stands on the floor.
+//
+// It is the cheapest thing that makes a creature sit on the real floor in
+// the camera feed instead of hovering over it: a disc that is darkest in
+// the middle and gone by its rim. The disc's texture coordinates run from
+// its middle (0.5, 0.5), which is all this needs.
+material {
+  name: "Shadow",
+  shading_model: unlit,
+  blending: alpha,
+  culling: none,
+  parameters: [
+    { type: float, name: strength, hint: range(0, 1, 0.01), default: 0.55 },
+    { type: float, name: dissolve, hint: range(0, 1, 0.01), default: 0 },
+    // Shared with the other husk materials so one call can set them all.
+    { type: float, name: flash, hint: range(0, 1, 0.01), default: 0 },
+  ],
+}
+
+fragment {
+  void Surface(inout MaterialInputs material) {
+    float reach = length(GetUV0() * 2.0 - 1.0);
+    float shade = 1.0 - smoothstep(0.15, 1.0, reach);
+
+    material.base_color = vec4(
+        0.0, 0.0, 0.0,
+        shade * shade * material_params.strength *
+            (1.0 - material_params.dissolve));
+    PrepareMaterial(material);
+  }
+}

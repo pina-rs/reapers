@@ -22,9 +22,9 @@ Everything that decides an outcome lives in `reapers_shared` and nowhere else: h
 Two types carry most of it:
 
 - **`PlayerState`** is everything a player owns and has done, as one immutable value. Each thing a player can ask for is a method that returns the next state or throws a `RuleBreach` naming a `Refusal`. It reads no clock and rolls no dice: seeds and times are passed in, so the server decides them for an online player.
-- **`HuntSim`** is one encounter, advanced a tick at a time from quantised inputs (aim in hundredths of a degree, turn speed in thousandths of a radian a second). The same seed and the same inputs always end the same way, on any device.
+- **`HuntSim`** is one encounter, advanced a tick at a time from quantised inputs (aim in hundredths of a degree, turn speed in thousandths of a radian a second). A husk has a real position around the player, in metres, and moves through it: along the floor or through the air, inside the `HuntPlan` it was given. The same seed, the same plan and the same inputs always end the same way, on any device.
 
-That determinism is what makes cheating a lone hunt pointless. The phone records each tick's input into a `HuntLog` (7 bytes a tick, 4 more per tap) and sends that, not a result. The server replays it and pays whatever the replay earns. It replays with windows 3% wider than the phone played with, so a hunt won by a hair is never lost to rounding.
+That determinism is what makes cheating a lone hunt pointless. The phone records the plan and each tick's input into a `HuntLog` (5 bytes for the plan, 7 a tick, 4 more per tap) and sends that, not a result. The server replays it and pays whatever the replay earns. It replays with windows 3% wider than the phone played with, so a hunt won by a hair is never lost to rounding. A plan too narrow to be a fair hunt is refused.
 
 ## The game
 
@@ -46,13 +46,17 @@ lib/
 
 **The arena.** `HuntArena` owns the scene, the husk and the phone's pose, and shows whatever `HuntSim` it is given. A lone hunt and a seat in a rift are both fought in it. Screens lay their own words over it.
 
+**Reading the room.** Before a hunt, `RoomReader` watches where the phone points and turns what the player has looked over into a `HuntPlan`: the arc a husk may move in. Today it knows where the player looked and which way is down. Anything that learns more about the room (ARKit, ARCore, a depth model) replaces the reader and hands the hunt a better plan; see [environment.md](environment.md).
+
 **Pose.** Where the phone points comes from a `PoseSource`. `DevicePoseSource` fuses the gyroscope and accelerometer; `DragPoseSource` follows a finger, for simulators and desktops; `AdaptivePoseSource` uses the device when it answers and the drag when it does not. ARKit and ARCore would be a fourth source behind the same interface.
 
 **3D.** Rendering is `flutter_scene` on Flutter GPU (Impeller). Three custom materials in `assets/materials/` do most of the visual work:
 
 - `reaper.fmat` draws every part of every reaper. A model's vertex colours are masks, not colours (grime, char, wear, hollow), so an outfit is a handful of shader numbers rather than another model: the same cloth is dyed, charred from the hem up, then eaten away.
-- `husk.fmat` puts an NFT's image on a vessel, lights it from within and dissolves it.
-- `spectre.fmat` is the cloth and smoke that trails from husks.
+- `husk.fmat` draws a husk's surfaces in an NFT's colours, lights its eyes and seals, and dissolves it. On a rift's husk it also carries the collection's portraits.
+- `shadow.fmat` is the soft dark patch under a husk that stands on the floor.
+
+**Creatures.** A husk's creature is not skinned. It is built from rigid parts on named pivots, and `HuskRig` moves the pivots from what the rules say the husk is doing: legs swing as fast as it is going, wings beat, the jaw drops as it draws breath, the head turns to watch the player.
 
 Models and materials are compiled by the build hook in `hook/build.dart`, so changing one needs a full `flutter run`, not a hot restart.
 
@@ -60,9 +64,7 @@ Models and materials are compiled by the build hook in `hook/build.dart`, so cha
 
 ## Art
 
-There are no hand-made model files. Every reaper, weapon and husk is built by a Python script run inside headless Blender, driven by `dart tool/build_art.dart`. The husk scripts read their dimensions from the shared `Vessel` enum, so the model and the hit-testing cannot disagree. See `art/blender/README.md`.
-
-The NFT stand-in art is drawn by `dart tool/build_nft_art.dart`.
+There are no hand-made model files. Every reaper, weapon and husk is built by a Python script run inside headless Blender, driven by `dart tool/build_art.dart`. The husk scripts read their dimensions and seal positions from the shared `Vessel` enum, and fail the build if a creature does not fit them, so the model and the hit-testing cannot disagree. The same build renders every NFT's portrait from its creature and its look. See `art/blender/README.md`.
 
 ## The server
 
@@ -70,10 +72,11 @@ Serverpod 4, with its embedded Postgres in development and tests.
 
 - **Sign-in.** A fresh install plays as a guest (the anonymous identity provider) so nobody signs up before their first hunt. That guest account is what a wallet will later link to.
 - **`PlayerEndpoint`** stores each player's `PlayerState` whole, in one row. Every request locks the row, applies one shared rule and stores the result (`PlayerBooks.change`). No method takes a player id from the client.
+- **Receipts.** When a hunt is absorbed, the server rolls how well the reaper fed and signs the result with Ed25519 (`AbsorptionReceipt`, `ReceiptSigner`), in a fixed 98-byte layout a Solana program could verify. See [nfts.md](nfts.md).
 - **`RiftEndpoint`** is one streaming call per reaper: frames come down, the reaper's reports go up. `RiftHall` keeps the open rifts in memory and moves each on ten times a second.
 - **Refusals** cross the wire as a `Refused` exception carrying the shared `Refusal`'s name, so an online player is told exactly what an offline one would be.
 
-Secrets are never committed. `config/passwords.yaml` is git-ignored and created from `passwords.example.yaml`; a deployed server reads `SERVERPOD_PASSWORD_<name>` from its environment and refuses to start in staging or production without them.
+Secrets are never committed. `config/passwords.yaml` is git-ignored and created from `passwords.example.yaml`; a deployed server reads `SERVERPOD_PASSWORD_<name>` from its environment and refuses to start in staging or production without them, the receipt signing secret included.
 
 ## Rifts
 
@@ -85,7 +88,10 @@ Shades are the same simulated player the tests use, stepped by the room.
 
 ## Known limits of this design
 
+- **The room is not understood.** A husk stands on a floor assumed from gravity and standing height, and knows nothing of furniture. See [environment.md](environment.md).
+- **The plan is the phone's word.** The server checks a plan is wide enough to be fair, not that the player really looked there.
 - **Rifts trust the client.** A hunt is replayed; a rift is not. Making it so means sending each seat's input log and replaying it against the shared ward's history.
 - **Rifts live in one process.** Every reaper in a circle must be connected to the same server instance. Running more than one needs the room moved to shared state or the circle pinned to an instance.
 - **The player is one row.** That is the right size now and will not be once a codex holds thousands of entries.
 - **Models are heavy.** The six reaper models are 6 to 7 MB each, mostly from morph targets. They want trimming before a store build.
+- **Receipts are not posted.** They are signed and stored; nothing on a chain reads them yet.

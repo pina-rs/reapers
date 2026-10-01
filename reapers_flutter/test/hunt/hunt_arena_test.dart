@@ -5,11 +5,11 @@ import 'package:reapers_flutter/hunt/pose/pose_sources.dart';
 import 'package:reapers_shared/reapers_shared.dart';
 
 const _view = Size(402, 874);
-const _saint = Nft(collection: NftCollection.tinSaints, serial: 1);
+const _saint = Nft(collection: NftCollection.degenApes, serial: 1);
 
 HuntSim _sim() => HuntSim(
   seed: 7,
-  vessel: Vessel.frameWraith,
+  vessel: Vessel.penguin,
   ward: Rarity.common.ward,
   stats: HuntStats.derive(HuntLoadout.borrowed),
 );
@@ -17,7 +17,7 @@ HuntSim _sim() => HuntSim(
 /// An arena looked around by dragging, as on a simulator. The husk is never
 /// loaded, so nothing here needs a GPU or a motion sensor.
 HuntArena _arena() => HuntArena(
-  vessel: Vessel.frameWraith,
+  vessel: Vessel.penguin,
   relics: const [_saint],
   poseSource: DragPoseSource(),
 );

@@ -10,49 +10,76 @@ import 'nft_image.dart';
 /// The shader for a husk's solid surfaces.
 const huskMaterialAsset = 'assets/materials/husk.fmat';
 
-/// The shader for a husk's cloth and smoke.
-const spectreMaterialAsset = 'assets/materials/spectre.fmat';
+/// The shader for the dark patch under a husk that stands on the floor.
+const shadowMaterialAsset = 'assets/materials/shadow.fmat';
 
 /// The model of one vessel.
 String huskModelAsset(Vessel vessel) => 'assets/models/husk_${vessel.name}.glb';
 
-/// One husk: a vessel wearing an NFT's image.
+/// What a husk is doing, as far as showing it goes.
+typedef HuskMood = ({
+  /// How fast it is covering ground, in metres a second.
+  double speed,
+
+  /// How wide its mouth is open, from 0 to 1.
+  double gape,
+});
+
+/// One husk: a collection's creature, dressed as one NFT.
 ///
 /// The rig only ever draws what the rules say. It is told where the husk is
-/// with [place], and told what happened with [flash] and [dissolve]; it
-/// decides nothing about the hunt.
+/// with [place], what it is doing with [animate], and what happened with
+/// [flash] and [dissolve]; it decides nothing about the hunt.
+///
+/// A creature is built from rigid parts on pivots, and this is where they
+/// move: legs swing as fast as the creature is going, wings beat, the head
+/// turns to watch the player. See art/blender/README.md for the parts.
 final class HuskRig {
   HuskRig._({
     required this.root,
     required this.vessel,
     required this.light,
     required this._model,
-    required this._solid,
-    required this._spectral,
-  });
+    required this._lift,
+    required this._materials,
+  }) {
+    _visit(_model, 0, (node, _) {
+      if (_moving.contains(node.name)) {
+        _rest[node.name] = (node, node.localTransform.clone());
+      }
+    });
+  }
 
-  /// Loads [vessel] and dresses it in [pictures].
+  /// Loads [vessel] and dresses it as [relics].
   ///
-  /// Most husks wear one picture all over. A body built from several parts
-  /// the art build numbered (`cube_0`, `cube_1` and so on) gives each part
-  /// the next picture in turn, going round again if there are more parts
-  /// than pictures.
+  /// A creature is one NFT: its colours and the thing it wears come from
+  /// that NFT's look. A rift's husk is a whole collection: each of its cubes
+  /// wears the portrait of the next relic in turn.
   ///
   /// `Scene.initializeStaticResources` must have completed first.
   static Future<HuskRig> load({
     required Vessel vessel,
-    required List<NftImage> pictures,
+    required List<Nft> relics,
   }) async {
     final model = await loadScene(huskModelAsset(vessel));
-    final light = pictures.first.light;
+    final look = relics.first.look;
+    final pictures = vessel.isSolo
+        ? const <NftImage>[]
+        : [for (final relic in relics) await NftImage.load(relic)];
     final textures = [
       for (final picture in pictures) await Texture2D.fromImage(picture.image),
     ];
-    final solid = <String, PreprocessedMaterial>{};
-    final spectral = <PreprocessedMaterial>[];
+    final light = vessel.isSolo ? _colour(look.accent) : pictures.first.light;
+    final materials = <String, PreprocessedMaterial>{};
     final primitives = <(MeshPrimitive, int)>[];
 
     _visit(model, 0, (node, part) {
+      final worn = _traitName.firstMatch(node.name);
+
+      if (worn != null) {
+        node.visible = int.parse(worn.group(1)!) == look.trait;
+      }
+
       final mesh = node.mesh;
 
       if (mesh == null) {
@@ -66,44 +93,45 @@ final class HuskRig {
 
     for (final (primitive, part) in primitives) {
       final name = primitive.material.name.split('.').first;
-
-      if (name == 'shroud') {
-        final material = await loadFmatMaterial(spectreMaterialAsset);
-
-        material.parameters.setColor('tint', light);
-        spectral.add(material);
-        primitive.material = material;
-        continue;
-      }
-
-      final picture = part % textures.length;
+      final picture = textures.isEmpty ? 0 : part % textures.length;
       final key = '$name/$picture';
-      var material = solid[key];
+      var material = materials[key];
 
       if (material == null) {
-        final texture = textures[picture];
-
-        material = await loadFmatMaterial(huskMaterialAsset);
-        material.name = name;
-        _style(material.parameters, name, light);
-        material.parameters.setTexture(
-          'image',
-          texture.gpuTexture,
-          sampler: texture.sampledSampler,
+        material = await loadFmatMaterial(
+          name == 'shadow' ? shadowMaterialAsset : huskMaterialAsset,
         );
-        solid[key] = material;
+        material.name = name;
+
+        if (name != 'shadow') {
+          _style(material.parameters, name, look, light);
+        }
+
+        if (textures.isNotEmpty && name == 'canvas') {
+          final texture = textures[picture];
+
+          material.parameters.setTexture(
+            'image',
+            texture.gpuTexture,
+            sampler: texture.sampledSampler,
+          );
+        }
+
+        materials[key] = material;
       }
 
       primitive.material = material;
     }
 
+    final lift = Node(name: 'husk_lift')..add(model);
+
     return HuskRig._(
-      root: Node(name: 'husk_rig')..add(model),
+      root: Node(name: 'husk_rig')..add(lift),
       vessel: vessel,
       light: light,
       model: model,
-      solid: solid,
-      spectral: spectral,
+      lift: lift,
+      materials: materials,
     );
   }
 
@@ -112,43 +140,84 @@ final class HuskRig {
 
   final Vessel vessel;
 
-  /// The colour this husk glows, taken from its image.
+  /// The colour this husk glows: the light in its eyes.
   final Color light;
 
   final Node _model;
-  final Map<String, PreprocessedMaterial> _solid;
-  final List<PreprocessedMaterial> _spectral;
 
-  late final Node? _orbit = _find(_model, 'orbit');
-  late final Node? _drift = _find(_model, 'drift');
-  late final Node? _ribbon = _find(_model, 'ribbon');
-  late final Node? _flame = _find(_model, 'flame');
+  /// Sits between [root] and the model, and carries the rise and fall of a
+  /// step or a wingbeat, so that neither the placement nor the model's own
+  /// transform is disturbed.
+  final Node _lift;
+
+  final Map<String, PreprocessedMaterial> _materials;
+
+  /// Every pivot the game moves, with the transform the model gave it.
+  final _rest = <String, (Node, vm.Matrix4)>{};
 
   double _seconds = 0;
+  double _stride = 0;
+  double _effort = 0;
+  double _gape = 0;
   double _flash = 0;
   double _punch = 0;
+  double _watchYaw = 0;
+  double _watchPitch = 0;
+
+  /// The pivots a creature may have. See art/blender/README.md.
+  static const _moving = {
+    'head',
+    'neck',
+    'jaw',
+    'leg_l',
+    'leg_r',
+    'leg_fl',
+    'leg_fr',
+    'leg_bl',
+    'leg_br',
+    'arm_l',
+    'arm_r',
+    'wing_l',
+    'wing_r',
+    'tail',
+  };
 
   /// How fast a strike's flash fades, as a share lost each second.
   static const _flashDecay = 7.0;
 
-  /// Puts the husk where the rules say it is, turned as they say.
+  /// How far a head turns to keep watching the player, either way. It is
+  /// kept small because seals sit on heads: the rules fix a seal to the
+  /// body, so a head that turned far would leave its seal behind.
+  static final _headTurn = radians(20);
+  static final _headTilt = radians(14);
+
+  /// How much of its eye colour edges a creature's coat. Just enough to
+  /// lift a dark coat off a dark room, and no more: at full strength a
+  /// creature reads as a glowing outline instead of an animal.
+  static const _rim = 0.12;
+
+  /// Puts the husk where the rules say it is, facing the way they say.
   void place(HuskPose pose) {
-    final centre = pose.centre;
-    // The model faces -z, so turning it by the husk's bearing leaves it
-    // facing the player. A spinning body turns against that.
-    final turn = vm.Matrix4.rotationY(pose.yaw - pose.spin);
+    final at = pose.position;
     final size = 1 + _punch * 0.06;
 
+    // The model faces -z, so a husk whose heading is straight back at the
+    // player (pi) needs no turn at all.
     root.localTransform =
-        vm.Matrix4.translationValues(centre.x, centre.y, centre.z) *
-        turn *
+        vm.Matrix4.translationValues(at.x, at.y, at.z) *
+        vm.Matrix4.rotationY(pose.heading - math.pi) *
         vm.Matrix4.diagonal3Values(size, size, size);
 
-    _orbit?.localTransform = vm.Matrix4.rotationZ(pose.orbit);
+    // Where the player is, from where the husk stands: to its right when
+    // positive, and above it when positive.
+    _watchYaw = wrapAngle(
+      pose.yaw + math.pi - pose.heading,
+    ).clamp(-_headTurn, _headTurn);
+    _watchPitch = (-pose.pitch).clamp(-_headTilt, _headTilt);
   }
 
   /// Advances everything about the husk that is only for show.
-  void animate(double deltaSeconds) {
+  void animate(double deltaSeconds, {HuskMood mood = (speed: 0, gape: 0)}) {
     _seconds += deltaSeconds;
 
     final fade = math.exp(-_flashDecay * deltaSeconds);
@@ -157,29 +226,68 @@ final class HuskRig {
     _punch *= fade;
     _setAll('flash', _flash);
 
-    for (final material in _spectral) {
-      material.parameters.setFloat('time', _seconds);
+    // How hard it is working, from standing (0) through ambling to flat out
+    // (1). It eases, so a creature does not snap between gaits.
+    final target = vessel.boltSpeed <= 0
+        ? 0.0
+        : (mood.speed / vessel.boltSpeed).clamp(0.0, 1.0);
+    final ease = 1 - math.exp(-8 * deltaSeconds);
+
+    _effort += (target - _effort) * ease;
+    _gape += (mood.gape - _gape) * (1 - math.exp(-14 * deltaSeconds));
+    // Strides come faster the faster it goes, and never quite stop: a
+    // creature at rest still shifts its weight.
+    _stride += deltaSeconds * (2.2 + 9 * _effort);
+
+    final swing = (0.08 + 0.75 * math.sqrt(_effort)) * math.sin(_stride);
+    final t = _seconds;
+
+    for (final MapEntry(key: name, value: (node, rest)) in _rest.entries) {
+      final turn = switch (name) {
+        // A four-legged gait moves diagonal pairs together.
+        'leg_fl' || 'leg_br' || 'leg_l' || 'arm_r' => vm.Matrix4.rotationX(
+          swing,
+        ),
+        'leg_fr' || 'leg_bl' || 'leg_r' || 'arm_l' => vm.Matrix4.rotationX(
+          -swing,
+        ),
+        // Wings beat all the time, harder when it is fleeing. Left and
+        // right mirror each other.
+        'wing_l' => vm.Matrix4.rotationZ(_beat(t)),
+        'wing_r' => vm.Matrix4.rotationZ(-_beat(t)),
+        'tail' => vm.Matrix4.rotationY(
+          (0.18 + 0.3 * _effort) * math.sin(_stride * 0.5 + 1),
+        ),
+        'neck' => vm.Matrix4.rotationX(
+          0.05 * math.sin(t * 0.8) + 0.1 * _effort * math.sin(_stride * 2),
+        ),
+        // The head keeps the player in sight, and looks about a little.
+        'head' =>
+          vm.Matrix4.rotationY(_watchYaw + 0.06 * math.sin(t * 0.7)) *
+              vm.Matrix4.rotationX(_watchPitch + 0.04 * math.sin(t * 1.1)),
+        'jaw' => vm.Matrix4.rotationX(-0.75 * _gape),
+        _ => vm.Matrix4.identity(),
+      };
+
+      node.localTransform = rest * turn;
     }
 
-    _drift?.localTransform =
-        vm.Matrix4.rotationZ(-_seconds * 0.35) *
-        vm.Matrix4.translationValues(0, 0.02 * math.sin(_seconds * 1.3), 0);
-
-    final ribbon = _ribbon;
-
-    if (ribbon != null && ribbon.morphTargetCount >= 2) {
-      // Two keys a quarter-wave apart, blended with a sine and a cosine,
-      // make the wave travel down the ribbon.
-      ribbon.setMorphWeights([
-        math.cos(_seconds * 3.2),
-        math.sin(_seconds * 3.2),
-      ]);
-    }
-
-    final flicker = 1 + 0.12 * math.sin(_seconds * 11) * math.sin(_seconds * 7);
-
-    _flame?.scale = vm.Vector3.all(flicker);
+    // A walker rises and falls with each step; a flier with each beat.
+    _lift.localTransform = vm.Matrix4.translationValues(
+      0,
+      vessel.gait == Gait.air
+          ? 0.02 * math.sin(t * 2 * math.pi * _beatsPerSecond)
+          : 0.03 * _effort * math.sin(_stride * 2).abs(),
+      0,
+    );
   }
+
+  double get _beatsPerSecond => 2.6 + 2.4 * _effort;
+
+  /// How far a wing is raised at [seconds], in radians.
+  double _beat(double seconds) =>
+      0.15 +
+      (0.5 + 0.2 * _effort) * math.sin(seconds * 2 * math.pi * _beatsPerSecond);
 
   /// Lights the husk up for an instant, as a strike lands. [strength] runs
   /// from 0 to 1.
@@ -192,50 +300,57 @@ final class HuskRig {
   set dissolve(double amount) => _setAll('dissolve', amount.clamp(0, 1));
 
   void _setAll(String parameter, double value) {
-    for (final material in [..._solid.values, ..._spectral]) {
+    for (final material in _materials.values) {
       material.parameters.setFloat(parameter, value);
     }
   }
 
-  static void _style(MaterialParameters parameters, String name, Color light) {
+  static void _style(
+    MaterialParameters parameters,
+    String name,
+    NftLook look,
+    Color light,
+  ) {
     parameters.setColor('glow', light);
 
     switch (name) {
+      case 'body':
+        parameters
+          ..setColor('tint', _colour(look.body))
+          ..setFloat('surface_roughness', 0.72)
+          ..setFloat('rim_strength', _rim);
+      case 'trim':
+        parameters
+          ..setColor('tint', _colour(look.trim))
+          ..setFloat('surface_roughness', 0.7)
+          ..setFloat('rim_strength', _rim);
+      case 'detail':
+        parameters
+          ..setColor('tint', _colour(look.detail))
+          ..setFloat('surface_roughness', 0.45)
+          ..setFloat('rim_strength', _rim);
+      case 'dark':
+        parameters
+          ..setColor('tint', const Color(0xFF050507))
+          ..setFloat('surface_roughness', 0.9)
+          ..setFloat('rim_strength', 0.15);
+      case 'accent':
+        parameters
+          ..setColor('tint', const Color(0xFF000000))
+          ..setFloat('glow_strength', 6)
+          ..setFloat('rim_strength', 0);
+      case 'glow':
+        parameters
+          ..setColor('tint', const Color(0xFF000000))
+          ..setFloat('glow_strength', 7)
+          ..setFloat('rim_strength', 0);
+      // The rift's husk: cubes of gilt frame around a collection's portraits.
       case 'canvas':
         parameters
           ..setFloat('image_mix', 1)
           ..setFloat('image_glow', 0.35)
           ..setFloat('surface_roughness', 0.65)
           ..setFloat('rim_strength', 0.25);
-      case 'paper':
-        parameters
-          ..setFloat('image_mix', 1)
-          ..setFloat('image_glow', 1.5)
-          ..setFloat('surface_roughness', 0.9)
-          ..setFloat('rim_strength', 0.5);
-      case 'ribbon':
-        parameters
-          ..setFloat('image_mix', 1)
-          ..setFloat('image_glow', 0.7)
-          ..setFloat('surface_roughness', 0.85)
-          ..setFloat('rim_strength', 0.5);
-      case 'shard':
-        parameters
-          ..setFloat('image_mix', 1)
-          ..setFloat('image_glow', 0.6)
-          ..setFloat('surface_roughness', 0.2)
-          ..setFloat('surface_metallic', 0.6)
-          ..setFloat('rim_strength', 1.2);
-      case 'core':
-        parameters
-          ..setColor('tint', const Color(0xFF040406))
-          ..setFloat('surface_roughness', 0.5)
-          ..setFloat('rim_strength', 2.2);
-      case 'glow':
-        parameters
-          ..setColor('tint', const Color(0xFF000000))
-          ..setFloat('glow_strength', 7)
-          ..setFloat('rim_strength', 0);
       default:
         parameters
           ..setColor('tint', const Color(0xFF2B2018))
@@ -244,21 +359,7 @@ final class HuskRig {
     }
   }
 
-  static Node? _find(Node node, String name) {
-    if (node.name == name) {
-      return node;
-    }
-
-    for (final child in node.children) {
-      final found = _find(child, name);
-
-      if (found != null) {
-        return found;
-      }
-    }
-
-    return null;
-  }
+  static Color _colour(int rgb) => Color(0xFF000000 | rgb);
 
   /// Calls [action] for [node] and everything under it, with the number of
   /// the part each belongs to: the `N` of the nearest `cube_N` above it, or
@@ -279,4 +380,5 @@ final class HuskRig {
   }
 
   static final _partName = RegExp(r'^cube_(\d+)$');
+  static final _traitName = RegExp(r'^trait_(\d+)$');
 }

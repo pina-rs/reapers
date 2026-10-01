@@ -118,7 +118,7 @@ void main() {
 
     test('mixSeed separates nearby inputs', () {
       expect(mixSeed([1, 2]), isNot(mixSeed([2, 1])));
-      expect(hashText('tinSaints:1'), isNot(hashText('tinSaints:2')));
+      expect(hashText('degenApes:1'), isNot(hashText('degenApes:2')));
     });
   });
 

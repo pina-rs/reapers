@@ -137,7 +137,10 @@ class EndpointPlayer extends _isc.EndpointRef {
   /// Replays the recorded hunt for [sightingId] and settles what it earned.
   ///
   /// [log] is the packed `HuntLog`. The verdict is the replay's; nothing the
-  /// game claims about how the hunt went is read.
+  /// game claims about how the hunt went is read. How well the reaper feeds
+  /// on an absorbed husk is rolled here, from a seed the game never sees,
+  /// and the result is signed so that it can be proven to a chain later:
+  /// see `AbsorptionReceipt`.
   _ida.Future<_ildkp1az.HuntSettlement> settleHunt(
     int sightingId,
     _idt.ByteData log,
@@ -148,6 +151,14 @@ class EndpointPlayer extends _isc.EndpointRef {
       'sightingId': sightingId,
       'log': log,
     },
+  );
+
+  /// The public key absorption receipts are signed with, as 64 hexadecimal
+  /// digits. It is what a receipt is checked against, here or on a chain.
+  _ida.Future<String> receiptKey() => caller.callServerEndpoint<String>(
+    'player',
+    'receiptKey',
+    {},
   );
 
   /// Buys the weapon [weaponId] names with anima.

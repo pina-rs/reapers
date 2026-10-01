@@ -3,13 +3,14 @@ import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:reapers_shared/reapers_shared.dart';
 
-/// Where an NFT's image is bundled.
+/// Where an NFT's portrait is bundled.
 ///
-/// The stand-in collections ship their images with the game. A real
-/// collection's images would be fetched instead; see docs/nfts.md.
+/// A portrait is a render of the NFT's own creature in its colours, made by
+/// the art build. No collection's artwork is used; see docs/nfts.md.
 String nftImageAsset(Nft nft) => 'assets/nfts/${nft.imageKey}.png';
 
-/// An NFT's image, decoded, with the colour its husk glows.
+/// An NFT's portrait, decoded, with the colour it would glow. The husk of a
+/// rift wears these on its cubes.
 final class NftImage {
   const NftImage({required this.image, required this.light});
 

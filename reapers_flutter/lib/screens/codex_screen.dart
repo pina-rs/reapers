@@ -3,6 +3,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:reapers_shared/reapers_shared.dart';
 
 import '../l10n/l10n.dart';
+import '../l10n/lookups.dart';
 import '../src/state/player.dart';
 import '../theme/veil.dart';
 import '../widgets/ledger.dart';
@@ -64,13 +65,28 @@ class CodexScreen extends HookConsumerWidget {
                     Expanded(
                       child: Text(entry.nft.title, style: Veil.body(size: 15)),
                     ),
-                    Text(
-                      switch (entry.grade) {
-                        ReapGrade.perfect => l10n.huntGradePerfect,
-                        ReapGrade.clean => l10n.huntGradeClean,
-                        ReapGrade.ragged => l10n.huntGradeRagged,
-                      }.toUpperCase(),
-                      style: Veil.label(size: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          switch (entry.grade) {
+                            ReapGrade.perfect => l10n.huntGradePerfect,
+                            ReapGrade.clean => l10n.huntGradeClean,
+                            ReapGrade.ragged => l10n.huntGradeRagged,
+                          }.toUpperCase(),
+                          style: Veil.label(size: 10),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          feedingName(l10n, entry.feeding),
+                          style: Veil.body(
+                            size: 12,
+                            color: entry.feeding == Feeding.feast
+                                ? light
+                                : Veil.ash,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

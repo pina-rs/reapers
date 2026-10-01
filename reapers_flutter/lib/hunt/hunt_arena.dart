@@ -7,7 +7,6 @@ import 'package:reapers_shared/reapers_shared.dart';
 import 'package:vector_math/vector_math.dart' as vm;
 
 import '../render/husk_rig.dart';
-import '../render/nft_image.dart';
 import '../render/veil_look.dart';
 import 'camera_backdrop.dart';
 import 'hunt_controller.dart';
@@ -38,8 +37,8 @@ final class HuntArena {
 
   final Vessel vessel;
 
-  /// The NFTs whose images the husk wears. One for an ordinary husk; a rift's
-  /// husk wears a whole collection.
+  /// The NFTs the husk is. One for an ordinary husk, which is that NFT's
+  /// creature in its colours; a rift's husk is a whole collection.
   final List<Nft> relics;
 
   /// Made on first use, which is when the husk is loaded: everything about
@@ -66,6 +65,10 @@ final class HuntArena {
   /// How far the husk has come apart, from 0 (whole) to 1 (gone).
   double comeApart = 0;
 
+  /// How far a husk that has just appeared has come together, from 0 (not
+  /// there yet) to 1 (whole).
+  double _gathered = 1;
+
   /// The size of the view, kept so that a strike the player did not touch
   /// the screen for can still leave its mark in the right place.
   Size viewSize = Size.zero;
@@ -76,6 +79,9 @@ final class HuntArena {
 
   /// How long a husk takes to come apart once the fight is over.
   static const _dissolveSeconds = 1.7;
+
+  /// How long a husk takes to come together when it first appears.
+  static const _gatherSeconds = 1.1;
 
   /// How far a husk whose ward has broken has already come apart.
   static const _brokenDissolve = 0.2;
@@ -88,11 +94,10 @@ final class HuntArena {
     await Scene.initializeStaticResources();
     VeilLook.hunt(scene);
 
-    rig = await HuskRig.load(
-      vessel: vessel,
-      pictures: [for (final relic in relics) await NftImage.load(relic)],
-    );
+    rig = await HuskRig.load(vessel: vessel, relics: relics);
     _loaded = true;
+    // Until it has somewhere to be, a husk is not there at all.
+    rig.root.visible = _rest != null;
     _placeAtRest();
     scene.add(rig.root);
   }
@@ -104,7 +109,14 @@ final class HuntArena {
   }
 
   /// Hands the arena the fight it is to show.
+  ///
+  /// A husk that was not in view until now gathers itself out of nothing
+  /// where the fight begins.
   void engage(HuntSim sim) {
+    if (_rest == null) {
+      _gathered = 0;
+    }
+
     controller = autoplay
         ? AutoplayHuntController(sim: sim)
         : HuntController(sim: sim, poseSource: poseSource);
@@ -170,10 +182,24 @@ final class HuntArena {
       comeApart = sim.phase == HuntPhase.broken ? _brokenDissolve : 0;
     }
 
+    _gathered = math.min(1, _gathered + deltaSeconds / _gatherSeconds);
+
     rig
-      ..dissolve = comeApart
+      ..dissolve = math.max(comeApart, 1 - _gathered)
       ..place(sim.pose)
-      ..animate(deltaSeconds);
+      ..animate(
+        deltaSeconds,
+        mood: (
+          speed: sim.speed,
+          // Its mouth opens as it draws breath and stays open for the
+          // shriek.
+          gape: switch (sim.phase) {
+            HuntPhase.windup => sim.shriekProgress,
+            HuntPhase.shriek => 1.0,
+            _ => 0.0,
+          },
+        ),
+      );
 
     for (final slash in slashes) {
       slash.age += deltaSeconds;
@@ -227,7 +253,9 @@ final class HuntArena {
     final rest = _rest;
 
     if (_loaded && rest != null) {
-      rig.place(rest);
+      rig
+        ..root.visible = true
+        ..place(rest);
     }
   }
 
@@ -278,6 +306,7 @@ class HuntArenaView extends HookWidget {
     required this.loaded,
     required this.running,
     required this.onEvents,
+    this.onIdle,
     this.showSealOrder = false,
   });
 
@@ -292,6 +321,10 @@ class HuntArenaView extends HookWidget {
 
   /// Told what happened each frame the fight runs.
   final void Function(List<HuntEvent> events) onEvents;
+
+  /// Called each frame the fight is not running, with the seconds since the
+  /// last: for whatever goes on before a fight, such as reading the room.
+  final void Function(double deltaSeconds)? onIdle;
 
   /// Whether open seals are numbered in the order they opened.
   final bool showSealOrder;
@@ -325,6 +358,7 @@ class HuntArenaView extends HookWidget {
                   onEvents(arena.advance(deltaSeconds));
                 } else {
                   arena.idle(deltaSeconds);
+                  onIdle?.call(deltaSeconds);
                 }
               },
               cameraBuilder: (_) => arena.camera,

@@ -3,6 +3,11 @@
 ///     dart tool/build_art.dart              build everything
 ///     dart tool/build_art.dart reapers      build one script
 ///     dart tool/build_art.dart --preview    also render review sheets
+///     dart tool/build_art.dart --specs-only write art/build/vessels.json only
+///
+/// Building the husks also renders every NFT's portrait into
+/// `reapers_flutter/assets/nfts`: each is its collection's creature in that
+/// NFT's own colours.
 ///
 /// The sources are the scripts in `art/blender`. Blender's authoring API is
 /// Python, so those scripts are Python; this tool is what runs them, and it is
@@ -23,6 +28,7 @@ const blenderRelease = '5.1';
 
 const _scripts = ['reapers', 'weapons', 'husks'];
 const _models = 'reapers_flutter/assets/models';
+const _portraits = 'reapers_flutter/assets/nfts';
 const _previews = 'art/build/previews';
 
 Future<void> main(List<String> arguments) async {
@@ -37,13 +43,21 @@ Future<void> main(List<String> arguments) async {
     exit(64);
   }
 
-  await _requireBlender();
-
   final specs = File('art/build/vessels.json');
 
   specs
     ..createSync(recursive: true)
     ..writeAsStringSync(jsonEncode(_vesselSpecs()));
+
+  // Writing the specs alone is enough to build one model by hand while
+  // working on it: see art/blender/README.md.
+  if (arguments.contains('--specs-only')) {
+    stdout.writeln('wrote  ${specs.path}');
+
+    return;
+  }
+
+  await _requireBlender();
 
   for (final script in scripts) {
     final source = File('art/blender/$script.py');
@@ -67,6 +81,7 @@ Future<void> main(List<String> arguments) async {
       '--specs',
       specs.path,
       if (preview) ...['--preview', _previews],
+      if (script == 'husks') ...['--portraits', _portraits],
     ]);
 
     if (exitCode != 0) {
@@ -76,22 +91,28 @@ Future<void> main(List<String> arguments) async {
   }
 }
 
-/// The body sizes and seal positions the rules use, for the art build.
+/// The body sizes and seal positions the rules use, for the art build, with
+/// the look of every NFT that wears each body.
 ///
 /// The models are shaped to these numbers rather than the other way round, so
-/// a seal is always drawn exactly where the rules say a strike lands.
+/// a seal is always drawn exactly where the rules say a strike lands, and a
+/// portrait always shows the colours the game will dress that NFT in.
 Map<String, Object?> _vesselSpecs() => {
   for (final vessel in Vessel.values)
     vessel.name: {
+      'gait': vessel.gait.name,
       'halfWidth': vessel.halfWidth,
       'halfHeight': vessel.halfHeight,
       'seals': [
         for (final seal in vessel.seals)
           {
             'offset': [seal.offset.x, seal.offset.y, seal.offset.z],
-            'orbitRadius': seal.orbitRadius,
-            'orbitPhase': seal.orbitPhase,
           },
+      ],
+      'looks': [
+        for (final nft in marketListings)
+          if (nft.collection.vessel == vessel)
+            {'key': nft.imageKey, ...nft.look.toJson()},
       ],
     },
 };

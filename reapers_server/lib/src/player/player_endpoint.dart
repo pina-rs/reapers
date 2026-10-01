@@ -3,7 +3,9 @@ import 'dart:typed_data';
 
 import 'package:reapers_shared/reapers_shared.dart';
 import 'package:serverpod/serverpod.dart';
+import 'package:serverpod_auth_idp_server/core.dart';
 
+import '../receipts/absorption_receipt.dart';
 import 'player_books.dart';
 
 /// Everything a player can ask of their own books.
@@ -44,7 +46,10 @@ class PlayerEndpoint extends Endpoint {
   /// Replays the recorded hunt for [sightingId] and settles what it earned.
   ///
   /// [log] is the packed `HuntLog`. The verdict is the replay's; nothing the
-  /// game claims about how the hunt went is read.
+  /// game claims about how the hunt went is read. How well the reaper feeds
+  /// on an absorbed husk is rolled here, from a seed the game never sees,
+  /// and the result is signed so that it can be proven to a chain later:
+  /// see `AbsorptionReceipt`.
   Future<HuntSettlement> settleHunt(
     Session session,
     int sightingId,
@@ -52,12 +57,21 @@ class PlayerEndpoint extends Endpoint {
   ) async {
     late final HuntSettlement settlement;
 
-    await PlayerBooks.change(session, (state) {
-      settlement = state.judgeHunt(
+    await PlayerBooks.change(session, (state) async {
+      final judged = state.judgeHunt(
         sightingId,
         _log(log),
         now: _now(),
+        feedingSeed: _seed(),
         leniency: replayLeniency,
+      );
+
+      settlement = HuntSettlement(
+        state: await _signed(session, judged),
+        outcome: judged.outcome,
+        xp: judged.xp,
+        anima: judged.anima,
+        feeding: judged.feeding,
       );
 
       return settlement.state;
@@ -65,6 +79,45 @@ class PlayerEndpoint extends Endpoint {
 
     return settlement;
   }
+
+  /// The public key absorption receipts are signed with, as 64 hexadecimal
+  /// digits. It is what a receipt is checked against, here or on a chain.
+  Future<String> receiptKey(Session session) async => [
+    for (final byte in (await _signer(session)).publicKey)
+      byte.toRadixString(16).padLeft(2, '0'),
+  ].join();
+
+  /// [judged]'s state, with the absorption it recorded signed. A husk that
+  /// got away leaves nothing to sign.
+  static Future<PlayerState> _signed(
+    Session session,
+    HuntSettlement judged,
+  ) async {
+    if (!judged.outcome.absorbed) {
+      return judged.state;
+    }
+
+    final absorption = judged.state.codex.last;
+    final signer = await _signer(session);
+    final message = await AbsorptionReceipt.message(
+      playerId: '${session.authenticated!.authUserId}',
+      absorption: absorption,
+    );
+
+    return judged.state.signAbsorption(
+      absorption.nft,
+      await signer.sign(message),
+    );
+  }
+
+  /// The signer for this server. Development and tests run without the
+  /// secret and sign with a key anyone can derive; a deployed server is not
+  /// allowed to start that way.
+  static Future<ReceiptSigner> _signer(Session session) =>
+      ReceiptSigner.fromSecret(
+        session.passwords[ReceiptSigner.secretName] ??
+            ReceiptSigner.developmentSecret,
+      );
 
   /// Buys the weapon [weaponId] names with anima.
   Future<PlayerState> buyWeapon(Session session, String weaponId) =>

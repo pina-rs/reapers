@@ -13,7 +13,7 @@ Matcher refuses(Refusal refusal) => throwsA(
   isA<RuleBreach>().having((breach) => breach.refusal, 'refusal', refusal),
 );
 
-const _saint = Nft(collection: NftCollection.tinSaints, serial: 1);
+const _saint = Nft(collection: NftCollection.degenApes, serial: 1);
 
 void main() {
   late SharedPreferences preferences;

@@ -66,7 +66,7 @@ Future<PlayerState> _attune(
   TestSessionBuilder who,
   String id,
 ) async {
-  const saint = 'tinSaints:1';
+  const saint = 'degenApes:1';
 
   await endpoints.player.takeOath(who);
   await endpoints.player.acquire(who, saint);
@@ -125,7 +125,6 @@ void main() {
   }
 
   const playerId = '550e8400-e29b-41d4-a716-446655440000';
-  const otherId = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
   final site = RiftSite.londonBridge.name;
 
   withServerpod('Given a rift', (sessionBuilder, endpoints) {
@@ -135,13 +134,6 @@ void main() {
         const {},
       ),
     );
-    final other = sessionBuilder.copyWith(
-      authentication: AuthenticationOverride.authenticationInfo(
-        otherId,
-        const {},
-      ),
-    );
-
     setUp(() => RiftEndpoint.hall = _quickHall());
 
     Future<PlayerState> attune(TestSessionBuilder who, String id) =>

@@ -84,6 +84,13 @@ String rarityName(AppLocalizations l10n, Rarity rarity) => switch (rarity) {
   Rarity.epic => l10n.rarityEpic,
 };
 
+String feedingName(AppLocalizations l10n, Feeding feeding) => switch (feeding) {
+  Feeding.meagre => l10n.feedingMeagre,
+  Feeding.fair => l10n.feedingFair,
+  Feeding.rich => l10n.feedingRich,
+  Feeding.feast => l10n.feedingFeast,
+};
+
 String omenName(AppLocalizations l10n, Omen omen) => switch (omen) {
   Omen.none => l10n.omenNone,
   Omen.ashen => l10n.omenAshen,

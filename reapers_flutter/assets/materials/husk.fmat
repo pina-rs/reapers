@@ -1,9 +1,10 @@
-// The solid surfaces of a husk: whatever holds or shows the NFT's image.
+// The solid surfaces of a husk.
 //
-// One material covers the frame, the canvas, lantern paper, mirror shards
-// and the eel's ribbon; the parameters decide which it is. A surface with
-// `image_mix` at 1 shows the image untouched. `image_glow` lets the image
-// light itself, which is what makes paper look lit from within.
+// One material covers a creature's coat, its trim, its eyes and its seals,
+// and the cubes of a rift's husk; the parameters decide which it is. A
+// creature's surfaces are a flat tint, the NFT's own colours. A rift's cubes
+// set `image_mix` to 1 and show a portrait instead, and `image_glow` lets
+// that picture light itself.
 //
 // The vertex colour's red channel is ambient occlusion, as on a reaper.
 material {
@@ -78,8 +79,10 @@ fragment {
              material_params.rim_strength * rim_amount + tearing * 5.0 +
              // A strike lights the husk in its own colour. Never to white:
              // strikes land several times a second, and a body that blinks
-             // white that fast is hard on the eyes.
-             material_params.flash * 0.5);
+             // white that fast is hard on the eyes. A portrait takes far
+             // less of it, or a circle of four striking a rift's husk
+             // would keep its pictures washed out for the whole fight.
+             material_params.flash * mix(0.5, 0.14, material_params.image_mix));
 
     PrepareMaterial(material);
   }

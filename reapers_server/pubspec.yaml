@@ -9,6 +9,7 @@ environment:
 resolution: workspace
 
 dependencies:
+  cryptography: ^2.9.0
   reapers_shared:
     path: ../reapers_shared
   serverpod: 4.0.3

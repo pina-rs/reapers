@@ -533,6 +533,7 @@ void main() {
           ticks: 600,
         ),
         now: sighting.surfacesAt,
+        feedingSeed: 1,
       );
     }
 
@@ -555,7 +556,7 @@ void main() {
     test('absorbing one of its collection opens it, and only it', () {
       final player = absorbed(
         bound(),
-        const Nft(collection: NftCollection.tinSaints, serial: 1),
+        const Nft(collection: NftCollection.degenApes, serial: 1),
       );
 
       expect(player.attunedTo(RiftSite.londonBridge), isTrue);

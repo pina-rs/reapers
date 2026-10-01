@@ -1,4 +1,5 @@
 import 'armory.dart';
+import 'feeding.dart';
 import 'hunt/hunt_event.dart';
 import 'hunt/hunt_input.dart';
 import 'hunt/hunt_sim.dart';
@@ -110,25 +111,76 @@ final class Sighting {
 }
 
 /// An NFT the reaper has absorbed, kept in the codex.
+///
+/// It records everything the keeper decided at that moment, so the entry is
+/// also what a signed receipt is made from: see docs/nfts.md.
 final class Absorption {
-  const Absorption({required this.nft, required this.grade, required this.at});
+  const Absorption({
+    required this.nft,
+    required this.grade,
+    required this.feeding,
+    required this.xp,
+    required this.anima,
+    required this.nonce,
+    required this.at,
+    this.signature,
+  });
 
   factory Absorption.fromJson(Map<String, dynamic> json) => Absorption(
     nft: Nft.parse(json['nft'] as String),
     grade: ReapGrade.values.byName(json['grade'] as String),
+    feeding: Feeding.values.byName(json['feeding'] as String),
+    xp: json['xp'] as int,
+    anima: json['anima'] as int,
+    nonce: json['nonce'] as int,
     at: DateTime.parse(json['at'] as String),
+    signature: json['signature'] as String?,
   );
 
   final Nft nft;
 
   final ReapGrade grade;
 
+  /// How well the reaper fed, as the keeper rolled it.
+  final Feeding feeding;
+
+  /// Experience the absorption paid.
+  final int xp;
+
+  /// Anima the absorption paid.
+  final int anima;
+
+  /// The seed the feeding was rolled from. With the NFT it makes this
+  /// absorption unlike any other, which is what lets a receipt be used once.
+  final int nonce;
+
   final DateTime at;
+
+  /// The keeper's signature over this absorption, in base64, or null when
+  /// the keeper was the phone itself: an offline game signs nothing.
+  final String? signature;
+
+  /// This absorption, signed.
+  Absorption signedWith(String signature) => Absorption(
+    nft: nft,
+    grade: grade,
+    feeding: feeding,
+    xp: xp,
+    anima: anima,
+    nonce: nonce,
+    at: at,
+    signature: signature,
+  );
 
   Map<String, dynamic> toJson() => {
     'nft': nft.id,
     'grade': grade.name,
+    'feeding': feeding.name,
+    'xp': xp,
+    'anima': anima,
+    'nonce': nonce,
     'at': at.toIso8601String(),
+    'signature': signature,
   };
 }
 
@@ -140,6 +192,7 @@ final class HuntSettlement {
     required this.outcome,
     required this.xp,
     required this.anima,
+    required this.feeding,
   });
 
   /// Reads a settlement written by [toJson].
@@ -150,6 +203,10 @@ final class HuntSettlement {
     ),
     xp: json['xp'] as int,
     anima: json['anima'] as int,
+    feeding: switch (json['feeding']) {
+      final String name => Feeding.values.byName(name),
+      _ => null,
+    },
   );
 
   final PlayerState state;
@@ -162,11 +219,15 @@ final class HuntSettlement {
   /// Anima the hunt paid.
   final int anima;
 
+  /// How well the reaper fed, or null when the husk got away.
+  final Feeding? feeding;
+
   Map<String, dynamic> toJson() => {
     'state': state.toJson(),
     'outcome': outcome.toJson(),
     'xp': xp,
     'anima': anima,
+    'feeding': feeding?.name,
   };
 
   /// A settlement never changes, so a copy of it is itself. Serverpod asks
@@ -257,8 +318,9 @@ final class PlayerState {
     );
   }
 
-  /// The stand-in wallet a new player starts with: two and a half SOL.
-  static const startingLamports = 2500000000;
+  /// The stand-in wallet a new player starts with: three SOL, which is
+  /// enough to buy every NFT the market lists.
+  static const startingLamports = 3000000000;
 
   /// Husks that may be loose at once.
   static const maxSightings = 3;
@@ -268,7 +330,7 @@ final class PlayerState {
   static const surfaceMinSeconds = 6;
   static const surfaceMaxSeconds = 14;
 
-  static const _schema = 1;
+  static const _schema = 2;
 
   /// The bound reaper's genome, or null before the oath.
   final String? genomeCode;
@@ -443,10 +505,15 @@ final class PlayerState {
   ///
   /// An absorbed husk leaves the veil for the codex and pays out. An escaped
   /// one stays loose, to be hunted again.
+  ///
+  /// [feedingSeed] decides how well the reaper feeds on an absorbed husk. The
+  /// caller supplies it, so the server rolls for an online player and nobody
+  /// picks their own luck.
   PlayerState settleHunt(
     int sightingId,
     HuntOutcome outcome, {
     required DateTime now,
+    required int feedingSeed,
   }) {
     final sighting = huntable(sightingId, now: now);
     final grade = outcome.grade;
@@ -456,20 +523,35 @@ final class PlayerState {
     }
 
     final rarity = sighting.nft.rarity;
+    final feeding = Feeding.roll(feedingSeed);
+    final absorption = Absorption(
+      nft: sighting.nft,
+      grade: grade,
+      feeding: feeding,
+      xp: outcome.xpFor(rarity, feeding),
+      anima: outcome.animaFor(rarity),
+      nonce: feedingSeed,
+      at: now,
+    );
 
     return _copy(
-      xp: xp + outcome.xpFor(rarity),
-      anima: anima + outcome.animaFor(rarity),
+      xp: xp + absorption.xp,
+      anima: anima + absorption.anima,
       sightings: [
         for (final loose in sightings)
           if (loose.id != sightingId) loose,
       ],
-      codex: [
-        ...codex,
-        Absorption(nft: sighting.nft, grade: grade, at: now),
-      ],
+      codex: [...codex, absorption],
     );
   }
+
+  /// Attaches the keeper's [signature] to the absorption of [nft].
+  PlayerState signAbsorption(Nft nft, String signature) => _copy(
+    codex: [
+      for (final entry in codex)
+        entry.nft == nft ? entry.signedWith(signature) : entry,
+    ],
+  );
 
   /// Judges the hunt recorded in [log] and settles it.
   ///
@@ -483,6 +565,7 @@ final class PlayerState {
     int sightingId,
     HuntLog log, {
     required DateTime now,
+    required int feedingSeed,
     double leniency = 1,
   }) {
     final sighting = huntable(sightingId, now: now);
@@ -503,11 +586,20 @@ final class PlayerState {
       throw const RuleBreach(Refusal.huntUnproven);
     }
 
+    final settled = settleHunt(
+      sightingId,
+      outcome,
+      now: now,
+      feedingSeed: feedingSeed,
+    );
+    final absorption = outcome.absorbed ? settled.codex.last : null;
+
     return HuntSettlement(
-      state: settleHunt(sightingId, outcome, now: now),
+      state: settled,
       outcome: outcome,
-      xp: outcome.xpFor(sighting.nft.rarity),
-      anima: outcome.animaFor(sighting.nft.rarity),
+      xp: absorption?.xp ?? 0,
+      anima: absorption?.anima ?? 0,
+      feeding: absorption?.feeding,
     );
   }
 

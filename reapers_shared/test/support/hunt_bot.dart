@@ -3,7 +3,7 @@ import 'package:reapers_shared/reapers_shared.dart';
 /// A hunt for a common husk with a level-one harvester.
 HuntSim simFor({
   int seed = 7,
-  Vessel vessel = Vessel.frameWraith,
+  Vessel vessel = Vessel.penguin,
   Rarity rarity = Rarity.common,
   ReaperClass reaperClass = ReaperClass.harvester,
   int level = 1,
