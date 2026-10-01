@@ -1,0 +1,86 @@
+// The solid surfaces of a husk: whatever holds or shows the NFT's image.
+//
+// One material covers the frame, the canvas, lantern paper, mirror shards
+// and the eel's ribbon; the parameters decide which it is. A surface with
+// `image_mix` at 1 shows the image untouched. `image_glow` lets the image
+// light itself, which is what makes paper look lit from within.
+//
+// The vertex colour's red channel is ambient occlusion, as on a reaper.
+material {
+  name: "Husk",
+  shading_model: lit,
+  blending: opaque,
+  culling: none,
+  parameters: [
+    { type: vec4, name: tint, hint: source_color, default: [0.1, 0.08, 0.06, 1] },
+    { type: float, name: image_mix, hint: range(0, 1, 0.01), default: 0 },
+    { type: float, name: image_glow, default: 0 },
+    { type: float, name: surface_roughness, hint: range(0, 1, 0.01), default: 0.8 },
+    { type: float, name: surface_metallic, hint: range(0, 1, 0.01), default: 0 },
+    { type: vec4, name: glow, hint: source_color, default: [0.5, 0.8, 1.0, 1] },
+    { type: float, name: glow_strength, default: 0 },
+    { type: float, name: rim_strength, default: 0.6 },
+    { type: float, name: flash, hint: range(0, 1, 0.01), default: 0 },
+    { type: float, name: dissolve, hint: range(0, 1, 0.01), default: 0 },
+    { type: sampler2d, name: image, hint: default_white },
+  ],
+}
+
+fragment {
+  float Hash(vec3 p) {
+    return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+  }
+
+  float Noise(vec3 p) {
+    vec3 cell = floor(p);
+    vec3 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+
+    return mix(
+        mix(mix(Hash(cell), Hash(cell + vec3(1, 0, 0)), f.x),
+            mix(Hash(cell + vec3(0, 1, 0)), Hash(cell + vec3(1, 1, 0)), f.x),
+            f.y),
+        mix(mix(Hash(cell + vec3(0, 0, 1)), Hash(cell + vec3(1, 0, 1)), f.x),
+            mix(Hash(cell + vec3(0, 1, 1)), Hash(cell + vec3(1, 1, 1)), f.x),
+            f.y),
+        f.z);
+  }
+
+  void Surface(inout MaterialInputs material) {
+    vec3 world = GetWorldPosition();
+    vec3 normal = GetWorldNormal();
+    vec3 view = GetViewDirection();
+    float occlusion = GetVertexColor().r;
+
+    // An absorbed husk comes apart along a ragged front, brightest where it
+    // is still tearing.
+    float grain = Noise(world * 9.0) * 0.7 + Noise(world * 31.0) * 0.3;
+    float front = material_params.dissolve * 1.2 - 0.1;
+    if (grain < front) discard;
+    float tearing = (1.0 - smoothstep(0.0, 0.06, grain - front)) *
+                    step(0.001, material_params.dissolve);
+
+    vec3 picture = SRGBToLinear(texture(image, GetUV0()).rgb);
+    vec3 color = mix(material_params.tint.rgb * mix(0.55, 1.0, occlusion),
+                     picture, material_params.image_mix);
+
+    float rim_amount = pow(1.0 - clamp(dot(normal, view), 0.0, 1.0), 2.4);
+
+    material.base_color = vec4(color, 1.0);
+    material.normal = normal;
+    material.metallic = material_params.surface_metallic;
+    material.roughness = material_params.surface_roughness;
+    material.occlusion = occlusion;
+    material.emissive =
+        picture * material_params.image_mix * material_params.image_glow +
+        material_params.glow.rgb *
+            (material_params.glow_strength +
+             material_params.rim_strength * rim_amount + tearing * 5.0 +
+             // A strike lights the husk in its own colour. Never to white:
+             // strikes land several times a second, and a body that blinks
+             // white that fast is hard on the eyes.
+             material_params.flash * 0.5);
+
+    PrepareMaterial(material);
+  }
+}

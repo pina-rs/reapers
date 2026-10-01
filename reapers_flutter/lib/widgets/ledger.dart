@@ -1,0 +1,352 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+
+import '../theme/veil.dart';
+
+/// The pieces every screen is ruled with: buttons, rows, meters and marks,
+/// all drawn like entries in a ledger.
+
+/// A full-width action. It is an outline until it is pressed, when it fills
+/// with the reaper's light.
+class LedgerButton extends HookWidget {
+  const LedgerButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.detail,
+    this.quiet = false,
+  });
+
+  final String label;
+
+  /// Called on a tap. A null callback draws the button as unavailable.
+  final VoidCallback? onPressed;
+
+  /// A figure shown at the right edge: a price, a count.
+  final String? detail;
+
+  /// A quiet button has no outline, for the lesser of two choices.
+  final bool quiet;
+
+  @override
+  Widget build(BuildContext context) {
+    final pressed = useState(false);
+    final light = Theme.of(context).colorScheme.primary;
+    final enabled = onPressed != null;
+    final foreground = !enabled
+        ? Veil.ash
+        : pressed.value
+        ? Veil.ink
+        : Veil.bone;
+
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: detail == null ? label : '$label, $detail',
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: enabled ? (_) => pressed.value = true : null,
+        onTapCancel: () => pressed.value = false,
+        onTapUp: enabled
+            ? (_) {
+                pressed.value = false;
+                HapticFeedback.selectionClick();
+                onPressed!();
+              }
+            : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 90),
+          constraints: const BoxConstraints(minHeight: 56),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          decoration: BoxDecoration(
+            color: pressed.value ? light : Colors.transparent,
+            border: quiet
+                ? null
+                : Border.all(
+                    color: enabled
+                        ? Veil.bone.withValues(alpha: 0.7)
+                        : Veil.hairline,
+                  ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label.toUpperCase(),
+                  style: Veil.label(color: foreground, size: 13),
+                ),
+              ),
+              if (detail != null)
+                Text(detail!, style: Veil.figure(color: foreground, size: 13))
+              else if (enabled)
+                Text('→', style: Veil.figure(color: foreground, size: 16)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The way back, at the top of a screen.
+class LedgerBack extends HookWidget {
+  const LedgerBack({super.key, required this.onPressed, this.label});
+
+  final VoidCallback onPressed;
+
+  /// What going back is called here. Defaults to an arrow alone.
+  final String? label;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: label ?? MaterialLocalizations.of(context).backButtonTooltip,
+    excludeSemantics: true,
+    child: GestureDetector(
+      key: const Key('ledger-back'),
+      behavior: HitTestBehavior.opaque,
+      onTap: onPressed,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+        // Sized to the label, so the button never grows to fill a tall
+        // parent and drift away from the top of the page.
+        child: Align(
+          alignment: Alignment.centerLeft,
+          widthFactor: 1,
+          heightFactor: 1,
+          child: Text(
+            label == null ? '←' : '←  ${label!.toUpperCase()}',
+            style: Veil.label(color: Veil.bone, size: 13),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// One line of a ledger: a name on the left, a figure on the right, and a
+/// rule of dots between them.
+class LedgerRow extends HookWidget {
+  const LedgerRow({
+    super.key,
+    required this.label,
+    required this.value,
+    this.emphasised = false,
+  });
+
+  final String label;
+
+  final String value;
+
+  /// Whether the figure is set in the reaper's light.
+  final bool emphasised;
+
+  @override
+  Widget build(BuildContext context) {
+    final light = Theme.of(context).colorScheme.primary;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(label.toUpperCase(), style: Veil.label()),
+          const Expanded(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(10, 0, 10, 3),
+              child: _Leader(),
+            ),
+          ),
+          Text(
+            value,
+            style: Veil.figure(color: emphasised ? light : Veil.bone, size: 15),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The row of dots that leads the eye from a name to its figure.
+class _Leader extends HookWidget {
+  const _Leader();
+
+  @override
+  Widget build(BuildContext context) => const CustomPaint(
+    painter: _LeaderPainter(),
+    size: Size(double.infinity, 1),
+  );
+}
+
+class _LeaderPainter extends CustomPainter {
+  const _LeaderPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = Veil.hairline;
+
+    for (var x = 0.0; x < size.width; x += 5) {
+      canvas.drawCircle(Offset(x, size.height / 2), 0.6, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_LeaderPainter oldDelegate) => false;
+}
+
+/// A thin bar with a name: how much of something is left.
+class LedgerMeter extends HookWidget {
+  const LedgerMeter({
+    super.key,
+    required this.fraction,
+    required this.colour,
+    required this.label,
+  });
+
+  /// From 0 (empty) to 1 (full).
+  final double fraction;
+
+  final Color colour;
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: label,
+    value: '${(fraction.clamp(0, 1) * 100).round()}%',
+    child: Row(
+      children: [
+        SizedBox(
+          width: 62,
+          child: Text(label.toUpperCase(), style: Veil.label()),
+        ),
+        Expanded(
+          child: SizedBox(
+            height: 5,
+            child: CustomPaint(
+              painter: _MeterPainter(fraction.clamp(0, 1).toDouble(), colour),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _MeterPainter extends CustomPainter {
+  const _MeterPainter(this.fraction, this.colour);
+
+  final double fraction;
+  final Color colour;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final middle = size.height / 2;
+
+    canvas
+      ..drawLine(
+        Offset(0, middle),
+        Offset(size.width, middle),
+        Paint()
+          ..color = Veil.hairline
+          ..strokeWidth = 1,
+      )
+      ..drawRect(
+        Rect.fromLTWH(0, 0, size.width * fraction, size.height),
+        Paint()..color = colour,
+      )
+      // A notch where the bar ends, so a nearly empty bar still reads.
+      ..drawRect(
+        Rect.fromLTWH(size.width * fraction - 1, -3, 2, size.height + 6),
+        Paint()..color = Veil.bone,
+      );
+  }
+
+  @override
+  bool shouldRepaint(_MeterPainter oldDelegate) =>
+      oldDelegate.fraction != fraction || oldDelegate.colour != colour;
+}
+
+/// A small diamond that is either lit or spent.
+class LedgerPip extends HookWidget {
+  const LedgerPip({super.key, required this.lit, required this.colour});
+
+  final bool lit;
+
+  final Color colour;
+
+  @override
+  Widget build(BuildContext context) => Transform.rotate(
+    angle: 0.785398,
+    child: Container(
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(
+        color: lit ? colour : Colors.transparent,
+        border: Border.all(color: lit ? colour : Veil.ash),
+      ),
+    ),
+  );
+}
+
+/// A heading in the margin, with a rule running to the edge of the page.
+class LedgerHeading extends HookWidget {
+  const LedgerHeading(this.text, {super.key, this.trailing});
+
+  final String text;
+
+  /// A count or a figure set at the far end of the rule.
+  final String? trailing;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 22, bottom: 10),
+    child: Row(
+      children: [
+        Text(text.toUpperCase(), style: Veil.label(color: Veil.bone)),
+        const SizedBox(width: 12),
+        const Expanded(child: Divider(height: 1)),
+        if (trailing != null) ...[
+          const SizedBox(width: 12),
+          Text(trailing!, style: Veil.figure(color: Veil.ash, size: 12)),
+        ],
+      ],
+    ),
+  );
+}
+
+/// A whole page given over to one thing that went wrong, with the way out.
+class LedgerNotice extends HookWidget {
+  const LedgerNotice({
+    super.key,
+    required this.title,
+    required this.body,
+    required this.action,
+    required this.onAction,
+  });
+
+  final String title;
+  final String body;
+  final String action;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(title, style: Veil.display(40)),
+          const SizedBox(height: 14),
+          Text(body, style: Veil.body(color: Veil.ash)),
+          const SizedBox(height: 28),
+          LedgerButton(label: action, onPressed: onAction),
+        ],
+      ),
+    ),
+  );
+}

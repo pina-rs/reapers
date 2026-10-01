@@ -1,0 +1,313 @@
+{
+  "@@locale": "en",
+
+  "appTitle": "Reapers",
+
+  "commonBack": "Back",
+  "commonLoading": "Parting the veil…",
+  "commonExperience": "Experience",
+  "commonAnima": "Anima",
+  "commonLevel": "Level",
+  "commonSol": "{amount} SOL",
+  "@commonSol": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
+  "commonRefusedTitle": "Refused",
+  "commonDismiss": "Understood",
+  "commonFailedTitle": "Something came loose",
+  "commonFailedBody": "{reason}",
+  "@commonFailedBody": {
+    "placeholders": { "reason": { "type": "String" } }
+  },
+  "commonRetry": "Try again",
+  "commonUnreachable": "The keeper of the books could not be reached. Nothing was changed.",
+
+  "thresholdOverline": "Beyond the veil",
+  "thresholdTagline": "The dead market did not stay dead. What it left behind still drifts between worlds, and someone has to bring it in.",
+  "thresholdOath": "Take the oath",
+  "thresholdOathDetail": "Be bound to a reaper",
+  "thresholdShade": "Walk as a shade",
+  "thresholdShadeDetail": "A practice hunt",
+
+  "oathOverline": "The oath",
+  "oathTitle": "You do not choose your reaper.",
+  "oathBody": "The shuffle draws one for you, once. Its class, its face, its light and its name are bound to you from then on. What you make of it is yours.",
+  "oathSpeak": "I am bound",
+  "oathTurning": "The shuffle turns…",
+  "oathDrawnOverline": "The shuffle has drawn",
+  "oathEnter": "Enter the sanctum",
+  "oathOmen": "Omen",
+
+  "sanctumOverline": "Sanctum",
+  "sanctumLoose": "Loose in the veil",
+  "sanctumNothingLoose": "Nothing is loose. Release an NFT from your vault and it will surface here as a husk.",
+  "sanctumSurfacing": "Surfacing in {seconds}s",
+  "@sanctumSurfacing": {
+    "placeholders": { "seconds": { "type": "int" } }
+  },
+  "sanctumHunt": "Hunt",
+  "sanctumSightedBanner": "Husk sighted: {name}",
+  "@sanctumSightedBanner": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "sanctumVault": "Vault",
+  "sanctumVaultDetail": "{count, plural, =0{Empty} =1{1 held} other{{count} held}}",
+  "@sanctumVaultDetail": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "sanctumArmory": "Armory",
+  "sanctumCodex": "Codex",
+  "sanctumCodexDetail": "{count, plural, =0{Nothing absorbed} =1{1 absorbed} other{{count} absorbed}}",
+  "@sanctumCodexDetail": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "sanctumRifts": "Rifts",
+  "sanctumRiftsDetail": "{count, plural, =0{Hunt together} =1{1 sealed} other{{count} sealed}}",
+  "@sanctumRiftsDetail": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "sanctumPractice": "Practice hunt",
+  "sanctumPracticeDetail": "A stray",
+  "sanctumStatStrike": "Strike",
+  "sanctumStatReach": "Reach",
+  "sanctumStatCapture": "Capture",
+  "sanctumStatResilience": "Resilience",
+
+  "vaultOverline": "Vault",
+  "vaultTitle": "What you hold, and what is for sale.",
+  "vaultStandIn": "Stand-in market. No real SOL changes hands, and these collections are invented.",
+  "vaultBuy": "Buy",
+  "vaultRelease": "Release into the veil",
+  "vaultHeld": "Held",
+  "vaultLoose": "Loose",
+  "vaultAbsorbed": "Absorbed",
+  "vaultMint": "Mint",
+  "vaultWard": "Ward",
+  "vaultWorth": "Worth",
+  "vaultWorthValue": "{xp} xp · {anima} anima",
+  "@vaultWorthValue": {
+    "placeholders": { "xp": { "type": "int" }, "anima": { "type": "int" } }
+  },
+  "vaultReleaseNote": "Releasing cannot be undone. The NFT becomes a husk, and you will have to hunt it down.",
+
+  "armoryOverline": "Armory",
+  "armoryWeapons": "Weapons",
+  "armoryOutfits": "Outfits",
+  "armoryWield": "Wield",
+  "armoryWielded": "In hand",
+  "armoryWear": "Wear",
+  "armoryWorn": "Worn",
+  "armoryNeedsLevel": "Level {level}",
+  "@armoryNeedsLevel": {
+    "placeholders": { "level": { "type": "String" } }
+  },
+  "armoryFree": "Yours",
+  "armoryAnima": "{amount} anima",
+  "@armoryAnima": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
+  "armoryStrike": "Strike ×{value}",
+  "@armoryStrike": {
+    "placeholders": { "value": { "type": "String" } }
+  },
+  "armoryTempo": "{value} strikes a second",
+  "@armoryTempo": {
+    "placeholders": { "value": { "type": "String" } }
+  },
+  "armoryOutfitNote": "An outfit changes how your reaper looks, never how it hunts.",
+
+  "codexOverline": "Codex",
+  "codexTitle": "Everything you have absorbed.",
+  "codexEmpty": "Nothing yet. Every husk you reap is written here.",
+  "codexSet": "{count} of {total}",
+  "@codexSet": {
+    "placeholders": { "count": { "type": "int" }, "total": { "type": "int" } }
+  },
+  "codexSetComplete": "Set complete · strike +3%",
+  "codexSetProgress": "{remaining, plural, =1{1 more completes the set} other{{remaining} more complete the set}}",
+  "@codexSetProgress": {
+    "placeholders": { "remaining": { "type": "int" } }
+  },
+  "codexLost": "Husks that got away",
+
+  "riftsOverline": "Rifts",
+  "riftsTitle": "Some husks are too much for one reaper.",
+  "riftsStandIn": "A rift opens at a real place and takes a circle of four. This build does not check where you are standing, so any rift can be entered from anywhere, and shades take the places nobody else does.",
+  "riftsSite": "{city} · {collection}",
+  "@riftsSite": {
+    "placeholders": {
+      "city": { "type": "String" },
+      "collection": { "type": "String" }
+    }
+  },
+  "riftsOpen": "Enter",
+  "riftsAttune": "Absorb one of the {collection} and it will open for you.",
+  "@riftsAttune": {
+    "placeholders": { "collection": { "type": "String" } }
+  },
+
+  "riftLabel": "Rift",
+  "riftCircle": "The circle",
+  "riftSeatEmpty": "An empty place",
+  "riftSeatEmptyDetail": "A shade will stand in",
+  "riftSeatShade": "Shade",
+  "riftSeatYou": "You",
+  "riftSeatReady": "Ready",
+  "riftSeatWaiting": "Arriving",
+  "riftStandReady": "Stand ready",
+  "riftWaiting": "Waiting for the circle",
+  "riftBegins": "Begins in {seconds}",
+  "@riftBegins": {
+    "placeholders": { "seconds": { "type": "int" } }
+  },
+  "riftEntering": "Finding the rift…",
+  "riftLeave": "Leave the circle",
+  "riftCastOut": "You were cast out. The circle fights on.",
+  "riftCutMade": "Your cut is made. Hold for the circle.",
+  "riftCutMissed": "The cut got away from you. Hold for the circle.",
+  "riftCuts": "Cuts {made} of {needed}",
+  "@riftCuts": {
+    "placeholders": { "made": { "type": "int" }, "needed": { "type": "int" } }
+  },
+  "riftSealedLabel": "Sealed",
+  "riftSealedTitle": "The rift is shut",
+  "riftSealedBody": "{site} is quiet again.",
+  "@riftSealedBody": {
+    "placeholders": { "site": { "type": "String" } }
+  },
+  "riftFailedLabel": "Unsealed",
+  "riftFailedTitle": "The rift stays open",
+  "riftFailedBody": "The circle could not close it this time. Nothing was lost but the chance.",
+  "riftShare": "{percent}%",
+  "@riftShare": {
+    "placeholders": { "percent": { "type": "int" } }
+  },
+  "riftMemberCut": "Cut",
+  "riftMemberNoCut": "No cut",
+  "riftMemberCastOut": "Cast out",
+  "riftLostTitle": "The rift is gone",
+  "riftLostBody": "The way to it closed: {reason}",
+  "@riftLostBody": {
+    "placeholders": { "reason": { "type": "String" } }
+  },
+
+  "classHarvester": "Harvester",
+  "classFerryman": "Ferryman",
+  "classWeigher": "Weigher",
+  "classChooser": "Chooser",
+  "classHollow": "Hollow",
+  "classMourner": "Mourner",
+  "classHarvesterLine": "The field hand of death, who cuts down many at once.",
+  "classFerrymanLine": "The one who carries the dead across and cannot be moved.",
+  "classWeigherLine": "The judge who measures a spirit before taking it.",
+  "classChooserLine": "The one who picks who falls, then strikes once.",
+  "classHollowLine": "The rider with no head, who has already lost what you fear to lose.",
+  "classMournerLine": "The voice that announces a death before it arrives.",
+
+  "perkCleave": "Cleave",
+  "perkSteadfast": "Steadfast",
+  "perkMeasure": "Measure",
+  "perkChosenBlow": "Chosen blow",
+  "perkChain": "Chain",
+  "perkToll": "Toll",
+  "perkCleaveLine": "A strike also lands on every open seal near it.",
+  "perkSteadfastLine": "The first flinch of a hunt costs nothing.",
+  "perkMeasureLine": "Seals are numbered. Struck in order, they break faster.",
+  "perkChosenBlowLine": "Hold firm through a shriek and the next strike lands three times as hard.",
+  "perkChainLine": "Cadence builds twice as far.",
+  "perkTollLine": "Each shriek you hold through lengthens the reap.",
+
+  "weaponScythe": "Scythe",
+  "weaponLanternPole": "Lantern pole",
+  "weaponBalanceFlail": "Balance flail",
+  "weaponSpear": "Spear",
+  "weaponChainWhip": "Chain whip",
+  "weaponBell": "Bell",
+
+  "temperShrouded": "Shrouded",
+  "temperSworn": "Sworn",
+  "temperScorched": "Scorched",
+  "temperHollowed": "Hollowed",
+  "outfitShroudedLine": "Undyed cloth, rope and wood.",
+  "outfitSwornLine": "Dyed dark, shod in iron, carved with marks.",
+  "outfitScorchedLine": "Charred cloth and pitted metal, still smouldering.",
+  "outfitHollowedLine": "Parts of you are simply gone. The light is all that is left.",
+
+  "rarityCommon": "Common",
+  "rarityUncommon": "Uncommon",
+  "rarityRare": "Rare",
+  "rarityEpic": "Epic",
+
+  "omenNone": "None",
+  "omenAshen": "Ashen",
+  "omenGilded": "Gilded",
+  "omenEclipsed": "Eclipsed",
+
+  "refusalOathAlreadyTaken": "You are already bound. The oath is taken once.",
+  "refusalOathRequired": "Only the oathbound may do that.",
+  "refusalNotListed": "The market does not list that.",
+  "refusalAlreadyHeld": "You already hold that, or have absorbed it.",
+  "refusalNotInVault": "That is not in your vault.",
+  "refusalInsufficientFunds": "Your wallet does not hold enough SOL.",
+  "refusalInsufficientAnima": "You have not gathered enough anima.",
+  "refusalLevelTooLow": "Your reaper is not strong enough yet.",
+  "refusalNotOwned": "You have not bought that.",
+  "refusalAlreadyOwned": "You already own that.",
+  "refusalVeilCrowded": "Three husks are already loose. Bring one in first.",
+  "refusalUnknownSighting": "That husk is no longer loose.",
+  "refusalNotSurfaced": "That husk has not surfaced yet.",
+  "refusalHuntUnproven": "The record of that hunt does not hold up.",
+  "refusalNotAttuned": "This rift only answers a reaper who carries one of its dead. Absorb an NFT from its collection first.",
+
+  "huntSightedLabel": "Husk sighted",
+  "huntPracticeLabel": "A stray, for practice",
+  "huntSafety": "Stand still to hunt, and stay aware of what is around you. You only need to turn on the spot.",
+  "huntBegin": "Raise the blade",
+  "huntWard": "Ward",
+  "huntResolve": "Resolve",
+  "huntReapWindow": "Reap",
+  "huntSeconds": "{seconds}s",
+  "@huntSeconds": {
+    "placeholders": { "seconds": { "type": "int" } }
+  },
+  "huntCadence": "Cadence ×{hits}",
+  "@huntCadence": {
+    "placeholders": { "hits": { "type": "int" } }
+  },
+  "huntPromptStalk": "Turn slowly. It has not seen you.",
+  "huntPromptStalkDrag": "Drag to look around. Move slowly: it has not seen you.",
+  "huntPromptSteady": "Hold steady on it.",
+  "huntPromptStrike": "Strike the open seals.",
+  "huntPromptWindup": "It is drawing breath.",
+  "huntPromptHold": "Do not flinch",
+  "huntPromptMark": "Bring the blade to the mark.",
+  "huntPromptSweep": "Sweep along the arc. Slowly.",
+  "huntAmbush": "Ambush",
+  "huntAmbushBonus": "+10%",
+  "huntNoticed": "It sees you",
+  "huntFlinched": "Flinched",
+  "huntSteadfast": "Steadfast",
+  "huntHeldFirm": "Unflinching",
+  "huntBroken": "Ward broken",
+  "huntRecovered": "It gathers itself",
+  "huntReapedLabel": "Reaped",
+  "huntLostLabel": "Lost",
+  "huntGradePerfect": "A perfect reap",
+  "huntGradeClean": "A clean reap",
+  "huntGradeRagged": "A ragged reap",
+  "huntEscapedTitle": "It slipped away",
+  "huntEscapedResolve": "You flinched until nothing was left to hold it with. It is still out there.",
+  "huntEscapedTime": "The fight ran too long and the husk found a way out. It is still out there.",
+  "huntEscapedReap": "The reap was left unfinished too often. It is still out there.",
+  "huntAbsorbed": "{name} is part of you now.",
+  "@huntAbsorbed": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "huntPracticeDone": "A stray, so nothing was gained and nothing was owed.",
+  "huntLeave": "Lower the blade",
+  "huntFailedTitle": "The veil would not part",
+  "huntFailedBody": "The hunt could not be started: {reason}",
+  "@huntFailedBody": {
+    "placeholders": { "reason": { "type": "String" } }
+  }
+}

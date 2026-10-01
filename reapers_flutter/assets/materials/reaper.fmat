@@ -1,0 +1,143 @@
+// The one surface every part of a reaper is drawn with.
+//
+// A model's vertex colour is not a colour here. Each channel is a mask the
+// art build painted (see art/blender/lib/core.py):
+//
+//   r  grime: ambient occlusion and dirt, 1 where the surface is clean
+//   g  char: how soon this spot burns as the outfit darkens, 1 burns first
+//   b  wear: raised edges that catch the light
+//   a  hollow: how soon this spot vanishes as the outfit hollows, 0 first
+//
+// An outfit is therefore a handful of numbers, not a second model: the same
+// cloth is dyed, then charred from the hem up, then eaten away, while the
+// reaper's one light burns brighter.
+//
+// The two UV channels are not texture coordinates either. Together they
+// hold each vertex's position at rest (uv0 = x and y, uv1.x = z, in metres),
+// so surface grain stays put on cloth that sways. A vertex stage could pass
+// the same thing, but a custom vertex stage turns morph targets off.
+material {
+  name: "Reaper",
+  shading_model: lit,
+  blending: opaque,
+  culling: none,
+  parameters: [
+    { type: vec4, name: tint, hint: source_color, default: [0.2, 0.18, 0.16, 1] },
+    { type: float, name: surface_roughness, hint: range(0, 1, 0.01), default: 0.9 },
+    { type: float, name: surface_metallic, hint: range(0, 1, 0.01), default: 0 },
+    { type: float, name: grime, hint: range(0, 1, 0.01), default: 0.85 },
+    { type: float, name: wear, hint: range(0, 1, 0.01), default: 0.5 },
+    { type: float, name: weave, hint: range(0, 1, 0.01), default: 0.6 },
+    { type: float, name: char_level, hint: range(0, 1, 0.01), default: 0 },
+    { type: vec4, name: char_tint, hint: source_color, default: [0.03, 0.028, 0.03, 1] },
+    { type: vec4, name: ember, hint: source_color, default: [1.0, 0.42, 0.12, 1] },
+    { type: float, name: ember_strength, default: 0 },
+    { type: float, name: hollow_level, hint: range(0, 1, 0.01), default: 0 },
+    { type: vec4, name: rim, hint: source_color, default: [0.45, 0.62, 0.8, 1] },
+    { type: float, name: rim_strength, default: 0.7 },
+    { type: vec4, name: glow, hint: source_color, default: [0, 0, 0, 1] },
+    { type: float, name: glow_strength, default: 0 },
+  ],
+}
+
+fragment {
+  float Hash(vec3 p) {
+    return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+  }
+
+  // Value noise, smooth between lattice points.
+  float Noise(vec3 p) {
+    vec3 cell = floor(p);
+    vec3 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+
+    return mix(
+        mix(mix(Hash(cell), Hash(cell + vec3(1, 0, 0)), f.x),
+            mix(Hash(cell + vec3(0, 1, 0)), Hash(cell + vec3(1, 1, 0)), f.x),
+            f.y),
+        mix(mix(Hash(cell + vec3(0, 0, 1)), Hash(cell + vec3(1, 0, 1)), f.x),
+            mix(Hash(cell + vec3(0, 1, 1)), Hash(cell + vec3(1, 1, 1)), f.x),
+            f.y),
+        f.z);
+  }
+
+  // Three octaves of noise: the ragged line a fire leaves in cloth.
+  float Ragged(vec3 p) {
+    return Noise(p) * 0.55 + Noise(p * 2.7) * 0.3 + Noise(p * 7.1) * 0.15;
+  }
+
+  // Noise at `frequency` cycles a metre that fades to its mean once a cycle
+  // is smaller than a pixel, so grain never turns into sparkle at a distance.
+  float Grain(vec3 rest, float frequency) {
+    vec3 p = rest * frequency;
+    float footprint = length(fwidth(p));
+
+    return mix(Noise(p), 0.5, smoothstep(0.3, 0.9, footprint));
+  }
+
+  void Surface(inout MaterialInputs material) {
+    vec4 masks = GetVertexColor();
+    vec3 normal = GetWorldNormal();
+    vec3 view = GetViewDirection();
+    vec3 rest = vec3(GetUV0(), GetUV1().x);
+
+    float fine = Grain(rest, 240.0);
+    float thread = Grain(rest * vec3(1.0, 1.0, 0.25), 520.0);
+    float coarse = Noise(rest * 7.0);
+    float ragged = Ragged(rest * 11.0);
+    float flicker = 0.7 + 0.3 * sin(GetTime() * 2.3 + ragged * 31.0);
+
+    // Hollowing eats the surface away from where the mask is lowest, along
+    // a ragged front that still glows where it was last burning.
+    float keep = masks.a + (ragged - 0.5) * 0.3;
+    float hollow_front = material_params.hollow_level * 1.3 - 0.15;
+    if (keep < hollow_front) discard;
+    float hollow_edge = 1.0 - smoothstep(0.0, 0.03, keep - hollow_front);
+    hollow_edge *= step(0.001, material_params.hollow_level);
+
+    // Char spreads from where the mask is highest. Just ahead of it runs a
+    // thin burning line, and behind it a few embers that have not gone out.
+    float burn_front = 1.0 - material_params.char_level * 1.2;
+    float burn = masks.g + (ragged - 0.5) * 0.42;
+    float burning = step(0.001, material_params.char_level);
+    float charred = smoothstep(burn_front - 0.015, burn_front + 0.015, burn) *
+                    burning;
+    float ember_line = (1.0 - smoothstep(0.0, 0.028, abs(burn - burn_front))) *
+                       burning;
+    float embers = charred * (1.0 - smoothstep(0.0, 0.3, burn - burn_front)) *
+                   step(0.86, Noise(rest * 95.0)) * flicker;
+
+    float grain = mix(fine, thread, 0.5);
+    vec3 color = material_params.tint.rgb;
+    color *= mix(1.0, 0.86 + 0.28 * grain, material_params.weave);
+    color *= mix(1.0, 0.8 + 0.36 * coarse, 0.7);
+    color = mix(color, color * 2.2 + 0.015, masks.b * material_params.wear);
+    color = mix(color, material_params.char_tint.rgb * (0.6 + 0.8 * fine),
+                charred);
+    color *= mix(1.0, masks.r, material_params.grime);
+
+    float facing = clamp(dot(normal, view), 0.0, 1.0);
+    float rim_amount = pow(1.0 - facing, 2.6);
+    // Keep the rim off the underside, so it reads as light from above and
+    // behind rather than an outline.
+    rim_amount *= 0.3 + 0.7 * clamp(normal.y * 0.5 + 0.7, 0.0, 1.0);
+
+    material.base_color = vec4(color, 1.0);
+    material.normal = normal;
+    material.metallic = material_params.surface_metallic * (1.0 - charred);
+    material.roughness = clamp(
+        material_params.surface_roughness +
+            (grain - 0.5) * 0.2 * material_params.weave + charred * 0.1,
+        0.05, 1.0);
+    material.occlusion = mix(1.0, masks.r, material_params.grime);
+    material.emissive =
+        material_params.glow.rgb * material_params.glow_strength +
+        material_params.rim.rgb * material_params.rim_strength * rim_amount *
+            mix(1.0, masks.r, 0.6) * (1.0 - 0.6 * charred) +
+        material_params.ember.rgb * material_params.ember_strength *
+            (ember_line * flicker + embers * 0.8) +
+        material_params.glow.rgb * hollow_edge * 2.2 * flicker;
+
+    PrepareMaterial(material);
+  }
+}
