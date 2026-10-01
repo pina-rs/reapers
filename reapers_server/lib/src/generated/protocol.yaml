@@ -1,0 +1,16 @@
+anonymousIdp:
+  - login:
+jwtRefresh:
+  - refreshAccessToken:
+player:
+  - load:
+  - takeOath:
+  - acquire:
+  - release:
+  - settleHunt:
+  - buyWeapon:
+  - wield:
+  - buyOutfit:
+  - wear:
+rift:
+  - enter:

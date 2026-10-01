@@ -1,0 +1,12 @@
+type: server
+
+client_package_path: ../reapers_client
+server_test_tools_path: test/integration/test_tools
+
+# Types from the shared rules that travel between the server and the game as
+# they are, rather than being described a second time as a model.
+extraClasses:
+  - package:reapers_shared/reapers_shared.dart:PlayerState
+  - package:reapers_shared/reapers_shared.dart:HuntSettlement
+  - package:reapers_shared/reapers_shared.dart:RiftFrame
+  - package:reapers_shared/reapers_shared.dart:RiftReport

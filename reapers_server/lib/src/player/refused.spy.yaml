@@ -1,0 +1,8 @@
+### A request the shared rules refused.
+###
+### The game turns `refusal` back into the shared `Refusal` it names, so an
+### online player is told exactly what an offline one would be.
+exception: Refused
+fields:
+  ### The name of the `Refusal` the rules raised.
+  refusal: String

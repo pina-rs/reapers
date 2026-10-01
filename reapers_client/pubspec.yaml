@@ -1,0 +1,16 @@
+name: reapers_client
+description: The generated Serverpod client for the Reapers server. Never edited by hand.
+publish_to: none
+
+environment:
+  sdk: ^3.13.3
+
+resolution: workspace
+
+dependencies:
+  # The server sends shared rule types, such as the player's state, as they
+  # are, so the client needs the package that defines them.
+  reapers_shared:
+    path: ../reapers_shared
+  serverpod_auth_idp_client: 4.0.3
+  serverpod_client: 4.0.3

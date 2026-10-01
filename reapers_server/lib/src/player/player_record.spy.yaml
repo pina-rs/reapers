@@ -1,0 +1,16 @@
+### One player's books: everything they own and have done.
+###
+### The state is the shared `PlayerState`, stored whole. The server never
+### edits it field by field: every change is one of the shared rules applied
+### to the whole state, exactly as the offline game applies it.
+class: PlayerRecord
+table: player_record
+fields:
+  ### The signed-in user these books belong to.
+  authUserId: UuidValue, unique
+  ### The player as they stand now.
+  state: PlayerState
+  ### When the books were opened.
+  createdAt: DateTime, default=now
+  ### When they last changed.
+  updatedAt: DateTime, default=now
