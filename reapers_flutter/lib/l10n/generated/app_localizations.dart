@@ -1204,6 +1204,24 @@ abstract class AppLocalizations {
   /// **'Too low. Tip the phone up.'**
   String get scanHigher;
 
+  /// No description provided for @scanFindRoom.
+  ///
+  /// In en, this message translates to:
+  /// **'There is no room for it here. Turn toward somewhere more open.'**
+  String get scanFindRoom;
+
+  /// No description provided for @scanFloorFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Floor {metres} m below the phone'**
+  String scanFloorFound(String metres);
+
+  /// No description provided for @scanSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Hunt anyway'**
+  String get scanSkip;
+
   /// No description provided for @scanProgress.
   ///
   /// In en, this message translates to:

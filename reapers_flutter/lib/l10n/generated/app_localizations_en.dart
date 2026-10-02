@@ -663,6 +663,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scanHigher => 'Too low. Tip the phone up.';
 
   @override
+  String get scanFindRoom =>
+      'There is no room for it here. Turn toward somewhere more open.';
+
+  @override
+  String scanFloorFound(String metres) {
+    return 'Floor $metres m below the phone';
+  }
+
+  @override
+  String get scanSkip => 'Hunt anyway';
+
+  @override
   String get scanProgress => 'Read';
 
   @override

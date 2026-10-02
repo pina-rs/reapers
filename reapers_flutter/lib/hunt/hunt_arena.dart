@@ -8,6 +8,8 @@ import 'package:vector_math/vector_math.dart' as vm;
 
 import '../render/husk_rig.dart';
 import '../render/veil_look.dart';
+import 'camera/camera_optics.dart';
+import 'camera/hunt_camera.dart';
 import 'camera_backdrop.dart';
 import 'hunt_controller.dart';
 import 'hunt_hud.dart';
@@ -15,8 +17,8 @@ import 'pose/adaptive_pose_source.dart';
 import 'pose/ar_pose.dart';
 import 'veil_backdrop.dart';
 
-/// The vertical field of view the hunt is drawn with, chosen to sit close to
-/// a phone's main camera so husks hold their place against the world.
+/// The vertical field of view the hunt is drawn with when there is no camera
+/// feed to match: a simulator, a desktop, a refused permission.
 const huntFieldOfView = 62 * math.pi / 180;
 
 /// Everything a husk is fought in: the scene it is drawn in, the phone's
@@ -50,6 +52,9 @@ final class HuntArena {
   /// Where the phone points. Unless another is given, this follows the
   /// phone's own motion and falls back to a dragging finger.
   final PoseSource poseSource;
+
+  /// The world behind the husk.
+  final feed = HuntCamera();
 
   /// Ticks once a frame, for anything that paints from the rules.
   final frame = ValueNotifier(0);
@@ -88,6 +93,25 @@ final class HuntArena {
 
   /// Where the phone points right now.
   ArPose get pose => controller?.pose ?? poseSource.pose;
+
+  /// The vertical field of view the husk is drawn with, in radians.
+  ///
+  /// Over a camera feed it is the feed's own, so that a husk is seen through
+  /// the same lens as the floor it stands on and stays put when the phone
+  /// turns.
+  double get fieldOfView {
+    final lens = feed.lens;
+
+    if (lens == null || viewSize.isEmpty) {
+      return huntFieldOfView;
+    }
+
+    return coveringFieldOfView(
+      lens,
+      viewWidth: viewSize.width,
+      viewHeight: viewSize.height,
+    );
+  }
 
   /// Loads the husk and stands it in the scene.
   Future<void> load() async {
@@ -131,7 +155,7 @@ final class HuntArena {
       position: vm.Vector3.zero(),
       target: _vector(current.forward),
       up: _vector(current.up),
-      fovRadiansY: huntFieldOfView,
+      fovRadiansY: fieldOfView,
       fovNear: 0.05,
       fovFar: 120,
     );
@@ -236,7 +260,7 @@ final class HuntArena {
       controller.pose.rayThrough(
         x: position.dx / size.width * 2 - 1,
         y: 1 - position.dy / size.height * 2,
-        verticalFov: huntFieldOfView,
+        verticalFov: fieldOfView,
         aspect: size.width / size.height,
       ),
     );
@@ -244,6 +268,7 @@ final class HuntArena {
   }
 
   void dispose() {
+    feed.dispose();
     poseSource.dispose();
     frame.dispose();
     gone.dispose();
@@ -263,7 +288,7 @@ final class HuntArena {
   void _markStrike(Vec3 direction) {
     final point = pose.project(
       direction,
-      verticalFov: huntFieldOfView,
+      verticalFov: fieldOfView,
       aspect: viewSize.aspectRatio,
     );
 
@@ -341,6 +366,7 @@ class HuntArenaView extends HookWidget {
         fit: StackFit.expand,
         children: [
           CameraBackdrop(
+            camera: arena.feed,
             fallback: VeilBackdrop(
               pose: () => arena.pose,
               verticalFov: huntFieldOfView,
@@ -369,7 +395,7 @@ class HuntArenaView extends HookWidget {
                 painter: HuntHudPainter(
                   controller: controller,
                   light: arena.rig.light,
-                  verticalFov: huntFieldOfView,
+                  verticalFov: arena.fieldOfView,
                   slashes: arena.slashes,
                   showSealOrder: showSealOrder,
                   absorbed: () => arena.comeApart,
@@ -400,7 +426,7 @@ class _Touch extends HookWidget {
     // How far the view turns for each point a finger travels. A drag turns
     // three times as far as the view it crosses, so a full turn is a few
     // swipes rather than a dozen.
-    final radiansPerPoint = huntFieldOfView / size.height * 3;
+    final radiansPerPoint = arena.fieldOfView / size.height * 3;
 
     return Listener(
       behavior: HitTestBehavior.opaque,

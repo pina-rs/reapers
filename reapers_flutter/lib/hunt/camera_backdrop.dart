@@ -2,8 +2,9 @@ import 'dart:async';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+
+import 'camera/hunt_camera.dart';
 
 /// The world behind the hunt: the phone's rear camera, filling the screen.
 ///
@@ -11,66 +12,31 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 /// device without one), [fallback] is shown instead, and the hunt plays the
 /// same either way.
 class CameraBackdrop extends HookWidget {
-  const CameraBackdrop({super.key, required this.fallback});
+  const CameraBackdrop({
+    super.key,
+    required this.camera,
+    required this.fallback,
+  });
+
+  /// Opened here, and closed by whoever owns it.
+  final HuntCamera camera;
 
   final Widget fallback;
 
   @override
   Widget build(BuildContext context) {
-    final camera = useState<CameraController?>(null);
+    final controller = useValueListenable(camera.controller);
 
     useEffect(() {
-      var disposed = false;
-      CameraController? opened;
+      unawaited(camera.open());
 
-      Future<void> open() async {
-        try {
-          final cameras = await availableCameras();
-          final rear = cameras
-              .where((lens) => lens.lensDirection == CameraLensDirection.back)
-              .firstOrNull;
-
-          if (rear == null || disposed) {
-            return;
-          }
-
-          final controller = CameraController(
-            rear,
-            ResolutionPreset.high,
-            enableAudio: false,
-          );
-
-          opened = controller;
-          await controller.initialize();
-
-          if (disposed) {
-            return;
-          }
-
-          camera.value = controller;
-        } on CameraException catch (error) {
-          // No camera is a supported way to play, not a failure: the
-          // fallback backdrop takes over. The reason is still worth a line
-          // in the log for whoever is wondering why.
-          debugPrint('Hunt camera unavailable: ${error.code}');
-        } on MissingPluginException {
-          // A platform with no camera plugin at all, such as a desktop.
-          debugPrint('Hunt camera unavailable: no camera plugin');
-        }
-      }
-
-      unawaited(open());
-
-      return () {
-        disposed = true;
-        unawaited(opened?.dispose());
-      };
-    }, const []);
+      return null;
+    }, [camera]);
 
     // The camera is released while the app is in the background, as the
     // platform requires, and reopened by rebuilding when it returns.
     useOnAppLifecycleStateChange((_, state) {
-      final controller = camera.value;
+      final controller = camera.controller.value;
 
       if (controller == null || !controller.value.isInitialized) {
         return;
@@ -85,7 +51,6 @@ class CameraBackdrop extends HookWidget {
       }
     });
 
-    final controller = camera.value;
     final preview = controller?.value.previewSize;
 
     if (controller == null || preview == null) {

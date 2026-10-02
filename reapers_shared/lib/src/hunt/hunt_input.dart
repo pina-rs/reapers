@@ -101,12 +101,24 @@ final class HuntLog {
     }
 
     final data = ByteData.sublistView(bytes);
+    final reachCount = data.getUint8(6);
+
+    if (reachCount != 0 && reachCount != HuntPlan.slices) {
+      throw const FormatException('Hunt log has a broken plan');
+    }
+
+    if (bytes.length < _headerBytes + reachCount) {
+      throw const FormatException('Hunt log ends mid-plan');
+    }
+
     final plan = HuntPlan(
       centreCentidegrees: data.getInt16(1, Endian.little),
       halfWidthCentidegrees: data.getUint16(3, Endian.little),
+      eyeCentimetres: data.getUint8(5),
+      reachDecimetres: bytes.sublist(_headerBytes, _headerBytes + reachCount),
     );
     final inputs = <HuntInput>[];
-    var offset = _headerBytes;
+    var offset = _headerBytes + reachCount;
 
     while (offset < bytes.length) {
       if (offset + _tickBytes > bytes.length) {
@@ -144,8 +156,8 @@ final class HuntLog {
   /// room for the stalk, the fight and every reap window.
   static const maxTicks = 150 * 60;
 
-  static const _version = 2;
-  static const _headerBytes = 5;
+  static const _version = 3;
+  static const _headerBytes = 7;
   static const _tickBytes = 7;
   static const _tapBytes = 4;
 
@@ -156,14 +168,21 @@ final class HuntLog {
   /// husk's every move depends on it.
   final HuntPlan plan;
 
-  /// Packs the log into bytes: five for the plan, then seven for each tick
-  /// and four more for each tap.
+  /// Packs the log into bytes: the plan first, then seven for each tick and
+  /// four more for each tap.
+  ///
+  /// The plan is its arc, the height of the player's eye, and how far the
+  /// way is clear along each slice of the room when that was measured.
   Uint8List encode() {
     final header = ByteData(_headerBytes)
       ..setUint8(0, _version)
       ..setInt16(1, plan.centreCentidegrees, Endian.little)
-      ..setUint16(3, plan.halfWidthCentidegrees, Endian.little);
-    final builder = BytesBuilder(copy: false)..add(header.buffer.asUint8List());
+      ..setUint16(3, plan.halfWidthCentidegrees, Endian.little)
+      ..setUint8(5, plan.eyeCentimetres)
+      ..setUint8(6, plan.reachDecimetres.length);
+    final builder = BytesBuilder(copy: false)
+      ..add(header.buffer.asUint8List())
+      ..add(plan.reachDecimetres);
 
     for (final input in inputs) {
       final taps = input.taps.length > 255

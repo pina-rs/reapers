@@ -12,7 +12,9 @@ import '../widgets/ledger.dart';
 import '../widgets/nft_thumbnail.dart';
 import 'hunt_arena.dart';
 import 'hunt_status.dart';
-import 'scan/room_reader.dart';
+import 'scan/depth/depth_survey.dart';
+import 'scan/open_room_survey.dart';
+import 'scan/room_survey.dart';
 import 'scan/scan_overlay.dart';
 
 /// What a hunt is for: which husk, and who is hunting it.
@@ -95,6 +97,10 @@ final class HuntReward {
 class HuntScreen extends HookWidget {
   const HuntScreen({super.key, required this.brief, required this.settle});
 
+  /// How long the room is given to be read before the player is offered
+  /// the hunt without it.
+  static const _skipAfter = Duration(seconds: 30);
+
   final HuntBrief brief;
 
   /// Hands the finished hunt to whoever keeps the books, and returns what it
@@ -107,10 +113,9 @@ class HuntScreen extends HookWidget {
       () => HuntArena(vessel: brief.nft.collection.vessel, relics: [brief.nft]),
       [brief],
     );
-    final reader = useMemoized(
-      () => RoomReader(gait: brief.nft.collection.vessel.gait),
-      [brief],
-    );
+    final vessel = brief.nft.collection.vessel;
+    final survey = useState<RoomSurvey?>(null);
+    final skipOffered = useState(false);
     final loaded = useState(false);
     final begun = useState(false);
     final engaged = useState(false);
@@ -122,6 +127,10 @@ class HuntScreen extends HookWidget {
 
     /// Starts the hunt in the part of the room that has been read.
     void engage(HuntPlan plan) {
+      // The room has been read, so the reading stops: no more pictures are
+      // taken once the husk is in view.
+      survey.value?.dispose();
+      survey.value = null;
       arena.engage(brief.newSim(plan));
       engaged.value = true;
       banner.value = l10n.scanFound;
@@ -158,6 +167,65 @@ class HuntScreen extends HookWidget {
         arena.dispose();
       };
     }, [arena]);
+
+    // The reading of the room is got ready while the player is still at the
+    // threshold, so that it starts the moment they raise the phone.
+    useEffect(() {
+      var cancelled = false;
+      RoomSurvey? opened;
+
+      Future<void> open() async {
+        try {
+          final ready = await openRoomSurvey(arena: arena, vessel: vessel);
+
+          if (cancelled) {
+            ready.dispose();
+
+            return;
+          }
+
+          opened = ready;
+          survey.value = ready;
+        } catch (error) {
+          if (!cancelled) {
+            failure.value = error;
+          }
+        }
+      }
+
+      unawaited(open());
+
+      return () {
+        cancelled = true;
+        opened?.dispose();
+      };
+    }, [arena]);
+
+    // A survey that sees starts taking pictures once the hunt has begun.
+    final seeing = switch (survey.value) {
+      final DepthSurvey depth when begun.value && !engaged.value => depth,
+      _ => null,
+    };
+
+    useEffect(() {
+      if (seeing == null) {
+        return null;
+      }
+
+      unawaited(
+        seeing.start().then((started) {
+          if (!started) {
+            seeing.failure = StateError('The camera could not be watched');
+          }
+        }, onError: (Object error) => seeing.failure = error),
+      );
+
+      // A room that will not be read should not keep the player from the
+      // hunt for ever. After a while there is a way on without it.
+      final timer = Timer(_skipAfter, () => skipOffered.value = true);
+
+      return timer.cancel;
+    }, [seeing]);
 
     // A banner names what just happened, then steps aside.
     useEffect(() {
@@ -216,29 +284,45 @@ class HuntScreen extends HookWidget {
             // Before the hunt, the phone reads the room as the player looks
             // around. The husk appears once there is somewhere for it to be.
             onIdle: (deltaSeconds) {
-              if (!begun.value || engaged.value) {
+              final reading = survey.value;
+
+              if (!begun.value || engaged.value || reading == null) {
                 return;
               }
 
-              reader.observe(arena.pose, deltaSeconds);
+              reading.observe(arena.pose, deltaSeconds);
 
-              if (reader.plan case final plan?) {
+              if (reading.failure case final error?) {
+                failure.value = error;
+
+                return;
+              }
+
+              if (reading.plan case final plan?) {
                 engage(plan);
               }
             },
             showSealOrder: brief.loadout.reaperClass.perk == ClassPerk.measure,
           ),
-          if (loaded.value && begun.value && !engaged.value)
-            ScanOverlay(
-              reader: reader,
-              pose: () => arena.pose,
-              followsDevice: arena.poseSource.followsDevice,
-              repaint: arena.frame,
-            ),
           // While the room is read there is nothing to strike, so the whole
           // screen is for looking around.
           if (loaded.value && begun.value && !engaged.value)
             _LookAround(arena: arena),
+          if (survey.value case final reading?
+              when loaded.value && begun.value && !engaged.value)
+            ScanOverlay(
+              survey: reading,
+              gait: vessel.gait,
+              pose: () => arena.pose,
+              followsDevice: arena.poseSource.followsDevice,
+              repaint: arena.frame,
+              floorDepth: reading is DepthSurvey
+                  ? () => reading.floorDepth
+                  : null,
+              onSkip: skipOffered.value
+                  ? () => engage(reading.planUnread)
+                  : null,
+            ),
           if (loaded.value && engaged.value)
             SafeArea(
               child: IgnorePointer(
@@ -461,7 +545,8 @@ class _LookAround extends HookWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final radiansPerPoint = huntFieldOfView / constraints.biggest.height * 3;
+      final radiansPerPoint =
+          arena.fieldOfView / constraints.biggest.height * 3;
 
       return GestureDetector(
         behavior: HitTestBehavior.opaque,

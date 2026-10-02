@@ -108,7 +108,7 @@ void main() {
         halfWidthCentidegrees: HuntPlan.minHalfWidthCentidegrees - 1,
       );
 
-      expect(narrow.isPlayable, isFalse);
+      expect(narrow.isPlayableFor(Vessel.penguin), isFalse);
       expect(
         () => HuntSim(
           seed: 1,
@@ -401,7 +401,7 @@ void main() {
     });
 
     test('the whole circle holds everything', () {
-      expect(HuntPlan.open.isPlayable, isTrue);
+      expect(HuntPlan.open.isPlayableFor(Vessel.ape), isTrue);
 
       for (var turn = -180; turn <= 180; turn += 15) {
         expect(HuntPlan.open.contains(radians(turn.toDouble())), isTrue);
@@ -419,6 +419,39 @@ void main() {
 
       expect(log.plan, plan);
       expect(log.inputs, hasLength(2));
+    });
+
+    test('a surveyed plan travels whole', () {
+      final plan = HuntPlan(
+        centreCentidegrees: 1250,
+        halfWidthCentidegrees: 6000,
+        eyeCentimetres: 97,
+        reachDecimetres: [
+          for (var slice = 0; slice < HuntPlan.slices; slice++) 20 + slice,
+        ],
+      );
+      final log = HuntLog.decode(HuntLog(const [idle], plan: plan).encode());
+
+      expect(log.plan, plan);
+      expect(log.plan.eyeHeight, 0.97);
+      expect(log.plan.reachDecimetres, plan.reachDecimetres);
+      expect(log.inputs, hasLength(1));
+    });
+
+    test('a log cut off inside its plan is refused', () {
+      final bytes = HuntLog(
+        const [],
+        plan: HuntPlan(
+          centreCentidegrees: 0,
+          halfWidthCentidegrees: 9000,
+          reachDecimetres: List.filled(HuntPlan.slices, 30),
+        ),
+      ).encode();
+
+      expect(
+        () => HuntLog.decode(bytes.sublist(0, bytes.length - 10)),
+        throwsFormatException,
+      );
     });
 
     test('the same hunt in a different plan is a different hunt', () {
@@ -451,6 +484,164 @@ void main() {
         isFalse,
         reason: 'taps aimed at where the husk was in one room miss in another',
       );
+    });
+  });
+  group('a surveyed room', () {
+    /// A room three metres deep ahead, with something standing 1.9 m away
+    /// between 20 and 40 degrees to the right.
+    HuntPlan room({int eyeCentimetres = 145}) => HuntPlan(
+      centreCentidegrees: 0,
+      halfWidthCentidegrees: 9000,
+      eyeCentimetres: eyeCentimetres,
+      reachDecimetres: [
+        for (var slice = 0; slice < HuntPlan.slices; slice++)
+          switch (degrees(HuntPlan.bearingOf(slice))) {
+            > 20 && < 40 => 19,
+            _ => 30,
+          },
+      ],
+    );
+
+    test('the way opens out gradually beside what stands in it', () {
+      final plan = room();
+
+      // Over the thing itself, and well away from it.
+      expect(plan.reach(radians(27.5)), closeTo(1.9, 1e-9));
+      expect(plan.reach(radians(20)), closeTo(1.9, 1e-9));
+      expect(plan.reach(radians(-40)), closeTo(3.0, 1e-9));
+      // Ten degrees to the side of it.
+      expect(
+        plan.reach(radians(10)),
+        closeTo(1.9 + HuntRules.reachEase * radians(10), 1e-9),
+      );
+      expect(HuntPlan.open.reach(0), double.infinity);
+    });
+
+    for (final vessel in _creatures) {
+      test('${vessel.name} never goes past what stands in its way', () {
+        final plan = room();
+
+        for (var seed = 1; seed <= 6; seed++) {
+          for (final step in _Hunt(vessel, seed: seed, plan: plan).steps) {
+            expect(
+              _range(step.after) + vessel.halfWidth,
+              lessThanOrEqualTo(plan.reach(step.after.yaw) + 1e-6),
+              reason: 'seed $seed at ${degrees(step.after.yaw)}°',
+            );
+            expect(
+              _range(step.after),
+              greaterThanOrEqualTo(HuntRules.closestMetres - 1e-6),
+            );
+          }
+        }
+      });
+
+      test('${vessel.name} still moves smoothly round it', () {
+        final hunt = _Hunt(vessel, seed: 2, plan: room());
+        // Skirting something, it draws in toward the player as well as
+        // going round, so it covers up to twice the ground it otherwise
+        // would. It never jumps.
+        final stride = vessel.boltSpeed / HuntRules.tickRate * 1.6 * 2;
+
+        for (final step in hunt.steps) {
+          expect(
+            (step.after.position - step.before.position).length,
+            lessThan(stride),
+          );
+        }
+      });
+    }
+
+    test('a walker stands on the floor the phone measured', () {
+      final hunt = _Hunt(Vessel.penguin, plan: room(eyeCentimetres: 98));
+
+      for (final step in hunt.steps) {
+        expect(
+          step.after.position.y - Vessel.penguin.halfHeight,
+          closeTo(-0.98, 1e-9),
+        );
+      }
+    });
+
+    test('a room with nowhere to stand is refused', () {
+      final cramped = HuntPlan(
+        centreCentidegrees: 0,
+        halfWidthCentidegrees: 9000,
+        reachDecimetres: List.filled(HuntPlan.slices, 14),
+      );
+      final blockedAhead = HuntPlan(
+        centreCentidegrees: 0,
+        halfWidthCentidegrees: 9000,
+        reachDecimetres: [
+          for (var slice = 0; slice < HuntPlan.slices; slice++)
+            HuntPlan.bearingOf(slice).abs() < radians(5) ? 10 : 40,
+        ],
+      );
+
+      expect(cramped.isPlayableFor(Vessel.penguin), isFalse);
+      expect(blockedAhead.isPlayableFor(Vessel.penguin), isFalse);
+      // What is in the way outside the arc is no concern of the husk's.
+      expect(
+        HuntPlan(
+          centreCentidegrees: 9000,
+          halfWidthCentidegrees: 5000,
+          reachDecimetres: blockedAhead.reachDecimetres,
+        ).isPlayableFor(Vessel.penguin),
+        isTrue,
+      );
+      expect(
+        () => HuntSim(
+          seed: 1,
+          vessel: Vessel.penguin,
+          ward: 280,
+          stats: HuntStats.derive(HuntLoadout.borrowed),
+          plan: cramped,
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('a plan no phone could have made is refused', () {
+      HuntPlan plan({int eye = 145, List<int> reach = const []}) => HuntPlan(
+        centreCentidegrees: 0,
+        halfWidthCentidegrees: 9000,
+        eyeCentimetres: eye,
+        reachDecimetres: reach,
+      );
+
+      expect(plan().isWellFormed, isTrue);
+      expect(plan(eye: 20).isWellFormed, isFalse);
+      expect(plan(eye: 300).isWellFormed, isFalse);
+      expect(plan(reach: [30, 30, 30]).isWellFormed, isFalse);
+      expect(
+        plan(reach: List.filled(HuntPlan.slices, 300)).isWellFormed,
+        isFalse,
+      );
+    });
+
+    test('a hunt in a surveyed room replays to the same end', () {
+      final plan = room(eyeCentimetres: 120);
+      final sim = HuntSim(
+        seed: 9,
+        vessel: Vessel.ape,
+        ward: Rarity.common.ward,
+        stats: HuntStats.derive(HuntLoadout.borrowed),
+        plan: plan,
+      );
+      final record = (HuntBot(sim)..play()).recorded;
+      final log = HuntLog.decode(HuntLog(record, plan: plan).encode());
+      final replayed = HuntSim.replay(
+        seed: 9,
+        vessel: Vessel.ape,
+        ward: Rarity.common.ward,
+        stats: HuntStats.derive(HuntLoadout.borrowed),
+        log: log,
+      );
+
+      expect(sim.outcome, isNotNull);
+      expect(replayed?.absorbed, sim.outcome!.absorbed);
+      expect(replayed?.grade, sim.outcome!.grade);
+      expect(replayed?.ticks, sim.outcome!.ticks);
     });
   });
 }

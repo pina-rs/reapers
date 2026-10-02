@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:reapers_flutter/hunt/pose/ar_pose.dart';
 import 'package:reapers_flutter/hunt/scan/room_reader.dart';
+import 'package:reapers_flutter/hunt/scan/room_survey.dart';
 import 'package:reapers_shared/reapers_shared.dart';
 
 const _frame = 1 / 60;
@@ -92,7 +93,8 @@ void main() {
       final plan = reader.plan!;
 
       expect(reader.progress, 1);
-      expect(plan.isPlayable, isTrue);
+      expect(plan.isPlayableFor(Vessel.ape), isTrue);
+      expect(plan.isSurveyed, isFalse, reason: 'it cannot see the room');
       expect(plan.centreCentidegrees.abs(), lessThan(800));
       expect(plan.halfWidthCentidegrees, inInclusiveRange(6000, 8500));
       expect(plan.contains(radians(60)), isTrue);

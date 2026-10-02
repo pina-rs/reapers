@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import 'dev/depth_probe.dart';
 import 'dev/reaper_gallery.dart';
 import 'l10n/l10n.dart';
 import 'render/reaper_look.dart';
@@ -20,6 +21,11 @@ class ReapersApp extends HookConsumerWidget {
   /// build honours it.
   static const _gallery = kDebugMode && bool.fromEnvironment('REAPERS_GALLERY');
 
+  /// Whether this build opens at the bench for the depth model. Only a debug
+  /// build honours it.
+  static const _depthProbe =
+      kDebugMode && bool.fromEnvironment('REAPERS_DEPTH_PROBE');
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final player = ref.watch(playerProvider);
@@ -36,6 +42,7 @@ class ReapersApp extends HookConsumerWidget {
       ),
       home: switch (player) {
         _ when _gallery => const ReaperGallery(),
+        _ when _depthProbe => const DepthProbe(),
         AsyncData(:final value) when value.oathTaken => SanctumScreen(
           player: value,
         ),

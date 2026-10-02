@@ -8,20 +8,27 @@ import '../../l10n/l10n.dart';
 import '../../theme/veil.dart';
 import '../../widgets/ledger.dart';
 import '../pose/ar_pose.dart';
-import 'room_reader.dart';
+import 'room_survey.dart';
 
 /// What the player sees while the room is being read: that something is
 /// near, what to do about it, and how much of the room is known so far.
 class ScanOverlay extends HookWidget {
   const ScanOverlay({
     super.key,
-    required this.reader,
+    required this.survey,
+    required this.gait,
     required this.pose,
     required this.followsDevice,
     required this.repaint,
+    this.floorDepth,
+    this.onSkip,
   });
 
-  final RoomReader reader;
+  final RoomSurvey survey;
+
+  /// How the husk that will appear gets about, which decides where the
+  /// player is told to look.
+  final Gait gait;
 
   /// Where the phone points, read each time the dial is drawn.
   final ArPose Function() pose;
@@ -32,85 +39,128 @@ class ScanOverlay extends HookWidget {
   /// Ticks once a frame.
   final Listenable repaint;
 
+  /// How far below the phone the floor has been found to be, in metres,
+  /// read each frame. Null for a survey that cannot see the floor.
+  final double? Function()? floorDepth;
+
+  /// Starts the hunt without waiting for the room to be read. Offered only
+  /// when it is given.
+  final VoidCallback? onSkip;
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final light = Theme.of(context).colorScheme.primary;
 
-    return IgnorePointer(
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(28, 20, 28, 30),
-          child: ListenableBuilder(
-            listenable: repaint,
-            builder: (context, _) => Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(l10n.scanLabel.toUpperCase(), style: Veil.label()),
-                const SizedBox(height: 8),
-                Text(l10n.scanTitle, style: Veil.display(40)),
-                const SizedBox(height: 12),
-                Text(
-                  switch (reader.gait) {
-                    Gait.ground when followsDevice => l10n.scanFloor,
-                    Gait.ground => l10n.scanFloorDrag,
-                    _ when followsDevice => l10n.scanAir,
-                    _ => l10n.scanAirDrag,
-                  },
-                  style: Veil.body(color: Veil.bone, size: 16),
-                ),
-                const Spacer(),
-                Center(
-                  child: CustomPaint(
-                    size: const Size.square(168),
-                    painter: _DialPainter(
-                      reader: reader,
-                      heading: pose().forward.yaw,
-                      light: light,
-                    ),
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(28, 20, 28, 30),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Only the way out takes a touch. Everything else lets it
+            // through to whatever is underneath.
+            Expanded(
+              child: IgnorePointer(
+                child: ListenableBuilder(
+                  listenable: repaint,
+                  builder: (context, _) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(l10n.scanLabel.toUpperCase(), style: Veil.label()),
+                      const SizedBox(height: 8),
+                      Text(l10n.scanTitle, style: Veil.display(40)),
+                      const SizedBox(height: 12),
+                      Text(
+                        switch (gait) {
+                          Gait.ground when followsDevice => l10n.scanFloor,
+                          Gait.ground => l10n.scanFloorDrag,
+                          _ when followsDevice => l10n.scanAir,
+                          _ => l10n.scanAirDrag,
+                        },
+                        style: Veil.body(color: Veil.bone, size: 16),
+                      ),
+                      const Spacer(),
+                      Center(
+                        child: CustomPaint(
+                          size: const Size.square(168),
+                          painter: _DialPainter(
+                            survey: survey,
+                            heading: pose().forward.yaw,
+                            light: light,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Center(
+                        child: Text(
+                          switch (survey.advice) {
+                            ReadingAdvice.slowDown => l10n.scanSlower,
+                            ReadingAdvice.lookLower => l10n.scanLower,
+                            ReadingAdvice.lookHigher => l10n.scanHigher,
+                            ReadingAdvice.findRoom => l10n.scanFindRoom,
+                            ReadingAdvice.keepGoing => l10n.scanReading,
+                          },
+                          key: const Key('scan-advice'),
+                          textAlign: TextAlign.center,
+                          style: Veil.body(size: 16),
+                        ),
+                      ),
+                      if (floorDepth?.call() case final metres?) ...[
+                        const SizedBox(height: 6),
+                        Center(
+                          child: Text(
+                            l10n.scanFloorFound(metres.toStringAsFixed(2)),
+                            key: const Key('scan-floor'),
+                            style: Veil.figure(color: Veil.ash, size: 12),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 14),
+                      LedgerMeter(
+                        fraction: survey.progress,
+                        colour: light,
+                        label: l10n.scanProgress,
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 18),
-                Center(
-                  child: Text(
-                    switch (reader.advice) {
-                      ReadingAdvice.slowDown => l10n.scanSlower,
-                      ReadingAdvice.lookLower => l10n.scanLower,
-                      ReadingAdvice.lookHigher => l10n.scanHigher,
-                      ReadingAdvice.keepGoing => l10n.scanReading,
-                    },
-                    key: const Key('scan-advice'),
-                    style: Veil.body(size: 16),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                LedgerMeter(
-                  fraction: reader.progress,
-                  colour: light,
-                  label: l10n.scanProgress,
-                ),
-              ],
+              ),
             ),
-          ),
+            if (onSkip != null) ...[
+              const SizedBox(height: 14),
+              LedgerButton(
+                key: const Key('scan-skip'),
+                label: l10n.scanSkip,
+                onPressed: onSkip,
+                quiet: true,
+              ),
+            ],
+          ],
         ),
       ),
     );
   }
 }
 
-/// The room from above, with the player in the middle: one tick for each
-/// slice of the circle, lit once it has been read. The dial turns with the
-/// phone, so straight ahead is always at the top.
+/// The room from above, with the player in the middle: one spoke for each
+/// slice of the circle, lit once it has been read. Where the survey can see,
+/// a spoke is as long as the way is clear, so the dial takes the shape of
+/// the room, and a slice with no room for the husk is marked in red. The
+/// dial turns with the phone, so straight ahead is always at the top.
 class _DialPainter extends CustomPainter {
   _DialPainter({
-    required this.reader,
+    required this.survey,
     required this.heading,
     required this.light,
   });
 
-  final RoomReader reader;
+  final RoomSurvey survey;
   final double heading;
   final Color light;
+
+  /// The reach, in metres, that fills a spoke.
+  static const _fullReach = 5.0;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -129,19 +179,24 @@ class _DialPainter extends CustomPainter {
         ..color = Veil.hairline,
     );
 
-    for (var slice = 0; slice < RoomReader.slices; slice++) {
-      final bearing =
-          (slice + 0.5) / RoomReader.slices * 2 * math.pi - math.pi - heading;
+    for (var slice = 0; slice < HuntPlan.slices; slice++) {
+      final bearing = HuntPlan.bearingOf(slice) - heading;
       // Up the screen is straight ahead, and bearings grow to the right.
       final along = Offset(math.sin(bearing), -math.cos(bearing));
-      final read = reader.read(slice);
+      final read = survey.read(slice);
+      final length = switch (survey.reach(slice)) {
+        final metres? => (metres / _fullReach).clamp(0.15, 1.0),
+        null => 0.45 + 0.55 * read,
+      };
 
       canvas.drawLine(
         centre + along * inner,
-        centre + along * (inner + (outer - inner) * (0.45 + 0.55 * read)),
+        centre + along * (inner + (outer - inner) * length),
         stroke
           ..strokeWidth = read >= 1 ? 3 : 1.5
-          ..color = Color.lerp(Veil.hairline, light, read)!,
+          ..color = survey.blocked(slice)
+              ? Veil.wound.withValues(alpha: 0.7)
+              : Color.lerp(Veil.hairline, light, read)!,
       );
     }
 

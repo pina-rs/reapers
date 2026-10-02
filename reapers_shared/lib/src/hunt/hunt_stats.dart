@@ -204,11 +204,23 @@ abstract final class HuntRules {
 
   // Movement ----------------------------------------------------------
 
-  /// How high the phone is taken to be above the floor, in metres. The
-  /// floor a husk walks on is this far below the player's eye, straight
-  /// down along gravity. See docs/gameplay.md for what that does and does
-  /// not know about the room.
-  static const eyeHeight = 1.45;
+  /// How high the phone is taken to be above the floor, in centimetres, when
+  /// it has not measured it: a standing adult holding a phone at chest
+  /// height. A phone that can read the room measures this instead, and the
+  /// hunt's plan carries what it found. See docs/gameplay.md.
+  static const eyeCentimetres = 145;
+
+  /// [eyeCentimetres] in metres.
+  static const eyeHeight = eyeCentimetres / 100;
+
+  /// The nearest a husk ever stands to the player, in metres, however
+  /// little room there is. Closer than this it would fill the view.
+  static const closestMetres = 1.2;
+
+  /// How quickly the room a husk has opens out to the side of something in
+  /// its way, in metres for every radian round the player. It is what turns
+  /// the edge of a sofa into a curve a husk can run along.
+  static const reachEase = 2.0;
 
   /// The shortest and longest a husk rests between one amble and the next.
   static const restMinTicks = 50;

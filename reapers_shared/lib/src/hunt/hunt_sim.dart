@@ -72,19 +72,24 @@ final class HuntSim {
        _openUntil = List.filled(vessel.seals.length, 0),
        _shutUntil = List.filled(vessel.seals.length, 0),
        _openedOrder = List.filled(vessel.seals.length, 0) {
-    if (!plan.isPlayable) {
-      throw ArgumentError.value(plan, 'plan', 'is too narrow to hunt in');
+    if (!plan.isPlayableFor(vessel)) {
+      throw ArgumentError.value(plan, 'plan', 'has no room to hunt in');
     }
 
     _reapDirection = _path.nextChance(0.5) ? 1 : -1;
     _bobPhase = _path.nextRange(0, 2 * math.pi);
-    _range = _path.nextRange(vessel.nearMetres, vessel.farMetres);
+
+    // How far out it starts, as a share of the room it has wherever it
+    // turns out to be.
+    final outward = _path.nextRange(0, 1);
+
     _height = _restingHeight();
     _nextAmbleTick = _restTicks();
 
     if (inRift) {
       // A rift's husk stands dead ahead, facing the circle.
       _bearing = 0;
+      _range = _rangeAt(_bearing, outward);
       _heading = math.pi;
       phase = HuntPhase.fight;
       _scheduleShriek();
@@ -97,6 +102,7 @@ final class HuntSim {
     _bearing = plan.isWholeCircle
         ? (_path.nextChance(0.5) ? 1 : -1) * radians(_path.nextRange(55, 180))
         : plan.clamp(plan.centre + _path.nextRange(-0.8, 0.8) * plan.halfWidth);
+    _range = _rangeAt(_bearing, outward);
     _heading = _path.nextRange(-math.pi, math.pi);
   }
 
@@ -109,7 +115,7 @@ final class HuntSim {
     required HuntStats stats,
     required HuntLog log,
   }) {
-    if (!log.plan.isPlayable) {
+    if (!log.plan.isPlayableFor(vessel)) {
       return null;
     }
 
@@ -924,7 +930,7 @@ final class HuntSim {
 
     if (progress >= 1) {
       _bearing = wrapAngle(_fromBearing + _byBearing);
-      _range = _fromRange + _byRange;
+      _range = math.min(_fromRange + _byRange, _farAt(_bearing));
       _height = _fromHeight + _byHeight;
       _moveStart = -1;
       _nextAmbleTick = tick + _restTicks();
@@ -935,7 +941,10 @@ final class HuntSim {
     final eased = smoothstep(progress);
 
     _bearing = wrapAngle(_fromBearing + _byBearing * eased);
-    _range = _fromRange + _byRange * eased;
+    // Whatever stands between where it set off and where it is going, it
+    // keeps to this side of: it goes round the front of the sofa, not
+    // through it.
+    _range = math.min(_fromRange + _byRange * eased, _farAt(_bearing));
     _height = _fromHeight + _byHeight * eased;
 
     // The body faces the way it is going: along the floor, the sum of going
@@ -956,9 +965,11 @@ final class HuntSim {
       _path.nextRange(-HuntRules.ambleDegrees, HuntRules.ambleDegrees),
     );
 
+    final toBearing = plan.clamp(_bearing + by);
+
     _setOff(
-      toBearing: plan.clamp(_bearing + by),
-      toRange: _path.nextRange(vessel.nearMetres, vessel.farMetres),
+      toBearing: toBearing,
+      toRange: _rangeAt(toBearing, _path.nextRange(0, 1)),
       speed: vessel.walkSpeed,
     );
   }
@@ -983,11 +994,11 @@ final class HuntSim {
             wrapAngle(otherWay - _bearing).abs()
         ? oneWay
         : otherWay;
-    final middle = (vessel.nearMetres + vessel.farMetres) / 2;
 
     _setOff(
       toBearing: toBearing,
-      toRange: _path.nextRange(middle, vessel.farMetres),
+      // It runs for the far half of the room it has there.
+      toRange: _rangeAt(toBearing, _path.nextRange(0.5, 1)),
       speed: vessel.boltSpeed,
     );
     events.add(const Relocating());
@@ -1038,10 +1049,28 @@ final class HuntSim {
       HuntRules.restMinTicks +
       _path.nextInt(HuntRules.restMaxTicks - HuntRules.restMinTicks + 1);
 
+  /// The farthest the husk may be along [bearing]: as far as it likes to
+  /// keep, or, where something stands in the way, just this side of it.
+  double _farAt(double bearing) =>
+      math.min(vessel.farMetres, plan.reach(bearing) - vessel.halfWidth);
+
+  /// The nearest it may be along [bearing]: as near as it likes to come, or
+  /// right up against whatever leaves it no more room than that.
+  double _nearAt(double bearing) =>
+      math.min(vessel.nearMetres, _farAt(bearing));
+
+  /// A place along [bearing], [outward] of the way from the nearest it may
+  /// be there to the farthest.
+  double _rangeAt(double bearing, double outward) {
+    final near = _nearAt(bearing);
+
+    return near + outward * (_farAt(bearing) - near);
+  }
+
   /// How high the middle of the body is while it rests: standing on the
   /// floor, or somewhere in the band of air it keeps to.
   double _restingHeight() => switch (vessel.gait) {
-    Gait.ground => vessel.halfHeight - HuntRules.eyeHeight,
+    Gait.ground => vessel.halfHeight - plan.eyeHeight,
     Gait.air ||
     Gait.still => _path.nextRange(vessel.lowMetres, vessel.highMetres),
   };
