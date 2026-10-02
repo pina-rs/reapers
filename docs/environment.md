@@ -11,7 +11,7 @@ On a phone with a camera and motion sensors, the hunt now sees the room:
 1. A hunt opens with "Something is nearby".
 2. You sweep the phone round. About twice a second it takes a picture and works out, on the phone, how far away everything in it is.
 3. From those pictures it finds the floor, measures how far below the phone it is, and maps how far the floor is clear in each direction. The dial on screen takes the shape of the room as it goes.
-4. Once it has an arc of 115° with room for the husk all along it, the husk gathers into view there.
+4. Once it has read an arc of 115°, the husk gathers into view there. No room is too small: where the floor is tight the husk stands closer, down to 0.8 m.
 5. A walker stands on the measured floor and runs round whatever is in the way. A flier keeps clear of walls and cupboards.
 
 Nothing leaves the phone. What the hunt keeps of your room is about 80 bytes: the height of your eye and one distance for each of 72 directions.
@@ -93,7 +93,17 @@ Debug builds print a line for every picture: whether it had floor in it, where t
 - **Is the floor depth about right?** Measure from the phone to the floor. If it is consistently out by the same factor, the correction curve needs moving for this camera.
 - **Do husks stand on the floor or hover?** Hovering or sinking by the same amount everywhere means the pictures are being matched to the wrong direction, which is a bug in how frames are turned upright or timed, not in the model.
 - **Does the dial look like the room?** Red spokes should be where the furniture is.
-- **Does a scan finish?** If "Hunt anyway" is needed in an ordinary room, the bar for "room enough" is too high.
+- **Does a scan finish?** It should, in any room, within a few seconds of sweeping. The first real run did not: see below.
+
+### What the first real run showed
+
+On 2 October 2026 the game was scanned in a real room for the first time, on the Seeker, and its log was read as it ran.
+
+- **The floor was found**, 1.40 m below the phone in the first pictures, which is a plausible standing height. Nobody measured it.
+- **The scan never finished.** After thirty pictures it had read 80° and found none of it to have room for the husk. The rule then was that a husk needed 1.2 m of clear floor plus half its own width, all along an arc of 115°, or it would not appear. A furnished room does not have that. The rule is gone: a slice is read once a picture has shown it, and a husk in a tight place stands closer.
+- **The floor moved**, from 1.40 m to 0.55 m, over the run. Either the phone was lowered or it was shown a table or a bed: the floor is the lowest level surface in view, so a husk will stand on a table if that is all it is shown. Pictures that disagree with the rest by more than a quarter are set aside, which slowed the scan while the two disagreed.
+
+What the log cannot say is whether the map matched the room: whether the directions it called tight had furniture in them. That needs someone looking at the dial and at the room.
 
 `--dart-define=REAPERS_DEPTH_PROBE=true` opens a bench instead of the game: the camera, the model's depth picture beside it, and the timings.
 

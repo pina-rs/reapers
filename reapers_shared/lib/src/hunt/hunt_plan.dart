@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 
 import '../vec3.dart';
-import '../vessel.dart';
 import 'hunt_stats.dart';
 
 /// Where a husk may go: what the phone made of the room before the hunt.
@@ -14,6 +13,9 @@ import 'hunt_stats.dart';
 /// - an arc around the player that the husk keeps to;
 /// - how far below the player's eye the floor is;
 /// - how far the way is clear in each direction, when the phone could tell.
+///
+/// A plan never says a hunt cannot be played. Where the room is tight the
+/// husk stands closer; it does not stay away.
 ///
 /// Everything is stored in whole numbers so that a hunt replays exactly.
 final class HuntPlan {
@@ -118,29 +120,6 @@ final class HuntPlan {
       reachDecimetres.every(
         (reach) => reach >= 0 && reach <= maxReachDecimetres,
       );
-
-  /// Whether a hunt for [vessel] may be played in this plan: it is well
-  /// formed, and there is room for the husk to stand everywhere in the arc.
-  bool isPlayableFor(Vessel vessel) {
-    if (!isWellFormed) {
-      return false;
-    }
-
-    if (!isSurveyed) {
-      return true;
-    }
-
-    final needed = HuntRules.closestMetres + vessel.halfWidth - _edge;
-
-    // The way is least clear over the middle of a slice or at an end of the
-    // arc, so those are the places to look.
-    return reach(centre - halfWidth) >= needed &&
-        reach(centre + halfWidth) >= needed &&
-        Iterable<int>.generate(slices)
-            .map(bearingOf)
-            .where(contains)
-            .every((bearing) => reach(bearing) >= needed);
-  }
 
   /// Whether the bearing [yaw] lies inside the plan.
   bool contains(double yaw) =>

@@ -309,7 +309,6 @@
   "scanSlower": "Slower. Nothing can be made out.",
   "scanLower": "Too high. Tip the phone down.",
   "scanHigher": "Too low. Tip the phone up.",
-  "scanFindRoom": "There is no room for it here. Turn toward somewhere more open.",
   "scanFloorFound": "Floor {metres} m below the phone",
   "@scanFloorFound": {
     "placeholders": { "metres": { "type": "String" } }

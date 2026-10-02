@@ -15,10 +15,6 @@ enum ReadingAdvice {
 
   /// The phone is pointing too low to see what needs reading.
   lookHigher,
-
-  /// Most of what is around has been read, and there is nowhere in it with
-  /// room enough for the husk.
-  findRoom,
 }
 
 /// A reading of the room, made while the player looks around it, that ends
@@ -28,7 +24,7 @@ enum ReadingAdvice {
 /// read. The circle around the player is divided into the slices of a
 /// [HuntPlan], and a survey fills them in one by one.
 abstract interface class RoomSurvey {
-  /// The arc that has to be read, with room in it, before a husk appears.
+  /// The arc that has to be read before a husk appears.
   static final neededArc = radians(115);
 
   /// What the player should do next.
@@ -45,9 +41,9 @@ abstract interface class RoomSurvey {
   /// this survey has no way of telling.
   double? reach(int index);
 
-  /// Whether slice [index] has been read and found to leave the husk no
-  /// room to stand.
-  bool blocked(int index);
+  /// Whether slice [index] has been read and found tight: so little clear
+  /// floor that the husk can only stand there as close as it ever comes.
+  bool tight(int index);
 
   /// How close the room is to being read, from 0 to 1.
   double get progress;

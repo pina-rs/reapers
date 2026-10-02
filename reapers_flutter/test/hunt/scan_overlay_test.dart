@@ -36,7 +36,7 @@ final class _SeeingSurvey implements RoomSurvey {
   double? reach(int index) => 3;
 
   @override
-  bool blocked(int index) => index.isEven;
+  bool tight(int index) => index.isEven;
 
   @override
   void dispose() {}
@@ -174,16 +174,6 @@ void main() {
     await tester.pump();
 
     expect(find.text(l10n.scanFloorFound('1.32')), findsOneWidget);
-  });
-
-  testWidgets('with no room for the husk it says to turn somewhere else', (
-    tester,
-  ) async {
-    final frame = ValueNotifier(0);
-    final survey = _SeeingSurvey()..advice = ReadingAdvice.findRoom;
-    final l10n = await pump(tester, survey, frame);
-
-    expect(advice(tester), l10n.scanFindRoom);
   });
 
   testWidgets('the way on without the room is offered only when given', (

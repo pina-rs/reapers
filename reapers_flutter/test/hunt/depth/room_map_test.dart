@@ -98,7 +98,7 @@ void main() {
       expect(map.reach(_sliceAt(0)), closeTo(4, 0.25));
       expect(map.reach(_sliceAt(-120)), isNull, reason: 'never looked there');
       expect(map.read(_sliceAt(-120)), 0);
-      expect(map.blocked(_sliceAt(0)), isFalse);
+      expect(map.tight(_sliceAt(0)), isFalse);
     });
 
     test('a sofa is as far as the way is clear in its direction', () {
@@ -118,28 +118,29 @@ void main() {
       expect(map.reach(_sliceAt(-40)), greaterThan(3.5));
     });
 
-    test('a husk is kept to the side of what leaves it no room', () {
-      // The sofa is too near for a penguin to stand in front of.
+    test('where there is no room the husk may still go, and stands close', () {
+      // The sofa is too near for a penguin to keep its distance from.
       final map = RoomMap(vessel: Vessel.penguin);
 
       sweep(
         map,
         const DrawnRoom(
           blocks: [
-            Block(left: 0.3, right: 2, near: 1.2, far: 2, height: 0.8),
+            Block(left: 0.3, right: 2, near: 0.9, far: 2, height: 0.8),
           ],
         ),
-        from: -150,
-        to: 60,
+        from: -70,
+        to: 70,
         pitch: -30,
       );
 
       final plan = map.plan!;
 
-      expect(map.blocked(_sliceAt(35)), isTrue);
-      expect(plan.contains(radians(35)), isFalse);
-      expect(plan.contains(radians(-90)), isTrue);
-      expect(plan.isPlayableFor(Vessel.penguin), isTrue);
+      expect(map.tight(_sliceAt(35)), isTrue);
+      expect(map.tight(_sliceAt(-40)), isFalse);
+      expect(plan.contains(radians(35)), isTrue);
+      expect(plan.reach(radians(35)), lessThan(1.2));
+      expect(plan.isWellFormed, isTrue);
     });
 
     test('with room in front of it, the husk may go there and no farther', () {
@@ -156,7 +157,10 @@ void main() {
 
       expect(plan.contains(radians(25)), isTrue);
       expect(plan.reach(radians(25)), inInclusiveRange(2.5, 3.0));
-      expect(plan.reach(radians(-40)), greaterThan(3.5));
+      // Well to the side of it there is more room, though the edge of what
+      // was swept, where only the nearest floor was seen, holds it in a
+      // little.
+      expect(plan.reach(radians(-40)), greaterThan(3.2));
     });
 
     test('a model that reads everything long still lands on the floor', () {
@@ -227,7 +231,7 @@ void main() {
 
       expect(map.progress, 1);
       expect(plan.isSurveyed, isTrue);
-      expect(plan.isPlayableFor(Vessel.ape), isTrue);
+      expect(plan.isWellFormed, isTrue);
       expect(plan.eyeCentimetres, inInclusiveRange(142, 148));
       expect(plan.contains(radians(50)), isTrue);
       expect(plan.contains(radians(-50)), isTrue);
@@ -262,14 +266,29 @@ void main() {
       expect(map.planUnread.eyeCentimetres, inInclusiveRange(107, 113));
     });
 
-    test('a room too small all round gives none, however much is seen', () {
+    test('a room too small all round still gives a plan, all of it tight', () {
       final map = RoomMap(vessel: Vessel.ape);
 
-      sweep(map, const DrawnRoom(wall: 1.5), from: -180, to: 160, pitch: -35);
+      sweep(map, const DrawnRoom(wall: 1.1), from: -70, to: 70, pitch: -35);
 
-      expect(map.coverage, greaterThan(radians(300)));
-      expect(map.plan, isNull);
-      expect(map.blocked(_sliceAt(0)), isTrue);
+      final plan = map.plan!;
+
+      expect(map.tight(_sliceAt(0)), isTrue);
+      expect(plan.reach(0), lessThan(1.3));
+
+      // The rules take it, and the husk stands as close as it ever does.
+      final sim = HuntSim(
+        seed: 5,
+        vessel: Vessel.ape,
+        ward: Rarity.common.ward,
+        stats: HuntStats.derive(HuntLoadout.borrowed),
+        plan: plan,
+      );
+      final flat = math.sqrt(
+        math.pow(sim.pose.position.x, 2) + math.pow(sim.pose.position.z, 2),
+      );
+
+      expect(flat, closeTo(HuntRules.closestMetres, 1e-9));
     });
   });
 
@@ -282,7 +301,7 @@ void main() {
       final plan = map.plan!;
 
       expect(map.reach(_sliceAt(0)), closeTo(3, 0.2));
-      expect(plan.isPlayableFor(Vessel.bird), isTrue);
+      expect(plan.isWellFormed, isTrue);
       expect(plan.reach(0), closeTo(3, 0.2));
     });
 
@@ -297,8 +316,8 @@ void main() {
       sweep(map, room, from: -130, to: 70, pitch: 5);
 
       expect(map.reach(_sliceAt(0)), closeTo(1.3, 0.15));
-      expect(map.blocked(_sliceAt(0)), isTrue);
-      expect(map.plan!.contains(0), isFalse);
+      expect(map.tight(_sliceAt(0)), isFalse);
+      expect(map.plan!.reach(0), closeTo(1.3, 0.2));
     });
   });
 }

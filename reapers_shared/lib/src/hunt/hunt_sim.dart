@@ -92,8 +92,8 @@ final class HuntSim {
        _openUntil = List.filled(vessel.seals.length, 0),
        _shutUntil = List.filled(vessel.seals.length, 0),
        _openedOrder = List.filled(vessel.seals.length, 0) {
-    if (!plan.isPlayableFor(vessel)) {
-      throw ArgumentError.value(plan, 'plan', 'has no room to hunt in');
+    if (!plan.isWellFormed) {
+      throw ArgumentError.value(plan, 'plan', 'is not one a phone could make');
     }
 
     _reapDirection = _path.nextChance(0.5) ? 1 : -1;
@@ -136,7 +136,7 @@ final class HuntSim {
     required HuntStats stats,
     required HuntLog log,
   }) {
-    if (!log.plan.isPlayableFor(vessel)) {
+    if (!log.plan.isWellFormed) {
       return null;
     }
 
@@ -1238,9 +1238,12 @@ final class HuntSim {
       _path.nextInt(HuntRules.restMaxTicks - HuntRules.restMinTicks + 1);
 
   /// The farthest the husk may be along [bearing]: as far as it likes to
-  /// keep, or, where something stands in the way, just this side of it.
-  double _farAt(double bearing) =>
-      math.min(vessel.farMetres, plan.reach(bearing) - vessel.halfWidth);
+  /// keep, or, where something stands in the way, just this side of it. In
+  /// a corner too tight even for that, it stands as close as it ever does.
+  double _farAt(double bearing) => math.max(
+    HuntRules.closestMetres,
+    math.min(vessel.farMetres, plan.reach(bearing) - vessel.halfWidth),
+  );
 
   /// The nearest it may be along [bearing]: as near as it likes to come, or
   /// right up against whatever leaves it no more room than that.

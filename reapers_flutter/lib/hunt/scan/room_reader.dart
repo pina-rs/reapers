@@ -62,7 +62,7 @@ final class RoomReader implements RoomSurvey {
   double? reach(int index) => null;
 
   @override
-  bool blocked(int index) => false;
+  bool tight(int index) => false;
 
   @override
   double get progress {

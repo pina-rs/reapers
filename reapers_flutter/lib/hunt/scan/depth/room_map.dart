@@ -83,10 +83,6 @@ final class RoomMap {
   static const _floorSlack = 0.07;
   static const _floorSlackPerMetre = 0.045;
 
-  /// The room a husk is given beyond the least it needs, in metres, so that
-  /// rounding a plan to whole numbers cannot leave it short.
-  static const _margin = 0.02;
-
   /// The floor is looked for in 2 cm steps between the lowest and highest a
   /// phone can be held above one.
   static const _floorStep = 0.02;
@@ -177,13 +173,7 @@ final class RoomMap {
     return true;
   }
 
-  /// How well slice [index] has been read, from 0 to 1.
-  ///
-  /// For a husk that walks, a slice is read once it has been followed out
-  /// to something standing in it, or far enough along clear floor for the
-  /// husk to stand there. A slice caught by the corner of a picture, with
-  /// only the floor at the player's feet in view, is not read yet: nothing
-  /// is known about it either way.
+  /// How well slice [index] has been seen, from 0 to 1.
   double read(int index) => _read[index];
 
   /// How far the way is clear along slice [index], in metres: to the first
@@ -191,17 +181,16 @@ final class RoomMap {
   /// Null until the slice has been read.
   double? reach(int index) => _reach[index];
 
-  /// Whether slice [index] has been read and found to leave the husk no
-  /// room to stand anywhere across it.
-  bool blocked(int index) =>
-      read(index) >= 1 &&
-      !_standable[2 * index] &&
-      !_standable[2 * index + 1] &&
-      !_standable[(2 * index + 2) % _marks];
+  /// Whether slice [index] has been read and found tight: so little clear
+  /// floor that the husk can only stand there as close as it ever comes.
+  bool tight(int index) => switch (_reach[index]) {
+    final metres? => metres - vessel.halfWidth < HuntRules.closestMetres,
+    null => false,
+  };
 
-  /// How much of the arc a husk needs has been found, from 0 to 1.
+  /// How much of the arc a husk needs has been read, from 0 to 1.
   double get progress {
-    final (_, length) = widestRun(_standable);
+    final (_, length) = widestRun(_marked);
 
     return ((length - 1) * _markWidth / RoomSurvey.neededArc).clamp(0.0, 1.0);
   }
@@ -213,10 +202,12 @@ final class RoomMap {
       ).where((slice) => read(slice) >= 1).length *
       HuntPlan.sliceWidth;
 
-  /// Where a husk may go, or null until an arc wide enough, with room all
-  /// along it, has been read.
+  /// Where a husk may go, or null until a wide enough arc has been read.
+  ///
+  /// A room is never too small to hunt in. Where there is little clear
+  /// floor the husk stands closer, and the plan says how much there is.
   HuntPlan? get plan {
-    final (start, length) = widestRun(_standable);
+    final (start, length) = widestRun(_marked);
 
     if ((length - 1) * _markWidth < RoomSurvey.neededArc) {
       return null;
@@ -244,8 +235,9 @@ final class RoomMap {
     eyeCentimetres: _room.eyeCentimetres,
   );
 
-  /// The circle is checked for standing room twice in every slice: at its
-  /// edge and at its middle.
+  /// The circle is marked twice in every slice, at its edge and at its
+  /// middle, so that an arc can begin and end in the middle of a slice
+  /// that has been read.
   static const _marks = 2 * HuntPlan.slices;
   static const _markWidth = HuntPlan.sliceWidth / 2;
 
@@ -264,28 +256,19 @@ final class RoomMap {
   /// The whole room as a plan would carry it.
   HuntPlan _room = HuntPlan.open;
 
-  /// For each mark round the circle, whether the husk could stand there.
-  List<bool> _standable = List.filled(_marks, false);
+  /// For each mark round the circle, whether it has been read.
+  List<bool> _marked = List.filled(_marks, false);
 
   void _reckon() {
     // One ring of the map in metres.
     final unit = vessel.gait == Gait.ground ? floorDepth ?? 0 : 1;
-    final needed = HuntRules.closestMetres + vessel.halfWidth + _margin;
     final clear = [
       for (var slice = 0; slice < HuntPlan.slices; slice++) _clearRings(slice),
     ];
 
     _read = [
       for (var slice = 0; slice < HuntPlan.slices; slice++)
-        math.min(
-          (_seen[slice] / _pointsToRead).clamp(0.0, 1.0),
-          clear[slice].stopped || vessel.gait != Gait.ground
-              ? 1.0
-              : (clear[slice].rings * _ringSize * unit / needed).clamp(
-                  0.0,
-                  1.0,
-                ),
-        ),
+        (_seen[slice] / _pointsToRead).clamp(0.0, 1.0),
     ];
     _reach = [
       for (var slice = 0; slice < HuntPlan.slices; slice++)
@@ -305,12 +288,11 @@ final class RoomMap {
       ],
     );
 
-    _standable = [
+    _marked = [
       for (var mark = 0; mark < _marks; mark++)
         // A mark on the edge between two slices needs both of them read.
         read(mark ~/ 2) >= 1 &&
-            (mark.isOdd || read((mark ~/ 2 - 1) % HuntPlan.slices) >= 1) &&
-            _room.reach(_bearingOfMark(mark)) >= needed,
+            (mark.isOdd || read((mark ~/ 2 - 1) % HuntPlan.slices) >= 1),
     ];
   }
 

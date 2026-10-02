@@ -35,16 +35,18 @@ A hunt opens with "Something is nearby". Before the husk shows itself, you look 
 - For one that flies, look around at about head height.
 - Pointing at the ceiling or at your own feet reads nothing, and neither does turning too fast. The screen says which.
 
-The circle around you is cut into 72 slices of 5°, and the dial on screen fills in as each is read. When an arc of 115° has been read, with room for the husk all along it, the husk gathers itself into view somewhere inside it, with "It is here".
+The circle around you is cut into 72 slices of 5°, and the dial on screen fills in as each is read. When an arc of 115° has been read, the husk gathers itself into view somewhere inside it, with "It is here".
 
 There are two ways the room gets read, and the game picks whichever the phone can manage.
 
 **A phone that can see** (a camera, motion sensors, and the depth model: the Seeker and other Android phones today) takes a picture about twice a second while you sweep and works out from each one how far away everything in it is. From those it learns:
 
 - **How far below the phone the floor is.** The screen shows it as it is found. Sit down and it comes up to meet you.
-- **How far the way is clear in each slice**: to the sofa, the table leg, the wall. The dial's spokes are drawn that long, so it takes the shape of your room, and a slice with no room for the husk is red.
+- **How far the way is clear in each slice**: to the sofa, the table leg, the wall. The dial's spokes are drawn that long, so it takes the shape of your room. A slice is red where it is tight: so little clear floor that the husk can only stand there as close as it ever comes.
 
-A picture is only taken while the phone turns slower than 0.7 rad/s. A slice counts as read once it has been followed out to something standing in it, or along clear floor far enough for the husk to stand. If most of the circle has been read and nowhere has room, the screen says to turn somewhere more open. After 30 seconds without a plan there is a "Hunt anyway" button, which starts the hunt with nothing known about the room.
+A picture is only taken while the phone turns slower than 0.7 rad/s. A slice counts as read once a picture has shown it. No room is too small: where there is little clear floor the husk stands closer, and it does not refuse to appear. After 30 seconds without a plan there is a "Hunt anyway" button, which starts the hunt with nothing known about the room but the floor's depth, if that was found.
+
+The floor is whatever level surface lies lowest in what you show it. Scan a table top and nothing else, and the husk will stand on the table.
 
 **A phone that cannot see** (a simulator, a refused camera, an iPhone until the depth model is tried on one) goes by where you have looked: a slice is read after 0.3 seconds of steady looking at the right height, turning slower than 1.5 rad/s. It learns nothing about the floor or the furniture.
 
@@ -63,7 +65,7 @@ A husk has a real place around you, in metres, and it moves through it.
 - A husk that walks stands on the floor: the floor the phone measured, or one taken to be 1.45 m below it. It ambles a short way every second or three.
 - A husk that flies keeps to a band of air around head height and drifts about in it.
 - It turns its body to face the way it is going, a little at a time, and its head turns to watch you.
-- It stays between its nearest and farthest distance from you (see the table of husks), and never goes past what stands in its way. Where the room gives it less than its nearest distance it comes closer, down to 1.2 m and no nearer.
+- It stays between its nearest and farthest distance from you (see the table of husks), and never goes past what stands in its way. Where the room gives it less than its nearest distance it comes closer, down to 0.8 m and no nearer.
 - It keeps half its own width clear of whatever is in the way, and it starts drawing in before it gets there: the room it has opens out by 2 m for every radian to the side of an obstacle. So it runs round the front of a sofa in a curve instead of into it.
 
 ### Stalk

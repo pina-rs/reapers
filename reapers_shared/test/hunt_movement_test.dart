@@ -117,7 +117,7 @@ void main() {
         halfWidthCentidegrees: HuntPlan.minHalfWidthCentidegrees - 1,
       );
 
-      expect(narrow.isPlayableFor(Vessel.penguin), isFalse);
+      expect(narrow.isWellFormed, isFalse);
       expect(
         () => HuntSim(
           seed: 1,
@@ -410,7 +410,7 @@ void main() {
     });
 
     test('the whole circle holds everything', () {
-      expect(HuntPlan.open.isPlayableFor(Vessel.ape), isTrue);
+      expect(HuntPlan.open.isWellFormed, isTrue);
 
       for (var turn = -180; turn <= 180; turn += 15) {
         expect(HuntPlan.open.contains(radians(turn.toDouble())), isTrue);
@@ -531,10 +531,20 @@ void main() {
         final plan = room();
 
         for (var seed = 1; seed <= 6; seed++) {
-          for (final step in _Hunt(vessel, seed: seed, plan: plan).steps) {
+          final hunt = _Hunt(vessel, seed: seed, plan: plan);
+
+          for (final step in hunt.steps) {
+            // It keeps half its width clear of what stands in its way,
+            // except where that would bring it nearer than it ever comes.
             expect(
-              _range(step.after) + vessel.halfWidth,
-              lessThanOrEqualTo(plan.reach(step.after.yaw) + 1e-6),
+              _range(step.after),
+              lessThanOrEqualTo(
+                math.max(
+                      HuntRules.closestMetres,
+                      plan.reach(step.after.yaw) - vessel.halfWidth,
+                    ) +
+                    1e-6,
+              ),
               reason: 'seed $seed at ${degrees(step.after.yaw)}°',
             );
             expect(
@@ -572,43 +582,29 @@ void main() {
       }
     });
 
-    test('a room with nowhere to stand is refused', () {
-      final cramped = HuntPlan(
-        centreCentidegrees: 0,
-        halfWidthCentidegrees: 9000,
-        reachDecimetres: List.filled(HuntPlan.slices, 14),
-      );
-      final blockedAhead = HuntPlan(
-        centreCentidegrees: 0,
-        halfWidthCentidegrees: 9000,
-        reachDecimetres: [
-          for (var slice = 0; slice < HuntPlan.slices; slice++)
-            HuntPlan.bearingOf(slice).abs() < radians(5) ? 10 : 40,
-        ],
-      );
-
-      expect(cramped.isPlayableFor(Vessel.penguin), isFalse);
-      expect(blockedAhead.isPlayableFor(Vessel.penguin), isFalse);
-      // What is in the way outside the arc is no concern of the husk's.
-      expect(
-        HuntPlan(
-          centreCentidegrees: 9000,
-          halfWidthCentidegrees: 5000,
-          reachDecimetres: blockedAhead.reachDecimetres,
-        ).isPlayableFor(Vessel.penguin),
-        isTrue,
-      );
-      expect(
-        () => HuntSim(
+    test(
+      'in a room with no room, the husk stands as close as it ever does',
+      () {
+        final cramped = HuntPlan(
+          centreCentidegrees: 0,
+          halfWidthCentidegrees: 9000,
+          reachDecimetres: List.filled(HuntPlan.slices, 9),
+        );
+        final sim = HuntSim(
           seed: 1,
           vessel: Vessel.penguin,
           ward: 280,
           stats: HuntStats.derive(HuntLoadout.borrowed),
           plan: cramped,
-        ),
-        throwsArgumentError,
-      );
-    });
+        );
+
+        for (var tick = 0; tick < 600; tick++) {
+          sim.step(idle);
+
+          expect(_range(sim.pose), closeTo(HuntRules.closestMetres, 1e-9));
+        }
+      },
+    );
 
     test('a plan no phone could have made is refused', () {
       HuntPlan plan({int eye = 145, List<int> reach = const []}) => HuntPlan(

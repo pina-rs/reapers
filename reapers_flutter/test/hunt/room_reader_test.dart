@@ -93,7 +93,7 @@ void main() {
       final plan = reader.plan!;
 
       expect(reader.progress, 1);
-      expect(plan.isPlayableFor(Vessel.ape), isTrue);
+      expect(plan.isWellFormed, isTrue);
       expect(plan.isSurveyed, isFalse, reason: 'it cannot see the room');
       expect(plan.centreCentidegrees.abs(), lessThan(800));
       expect(plan.halfWidthCentidegrees, inInclusiveRange(6000, 8500));

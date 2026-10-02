@@ -39,10 +39,6 @@ final class DepthSurvey implements RoomSurvey {
   /// faster the phone turns the further out that is.
   static const steadyTurnSpeed = 0.7;
 
-  /// Once this much of the circle has been read without finding room for
-  /// the husk, the player is told to look for somewhere more open.
-  static final _enoughToJudge = radians(200);
-
   final RoomMap _map;
   ReadingAdvice _posture = ReadingAdvice.keepGoing;
   bool _busy = false;
@@ -63,15 +59,7 @@ final class DepthSurvey implements RoomSurvey {
   Future<bool> start() => camera.watch(_onFrame);
 
   @override
-  ReadingAdvice get advice {
-    if (_posture != ReadingAdvice.keepGoing) {
-      return _posture;
-    }
-
-    return _map.plan == null && _map.coverage >= _enoughToJudge
-        ? ReadingAdvice.findRoom
-        : ReadingAdvice.keepGoing;
-  }
+  ReadingAdvice get advice => _posture;
 
   @override
   void observe(ArPose pose, double deltaSeconds) {
@@ -89,7 +77,7 @@ final class DepthSurvey implements RoomSurvey {
   double? reach(int index) => _map.reach(index);
 
   @override
-  bool blocked(int index) => _map.blocked(index);
+  bool tight(int index) => _map.tight(index);
 
   @override
   double get progress => _map.progress;
@@ -203,11 +191,24 @@ final class DepthSurvey implements RoomSurvey {
       // A line for each picture, for whoever is working out why a room
       // reads the way it does. Never in a release build.
       if (!kReleaseMode) {
+        final reaches = [
+          for (var slice = 0; slice < HuntPlan.slices; slice++)
+            ?_map.reach(slice),
+        ]..sort();
+        final tight = Iterable<int>.generate(
+          HuntPlan.slices,
+        ).where(_map.tight).length;
+
         debugPrint(
           'Room reading: picture ${learnt ? 'kept' : 'set aside'}, '
           'floor ${_map.floorDepth?.toStringAsFixed(2) ?? 'not found'} m '
-          'down, ${degrees(_map.coverage).round()}° read, '
-          '${(_map.progress * 100).round()}% of the room it needs',
+          'down, ${degrees(_map.coverage).round()}° read '
+          '(${(_map.progress * 100).round()}% of what it needs), '
+          '${reaches.isEmpty ? 'nothing clear yet' : 'clear '
+                    '${reaches.first.toStringAsFixed(1)} to '
+                    '${reaches.last.toStringAsFixed(1)} m, middle '
+                    '${reaches[reaches.length ~/ 2].toStringAsFixed(1)} m'}, '
+          '$tight of ${reaches.length} directions tight',
         );
       }
     } on Object catch (error) {

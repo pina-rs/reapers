@@ -98,7 +98,6 @@ class ScanOverlay extends HookWidget {
                             ReadingAdvice.slowDown => l10n.scanSlower,
                             ReadingAdvice.lookLower => l10n.scanLower,
                             ReadingAdvice.lookHigher => l10n.scanHigher,
-                            ReadingAdvice.findRoom => l10n.scanFindRoom,
                             ReadingAdvice.keepGoing => l10n.scanReading,
                           },
                           key: const Key('scan-advice'),
@@ -146,7 +145,8 @@ class ScanOverlay extends HookWidget {
 /// The room from above, with the player in the middle: one spoke for each
 /// slice of the circle, lit once it has been read. Where the survey can see,
 /// a spoke is as long as the way is clear, so the dial takes the shape of
-/// the room, and a slice with no room for the husk is marked in red. The
+/// the room, and a slice too tight for the husk to keep its distance is
+/// marked in red. The
 /// dial turns with the phone, so straight ahead is always at the top.
 class _DialPainter extends CustomPainter {
   _DialPainter({
@@ -194,7 +194,7 @@ class _DialPainter extends CustomPainter {
         centre + along * (inner + (outer - inner) * length),
         stroke
           ..strokeWidth = read >= 1 ? 3 : 1.5
-          ..color = survey.blocked(slice)
+          ..color = survey.tight(slice)
               ? Veil.wound.withValues(alpha: 0.7)
               : Color.lerp(Veil.hairline, light, read)!,
       );

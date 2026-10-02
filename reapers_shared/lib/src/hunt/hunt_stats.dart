@@ -263,9 +263,10 @@ abstract final class HuntRules {
   /// [eyeCentimetres] in metres.
   static const eyeHeight = eyeCentimetres / 100;
 
-  /// The nearest a husk ever stands to the player, in metres, however
-  /// little room there is. Closer than this it would fill the view.
-  static const closestMetres = 1.2;
+  /// The nearest a husk stands to the player when the room leaves it no
+  /// more than that, in metres. In a tight corner it comes this close
+  /// rather than not appear at all; nearer and it would fill the view.
+  static const closestMetres = 0.8;
 
   /// How quickly the room a husk has opens out to the side of something in
   /// its way, in metres for every radian round the player. It is what turns
