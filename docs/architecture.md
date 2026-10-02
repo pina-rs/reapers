@@ -24,7 +24,7 @@ Two types carry most of it:
 - **`PlayerState`** is everything a player owns and has done, as one immutable value. Each thing a player can ask for is a method that returns the next state or throws a `RuleBreach` naming a `Refusal`. It reads no clock and rolls no dice: seeds and times are passed in, so the server decides them for an online player.
 - **`HuntSim`** is one encounter, advanced a tick at a time from quantised inputs (aim in hundredths of a degree, turn speed in thousandths of a radian a second). A husk has a real position around the player, in metres, and moves through it: along the floor or through the air, inside the `HuntPlan` it was given. The same seed, the same plan and the same inputs always end the same way, on any device.
 
-That determinism is what makes cheating a lone hunt pointless. The phone records the plan and each tick's input into a `HuntLog` (5 bytes for the plan, 7 a tick, 4 more per tap) and sends that, not a result. The server replays it and pays whatever the replay earns. It replays with windows 3% wider than the phone played with, so a hunt won by a hair is never lost to rounding. A plan too narrow to be a fair hunt is refused.
+That determinism is what makes cheating a lone hunt pointless. The phone records the plan and each tick's input into a `HuntLog` (7 bytes for the plan and 72 more when the room was surveyed, then 7 a tick and 4 more per tap) and sends that, not a result. The server replays it and pays whatever the replay earns. It replays with windows 3% wider than the phone played with, so a hunt won by a hair is never lost to rounding. A plan too narrow to be a fair hunt, or with no room in it for the husk to stand, is refused.
 
 ## The game
 
@@ -46,7 +46,14 @@ lib/
 
 **The arena.** `HuntArena` owns the scene, the husk and the phone's pose, and shows whatever `HuntSim` it is given. A lone hunt and a seat in a rift are both fought in it. Screens lay their own words over it.
 
-**Reading the room.** Before a hunt, `RoomReader` watches where the phone points and turns what the player has looked over into a `HuntPlan`: the arc a husk may move in. Today it knows where the player looked and which way is down. Anything that learns more about the room (ARKit, ARCore, a depth model) replaces the reader and hands the hunt a better plan; see [environment.md](environment.md).
+**Reading the room.** Before a hunt, a `RoomSurvey` turns what the player has looked over into a `HuntPlan`: the arc a husk may move in, how far down the floor is, and how far the way is clear in each direction. There are two, chosen by `openRoomSurvey`:
+
+- `DepthSurvey`, for a phone that can see. Frames from `HuntCamera` are cut down by `CameraPicture`, run through `DepthModel` (Depth Anything V2 small, on the phone, through ONNX Runtime), and put together by `RoomMap`. `RoomMap` is plain arithmetic with no camera or model in it, so it is tested against rooms drawn by hand.
+- `RoomReader`, for anywhere else. It knows only where the player has looked.
+
+Anything that learns more about the room (ARKit, ARCore, a server that names what it sees) is a third survey and hands the hunt a better plan. See [environment.md](environment.md).
+
+**The lens.** `CameraOptics` asks the phone for its camera's focal length and sensor size, and the hunt is drawn with the field of view that follows from them. A husk seen through a different lens from the floor it stands on slides across the floor when the phone turns.
 
 **Pose.** Where the phone points comes from a `PoseSource`. `DevicePoseSource` fuses the gyroscope and accelerometer; `DragPoseSource` follows a finger, for simulators and desktops; `AdaptivePoseSource` uses the device when it answers and the drag when it does not. ARKit and ARCore would be a fourth source behind the same interface.
 
@@ -88,8 +95,8 @@ Shades are the same simulated player the tests use, stepped by the room.
 
 ## Known limits of this design
 
-- **The room is not understood.** A husk stands on a floor assumed from gravity and standing height, and knows nothing of furniture. See [environment.md](environment.md).
-- **The plan is the phone's word.** The server checks a plan is wide enough to be fair, not that the player really looked there.
+- **The room is read once, from where you stand.** The phone measures the floor and what stands on it before the hunt, by eye, to within about a tenth. It does not follow you walking, hide a husk behind anything, or know what anything is. See [environment.md](environment.md).
+- **The plan is the phone's word.** The server checks a plan is wide enough to be fair and has room for the husk, not that the room is really that shape. A made-up room cannot win a hunt, but it can bring the husk closer, where its seals are easier to hit.
 - **Rifts trust the client.** A hunt is replayed; a rift is not. Making it so means sending each seat's input log and replaying it against the shared ward's history.
 - **Rifts live in one process.** Every reaper in a circle must be connected to the same server instance. Running more than one needs the room moved to shared state or the circle pinned to an instance.
 - **The player is one row.** That is the right size now and will not be once a codex holds thousands of entries.

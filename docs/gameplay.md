@@ -33,22 +33,38 @@ A hunt opens with "Something is nearby". Before the husk shows itself, you look 
 
 - For a husk that walks, tip the phone down and sweep it slowly across the floor in front of you.
 - For one that flies, look around at about head height.
-- Turning faster than 1.5 rad/s reads nothing. Neither does pointing at the ceiling or at your own feet. The screen says which.
+- Pointing at the ceiling or at your own feet reads nothing, and neither does turning too fast. The screen says which.
 
-The circle around you is cut into 72 slices. A slice is read once you have looked into it steadily for 0.3 seconds, and the dial on screen fills in as you go. When an unbroken arc of 115° has been read, the husk gathers itself into view somewhere inside it, with "It is here".
+The circle around you is cut into 72 slices of 5°, and the dial on screen fills in as each is read. When an arc of 115° has been read, with room for the husk all along it, the husk gathers itself into view somewhere inside it, with "It is here".
 
-That arc is the hunt's plan. The husk appears in it and never leaves it, so it is never anywhere you have not looked. A plan narrower than 100° is not allowed: it would pen the husk in.
+There are two ways the room gets read, and the game picks whichever the phone can manage.
 
-What the phone knows after reading is where you looked and which way is down. See "Reading the environment" below for what it does not know yet.
+**A phone that can see** (a camera, motion sensors, and the depth model: the Seeker and other Android phones today) takes a picture about twice a second while you sweep and works out from each one how far away everything in it is. From those it learns:
+
+- **How far below the phone the floor is.** The screen shows it as it is found. Sit down and it comes up to meet you.
+- **How far the way is clear in each slice**: to the sofa, the table leg, the wall. The dial's spokes are drawn that long, so it takes the shape of your room, and a slice with no room for the husk is red.
+
+A picture is only taken while the phone turns slower than 0.7 rad/s. A slice counts as read once it has been followed out to something standing in it, or along clear floor far enough for the husk to stand. If most of the circle has been read and nowhere has room, the screen says to turn somewhere more open. After 30 seconds without a plan there is a "Hunt anyway" button, which starts the hunt with nothing known about the room.
+
+**A phone that cannot see** (a simulator, a refused camera, an iPhone until the depth model is tried on one) goes by where you have looked: a slice is read after 0.3 seconds of steady looking at the right height, turning slower than 1.5 rad/s. It learns nothing about the floor or the furniture.
+
+Either way the result is the hunt's plan:
+
+- **The arc** the husk keeps to. It is never anywhere that has not been read. A plan narrower than 100° is not allowed: it would pen the husk in.
+- **The height of your eye above the floor**, measured, or 1.45 m when it could not be.
+- **How far the way is clear along each slice**, when the phone could see.
+
+The plan is about 80 bytes. It is recorded with the hunt, and the server replays the hunt inside the same plan.
 
 ### Where a husk is
 
 A husk has a real place around you, in metres, and it moves through it.
 
-- A husk that walks stands on the floor. The floor is taken to be 1.45 m below the phone, straight down along gravity. It ambles a short way every second or three.
+- A husk that walks stands on the floor: the floor the phone measured, or one taken to be 1.45 m below it. It ambles a short way every second or three.
 - A husk that flies keeps to a band of air around head height and drifts about in it.
 - It turns its body to face the way it is going, a little at a time, and its head turns to watch you.
-- It stays between its nearest and farthest distance from you (see the table of husks).
+- It stays between its nearest and farthest distance from you (see the table of husks), and never goes past what stands in its way. Where the room gives it less than its nearest distance it comes closer, down to 1.2 m and no nearer.
+- It keeps half its own width clear of whatever is in the way, and it starts drawing in before it gets there: the room it has opens out by 2 m for every radian to the side of an obstacle. So it runs round the front of a sofa in a curve instead of into it.
 
 ### Stalk
 
@@ -204,19 +220,24 @@ The game asks people to hold a phone up outdoors, so:
 
 ## Reading the environment
 
-What the game does today, on any phone:
+What the game does, on a phone that can see:
 
-- It shows the real camera feed and keeps husks in place as you turn, from the gyroscope and accelerometer.
-- It knows which way is down, so it knows where a floor at standing height would be, and husks that walk stand on it with a soft shadow under them. Husks that fly stay in the air.
-- It only puts a husk where you have looked.
+- It shows the real camera feed, drawn through the camera's own lens so that husks hold their place as you turn.
+- It measures how far down the floor is, and husks that walk stand on it with a soft shadow under them.
+- It finds what stands on the floor and how far away, and husks go round it.
+- It only puts a husk where it has looked.
 
-What it does not know:
+On a phone that cannot see, the floor is taken to be 1.45 m down and nothing is known about the furniture.
 
-- **What is standing on the floor.** A husk will walk through a sofa. Nothing reads furniture, walls or tables yet.
-- **How high the phone really is.** 1.45 m is a standing adult. Sit down and a husk floats above the carpet.
+What it still does not know anywhere:
+
 - **Where you walk.** The game follows the phone turning, not moving. Step sideways and the husks come with you.
+- **What is in front of what.** A husk is drawn over the camera feed and is never hidden behind a chair.
+- **Anything it has not been shown.** The room is read once, before the hunt. Move a chair during it and the husk walks through the chair.
+- **The ceiling.** A husk that flies keeps clear of walls and cupboards, but its band of air tops out 0.85 m above your eye whatever the ceiling's height.
+- **What things are.** It knows something is in the way. It does not know a sofa from a wall, so nothing hides behind one or jumps up on one.
 
-Getting real surfaces is possible, and how depends on the phone. [environment.md](environment.md) lays out the options, what each costs, and the decision that is waiting on them.
+[environment.md](environment.md) says how the seeing works, how far it can be trusted, and what would come next.
 
 ## What is simulated, and what is not built
 

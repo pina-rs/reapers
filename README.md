@@ -34,6 +34,8 @@ fvm flutter run
 
 That is the whole game with no server. On a real phone you look around by turning; on a simulator, drag to look and tap to strike.
 
+On an Android phone the hunt reads the room through the camera before the husk appears: it finds the floor and what stands on it, and the husk keeps to the floor and goes round the furniture. That runs on the phone, with a depth model bundled in the build. [docs/environment.md](docs/environment.md) says how, and how far to trust it.
+
 To watch it play itself, which is the only way to see a full hunt on a simulator:
 
 ```sh
@@ -62,6 +64,7 @@ dart tool/hooks.dart install  # once per clone: guard main (see below)
 dart tool/check.dart          # format, analysis and every test
 dart tool/check.dart --fast   # the same without the server tests
 dart tool/build_art.dart      # rebuild every 3D model and NFT portrait (needs Blender 5.1)
+dart tool/build_depth_model.dart  # rebuild the depth model that reads rooms (needs uv)
 ```
 
 There are no pull requests. Work happens on a branch and is merged into `main` locally:
