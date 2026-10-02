@@ -65,6 +65,7 @@ dart tool/check.dart          # format, analysis and every test
 dart tool/check.dart --fast   # the same without the server tests
 dart tool/build_art.dart      # rebuild every 3D model and NFT portrait (needs Blender 5.1)
 dart tool/build_depth_model.dart  # rebuild the depth model that reads rooms (needs uv)
+dart tool/build_music.dart    # fetch and re-encode the music (needs ffmpeg and curl)
 ```
 
 There are no pull requests. Work happens on a branch and is merged into `main` locally:

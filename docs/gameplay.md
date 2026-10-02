@@ -241,6 +241,36 @@ A rift is a whole dead collection piled into one body. It takes a circle of four
 
 `dart reapers_shared/tool/rift_pacing.dart` prints how rifts go for circles of different sizes and levels.
 
+## Music
+
+Three recordings, each made by someone else and released for anyone to use. Nothing was composed or generated for the game.
+
+| Where | Piece | By |
+| --- | --- | --- |
+| The sanctum and every page of the ledger | J.S. Bach, Prelude No. 8 in E-flat minor, BWV 853 | Kimiko Ishizaka, on a concert grand. Public domain. |
+| A hunt | Anabasis I | Scott Buckley. CC BY 4.0. |
+| A rift | Katabasis I | Scott Buckley. CC BY 4.0. |
+
+A hunt never switches tune. It has one piece, and the hunt changes how that piece is heard: how loud, and how muffled, as if through the veil.
+
+| Moment | Loudness | Veil |
+| --- | --- | --- |
+| Reading the room | 0.22 | 0.9 |
+| Stalking, unseen | 0.30 | 0.8 |
+| Stalking, steadied on the husk | up to 0.45 | down to 0.5 |
+| The fight | 0.8 | clear |
+| The husk stunned | 1.0 | clear |
+| It draws breath | falls from 0.8 to 0.12 | rises to 0.9 |
+| The shriek | 0.06 | full |
+| It charges | 1.0 | clear |
+| Ward broken, the reap | 0.45 | 0.45 |
+| Absorbed | silence | |
+| Escaped | 0.25 | 0.85 |
+
+So the music is one more thing telling you what to do. It comes clear when you may strike, drains away to almost nothing for the moment you must hold still, swells when the husk comes at you, and is gone by the time the husk has come apart.
+
+The veil is a low-pass filter: clear is everything up to 16 kHz, full is only what lies under 320 Hz. Music can be turned off on the colophon page, which also carries the credits two of the pieces require.
+
 ## Safety
 
 The game asks people to hold a phone up outdoors, so:
@@ -278,5 +308,5 @@ What it still does not know anywhere:
 - **Rifts have no cost and no cooldown.** That is why they pay like one epic husk and no better. Before launch they need a key, a cooldown or both.
 - **Receipts are signed but go nowhere.** Nothing posts them to a chain yet.
 - **Reaper against reaper** is not built.
-- **Sound** is not built. Haptics are.
+- **Sound effects** are not built. Music and haptics are.
 - **The numbers** were tuned against a simulated player, not people. Expect to move them after the first playtest on real phones.
