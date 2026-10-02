@@ -14,6 +14,7 @@ import '../theme/veil.dart';
 import '../widgets/ledger.dart';
 import 'armory_screen.dart';
 import 'codex_screen.dart';
+import 'colophon_screen.dart';
 import 'rifts_screen.dart';
 import 'vault_screen.dart';
 
@@ -147,6 +148,13 @@ class SanctumScreen extends HookConsumerWidget {
                             detail: l10n.sanctumPracticeDetail,
                             quiet: true,
                             onPressed: () => startPracticeHunt(context, ref),
+                          ),
+                          LedgerButton(
+                            key: const Key('sanctum-colophon'),
+                            label: l10n.sanctumColophon,
+                            detail: l10n.sanctumColophonDetail,
+                            quiet: true,
+                            onPressed: () => open(const ColophonScreen()),
                           ),
                         ],
                       ),

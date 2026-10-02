@@ -169,6 +169,87 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get sanctumColophon => 'Colophon';
+
+  @override
+  String get sanctumColophonDetail => 'Music and credits';
+
+  @override
+  String get colophonOverline => 'Colophon';
+
+  @override
+  String get colophonTitle => 'What this is made of';
+
+  @override
+  String get colophonMusic => 'Music';
+
+  @override
+  String get colophonMusicOn => 'On';
+
+  @override
+  String get colophonMusicOff => 'Off';
+
+  @override
+  String get colophonMusicHeading => 'Music';
+
+  @override
+  String get colophonSanctum => 'In the sanctum';
+
+  @override
+  String get colophonHunt => 'On the hunt';
+
+  @override
+  String get colophonRift => 'In a rift';
+
+  @override
+  String get colophonBachPiece =>
+      'J.S. Bach, Prelude No. 8 in E-flat minor, BWV 853';
+
+  @override
+  String get colophonBachCredit =>
+      'Kimiko Ishizaka, piano. From the Open Well-Tempered Clavier, released into the public domain. welltemperedclavier.org';
+
+  @override
+  String get colophonAnabasisPiece => 'Anabasis I';
+
+  @override
+  String get colophonAnabasisCredit =>
+      '\'Anabasis I\' by Scott Buckley - released under CC-BY 4.0. www.scottbuckley.com.au';
+
+  @override
+  String get colophonKatabasisPiece => 'Katabasis I';
+
+  @override
+  String get colophonKatabasisCredit =>
+      '\'Katabasis I\' by Scott Buckley - released under CC-BY 4.0. www.scottbuckley.com.au';
+
+  @override
+  String get colophonSightHeading => 'Reading the room';
+
+  @override
+  String get colophonSight => 'How far away things are';
+
+  @override
+  String get colophonDepthPiece => 'Depth Anything V2, small, metric, indoor';
+
+  @override
+  String get colophonDepthCredit =>
+      'Lihe Yang and others. Released under the Apache License 2.0. It runs on this phone; no picture leaves it.';
+
+  @override
+  String get colophonTypeHeading => 'Type';
+
+  @override
+  String get colophonType => 'Set in';
+
+  @override
+  String get colophonTypePiece => 'Fraunces and DM Sans';
+
+  @override
+  String get colophonTypeCredit =>
+      'Both released under the SIL Open Font License 1.1.';
+
+  @override
   String get sanctumPractice => 'Practice hunt';
 
   @override

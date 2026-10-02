@@ -13,6 +13,8 @@ import '../l10n/l10n.dart';
 import '../l10n/lookups.dart';
 import '../src/backend/game_backend.dart';
 import '../src/backend/rift_session.dart';
+import '../sound/score.dart';
+import '../sound/soundtrack.dart';
 import '../src/state/player.dart';
 import '../theme/veil.dart';
 import '../widgets/ledger.dart';
@@ -65,6 +67,15 @@ class RiftScreen extends HookConsumerWidget {
 
       return () => SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }, const []);
+
+    // A rift has its own music, held back while the circle gathers.
+    final soundtrack = ref.watch(soundtrackProvider);
+
+    useEffect(() {
+      soundtrack.play(Score.rift, mix: Mix.waiting);
+
+      return () => soundtrack.play(Score.sanctum);
+    }, [soundtrack]);
 
     useEffect(() {
       var closed = false;
@@ -175,6 +186,8 @@ class RiftScreen extends HookConsumerWidget {
       if (fight == null) {
         return;
       }
+
+      soundtrack.shape(huntMix(fight.sim));
 
       fight.tally(events);
 

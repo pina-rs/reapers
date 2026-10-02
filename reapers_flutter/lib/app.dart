@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'dev/depth_probe.dart';
@@ -7,6 +8,8 @@ import 'dev/reaper_gallery.dart';
 import 'l10n/l10n.dart';
 import 'render/reaper_look.dart';
 import 'screens/sanctum_screen.dart';
+import 'sound/score.dart';
+import 'sound/soundtrack.dart';
 import 'screens/threshold_screen.dart';
 import 'src/state/player.dart';
 import 'theme/veil.dart';
@@ -30,6 +33,20 @@ class ReapersApp extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final player = ref.watch(playerProvider);
     final bound = player.value?.oathTaken ?? false;
+    final soundtrack = ref.watch(soundtrackProvider);
+
+    // The sanctum's music is the game's own: it plays from the first screen,
+    // and a hunt or a rift hands back to it when it is over.
+    useEffect(() {
+      soundtrack.play(Score.sanctum);
+
+      return null;
+    }, [soundtrack]);
+
+    // Off the screen, the game is quiet.
+    useOnAppLifecycleStateChange(
+      (_, state) => soundtrack.hold(held: state != AppLifecycleState.resumed),
+    );
 
     return MaterialApp(
       onGenerateTitle: (context) => context.l10n.appTitle,

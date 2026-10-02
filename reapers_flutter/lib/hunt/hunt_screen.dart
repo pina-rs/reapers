@@ -8,6 +8,8 @@ import 'package:reapers_shared/reapers_shared.dart';
 
 import '../l10n/l10n.dart';
 import '../l10n/lookups.dart';
+import '../sound/score.dart';
+import '../sound/soundtrack.dart';
 import '../src/state/testing_difficulty.dart';
 import '../theme/veil.dart';
 import '../widgets/ledger.dart';
@@ -149,6 +151,16 @@ class HuntScreen extends HookConsumerWidget {
       return () => SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }, const []);
 
+    // The hunt has its own music, far off until the husk shows itself, and
+    // gives the sanctum's back when it is over.
+    final soundtrack = ref.watch(soundtrackProvider);
+
+    useEffect(() {
+      soundtrack.play(Score.hunt, mix: Mix.waiting);
+
+      return () => soundtrack.play(Score.sanctum);
+    }, [soundtrack]);
+
     useEffect(() {
       var cancelled = false;
 
@@ -247,6 +259,8 @@ class HuntScreen extends HookConsumerWidget {
     }, [banner.value]);
 
     void onEvents(List<HuntEvent> events) {
+      soundtrack.shape(huntMix(arena.controller!.sim));
+
       for (final event in events) {
         knockFor(event);
         banner.value = huntBannerFor(l10n, event) ?? banner.value;

@@ -334,6 +334,156 @@ abstract class AppLocalizations {
   /// **'{count, plural, =0{Hunt together} =1{1 sealed} other{{count} sealed}}'**
   String sanctumRiftsDetail(int count);
 
+  /// No description provided for @sanctumColophon.
+  ///
+  /// In en, this message translates to:
+  /// **'Colophon'**
+  String get sanctumColophon;
+
+  /// No description provided for @sanctumColophonDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Music and credits'**
+  String get sanctumColophonDetail;
+
+  /// No description provided for @colophonOverline.
+  ///
+  /// In en, this message translates to:
+  /// **'Colophon'**
+  String get colophonOverline;
+
+  /// No description provided for @colophonTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What this is made of'**
+  String get colophonTitle;
+
+  /// No description provided for @colophonMusic.
+  ///
+  /// In en, this message translates to:
+  /// **'Music'**
+  String get colophonMusic;
+
+  /// No description provided for @colophonMusicOn.
+  ///
+  /// In en, this message translates to:
+  /// **'On'**
+  String get colophonMusicOn;
+
+  /// No description provided for @colophonMusicOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get colophonMusicOff;
+
+  /// No description provided for @colophonMusicHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Music'**
+  String get colophonMusicHeading;
+
+  /// No description provided for @colophonSanctum.
+  ///
+  /// In en, this message translates to:
+  /// **'In the sanctum'**
+  String get colophonSanctum;
+
+  /// No description provided for @colophonHunt.
+  ///
+  /// In en, this message translates to:
+  /// **'On the hunt'**
+  String get colophonHunt;
+
+  /// No description provided for @colophonRift.
+  ///
+  /// In en, this message translates to:
+  /// **'In a rift'**
+  String get colophonRift;
+
+  /// No description provided for @colophonBachPiece.
+  ///
+  /// In en, this message translates to:
+  /// **'J.S. Bach, Prelude No. 8 in E-flat minor, BWV 853'**
+  String get colophonBachPiece;
+
+  /// No description provided for @colophonBachCredit.
+  ///
+  /// In en, this message translates to:
+  /// **'Kimiko Ishizaka, piano. From the Open Well-Tempered Clavier, released into the public domain. welltemperedclavier.org'**
+  String get colophonBachCredit;
+
+  /// No description provided for @colophonAnabasisPiece.
+  ///
+  /// In en, this message translates to:
+  /// **'Anabasis I'**
+  String get colophonAnabasisPiece;
+
+  /// No description provided for @colophonAnabasisCredit.
+  ///
+  /// In en, this message translates to:
+  /// **'\'Anabasis I\' by Scott Buckley - released under CC-BY 4.0. www.scottbuckley.com.au'**
+  String get colophonAnabasisCredit;
+
+  /// No description provided for @colophonKatabasisPiece.
+  ///
+  /// In en, this message translates to:
+  /// **'Katabasis I'**
+  String get colophonKatabasisPiece;
+
+  /// No description provided for @colophonKatabasisCredit.
+  ///
+  /// In en, this message translates to:
+  /// **'\'Katabasis I\' by Scott Buckley - released under CC-BY 4.0. www.scottbuckley.com.au'**
+  String get colophonKatabasisCredit;
+
+  /// No description provided for @colophonSightHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Reading the room'**
+  String get colophonSightHeading;
+
+  /// No description provided for @colophonSight.
+  ///
+  /// In en, this message translates to:
+  /// **'How far away things are'**
+  String get colophonSight;
+
+  /// No description provided for @colophonDepthPiece.
+  ///
+  /// In en, this message translates to:
+  /// **'Depth Anything V2, small, metric, indoor'**
+  String get colophonDepthPiece;
+
+  /// No description provided for @colophonDepthCredit.
+  ///
+  /// In en, this message translates to:
+  /// **'Lihe Yang and others. Released under the Apache License 2.0. It runs on this phone; no picture leaves it.'**
+  String get colophonDepthCredit;
+
+  /// No description provided for @colophonTypeHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get colophonTypeHeading;
+
+  /// No description provided for @colophonType.
+  ///
+  /// In en, this message translates to:
+  /// **'Set in'**
+  String get colophonType;
+
+  /// No description provided for @colophonTypePiece.
+  ///
+  /// In en, this message translates to:
+  /// **'Fraunces and DM Sans'**
+  String get colophonTypePiece;
+
+  /// No description provided for @colophonTypeCredit.
+  ///
+  /// In en, this message translates to:
+  /// **'Both released under the SIL Open Font License 1.1.'**
+  String get colophonTypeCredit;
+
   /// No description provided for @sanctumPractice.
   ///
   /// In en, this message translates to:
