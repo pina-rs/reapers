@@ -96,6 +96,17 @@ Every 6.5 to 10 seconds the husk stops where it is, turns on you and draws breat
 
 The warning is a darkening of the edges of the screen and a line of text. It is deliberately not a flash: see the safety notes below.
 
+### Charge
+
+A husk fights back. Every 8 to 14 seconds of the fight it turns on you and comes: a walker runs at you along the floor, a flier swoops down to eye level. It takes 66 ticks (1.1 s) to arrive, to within 0.9 m, and a ring closes on it as it comes.
+
+- Swing the phone across it at 2.0 rad/s or faster and you turn it aside. That is a flick of the wrist: a third of a turn a second. A swing in the first 10 ticks does not count, since you were probably still turning to follow it.
+- Turned aside, it stands stunned where it got to for 100 ticks, right in front of you, with every seal in view open. Then it bolts.
+- Do nothing and it strikes: you lose one resolve and your cadence, the edges of the screen bruise, and it runs off. Out of resolve, the husk escapes.
+- You can keep striking its seals while it comes.
+
+A shriek asks you to freeze and a charge asks you to swing, so the two are never close together: there are always at least 90 ticks between one ending and the other beginning. A husk in a rift does not charge.
+
 ### Reap
 
 When the ward reaches zero the husk stops dead, hangs open, and an arc appears across it, 52° wide.
@@ -104,6 +115,26 @@ When the ward reaches zero the husk stops dead, hangs open, and an arc appears a
 - Sweeping faster than 2.1 rad/s, or straying from the arc, tears the cut.
 - The grade decides the reward: ragged ×1.0, clean ×1.25, perfect ×1.5.
 - Run out of time and the husk recovers 30% of its ward and runs. A second unfinished reap and it escapes.
+
+### Testing difficulty
+
+A build that is not a release has a "Testing difficulty" button on the screen before each hunt. It starts on easy, so that someone who has never played can bring a husk down and see a whole hunt. It changes what a hunt asks, never what it pays.
+
+| | Easy | Normal | Hard |
+| --- | --- | --- | --- |
+| The husk's ward | ×0.35 | ×1 | ×1.3 |
+| How far a tap may land from a seal | ×1.75 | ×1 | ×0.85 |
+| How fast you may move in a shriek | ×3 | ×1 | ×0.8 |
+| Flinches and blows you can take | +3 | +0 | +0 |
+| The reap window | ×2.5 | ×1 | ×0.8 |
+| How far the cut may stray | ×2 | ×1 | ×0.8 |
+| Unfinished reaps allowed | 4 | 2 | 2 |
+| How fast the husk moves | ×0.6 | ×1 | ×1.15 |
+| How long the fight may run | 150 s | 75 s | 75 s |
+| How long a charge takes to arrive | ×1.6 | ×1 | ×0.85 |
+| The swing that turns a charge aside | ×0.6 | ×1 | ×1.15 |
+
+A simulated beginner (slow to react, wide with every other tap) takes every creature on easy and loses most hunts on hard. The difficulty is recorded with the hunt. The server replays at the recorded difficulty, and refuses anything but normal when it runs in production. A release build has no button and plays on normal.
 
 ### Feeding
 
