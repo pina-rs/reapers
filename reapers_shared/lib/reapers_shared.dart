@@ -7,6 +7,7 @@ library;
 
 export 'src/armory.dart';
 export 'src/feeding.dart';
+export 'src/geo.dart';
 export 'src/hunt/difficulty.dart';
 export 'src/hunt/hunt_bot.dart';
 export 'src/hunt/hunt_event.dart';

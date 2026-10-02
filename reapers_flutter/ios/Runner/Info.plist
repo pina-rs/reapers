@@ -28,6 +28,8 @@
 	<true/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>A rift stands at a real place. Reapers uses where you are, while a rift is open, to show it in the same spot for everyone standing with you.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Reapers shows the spirit realm over your camera so you can hunt the husks around you.</string>
 	<key>NSMotionUsageDescription</key>

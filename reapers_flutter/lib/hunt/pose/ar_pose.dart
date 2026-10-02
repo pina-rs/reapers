@@ -99,6 +99,10 @@ abstract interface class PoseSource {
   /// Whether the pose follows the phone itself rather than a drag.
   bool get followsDevice;
 
+  /// Where north lies in the view, as a bearing in radians to the right of
+  /// where the view first faced, or null for a source with no compass.
+  double? get north;
+
   /// Advances the source by [deltaSeconds]. Called once a frame.
   void advance(double deltaSeconds);
 

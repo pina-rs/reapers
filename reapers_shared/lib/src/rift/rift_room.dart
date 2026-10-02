@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import '../armory.dart';
+import '../geo.dart';
 import '../hunt/hunt_bot.dart';
 import '../hunt/hunt_event.dart';
 import '../hunt/hunt_input.dart';
@@ -9,11 +10,48 @@ import '../hunt/hunt_stats.dart';
 import '../reaper_class.dart';
 import '../reaper_names.dart';
 import '../seeded_random.dart';
+import '../vec3.dart';
 import 'rift_frame.dart';
 import 'rift_rules.dart';
 import 'rift_site.dart';
 
 /// A reaper arriving at a rift: who they are and what they fight with.
+/// Where one reaper sees a rift's husk: which way it lies from them, and how
+/// far off it is drawn.
+final class RiftSighting {
+  const RiftSighting({required this.bearing, required this.metres});
+
+  /// Where a reaper [standing] sees a rift that stands at [anchor], or null
+  /// when they are too far away to be said to be there.
+  ///
+  /// [north] is where north lies in the reaper's own view, as a bearing in
+  /// the space their hunt is played in: it is what turns a direction on the
+  /// earth into a direction the phone can be pointed.
+  static RiftSighting? of({
+    required GeoPoint anchor,
+    required GeoPoint standing,
+    required double north,
+  }) {
+    final metres = standing.distanceTo(anchor);
+
+    if (metres > RiftRules.sightMetres) {
+      return null;
+    }
+
+    return RiftSighting(
+      bearing: wrapAngle(north + standing.bearingTo(anchor)),
+      metres: metres.clamp(RiftRules.nearestMetres, RiftRules.farthestMetres),
+    );
+  }
+
+  /// The way to the husk in the reaper's own view, in radians to the right
+  /// of where they first faced.
+  final double bearing;
+
+  /// How far away the husk is drawn.
+  final double metres;
+}
+
 final class RiftEntrant {
   const RiftEntrant({required this.name, required this.loadout});
 
@@ -31,16 +69,20 @@ typedef RiftReward = ({int xp, int anima});
 /// their own arc to cut. What they share is the ward: every strike anyone
 /// lands comes off the same total.
 final class RiftSeat {
+  /// [sighting] is where this reaper sees the husk. Without one it stands
+  /// dead ahead of them.
   RiftSeat({
     required int seed,
     required RiftSite site,
     required double wardMax,
     required HuntLoadout loadout,
+    RiftSighting? sighting,
   }) : sim = HuntSim.rift(
          seed: seed,
          vessel: site.vessel,
          ward: wardMax,
          stats: HuntStats.derive(loadout),
+         sighting: sighting,
        );
 
   final HuntSim sim;
@@ -120,6 +162,11 @@ final class RiftRoom {
   /// begins, since it depends on who came.
   double wardMax = 0;
 
+  /// Where on the earth the rift stands: decided by the first reaper to say
+  /// where they are, and the same for everyone after. Null until then, and
+  /// for good if nobody in the circle can say.
+  GeoPoint? anchor;
+
   int _gatherTicks = 0;
   int? _countdown;
   int _reapEndsTick = 0;
@@ -185,6 +232,12 @@ final class RiftRoom {
     member.ready = member.ready || report.ready;
 
     if (phase == RiftPhase.gathering) {
+      // The rift takes its place while the circle gathers, and keeps it:
+      // moving it mid-fight would turn every reaper's phone away from it.
+      if (report.standing case final standing?) {
+        anchor ??= site.anchorFor(standing);
+      }
+
       return;
     }
 
@@ -245,6 +298,7 @@ final class RiftRoom {
       ],
       xp: reward.xp,
       anima: reward.anima,
+      anchor: anchor,
     );
   }
 

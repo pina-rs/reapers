@@ -230,7 +230,7 @@ Why these five, and the hundred or so they were chosen from, is in [research/sol
 
 A rift is a whole dead collection piled into one body. It takes a circle of four.
 
-- **Where.** Each rift is at a real place: London Bridge (Degenerate Ape Academy), Shibuya Crossing (Thugbirdz), Third Mainland Bridge in Lagos (Sollamas), Brooklyn Bridge (Pesky Penguins), Golden Gate Bridge (Solarians). This version does not check where you are standing. See the limits below.
+- **Where.** Each rift has a site: London Bridge (Degenerate Ape Academy), Shibuya Crossing (Thugbirdz), Third Mainland Bridge in Lagos (Sollamas), Brooklyn Bridge (Pesky Penguins), Golden Gate Bridge (Solarians). A rift can be entered from anywhere, and where its husk stands depends on where you are: see "Standing in the same place" below.
 - **Who.** A rift opens only to a reaper who has absorbed at least one NFT from its collection. The way to a collection's raid runs through buying that collection.
 - **Gathering.** Reapers join and stand ready. When everyone present is ready there is a three-second count. A rift waits at most 60 seconds. Seats nobody takes are filled by shades: bots one level below the circle's average, slower to react and wider of the mark than a careful person.
 - **The ward.** It is sized to the circle: the sum of everyone's best damage per second × 0.84 × 70 seconds. A rift is as hard for four beginners as for four veterans. What it asks for is company and care, not levels.
@@ -240,6 +240,20 @@ A rift is a whole dead collection piled into one body. It takes a circle of four
 - **Pay.** 220 experience and 90 anima for a clean cut and a fair share of the work. Your share of the ward scales that from 60% (did nothing) to 100% (a quarter of the ward or more). The cut scales it like a reap grade; no cut is ×0.75 and cast out is ×0.5. Leave early and you are paid nothing. A failed rift costs nothing.
 
 `dart reapers_shared/tool/rift_pacing.dart` prints how rifts go for circles of different sizes and levels.
+
+### Standing in the same place
+
+A rift's husk stands at one place on the earth, and everyone in the circle is pointed at it. Four people in a park all turn the same way.
+
+- **The rift keeps the place.** Whoever hosts the rift (the server, for a circle of people) holds one latitude and longitude for it and sends it to everyone in the circle.
+- **How the place is chosen.** While the circle gathers, each phone that knows where it is says so. The rift takes its place from the first one it hears: at the site itself if that reaper is within 250 m of it, and otherwise 25 m in front of them, along the way their phone was pointing. It does not move after that.
+- **How a phone finds it.** Each phone takes its own position, works out the compass bearing from there to the rift, and uses its compass to turn that into a direction in its own view. The husk is drawn 14 to 40 m away, whatever the real distance, so that it fits the screen and its seals can be struck.
+- **Too far away.** A reaper more than 150 m from where the rift stands sees it dead ahead, as before. So does a phone that cannot say where it is, or has no compass.
+- **During the fight** the husk stays where it was when the fight began. Stand still, as for any hunt.
+
+How well this works is down to the phone. Out of doors a phone knows where it is to within 3 to 10 m, and at 25 m that is 7 to 20 degrees of bearing. A compass is good to about 10 degrees, and much worse near steel, cars or indoors. So people standing together face the same way, give or take; they do not all touch the same stone. Indoors, expect it to be rough.
+
+Compass north is used as it comes. True north differs from it by a few degrees in most places and by 13 in New York and San Francisco. For a rift planted in front of a reaper that makes no difference, since everyone uses the same compass north. For a rift at its real site it moves the husk by that angle for everyone alike.
 
 ## Music
 
@@ -303,7 +317,7 @@ What it still does not know anywhere:
 ## What is simulated, and what is not built
 
 - **The NFTs.** The five collections are real ones from Solana's first wave. Nothing else about them is: no wallet, no mint, no chain, and the creatures are our own models. See [nfts.md](nfts.md).
-- **Rifts are not located.** The sites have real coordinates but nothing checks yours. Geofencing is the missing piece.
+- **Rifts are not fenced.** A rift knows where it stands and points everyone at it, but nothing stops a reaper in another city from joining the same circle, and nothing checks that a phone is where it says. Sharing one place to within centimetres needs a positioning service (ARCore's Geospatial API, or ARKit's), which the Seeker does not have.
 - **Rift reports are trusted.** A lone hunt is replayed on the server before it pays. A rift takes each reaper's word for the damage they dealt.
 - **Rifts have no cost and no cooldown.** That is why they pay like one epic husk and no better. Before launch they need a key, a cooldown or both.
 - **Receipts are signed but go nowhere.** Nothing posts them to a chain yet.

@@ -35,6 +35,75 @@ void _turn(
 }
 
 void main() {
+  group('where north is', () {
+    /// A field that points north along the ground and dips into it, as the
+    /// earth's does away from the equator, for a phone held upright with
+    /// north lying [degreesRight] to the right of where it faces.
+    void feel(AttitudeFilter filter, {required double degreesRight}) {
+      final turn = radians(degreesRight);
+
+      // Device axes: x right, y up, z toward the player.
+      for (var sample = 0; sample < 400; sample++) {
+        filter.addMagneticField(
+          20 * math.sin(turn),
+          -40,
+          -20 * math.cos(turn),
+        );
+      }
+    }
+
+    test('is not known until the compass has been heard', () {
+      expect(_upright().north, isNull);
+    });
+
+    test('is straight ahead when the phone faces north', () {
+      final filter = _upright();
+
+      feel(filter, degreesRight: 0);
+
+      expect(degrees(filter.north!), closeTo(0, 0.1));
+    });
+
+    test('is to the right when the phone faces west', () {
+      final filter = _upright();
+
+      feel(filter, degreesRight: 90);
+
+      expect(degrees(filter.north!), closeTo(90, 0.1));
+    });
+
+    test('stays where it is as the phone turns', () {
+      final filter = _upright();
+
+      feel(filter, degreesRight: 0);
+      // Turn a quarter turn to the right: about the device's up axis, the
+      // other way round from how angles are counted.
+      _turn(filter, y: -math.pi / 2);
+
+      expect(degrees(filter.pose.forward.yaw), closeTo(90, 0.5));
+
+      // North is now on the phone's left, and the compass says so.
+      feel(filter, degreesRight: -90);
+
+      expect(degrees(filter.north!), closeTo(0, 1));
+    });
+
+    test('is not thrown by one wild reading', () {
+      final filter = _upright();
+
+      feel(filter, degreesRight: 0);
+      filter.addMagneticField(-300, -40, 5);
+
+      expect(degrees(filter.north!).abs(), lessThan(4));
+    });
+
+    test('ignores a field with no heading in it', () {
+      final filter = _upright()..addMagneticField(0.1, -50, 0.1);
+
+      expect(filter.north, isNull);
+    });
+  });
+
   group('AttitudeFilter', () {
     test('a phone held upright looks straight ahead and level', () {
       final pose = _upright().pose;

@@ -18,6 +18,9 @@ final class AdaptivePoseSource implements PoseSource {
   bool get followsDevice => _device.isReady;
 
   @override
+  double? get north => followsDevice ? _device.north : null;
+
+  @override
   void advance(double deltaSeconds) => _drag.advance(deltaSeconds);
 
   @override

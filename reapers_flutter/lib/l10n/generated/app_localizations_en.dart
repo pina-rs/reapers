@@ -397,7 +397,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get riftsStandIn =>
-      'A rift opens at a real place and takes a circle of four. This build does not check where you are standing, so any rift can be entered from anywhere, and shades take the places nobody else does.';
+      'A rift takes a circle of four. Stand at its site and it is there. Anywhere else, it takes its place 25 metres in front of the first reaper to arrive, and everyone who joins sees it in that same spot. Shades take the places nobody else does.';
 
   @override
   String riftsSite(String city, String collection) {
@@ -435,6 +435,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get riftSeatWaiting => 'Arriving';
+
+  @override
+  String get riftFinding =>
+      'Finding where you stand, so the rift can take its place.';
+
+  @override
+  String get riftUnplaced =>
+      'This phone cannot say where it is, so the rift stands dead ahead of you.';
+
+  @override
+  String riftStands(int metres) {
+    return 'The rift stands $metres m from you. Everyone here sees it in the same place: turn until you find it.';
+  }
+
+  @override
+  String get riftStandsFar =>
+      'The rift stands too far from here to point at, so you see it dead ahead.';
+
+  @override
+  String riftMeasured(int accuracy, String latitude, String longitude) {
+    return '(You: $latitude, $longitude, within $accuracy m.)';
+  }
 
   @override
   String get riftStandReady => 'Stand ready';

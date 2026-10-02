@@ -15,9 +15,12 @@ import 'test_tools/serverpod_test_tools.dart';
 /// its own fight in step with the frames the server sends, and reports how
 /// that fight stands.
 final class _Reaper {
-  _Reaper(this.loadout);
+  _Reaper(this.loadout, {this.standing});
 
   final HuntLoadout loadout;
+
+  /// Where this reaper's phone says it is, when it can say.
+  final GeoStanding? standing;
   final reports = StreamController<RiftReport>();
   final frames = <RiftFrame>[];
 
@@ -28,7 +31,7 @@ final class _Reaper {
 
   /// Plays the rift that [stream] carries until the server ends it.
   Future<void> play(Stream<RiftFrame> stream) async {
-    reports.add(const RiftReport(ready: true));
+    reports.add(RiftReport(ready: true, standing: standing));
 
     await for (final frame in stream) {
       frames.add(frame);
@@ -300,6 +303,44 @@ void main() {
           expect(second.last.you.dealt, greaterThan(0));
           expect((await endpoints.player.load(player)).riftsSealed, 1);
           expect((await endpoints.player.load(other)).riftsSealed, 1);
+        },
+      );
+
+      test(
+        'when they say where they stand then the rift takes one place for '
+        'both of them',
+        () async {
+          const garden = GeoPoint(52.2, 0.12);
+          final beside = garden.moved(bearing: 2, metres: 4);
+          final first = _Reaper(
+            (await attune(player, playerId)).loadout,
+            standing: const GeoStanding(at: garden, facing: 1.2, accuracy: 4),
+          );
+          final second = _Reaper(
+            (await attune(other, otherId)).loadout,
+            standing: GeoStanding(at: beside, facing: -2, accuracy: 6),
+          );
+
+          await Future.wait([
+            first.play(
+              endpoints.rift.enter(player, site, first.reports.stream),
+            ),
+            second.play(
+              endpoints.rift.enter(other, site, second.reports.stream),
+            ),
+          ]);
+
+          final anchor = first.last.anchor;
+
+          // Whichever of them the rift heard first, it stands in one place,
+          // 25 metres in front of that one, and both are told the same.
+          expect(anchor, isNotNull);
+          expect(second.last.anchor, anchor);
+          expect(
+            [garden.distanceTo(anchor!), beside.distanceTo(anchor)],
+            contains(closeTo(RiftRules.plantMetres, 0.01)),
+          );
+          expect(first.last.phase, RiftPhase.sealed);
         },
       );
     },

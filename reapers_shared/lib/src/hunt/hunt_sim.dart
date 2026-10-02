@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import '../reaper_class.dart';
+import '../rift/rift_room.dart';
 import '../rift/rift_rules.dart';
 import '../seeded_random.dart';
 import '../vec3.dart';
@@ -49,11 +50,16 @@ final class HuntSim {
   /// runs the rift keeps this reaper's view of it current with [shareWard].
   /// Every reaper given the same [seed] hears the husk shriek at the same
   /// moments, and there is one reap window, not two.
+  ///
+  /// [sighting] is where this reaper sees the husk: the way to the place on
+  /// the earth the whole circle is looking at. Without one it stands dead
+  /// ahead of them, at its usual distance.
   HuntSim.rift({
     required int seed,
     required Vessel vessel,
     required double ward,
     required HuntStats stats,
+    RiftSighting? sighting,
   }) : this._(
          seed: seed,
          vessel: vessel,
@@ -62,6 +68,7 @@ final class HuntSim {
          plan: HuntPlan.open,
          difficulty: Difficulty.normal,
          inRift: true,
+         sighting: sighting,
        );
 
   HuntSim._({
@@ -72,6 +79,7 @@ final class HuntSim {
     required this.plan,
     required this.difficulty,
     required this.inRift,
+    RiftSighting? sighting,
   }) : wardMax = ward,
        resolve = stats.resolve,
        reapAttemptsLeft = inRift
@@ -99,10 +107,11 @@ final class HuntSim {
     _nextAmbleTick = _restTicks();
 
     if (inRift) {
-      // A rift's husk stands dead ahead, facing the circle.
-      _bearing = 0;
-      _range = _rangeAt(_bearing, outward);
-      _heading = math.pi;
+      // A rift's husk stands where the circle sees it, or dead ahead, and
+      // faces this reaper.
+      _bearing = sighting?.bearing ?? 0;
+      _range = sighting?.metres ?? _rangeAt(_bearing, outward);
+      _heading = wrapAngle(_bearing + math.pi);
       phase = HuntPhase.fight;
       _scheduleShriek();
 

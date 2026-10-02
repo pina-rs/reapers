@@ -157,7 +157,7 @@
 
   "riftsOverline": "Rifts",
   "riftsTitle": "Some husks are too much for one reaper.",
-  "riftsStandIn": "A rift opens at a real place and takes a circle of four. This build does not check where you are standing, so any rift can be entered from anywhere, and shades take the places nobody else does.",
+  "riftsStandIn": "A rift takes a circle of four. Stand at its site and it is there. Anywhere else, it takes its place 25 metres in front of the first reaper to arrive, and everyone who joins sees it in that same spot. Shades take the places nobody else does.",
   "riftsSite": "{city} · {collection}",
   "@riftsSite": {
     "placeholders": {
@@ -179,6 +179,21 @@
   "riftSeatYou": "You",
   "riftSeatReady": "Ready",
   "riftSeatWaiting": "Arriving",
+  "riftFinding": "Finding where you stand, so the rift can take its place.",
+  "riftUnplaced": "This phone cannot say where it is, so the rift stands dead ahead of you.",
+  "riftStands": "The rift stands {metres} m from you. Everyone here sees it in the same place: turn until you find it.",
+  "@riftStands": {
+    "placeholders": { "metres": { "type": "int" } }
+  },
+  "riftStandsFar": "The rift stands too far from here to point at, so you see it dead ahead.",
+  "riftMeasured": "(You: {latitude}, {longitude}, within {accuracy} m.)",
+  "@riftMeasured": {
+    "placeholders": {
+      "accuracy": { "type": "int" },
+      "latitude": { "type": "String" },
+      "longitude": { "type": "String" }
+    }
+  },
   "riftStandReady": "Stand ready",
   "riftWaiting": "Waiting for the circle",
   "riftBegins": "Begins in {seconds}",

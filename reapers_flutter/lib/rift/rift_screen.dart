@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -13,6 +14,8 @@ import '../l10n/l10n.dart';
 import '../l10n/lookups.dart';
 import '../src/backend/game_backend.dart';
 import '../src/backend/rift_session.dart';
+import 'place/rift_placer.dart';
+import 'place/whereabouts.dart';
 import '../sound/score.dart';
 import '../sound/soundtrack.dart';
 import '../src/state/player.dart';
@@ -60,7 +63,11 @@ class RiftScreen extends HookConsumerWidget {
     final seat = useState<RiftSeat?>(null);
     final lastReportTick = useRef(-_reportEveryTicks);
     final reportedEnd = useRef(false);
-    final placed = useRef(false);
+    // Where the rift stands for this reaper, and where the husk was last
+    // put because of it.
+    final placer = useMemoized(RiftPlacer.new, const []);
+    final placed = useRef<RiftSighting?>(null);
+    final everPlaced = useRef(false);
 
     useEffect(() {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -117,26 +124,46 @@ class RiftScreen extends HookConsumerWidget {
         final fighting =
             next.phase == RiftPhase.fight || next.phase == RiftPhase.reap;
 
+        if (seat.value == null) {
+          final standing = placer.observe(
+            next,
+            facing: arena.pose.forward.yaw,
+            north: arena.poseSource.north,
+          );
+
+          if (standing != null) {
+            session.report(
+              RiftReport(ready: next.you.ready, standing: standing),
+            );
+          }
+        }
+
         if (fighting && seat.value == null) {
+          // Once the fight is on the husk stays where it was last seen:
+          // moving it would turn the reaper's own blade away from it.
           final fight = RiftSeat(
             seed: next.seed,
             site: site,
             wardMax: next.wardMax,
             loadout: entered.loadout,
+            sighting: placer.sighting,
           )..catchUp(math.min(next.tick, _maxCatchUpTicks));
 
           arena.engage(fight.sim);
           seat.value = fight;
-        } else if (seat.value == null && !placed.value) {
+        } else if (seat.value == null &&
+            (!everPlaced.value || !identical(placed.value, placer.sighting))) {
           // Nothing is being fought yet, but the husk already stands where
           // it will be fought.
-          placed.value = true;
+          everPlaced.value = true;
+          placed.value = placer.sighting;
           arena.rest(
             HuntSim.rift(
               seed: next.seed,
               vessel: site.vessel,
               ward: 1,
               stats: HuntStats.derive(entered.loadout),
+              sighting: placer.sighting,
             ).pose,
           );
         }
@@ -156,12 +183,17 @@ class RiftScreen extends HookConsumerWidget {
           }
         },
       );
+      final locating = ref
+          .read(whereaboutsProvider)
+          .watch()
+          .listen((found) => placer.fix = found);
 
       unawaited(load());
 
       return () {
         closed = true;
         unawaited(listening.cancel());
+        unawaited(locating.cancel());
         session.leave();
         arena.dispose();
       };
@@ -267,6 +299,13 @@ class RiftScreen extends HookConsumerWidget {
             _Gathering(
               site: site,
               frame: current,
+              placing: _placing(
+                l10n,
+                anchor: current?.anchor,
+                fix: placer.fix,
+                north: arena.poseSource.north,
+                stillLooking: placer.stillLooking,
+              ),
               onReady: () => session.report(const RiftReport(ready: true)),
             ),
           if (ended.value case final last?)
@@ -279,6 +318,34 @@ class RiftScreen extends HookConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// Where the rift stands for this reaper, in words for the lobby.
+  static String _placing(
+    AppLocalizations l10n, {
+    required GeoPoint? anchor,
+    required GeoFix? fix,
+    required double? north,
+    required bool stillLooking,
+  }) {
+    if (fix == null || north == null) {
+      return stillLooking ? l10n.riftFinding : l10n.riftUnplaced;
+    }
+
+    // What the phone measured, for whoever is testing how well it knows.
+    final measured = kReleaseMode
+        ? ''
+        : ' ${l10n.riftMeasured(fix.accuracy.round(), fix.at.latitude.toStringAsFixed(5), fix.at.longitude.toStringAsFixed(5))}';
+
+    if (anchor == null) {
+      return '${l10n.riftFinding}$measured';
+    }
+
+    final metres = fix.at.distanceTo(anchor);
+
+    return metres > RiftRules.sightMetres
+        ? '${l10n.riftStandsFar}$measured'
+        : '${l10n.riftStands(metres.round())}$measured';
   }
 
   /// Why the rift was lost, in the player's words where there are any.
@@ -401,10 +468,14 @@ class _Gathering extends HookWidget {
   const _Gathering({
     required this.site,
     required this.frame,
+    required this.placing,
     required this.onReady,
   });
 
   final RiftSite site;
+
+  /// Where the rift stands for this reaper, in words.
+  final String placing;
 
   /// Null until the rift has answered.
   final RiftFrame? frame;
@@ -452,6 +523,12 @@ class _Gathering extends HookWidget {
               Text(
                 l10n.huntSafety,
                 style: Veil.body(color: Veil.ash, size: 14),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                placing,
+                key: const Key('rift-placing'),
+                style: Veil.body(size: 14),
               ),
               LedgerHeading(
                 l10n.riftCircle,

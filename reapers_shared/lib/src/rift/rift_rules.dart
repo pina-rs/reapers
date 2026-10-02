@@ -54,6 +54,27 @@ abstract final class RiftRules {
   /// What a reaper who was cast out before the end earns.
   static const castOutShare = 0.5;
 
+  // Where a rift stands -----------------------------------------------
+
+  /// A reaper standing this near a rift's site, in metres, finds the rift
+  /// at the site itself.
+  static const siteMetres = 250.0;
+
+  /// Anywhere else, the rift stands this far in front of the first reaper
+  /// to say where they are. Everyone who comes after sees it in that same
+  /// place.
+  static const plantMetres = 25.0;
+
+  /// A reaper farther than this from where the rift stands is not there in
+  /// any useful sense, and sees it dead ahead, as through the veil.
+  static const sightMetres = 150.0;
+
+  /// The nearest and farthest the husk is drawn from a reaper, in metres,
+  /// however near or far they stand. Nearer and it would not fit on the
+  /// screen; farther and its seals would be too small to strike.
+  static const nearestMetres = 14.0;
+  static const farthestMetres = 40.0;
+
   /// The ward a rift's husk raises against [circle], one entry for every
   /// reaper and shade in it.
   ///

@@ -4,6 +4,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
+import 'rift/place/whereabouts.dart';
 import 'sound/soloud_engine.dart';
 import 'sound/soundtrack.dart';
 import 'src/state/player.dart';
@@ -21,6 +22,7 @@ Future<void> main() async {
       overrides: [
         sharedPreferencesProvider.overrideWithValue(preferences),
         scoreEngineProvider.overrideWithValue(SoLoudEngine()),
+        whereaboutsProvider.overrideWithValue(const DeviceWhereabouts()),
       ],
       child: const ReapersApp(),
     ),

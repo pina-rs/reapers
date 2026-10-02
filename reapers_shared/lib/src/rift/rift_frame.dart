@@ -1,3 +1,4 @@
+import '../geo.dart';
 import '../hunt/hunt_event.dart';
 import '../reaper_class.dart';
 import 'rift_site.dart';
@@ -108,6 +109,7 @@ final class RiftFrame {
     required this.members,
     required this.xp,
     required this.anima,
+    this.anchor,
   });
 
   /// Reads a frame written by [toJson].
@@ -127,6 +129,12 @@ final class RiftFrame {
     ],
     xp: json['xp'] as int,
     anima: json['anima'] as int,
+    anchor: switch (json['anchor']) {
+      final Map<dynamic, dynamic> anchor => GeoPoint.fromJson(
+        anchor.cast<String, dynamic>(),
+      ),
+      _ => null,
+    },
   );
 
   final RiftSite site;
@@ -162,6 +170,10 @@ final class RiftFrame {
   /// Anima this reaper was paid. Zero until the rift is sealed.
   final int anima;
 
+  /// Where on the earth the rift stands, the same for everyone in the
+  /// circle, or null while no reaper in it has said where they are.
+  final GeoPoint? anchor;
+
   RiftMember get you => members[seat];
 
   /// Cuts the circle needs before the rift counts as sealed: half of those
@@ -189,6 +201,7 @@ final class RiftFrame {
     'members': [for (final member in members) member.toJson()],
     'xp': xp,
     'anima': anima,
+    'anchor': anchor?.toJson(),
   };
 
   /// A frame never changes, so a copy of it is itself. Serverpod asks for
@@ -203,7 +216,12 @@ final class RiftFrame {
 /// can therefore be repeated, dropped or arrive late without the rift losing
 /// count.
 final class RiftReport {
-  const RiftReport({required this.ready, this.dealt = 0, this.outcome});
+  const RiftReport({
+    required this.ready,
+    this.dealt = 0,
+    this.outcome,
+    this.standing,
+  });
 
   /// Reads a report written by [toJson].
   factory RiftReport.fromJson(Map<String, dynamic> json) {
@@ -215,6 +233,12 @@ final class RiftReport {
       outcome: outcome == null
           ? null
           : HuntOutcome.fromJson(outcome.cast<String, dynamic>()),
+      standing: switch (json['standing']) {
+        final Map<dynamic, dynamic> standing => GeoStanding.fromJson(
+          standing.cast<String, dynamic>(),
+        ),
+        _ => null,
+      },
     );
   }
 
@@ -228,10 +252,15 @@ final class RiftReport {
   /// who cut the husk reports an absorbed outcome with the grade of the cut.
   final HuntOutcome? outcome;
 
+  /// Where this reaper is standing, when their phone can tell. The first
+  /// one a rift hears of decides where the rift stands.
+  final GeoStanding? standing;
+
   Map<String, dynamic> toJson() => {
     'ready': ready,
     'dealt': dealt,
     'outcome': outcome?.toJson(),
+    'standing': standing?.toJson(),
   };
 
   /// A report never changes, so a copy of it is itself. Serverpod asks for

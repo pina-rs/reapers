@@ -1,5 +1,7 @@
+import '../geo.dart';
 import '../nft_catalogue.dart';
 import '../vessel.dart';
+import 'rift_rules.dart';
 
 /// A real place where a rift opens.
 ///
@@ -63,6 +65,20 @@ enum RiftSite {
   /// The collection whose dead come through here. A reaper must have
   /// absorbed one of them before the rift opens for them.
   final NftCollection collection;
+
+  /// Where on the earth the site is.
+  GeoPoint get location => GeoPoint(latitude, longitude);
+
+  /// Where this site's rift stands for a circle whose first reaper is
+  /// [standing]: at the site itself for a reaper who has come to it, and a
+  /// little way in front of them anywhere else.
+  GeoPoint anchorFor(GeoStanding standing) =>
+      standing.at.distanceTo(location) <= RiftRules.siteMetres
+      ? location
+      : standing.at.moved(
+          bearing: standing.facing,
+          metres: RiftRules.plantMetres,
+        );
 
   /// The body every rift's husk wears.
   Vessel get vessel => Vessel.reliquaryStack;

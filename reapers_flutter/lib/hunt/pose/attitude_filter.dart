@@ -14,6 +14,11 @@ import 'ar_pose.dart';
 /// to stay put for the length of one hunt, and a compass would bring more
 /// noise than it removes.
 ///
+/// A compass is still listened to, for one thing: where north lies in the
+/// view. That is what lets something be drawn at a real place on the earth,
+/// where everyone standing nearby sees it in the same direction. It is kept
+/// beside the pose, never mixed into it.
+///
 /// Readings use the sensor convention shared by Android and `sensors_plus`:
 /// x to the right of the screen, y toward its top, z out toward the player,
 /// with a resting accelerometer reading pointing up.
@@ -31,6 +36,15 @@ final class AttitudeFilter {
   /// in seconds to cover most of a change.
   static const _speedSmoothing = 0.07;
 
+  /// How strongly one compass sample moves the sense of where north is. A
+  /// compass jumps about, and north does not move, so each sample counts
+  /// for little.
+  static const _northGain = 0.03;
+
+  /// A field pointing this nearly straight up or down has no heading in it
+  /// worth reading.
+  static const _flatFieldShare = 0.2;
+
   static const _up = Vec3.up;
 
   /// Device to world. The world's y axis is up; its heading is wherever the
@@ -38,6 +52,7 @@ final class AttitudeFilter {
   _Rotation _attitude = _Rotation.identity;
   bool _levelled = false;
   double _turnSpeed = 0;
+  double? _north;
 
   /// Whether enough has been heard from the sensors to trust [pose].
   bool get isReady => _levelled;
@@ -84,6 +99,35 @@ final class AttitudeFilter {
 
     _attitude = (correction * _attitude).normalized;
   }
+
+  /// Feeds one magnetometer sample. Only its direction is used, so the
+  /// unit does not matter.
+  void addMagneticField(double x, double y, double z) {
+    final size = math.sqrt(x * x + y * y + z * z);
+
+    if (!_levelled || size < 1e-9) {
+      return;
+    }
+
+    final field = _toHunt(_attitude.rotate(Vec3(x, y, z) / size));
+    final flat = math.sqrt(field.x * field.x + field.z * field.z);
+
+    if (flat < _flatFieldShare) {
+      return;
+    }
+
+    final measured = math.atan2(field.x, field.z);
+    final north = _north;
+
+    _north = north == null
+        ? measured
+        : wrapAngle(north + wrapAngle(measured - north) * _northGain);
+  }
+
+  /// Where magnetic north lies in the hunt's space, as a bearing in radians
+  /// to the right of where the view first faced. Null until the compass has
+  /// been heard from.
+  double? get north => _north;
 
   /// The current pose, in the hunt's space.
   ArPose get pose => ArPose(

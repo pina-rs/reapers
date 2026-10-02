@@ -36,6 +36,7 @@ dependencies:
   vector_math: ^2.4.2
   flutter_onnxruntime: ^1.8.5
   flutter_soloud: ^4.1.7
+  geolocator: ^14.0.1
 
 dev_dependencies:
   build_runner: ^2.4.13

@@ -55,6 +55,8 @@ Anything that learns more about the room (ARKit, ARCore, a server that names wha
 
 **The lens.** `CameraOptics` asks the phone for its camera's focal length and sensor size, and the hunt is drawn with the field of view that follows from them. A husk seen through a different lens from the floor it stands on slides across the floor when the phone turns.
 
+**Where a rift stands.** A rift's `RiftRoom` holds one `GeoPoint` for its husk and every `RiftFrame` carries it, so whoever hosts the room is the one place that knows where the enemy is. On the phone, `Whereabouts` says where the phone is, the pose source says where north lies in the view (`AttitudeFilter` listens to the magnetometer for that and nothing else), and `RiftPlacer` turns the three into a `RiftSighting`: the direction and distance this reaper sees the husk at. `RiftPlacer` has no sensors in it and is tested with two phones side by side.
+
 **Music.** `Soundtrack` decides which piece plays and how it is heard, and a `ScoreEngine` makes the sound. The real engine is SoLoud, handed in at startup; everywhere else, including every test, the engine is silent. `huntMix` is the whole of how a hunt sounds: a pure function from the hunt's state to a loudness and a veil. The recordings are other people's, built by `tool/build_music.dart` and credited in `assets/music/CREDITS.md` and on the colophon page.
 
 **Pose.** Where the phone points comes from a `PoseSource`. `DevicePoseSource` fuses the gyroscope and accelerometer; `DragPoseSource` follows a finger, for simulators and desktops; `AdaptivePoseSource` uses the device when it answers and the drag when it does not. ARKit and ARCore would be a fourth source behind the same interface.

@@ -733,7 +733,7 @@ abstract class AppLocalizations {
   /// No description provided for @riftsStandIn.
   ///
   /// In en, this message translates to:
-  /// **'A rift opens at a real place and takes a circle of four. This build does not check where you are standing, so any rift can be entered from anywhere, and shades take the places nobody else does.'**
+  /// **'A rift takes a circle of four. Stand at its site and it is there. Anywhere else, it takes its place 25 metres in front of the first reaper to arrive, and everyone who joins sees it in that same spot. Shades take the places nobody else does.'**
   String get riftsStandIn;
 
   /// No description provided for @riftsSite.
@@ -801,6 +801,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Arriving'**
   String get riftSeatWaiting;
+
+  /// No description provided for @riftFinding.
+  ///
+  /// In en, this message translates to:
+  /// **'Finding where you stand, so the rift can take its place.'**
+  String get riftFinding;
+
+  /// No description provided for @riftUnplaced.
+  ///
+  /// In en, this message translates to:
+  /// **'This phone cannot say where it is, so the rift stands dead ahead of you.'**
+  String get riftUnplaced;
+
+  /// No description provided for @riftStands.
+  ///
+  /// In en, this message translates to:
+  /// **'The rift stands {metres} m from you. Everyone here sees it in the same place: turn until you find it.'**
+  String riftStands(int metres);
+
+  /// No description provided for @riftStandsFar.
+  ///
+  /// In en, this message translates to:
+  /// **'The rift stands too far from here to point at, so you see it dead ahead.'**
+  String get riftStandsFar;
+
+  /// No description provided for @riftMeasured.
+  ///
+  /// In en, this message translates to:
+  /// **'(You: {latitude}, {longitude}, within {accuracy} m.)'**
+  String riftMeasured(int accuracy, String latitude, String longitude);
 
   /// No description provided for @riftStandReady.
   ///

@@ -16,6 +16,11 @@ final class DevicePoseSource implements PoseSource {
     _acceleration = accelerometerEventStream(
       samplingPeriod: SensorInterval.gameInterval,
     ).listen(_onAcceleration, onError: _onSensorError);
+    // A phone with no compass still plays: it only cannot say where north
+    // is, so its failure is not the pose's.
+    _field = magnetometerEventStream(
+      samplingPeriod: SensorInterval.uiInterval,
+    ).listen(_onField, onError: (Object _) {});
   }
 
   /// Gaps longer than this between gyroscope samples are a stall, not a
@@ -25,6 +30,7 @@ final class DevicePoseSource implements PoseSource {
   final _filter = AttitudeFilter();
   late final StreamSubscription<GyroscopeEvent> _rotation;
   late final StreamSubscription<AccelerometerEvent> _acceleration;
+  late final StreamSubscription<MagnetometerEvent> _field;
   DateTime? _lastRotation;
 
   /// Set when a sensor reports that it cannot be read.
@@ -40,6 +46,9 @@ final class DevicePoseSource implements PoseSource {
   bool get followsDevice => true;
 
   @override
+  double? get north => _filter.north;
+
+  @override
   void advance(double deltaSeconds) {}
 
   @override
@@ -49,6 +58,7 @@ final class DevicePoseSource implements PoseSource {
   void dispose() {
     unawaited(_rotation.cancel());
     unawaited(_acceleration.cancel());
+    unawaited(_field.cancel());
   }
 
   void _onRotation(GyroscopeEvent event) {
@@ -77,6 +87,9 @@ final class DevicePoseSource implements PoseSource {
   void _onAcceleration(AccelerometerEvent event) =>
       _filter.addAcceleration(event.x, event.y, event.z);
 
+  void _onField(MagnetometerEvent event) =>
+      _filter.addMagneticField(event.x, event.y, event.z);
+
   void _onSensorError(Object error) => failure = error;
 }
 
@@ -101,6 +114,9 @@ final class DragPoseSource implements PoseSource {
 
   @override
   bool get followsDevice => false;
+
+  @override
+  double? get north => null;
 
   @override
   void advance(double deltaSeconds) {
