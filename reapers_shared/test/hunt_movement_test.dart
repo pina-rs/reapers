@@ -70,13 +70,22 @@ void main() {
     }
 
     for (final vessel in _creatures) {
-      test('${vessel.name} keeps its distance', () {
+      test('${vessel.name} keeps its distance until it charges', () {
         for (var seed = 1; seed <= 6; seed++) {
-          for (final step in _Hunt(vessel, seed: seed).steps) {
+          final hunt = _Hunt(vessel, seed: seed);
+          var charged = false;
+
+          for (var index = 0; index < hunt.steps.length; index++) {
+            charged =
+                charged || hunt.events[index].any((e) => e is ChargeBegan);
+
+            // Once it has come at the reaper it is inside its usual distance
+            // until it has run back out, but never nearer than a charge
+            // brings it.
             expect(
-              _range(step.after),
+              _range(hunt.steps[index].after),
               inInclusiveRange(
-                vessel.nearMetres - 1e-6,
+                (charged ? HuntRules.chargeMetres : vessel.nearMetres) - 1e-6,
                 vessel.farMetres + 1e-6,
               ),
             );

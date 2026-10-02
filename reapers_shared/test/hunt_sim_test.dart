@@ -352,7 +352,7 @@ void main() {
       expect(first.whereType<Flinched>().single.forgiven, isTrue);
       expect(sim.resolve, sim.stats.resolve);
 
-      runUntil(sim, HuntPhase.shriek, input: steadyOnHusk);
+      runUntil(sim, HuntPhase.shriek, input: waryOnHusk);
 
       final second = runUntil(sim, HuntPhase.fight, input: moving);
 
@@ -429,7 +429,7 @@ void main() {
       runUntil(
         sim,
         HuntPhase.escaped,
-        input: steadyOnHusk,
+        input: waryOnHusk,
         limit: HuntLog.maxTicks,
       );
 

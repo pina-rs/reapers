@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:reapers_shared/reapers_shared.dart';
 
 import '../l10n/l10n.dart';
 import '../l10n/lookups.dart';
+import '../src/state/testing_difficulty.dart';
 import '../theme/veil.dart';
 import '../widgets/ledger.dart';
 import '../widgets/nft_thumbnail.dart';
@@ -39,13 +41,15 @@ final class HuntBrief {
 
   bool get isPractice => sightingId == null;
 
-  /// The hunt for this husk, in the part of the room [plan] covers.
-  HuntSim newSim(HuntPlan plan) => HuntSim(
+  /// The hunt for this husk, in the part of the room [plan] covers, as
+  /// forgiving as [difficulty] makes it.
+  HuntSim newSim(HuntPlan plan, Difficulty difficulty) => HuntSim(
     seed: seed,
     vessel: nft.collection.vessel,
     ward: nft.rarity.ward,
     stats: HuntStats.derive(loadout),
     plan: plan,
+    difficulty: difficulty,
   );
 }
 
@@ -94,7 +98,7 @@ final class HuntReward {
 ///
 /// The reaper is never drawn here: the player is the reaper, and the phone
 /// is what it sees through.
-class HuntScreen extends HookWidget {
+class HuntScreen extends HookConsumerWidget {
   const HuntScreen({super.key, required this.brief, required this.settle});
 
   /// How long the room is given to be read before the player is offered
@@ -108,7 +112,7 @@ class HuntScreen extends HookWidget {
   final Future<HuntReward> Function(HuntLog log, HuntOutcome outcome) settle;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final arena = useMemoized(
       () => HuntArena(vessel: brief.nft.collection.vessel, relics: [brief.nft]),
       [brief],
@@ -131,7 +135,9 @@ class HuntScreen extends HookWidget {
       // taken once the husk is in view.
       survey.value?.dispose();
       survey.value = null;
-      arena.engage(brief.newSim(plan));
+      arena.engage(
+        brief.newSim(plan, ref.read(testingDifficultyProvider)),
+      );
       engaged.value = true;
       banner.value = l10n.scanFound;
       unawaited(HapticFeedback.heavyImpact());
@@ -342,6 +348,12 @@ class HuntScreen extends HookWidget {
             _Threshold(
               brief: brief,
               ready: loaded.value,
+              difficulty: ref.watch(testingDifficultyProvider),
+              onDifficulty: TestingDifficulty.available
+                  ? () => unawaited(
+                      ref.read(testingDifficultyProvider.notifier).cycle(),
+                    )
+                  : null,
               onBegin: () {
                 begun.value = true;
 
@@ -367,11 +379,20 @@ class _Threshold extends HookWidget {
   const _Threshold({
     required this.brief,
     required this.ready,
+    required this.difficulty,
+    required this.onDifficulty,
     required this.onBegin,
   });
 
   final HuntBrief brief;
   final bool ready;
+
+  /// How forgiving the hunt will be.
+  final Difficulty difficulty;
+
+  /// Moves on to the next difficulty. Null in a build that has only the one.
+  final VoidCallback? onDifficulty;
+
   final VoidCallback onBegin;
 
   @override
@@ -398,8 +419,45 @@ class _Threshold extends HookWidget {
               const SizedBox(height: 10),
               Text(brief.nft.title, style: Veil.display(46)),
               const SizedBox(height: 18),
+              // The whole of a hunt, in the order it happens.
+              for (final (step, line) in [
+                l10n.huntHowStalk,
+                l10n.huntHowStrike,
+                l10n.huntHowHold,
+                l10n.huntHowCharge,
+                l10n.huntHowReap,
+              ].indexed)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 26,
+                        child: Text(
+                          romanNumeral(step + 1),
+                          style: Veil.figure(color: Veil.ash, size: 13),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(line, style: Veil.body(size: 15)),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 10),
               Text(l10n.huntSafety, style: Veil.body(color: Veil.ash)),
-              const SizedBox(height: 28),
+              const SizedBox(height: 20),
+              if (onDifficulty != null) ...[
+                LedgerButton(
+                  key: const Key('hunt-difficulty'),
+                  label: l10n.huntDifficulty,
+                  detail: difficultyName(l10n, difficulty),
+                  onPressed: onDifficulty,
+                  quiet: true,
+                ),
+                const SizedBox(height: 8),
+              ],
               LedgerButton(
                 key: const Key('hunt-begin'),
                 label: ready ? l10n.huntBegin : l10n.commonLoading,

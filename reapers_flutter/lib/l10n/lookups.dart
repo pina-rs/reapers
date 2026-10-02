@@ -123,3 +123,10 @@ String solAmount(int lamports) {
 
   return sol.toStringAsFixed(sol * 100 == (sol * 100).roundToDouble() ? 2 : 3);
 }
+
+String difficultyName(AppLocalizations l10n, Difficulty difficulty) =>
+    switch (difficulty) {
+      Difficulty.easy => l10n.difficultyEasy,
+      Difficulty.normal => l10n.difficultyNormal,
+      Difficulty.hard => l10n.difficultyHard,
+    };

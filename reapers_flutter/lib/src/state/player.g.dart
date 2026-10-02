@@ -63,17 +63,20 @@ final class SharedPreferencesProvider
 
 String _$sharedPreferencesHash() => r'7549e653690f4f4e0483e83597dfd5488ae80fc4';
 
-/// Whoever keeps this player's books.
+/// Whoever keeps this player's books: the server when the build names one,
+/// and the phone itself otherwise.
 
 @ProviderFor(gameBackend)
 final gameBackendProvider = GameBackendProvider._();
 
-/// Whoever keeps this player's books.
+/// Whoever keeps this player's books: the server when the build names one,
+/// and the phone itself otherwise.
 
 final class GameBackendProvider
     extends $FunctionalProvider<GameBackend, GameBackend, GameBackend>
     with $Provider<GameBackend> {
-  /// Whoever keeps this player's books.
+  /// Whoever keeps this player's books: the server when the build names one,
+  /// and the phone itself otherwise.
   GameBackendProvider._()
     : super(
         from: null,
@@ -107,7 +110,7 @@ final class GameBackendProvider
   }
 }
 
-String _$gameBackendHash() => r'bb73ff9a587d3d836e4e384d7b790bd5dd7a1b24';
+String _$gameBackendHash() => r'ba16d97776b0dc5a742ff2f9a52e710fc5dc8dff';
 
 /// The player: what they own and what they have done.
 ///
@@ -151,7 +154,7 @@ final class PlayerProvider extends $AsyncNotifierProvider<Player, PlayerState> {
   Player create() => Player();
 }
 
-String _$playerHash() => r'e638bb0c450484a9f44c6c1df41c21f809bd1706';
+String _$playerHash() => r'ea0a991bf32f36b350a8db7e55eec8b0f08fafbb';
 
 /// The player: what they own and what they have done.
 ///

@@ -25,3 +25,12 @@ HuntSim simFor({
 
 /// An input that does nothing: aim straight ahead, perfectly still.
 const idle = HuntInput(aim: Aim.ahead, turnSpeed: 0);
+
+/// Looks at the husk and holds still, but swings to turn aside a charge: a
+/// reaper who does nothing to the husk and lets nothing be done to them.
+HuntInput waryOnHusk(HuntSim sim) => HuntInput.measured(
+  aim: sim.pose.direction,
+  turnRadiansPerSecond: sim.chargeProgress > 0.3
+      ? sim.stats.parrySpeed + 0.5
+      : 0,
+);

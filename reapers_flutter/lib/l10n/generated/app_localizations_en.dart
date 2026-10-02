@@ -718,6 +718,38 @@ class AppLocalizationsEn extends AppLocalizations {
   String get huntBegin => 'Raise the blade';
 
   @override
+  String get huntHowStalk =>
+      'Find it and hold the ring on it, still, to ambush it.';
+
+  @override
+  String get huntHowStrike =>
+      'Tap the lit seals on its body to wear down its ward.';
+
+  @override
+  String get huntHowHold =>
+      'When it draws breath, freeze. Do not move and do not tap.';
+
+  @override
+  String get huntHowCharge =>
+      'When it runs at you, swing the phone hard across it.';
+
+  @override
+  String get huntHowReap =>
+      'When its ward breaks, sweep the phone slowly along the arc. That is the reap.';
+
+  @override
+  String get huntDifficulty => 'Testing difficulty';
+
+  @override
+  String get difficultyEasy => 'Easy';
+
+  @override
+  String get difficultyNormal => 'Normal';
+
+  @override
+  String get difficultyHard => 'Hard';
+
+  @override
   String get huntWard => 'Ward';
 
   @override
@@ -754,6 +786,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get huntPromptHold => 'Do not flinch';
+
+  @override
+  String get huntPromptCharge => 'It is coming. Swing across it.';
+
+  @override
+  String get huntParried => 'Turned aside';
+
+  @override
+  String get huntStruck => 'It struck you';
 
   @override
   String get huntPromptMark => 'Bring the blade to the mark.';

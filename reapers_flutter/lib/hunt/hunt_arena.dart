@@ -70,6 +70,10 @@ final class HuntArena {
   /// How far the husk has come apart, from 0 (whole) to 1 (gone).
   double comeApart = 0;
 
+  /// How fresh the last blow the reaper took is, from 1 (just struck) down
+  /// to 0.
+  double wound = 0;
+
   /// How far a husk that has just appeared has come together, from 0 (not
   /// there yet) to 1 (whole).
   double _gathered = 1;
@@ -87,6 +91,9 @@ final class HuntArena {
 
   /// How long a husk takes to come together when it first appears.
   static const _gatherSeconds = 1.1;
+
+  /// How long the mark of a blow takes to fade.
+  static const _woundSeconds = 0.9;
 
   /// How far a husk whose ward has broken has already come apart.
   static const _brokenDissolve = 0.2;
@@ -192,6 +199,10 @@ final class HuntArena {
           }
         case StrikeGlanced():
           rig.flash(0.3);
+        case Struck():
+          wound = 1;
+        case Parried():
+          rig.flash(1);
         case Broken():
           rig.flash(1);
         default:
@@ -207,6 +218,7 @@ final class HuntArena {
     }
 
     _gathered = math.min(1, _gathered + deltaSeconds / _gatherSeconds);
+    wound = math.max(0, wound - deltaSeconds / _woundSeconds);
 
     rig
       ..dissolve = math.max(comeApart, 1 - _gathered)
@@ -219,7 +231,7 @@ final class HuntArena {
           // shriek.
           gape: switch (sim.phase) {
             HuntPhase.windup => sim.shriekProgress,
-            HuntPhase.shriek => 1.0,
+            HuntPhase.shriek || HuntPhase.charge => 1.0,
             _ => 0.0,
           },
         ),
@@ -248,7 +260,8 @@ final class HuntArena {
       HuntPhase.stalk ||
       HuntPhase.fight ||
       HuntPhase.windup ||
-      HuntPhase.shriek => true,
+      HuntPhase.shriek ||
+      HuntPhase.charge => true,
       HuntPhase.broken || HuntPhase.absorbed || HuntPhase.escaped => false,
     };
 
@@ -399,6 +412,7 @@ class HuntArenaView extends HookWidget {
                   slashes: arena.slashes,
                   showSealOrder: showSealOrder,
                   absorbed: () => arena.comeApart,
+                  wound: () => arena.wound,
                   repaint: arena.frame,
                 ),
               ),

@@ -21,6 +21,7 @@ final class HuntBot {
     this.reapSpeed = 0.9,
     this.reactionTicks = 0,
     this.missEvery = 0,
+    this.chargeNerve = 0.4,
   }) : _openSince = List.filled(sim.vessel.seals.length, -1);
 
   /// A bot with a person's limits: it needs a moment to notice a seal has
@@ -40,6 +41,10 @@ final class HuntBot {
 
   /// Every this-many taps lands wide of the husk. Zero means never.
   final int missEvery;
+
+  /// How far through a charge the bot lets the husk come before it swings,
+  /// from 0 to 1. Above 1 it never swings, and takes the blow.
+  final double chargeNerve;
 
   final List<int> _openSince;
   int _taps = 0;
@@ -81,6 +86,8 @@ final class HuntBot {
         return _hold();
       case HuntPhase.fight || HuntPhase.windup:
         return _fight();
+      case HuntPhase.charge:
+        return _cut();
       case HuntPhase.broken:
         return _reap();
       case HuntPhase.absorbed || HuntPhase.escaped:
@@ -145,6 +152,19 @@ final class HuntBot {
     );
 
     return _turnToward(sim.reapArcPoint(_reapTarget), speed: reapSpeed);
+  }
+
+  /// Meets a charge: keeps fighting until the husk is well on its way, then
+  /// swings across it, hard enough to turn it aside.
+  HuntInput _cut() {
+    if (sim.chargeProgress < chargeNerve) {
+      return _fight();
+    }
+
+    return _turnToward(
+      Vec3.fromAngles(_aim.yaw + radians(40), _aim.pitch),
+      speed: sim.stats.parrySpeed * 1.2,
+    );
   }
 
   HuntInput _hold() => HuntInput.measured(aim: _aim, turnRadiansPerSecond: 0);

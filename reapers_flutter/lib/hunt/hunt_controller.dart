@@ -35,7 +35,11 @@ base class HuntController {
   ArPose get pose => poseSource.pose;
 
   /// The record of this hunt, for the server to replay.
-  HuntLog get log => HuntLog(List.unmodifiable(recorded), plan: sim.plan);
+  HuntLog get log => HuntLog(
+    List.unmodifiable(recorded),
+    plan: sim.plan,
+    difficulty: sim.difficulty,
+  );
 
   /// Registers a tap that points along [ray]. It is played on the next tick.
   void tap(Vec3 ray) => _pendingTaps.add(ray);

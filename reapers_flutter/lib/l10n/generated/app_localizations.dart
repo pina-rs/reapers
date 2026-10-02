@@ -1306,6 +1306,60 @@ abstract class AppLocalizations {
   /// **'Raise the blade'**
   String get huntBegin;
 
+  /// No description provided for @huntHowStalk.
+  ///
+  /// In en, this message translates to:
+  /// **'Find it and hold the ring on it, still, to ambush it.'**
+  String get huntHowStalk;
+
+  /// No description provided for @huntHowStrike.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap the lit seals on its body to wear down its ward.'**
+  String get huntHowStrike;
+
+  /// No description provided for @huntHowHold.
+  ///
+  /// In en, this message translates to:
+  /// **'When it draws breath, freeze. Do not move and do not tap.'**
+  String get huntHowHold;
+
+  /// No description provided for @huntHowCharge.
+  ///
+  /// In en, this message translates to:
+  /// **'When it runs at you, swing the phone hard across it.'**
+  String get huntHowCharge;
+
+  /// No description provided for @huntHowReap.
+  ///
+  /// In en, this message translates to:
+  /// **'When its ward breaks, sweep the phone slowly along the arc. That is the reap.'**
+  String get huntHowReap;
+
+  /// No description provided for @huntDifficulty.
+  ///
+  /// In en, this message translates to:
+  /// **'Testing difficulty'**
+  String get huntDifficulty;
+
+  /// No description provided for @difficultyEasy.
+  ///
+  /// In en, this message translates to:
+  /// **'Easy'**
+  String get difficultyEasy;
+
+  /// No description provided for @difficultyNormal.
+  ///
+  /// In en, this message translates to:
+  /// **'Normal'**
+  String get difficultyNormal;
+
+  /// No description provided for @difficultyHard.
+  ///
+  /// In en, this message translates to:
+  /// **'Hard'**
+  String get difficultyHard;
+
   /// No description provided for @huntWard.
   ///
   /// In en, this message translates to:
@@ -1371,6 +1425,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Do not flinch'**
   String get huntPromptHold;
+
+  /// No description provided for @huntPromptCharge.
+  ///
+  /// In en, this message translates to:
+  /// **'It is coming. Swing across it.'**
+  String get huntPromptCharge;
+
+  /// No description provided for @huntParried.
+  ///
+  /// In en, this message translates to:
+  /// **'Turned aside'**
+  String get huntParried;
+
+  /// No description provided for @huntStruck.
+  ///
+  /// In en, this message translates to:
+  /// **'It struck you'**
+  String get huntStruck;
 
   /// No description provided for @huntPromptMark.
   ///

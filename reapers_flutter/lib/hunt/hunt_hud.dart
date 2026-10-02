@@ -39,6 +39,7 @@ class HuntHudPainter extends CustomPainter {
     required this.slashes,
     required this.showSealOrder,
     required this.absorbed,
+    required this.wound,
     required Listenable repaint,
   }) : super(repaint: repaint);
 
@@ -57,6 +58,10 @@ class HuntHudPainter extends CustomPainter {
   /// How far an absorbed husk has come apart, from 0 to 1. Zero until the
   /// husk is reaped.
   final double Function() absorbed;
+
+  /// How fresh the last blow the reaper took is, from 1 (just struck) down
+  /// to 0.
+  final double Function() wound;
 
   /// The radius of a seal on screen. The target is at least 44 points
   /// across, however far away the husk is.
@@ -98,6 +103,10 @@ class HuntHudPainter extends CustomPainter {
       case HuntPhase.shriek:
         _paintPointer(canvas, size, place);
         _paintHoldRing(canvas, size);
+      case HuntPhase.charge:
+        _paintPointer(canvas, size, place);
+        _paintSeals(canvas, place, seconds);
+        _paintChargeRing(canvas, size, place);
       case HuntPhase.broken:
         _paintReapArc(canvas, size, place, seconds);
       case HuntPhase.absorbed:
@@ -113,6 +122,8 @@ class HuntHudPainter extends CustomPainter {
     if (_sim.phase == HuntPhase.windup || _sim.phase == HuntPhase.shriek) {
       _paintShriekEdge(canvas, size);
     }
+
+    _paintWound(canvas, size);
 
     _paintSlashes(canvas);
   }
@@ -290,6 +301,53 @@ class HuntHudPainter extends CustomPainter {
           ..strokeCap = StrokeCap.round
           ..color = Veil.bone,
       );
+  }
+
+  /// While the husk charges: a ring that closes on it as it comes. When
+  /// the ring has closed, it has arrived.
+  void _paintChargeRing(
+    Canvas canvas,
+    Size size,
+    Offset? Function(Vec3) place,
+  ) {
+    final centre = place(_sim.pose.direction) ?? size.center(Offset.zero);
+    final progress = _sim.chargeProgress;
+    final radius = size.shortestSide * (0.62 - 0.44 * progress);
+
+    canvas.drawCircle(
+      centre,
+      radius,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1 + 3 * progress
+        ..color = Veil.bone.withValues(alpha: 0.35 + 0.55 * progress),
+    );
+  }
+
+  /// A blow the reaper took: the edges of the screen bruise, and the bruise
+  /// fades. It swells once and goes; it does not flash.
+  void _paintWound(Canvas canvas, Size size) {
+    final strength = Curves.easeOut.transform(wound().clamp(0.0, 1.0));
+
+    if (strength <= 0) {
+      return;
+    }
+
+    final bounds = Offset.zero & size;
+
+    canvas.drawRect(
+      bounds,
+      Paint()
+        ..shader = RadialGradient(
+          radius: 0.95,
+          colors: [
+            Veil.wound.withValues(alpha: 0),
+            Veil.wound.withValues(alpha: 0.12 * strength),
+            Veil.wound.withValues(alpha: 0.5 * strength),
+          ],
+          stops: const [0.3, 0.65, 1],
+        ).createShader(bounds),
+    );
   }
 
   /// A warning that closes in from the edges of the screen: the world goes

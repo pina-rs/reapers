@@ -1,5 +1,6 @@
 import 'armory.dart';
 import 'feeding.dart';
+import 'hunt/difficulty.dart';
 import 'hunt/hunt_event.dart';
 import 'hunt/hunt_input.dart';
 import 'hunt/hunt_sim.dart';
@@ -561,16 +562,27 @@ final class PlayerState {
   ///
   /// The server passes a [leniency] a little above 1, so a hunt won by a
   /// hair on the phone is not judged lost over a rounding difference.
+  ///
+  /// A hunt played at a difficulty outside [difficulties] is refused the
+  /// same way. A keeper that pays for real allows only the game's own.
   HuntSettlement judgeHunt(
     int sightingId,
     HuntLog log, {
     required DateTime now,
     required int feedingSeed,
     double leniency = 1,
+    Set<Difficulty> difficulties = const {
+      Difficulty.easy,
+      Difficulty.normal,
+      Difficulty.hard,
+    },
   }) {
     final sighting = huntable(sightingId, now: now);
+    final provable =
+        log.inputs.length <= HuntLog.maxTicks &&
+        difficulties.contains(log.difficulty);
 
-    if (log.inputs.length > HuntLog.maxTicks) {
+    if (!provable) {
       throw const RuleBreach(Refusal.huntUnproven);
     }
 

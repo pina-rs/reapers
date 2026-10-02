@@ -21,6 +21,13 @@ class PlayerEndpoint extends Endpoint {
 
   static final _random = Random.secure();
 
+  /// The difficulties a hunt may have been played at. Easy and hard are for
+  /// testing, so a server that pays for real takes only the game's own.
+  static Set<Difficulty> _difficulties(Session session) =>
+      session.serverpod.runMode == ServerpodRunMode.production
+      ? const {Difficulty.normal}
+      : Difficulty.values.toSet();
+
   @override
   bool get requireLogin => true;
 
@@ -64,6 +71,7 @@ class PlayerEndpoint extends Endpoint {
         now: _now(),
         feedingSeed: _seed(),
         leniency: replayLeniency,
+        difficulties: _difficulties(session),
       );
 
       settlement = HuntSettlement(

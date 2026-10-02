@@ -5,6 +5,7 @@ import '../rift/rift_rules.dart';
 import '../seeded_random.dart';
 import '../vec3.dart';
 import '../vessel.dart';
+import 'difficulty.dart';
 import 'hunt_event.dart';
 import 'hunt_input.dart';
 import 'hunt_plan.dart';
@@ -20,18 +21,24 @@ import 'husk_pose.dart';
 final class HuntSim {
   /// A lone hunt: the husk hides somewhere around the reaper, and its ward
   /// is theirs alone to break.
+  ///
+  /// [ward] and [stats] are the husk's and the reaper's own. The hunt eases
+  /// or stiffens them for [difficulty] itself, so that the phone and the
+  /// server cannot disagree about what a difficulty means.
   HuntSim({
     required int seed,
     required Vessel vessel,
     required int ward,
     required HuntStats stats,
     HuntPlan plan = HuntPlan.open,
+    Difficulty difficulty = Difficulty.normal,
   }) : this._(
          seed: seed,
          vessel: vessel,
-         ward: ward.toDouble(),
-         stats: stats,
+         ward: ward * difficulty.ward,
+         stats: stats.at(difficulty),
          plan: plan,
+         difficulty: difficulty,
          inRift: false,
        );
 
@@ -53,6 +60,7 @@ final class HuntSim {
          ward: ward,
          stats: stats,
          plan: HuntPlan.open,
+         difficulty: Difficulty.normal,
          inRift: true,
        );
 
@@ -62,13 +70,17 @@ final class HuntSim {
     required this.ward,
     required this.stats,
     required this.plan,
+    required this.difficulty,
     required this.inRift,
   }) : wardMax = ward,
        resolve = stats.resolve,
-       reapAttemptsLeft = inRift ? 1 : HuntRules.reapAttempts,
+       reapAttemptsLeft = inRift
+           ? 1
+           : HuntRules.reapAttempts + difficulty.reaps,
        _schedule = SeededRandom(mixSeed([seed, 0x5EA1])),
        _shrieks = SeededRandom(mixSeed([seed, 0x5C81])),
        _path = SeededRandom(mixSeed([seed, 0x9A7B])),
+       _charges = SeededRandom(mixSeed([seed, 0xC4A6])),
        _openUntil = List.filled(vessel.seals.length, 0),
        _shutUntil = List.filled(vessel.seals.length, 0),
        _openedOrder = List.filled(vessel.seals.length, 0) {
@@ -125,6 +137,7 @@ final class HuntSim {
       ward: ward,
       stats: stats,
       plan: log.plan,
+      difficulty: log.difficulty,
     );
 
     for (final input in log.inputs) {
@@ -142,10 +155,15 @@ final class HuntSim {
 
   final Vessel vessel;
 
+  /// The numbers the hunt is played with, already eased or stiffened for
+  /// [difficulty].
   final HuntStats stats;
 
   /// Where the husk may go.
   final HuntPlan plan;
+
+  /// How forgiving the hunt is.
+  final Difficulty difficulty;
 
   /// Whether this is one reaper's place in a rift rather than a lone hunt.
   final bool inRift;
@@ -162,6 +180,9 @@ final class HuntSim {
 
   /// Decides where the husk goes, and nothing else.
   final SeededRandom _path;
+
+  /// Decides when the husk charges, and nothing else.
+  final SeededRandom _charges;
 
   // Movement -----------------------------------------------------------
 
@@ -215,6 +236,12 @@ final class HuntSim {
   bool _flinchedThisShriek = false;
   bool _steadfastSpent = false;
   int _fightTicks = 0;
+
+  // Charge -------------------------------------------------------------
+
+  int _nextChargeTick = -1;
+  int _chargeStartTick = 0;
+  int _staggeredUntil = 0;
 
   // Reap ---------------------------------------------------------------
 
@@ -273,8 +300,9 @@ final class HuntSim {
   /// Ticks of fighting left before the husk escapes.
   int get fightTicksLeft => math.max(0, _fightLimitTicks - _fightTicks);
 
-  int get _fightLimitTicks =>
-      inRift ? RiftRules.fightLimitTicks : HuntRules.fightLimitTicks;
+  int get _fightLimitTicks => inRift
+      ? RiftRules.fightLimitTicks
+      : (HuntRules.fightLimitTicks * difficulty.patience).round();
 
   /// Sets the ward to what the whole circle has left of it.
   ///
@@ -389,7 +417,10 @@ final class HuntSim {
     switch (phase) {
       case HuntPhase.stalk:
         _stepStalk(input, events);
-      case HuntPhase.fight || HuntPhase.windup || HuntPhase.shriek:
+      case HuntPhase.fight ||
+          HuntPhase.windup ||
+          HuntPhase.shriek ||
+          HuntPhase.charge:
         _stepFight(input, events);
       case HuntPhase.broken:
         _stepReap(input, events);
@@ -458,6 +489,7 @@ final class HuntSim {
     ambushed = ambush;
     _ambushStrikeReady = ambush;
     _scheduleShriek();
+    _scheduleCharge();
     events.add(StalkEnded(ambush: ambush));
 
     if (ambush) {
@@ -475,7 +507,8 @@ final class HuntSim {
   bool get _fighting =>
       phase == HuntPhase.fight ||
       phase == HuntPhase.windup ||
-      phase == HuntPhase.shriek;
+      phase == HuntPhase.shriek ||
+      phase == HuntPhase.charge;
 
   void _stepFight(HuntInput input, List<HuntEvent> events) {
     _move(events);
@@ -493,6 +526,12 @@ final class HuntSim {
     _stepShriek(input, events);
 
     if (isOver || phase == HuntPhase.shriek) {
+      return;
+    }
+
+    _stepCharge(input, events);
+
+    if (isOver) {
       return;
     }
 
@@ -541,6 +580,14 @@ final class HuntSim {
 
     phase = HuntPhase.fight;
     _scheduleShriek();
+    // Having just been told to hold still, the reaper is given a moment
+    // before being told to swing.
+    if (_nextChargeTick >= 0) {
+      _nextChargeTick = math.max(
+        _nextChargeTick,
+        tick + HuntRules.chargeClearTicks,
+      );
+    }
     _nextBoltTick =
         tick +
         HuntRules.boltDelayMinTicks +
@@ -588,6 +635,120 @@ final class HuntSim {
 
     _nextShriekTick =
         tick + HuntRules.shriekGapMinTicks + _shrieks.nextInt(gap + 1);
+  }
+
+  // Charge -------------------------------------------------------------
+
+  /// How far through its charge the husk is, from 0 to 1. Zero when it is
+  /// not charging.
+  double get chargeProgress => phase == HuntPhase.charge
+      ? ((tick - _chargeStartTick) / _chargeTicks).clamp(0.0, 1.0)
+      : 0;
+
+  /// Whether the husk stands stunned after a charge was turned aside.
+  bool get staggered => _fighting && tick < _staggeredUntil;
+
+  int get _chargeTicks => (HuntRules.chargeTicks * difficulty.tell).round();
+
+  /// Whether this husk charges at all: one that is rooted to the spot does
+  /// not, and neither does a rift's, which is not any one reaper's to face.
+  bool get _mayCharge => !inRift && vessel.gait != Gait.still;
+
+  void _scheduleCharge() {
+    if (!_mayCharge) {
+      return;
+    }
+
+    final gap = HuntRules.chargeGapMaxTicks - HuntRules.chargeGapMinTicks;
+
+    _nextChargeTick =
+        tick + HuntRules.chargeGapMinTicks + _charges.nextInt(gap + 1);
+  }
+
+  void _stepCharge(HuntInput input, List<HuntEvent> events) {
+    if (phase == HuntPhase.charge) {
+      final swinging =
+          tick - _chargeStartTick >= HuntRules.chargeGraceTicks &&
+          input.turnRadiansPerSecond >= stats.parrySpeed;
+
+      if (swinging) {
+        _parry(events);
+      } else if (tick >= _phaseEndTick) {
+        _strikeReaper(events);
+      }
+
+      return;
+    }
+
+    final due =
+        phase == HuntPhase.fight &&
+        _nextChargeTick >= 0 &&
+        tick >= _nextChargeTick &&
+        tick >= _staggeredUntil;
+
+    if (!due) {
+      return;
+    }
+
+    // With a shriek about to start, the charge waits until it is over.
+    if (_nextShriekTick - tick < _chargeTicks + HuntRules.chargeClearTicks) {
+      return;
+    }
+
+    phase = HuntPhase.charge;
+    _chargeStartTick = tick;
+    _phaseEndTick = tick + _chargeTicks;
+    _nextBoltTick = -1;
+
+    // Straight at the reaper, to within arm's reach. One in the air comes
+    // down to eye level as it comes.
+    _fromBearing = _bearing;
+    _fromRange = _range;
+    _fromHeight = _height;
+    _byBearing = 0;
+    _byRange = math.min(0, HuntRules.chargeMetres - _range);
+    _byHeight = vessel.gait == Gait.air ? -_height : 0;
+    _moveStart = tick;
+    _moveTicks = _chargeTicks;
+    events.add(const ChargeBegan());
+  }
+
+  /// The reaper swung in time. The husk is knocked out of its run and
+  /// stands stunned where it got to, every seal in view open.
+  void _parry(List<HuntEvent> events) {
+    _endCharge();
+    _moveStart = -1;
+    _staggeredUntil = tick + HuntRules.staggerTicks;
+    _nextBoltTick = _staggeredUntil;
+    events.add(const Parried());
+    _exposeAllSeals(events);
+  }
+
+  /// The charge got through. It costs the reaper resolve, and the husk is
+  /// off again at once.
+  void _strikeReaper(List<HuntEvent> events) {
+    _endCharge();
+    resolve--;
+    cadence = 0;
+    events.add(Struck(resolveLeft: resolve));
+
+    if (resolve <= 0) {
+      _escape(events, EscapeCause.resolve);
+
+      return;
+    }
+
+    _bolt(events);
+  }
+
+  void _endCharge() {
+    phase = HuntPhase.fight;
+    _scheduleCharge();
+    // A shriek does not come straight on top of a charge.
+    _nextShriekTick = math.max(
+      _nextShriekTick,
+      tick + HuntRules.chargeClearTicks,
+    );
   }
 
   void _stepSeals(List<HuntEvent> events) {
@@ -836,6 +997,7 @@ final class HuntSim {
     // It pulls itself together and is off at once.
     _nextBoltTick = tick + 30;
     _scheduleShriek();
+    _scheduleCharge();
     events.add(ReapRecovered(attemptsLeft: reapAttemptsLeft));
   }
 
@@ -902,8 +1064,22 @@ final class HuntSim {
     }
 
     // Drawing breath, a husk stops where it is and turns on the reaper.
-    if (phase == HuntPhase.windup || phase == HuntPhase.shriek) {
+    // Stunned, it does the same.
+    if (phase == HuntPhase.windup ||
+        phase == HuntPhase.shriek ||
+        tick < _staggeredUntil) {
       _halt();
+      _turnToward(_bearing + math.pi);
+
+      return;
+    }
+
+    // Charging, it comes straight on with its face to the reaper.
+    if (phase == HuntPhase.charge) {
+      final progress = ((tick - _moveStart) / _moveTicks).clamp(0.0, 1.0);
+
+      _range = _fromRange + _byRange * progress * progress;
+      _height = _fromHeight + _byHeight * progress;
       _turnToward(_bearing + math.pi);
 
       return;
@@ -1023,7 +1199,10 @@ final class HuntSim {
           math.pow(_byHeight, 2),
     );
 
-    _moveTicks = math.max(12, (length / speed * HuntRules.tickRate).round());
+    _moveTicks = math.max(
+      12,
+      (length / (speed * difficulty.pace) * HuntRules.tickRate).round(),
+    );
     _moveStart = tick;
   }
 

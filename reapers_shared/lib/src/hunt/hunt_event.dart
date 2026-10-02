@@ -16,6 +16,10 @@ enum HuntPhase {
   /// The husk is shrieking. The reaper holds still or loses resolve.
   shriek,
 
+  /// The husk is running at the reaper. A swing of the phone turns it
+  /// aside; without one it strikes, and the reaper loses resolve.
+  charge,
+
   /// The ward is gone and the husk hangs open, waiting to be reaped.
   broken,
 
@@ -138,6 +142,24 @@ final class Flinched extends HuntEvent {
 /// The reaper held still through a whole shriek. Every seal opens.
 final class HeldFirm extends HuntEvent {
   const HeldFirm();
+}
+
+/// The husk has turned on the reaper and is coming at them.
+final class ChargeBegan extends HuntEvent {
+  const ChargeBegan();
+}
+
+/// The reaper swung in time and turned the charge aside. The husk is
+/// stunned, with every seal in view open.
+final class Parried extends HuntEvent {
+  const Parried();
+}
+
+/// The charge reached the reaper.
+final class Struck extends HuntEvent {
+  const Struck({required this.resolveLeft});
+
+  final int resolveLeft;
 }
 
 /// The husk is darting to a new place.

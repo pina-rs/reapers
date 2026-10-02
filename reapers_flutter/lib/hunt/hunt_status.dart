@@ -57,6 +57,7 @@ class HuntStatus extends HookWidget {
       HuntPhase.fight => l10n.huntPromptStrike,
       HuntPhase.windup => l10n.huntPromptWindup,
       HuntPhase.shriek => l10n.huntPromptHold,
+      HuntPhase.charge => l10n.huntPromptCharge,
       HuntPhase.broken when sim.reapBegun => l10n.huntPromptSweep,
       HuntPhase.broken => l10n.huntPromptMark,
       HuntPhase.absorbed || HuntPhase.escaped => afterword,
@@ -135,7 +136,8 @@ class HuntStatus extends HookWidget {
           Text(
             prompt,
             textAlign: TextAlign.center,
-            style: sim.phase == HuntPhase.shriek
+            style:
+                sim.phase == HuntPhase.shriek || sim.phase == HuntPhase.charge
                 ? Veil.display(30)
                 : Veil.body(size: 16),
           ),
@@ -153,6 +155,8 @@ String? huntBannerFor(AppLocalizations l10n, HuntEvent event) =>
       Flinched(:final forgiven) =>
         forgiven ? l10n.huntSteadfast : l10n.huntFlinched,
       HeldFirm() => l10n.huntHeldFirm,
+      Parried() => l10n.huntParried,
+      Struck() => l10n.huntStruck,
       Broken() => l10n.huntBroken,
       ReapRecovered() => l10n.huntRecovered,
       StrikeLanded() ||
@@ -161,6 +165,7 @@ String? huntBannerFor(AppLocalizations l10n, HuntEvent event) =>
       SealOpened() ||
       ShriekWindup() ||
       ShriekBegan() ||
+      ChargeBegan() ||
       Relocating() ||
       ReapBegan() ||
       HuskAbsorbed() ||
@@ -173,13 +178,14 @@ void knockFor(HuntEvent event) {
   final knock = switch (event) {
     StrikeLanded(empowered: true) ||
     ShriekBegan() ||
+    Parried() ||
     Broken() ||
     HuskAbsorbed() ||
     HuskEscaped() => HapticFeedback.heavyImpact,
-    StalkEnded() || HeldFirm() => HapticFeedback.mediumImpact,
+    StalkEnded() || HeldFirm() || ChargeBegan() => HapticFeedback.mediumImpact,
     StrikeLanded() => HapticFeedback.lightImpact,
     StrikeGlanced() => HapticFeedback.selectionClick,
-    Flinched() => HapticFeedback.vibrate,
+    Flinched() || Struck() => HapticFeedback.vibrate,
     StrikeWhiffed() ||
     SealOpened() ||
     ShriekWindup() ||

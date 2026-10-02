@@ -2,6 +2,7 @@ import '../armory.dart';
 import '../progression.dart';
 import '../reaper_class.dart';
 import '../vec3.dart';
+import 'difficulty.dart';
 
 /// Who is hunting: everything about a reaper that changes how a hunt plays.
 final class HuntLoadout {
@@ -42,6 +43,7 @@ final class HuntStats {
     required this.captureTicks,
     required this.reapToleranceRadians,
     required this.flinchSpeed,
+    required this.parrySpeed,
     required this.perk,
   });
 
@@ -72,9 +74,24 @@ final class HuntStats {
           ((3.5 + 0.5 * stats.capture) * HuntRules.tickRate * leniency).round(),
       reapToleranceRadians: radians(5 + 0.8 * stats.capture) * leniency,
       flinchSpeed: (0.42 + 0.035 * stats.resilience) * leniency,
+      parrySpeed: HuntRules.parrySpeed / leniency,
       perk: loadout.reaperClass.perk,
     );
   }
+
+  /// These numbers as they are at [difficulty]: wider or narrower windows,
+  /// and more room to flinch.
+  HuntStats at(Difficulty difficulty) => HuntStats(
+    strikeDamage: strikeDamage,
+    reachRadians: reachRadians * difficulty.reach,
+    swingTicks: swingTicks,
+    resolve: resolve + difficulty.resolve,
+    captureTicks: (captureTicks * difficulty.window).round(),
+    reapToleranceRadians: reapToleranceRadians * difficulty.tolerance,
+    flinchSpeed: flinchSpeed * difficulty.flinch,
+    parrySpeed: parrySpeed * difficulty.cut,
+    perk: perk,
+  );
 
   /// Ward removed by one strike on an open seal, before cadence and perks.
   final double strikeDamage;
@@ -97,6 +114,10 @@ final class HuntStats {
   /// The turning speed, in radians a second, above which a reaper is
   /// flinching during a shriek.
   final double flinchSpeed;
+
+  /// The turning speed, in radians a second, at or above which a swing of
+  /// the phone turns a charging husk aside.
+  final double parrySpeed;
 
   final ClassPerk perk;
 }
@@ -201,6 +222,35 @@ abstract final class HuntRules {
 
   /// Each unflinching hold adds this to the reap window, with the toll perk.
   static const tollTicks = 80;
+
+  // Charge ------------------------------------------------------------
+
+  /// How long a charging husk takes to reach the reaper.
+  static const chargeTicks = 66;
+
+  /// A swing in the first moments of a charge does not count: the reaper
+  /// was still turning to follow the husk, not cutting at it.
+  static const chargeGraceTicks = 10;
+
+  /// Swinging the phone at least this fast, in radians a second, turns a
+  /// charge aside. About a third of a turn a second: a flick of the wrist,
+  /// well clear of the speed anyone holds a phone still at.
+  static const parrySpeed = 2.0;
+
+  /// How near a charging husk comes, in metres.
+  static const chargeMetres = 0.9;
+
+  /// The shortest and longest gaps between one charge and the next.
+  static const chargeGapMinTicks = 8 * tickRate;
+  static const chargeGapMaxTicks = 14 * tickRate;
+
+  /// How long a husk that was turned aside stands stunned, every seal in
+  /// view open.
+  static const staggerTicks = 100;
+
+  /// A charge never starts this close ahead of a shriek, and a shriek never
+  /// follows this soon after one: the two ask opposite things.
+  static const chargeClearTicks = 90;
 
   // Movement ----------------------------------------------------------
 

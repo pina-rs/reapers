@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../vec3.dart';
+import 'difficulty.dart';
 import 'hunt_plan.dart';
 
 /// A direction stored as whole hundredths of a degree.
@@ -86,7 +87,11 @@ final class HuntInput {
 /// The server feeds the same log to the same rules and so reaches its own
 /// verdict; it never takes the phone's word for what happened.
 final class HuntLog {
-  HuntLog(this.inputs, {this.plan = HuntPlan.open});
+  HuntLog(
+    this.inputs, {
+    this.plan = HuntPlan.open,
+    this.difficulty = Difficulty.normal,
+  });
 
   /// Reads a log from the bytes written by [encode].
   ///
@@ -102,6 +107,11 @@ final class HuntLog {
 
     final data = ByteData.sublistView(bytes);
     final reachCount = data.getUint8(6);
+    final difficulty = data.getUint8(7);
+
+    if (difficulty >= Difficulty.values.length) {
+      throw const FormatException('Hunt log has no such difficulty');
+    }
 
     if (reachCount != 0 && reachCount != HuntPlan.slices) {
       throw const FormatException('Hunt log has a broken plan');
@@ -149,15 +159,19 @@ final class HuntLog {
       inputs.add(HuntInput(aim: aim, turnSpeed: turnSpeed, taps: taps));
     }
 
-    return HuntLog(inputs, plan: plan);
+    return HuntLog(
+      inputs,
+      plan: plan,
+      difficulty: Difficulty.values[difficulty],
+    );
   }
 
   /// The longest log the server accepts: the longest possible hunt, with
   /// room for the stalk, the fight and every reap window.
-  static const maxTicks = 150 * 60;
+  static const maxTicks = 300 * 60;
 
-  static const _version = 3;
-  static const _headerBytes = 7;
+  static const _version = 4;
+  static const _headerBytes = 8;
   static const _tickBytes = 7;
   static const _tapBytes = 4;
 
@@ -167,6 +181,9 @@ final class HuntLog {
   /// Where the husk was free to go. It is part of the record because the
   /// husk's every move depends on it.
   final HuntPlan plan;
+
+  /// How forgiving the hunt was. Part of the record for the same reason.
+  final Difficulty difficulty;
 
   /// Packs the log into bytes: the plan first, then seven for each tick and
   /// four more for each tap.
@@ -179,7 +196,8 @@ final class HuntLog {
       ..setInt16(1, plan.centreCentidegrees, Endian.little)
       ..setUint16(3, plan.halfWidthCentidegrees, Endian.little)
       ..setUint8(5, plan.eyeCentimetres)
-      ..setUint8(6, plan.reachDecimetres.length);
+      ..setUint8(6, plan.reachDecimetres.length)
+      ..setUint8(7, difficulty.index);
     final builder = BytesBuilder(copy: false)
       ..add(header.buffer.asUint8List())
       ..add(plan.reachDecimetres);
