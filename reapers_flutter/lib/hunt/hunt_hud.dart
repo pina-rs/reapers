@@ -131,49 +131,16 @@ class HuntHudPainter extends CustomPainter {
   /// An arrow at the edge of the screen toward a husk that is out of view.
   void _paintPointer(Canvas canvas, Size size, Offset? Function(Vec3) place) {
     final husk = _sim.pose.direction;
-    final onScreen = place(husk);
-    final visible =
-        onScreen != null && (Offset.zero & size).deflate(24).contains(onScreen);
 
-    if (visible) {
-      return;
-    }
-
-    final aim = controller.pose.forward;
-    final turn = wrapAngle(husk.yaw - aim.yaw);
-    final lift = husk.pitch - aim.pitch;
-    final angle = math.atan2(-lift, turn);
-    final centre = size.center(Offset.zero);
-    final at =
-        centre +
-        Offset(
-          math.cos(angle) * (size.width / 2 - 34),
-          math.sin(angle) * (size.height / 2 - 120),
-        );
-    final pulse = 0.55 + 0.45 * math.sin(_sim.tick / 9);
-    final paint = Paint()
-      ..color = light.withValues(alpha: pulse)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    canvas
-      ..save()
-      ..translate(at.dx, at.dy)
-      ..rotate(angle);
-
-    for (final offset in [0.0, -11.0]) {
-      canvas.drawPath(
-        Path()
-          ..moveTo(offset - 7, -11)
-          ..lineTo(offset + 5, 0)
-          ..lineTo(offset - 7, 11),
-        paint..color = light.withValues(alpha: pulse * (offset == 0 ? 1 : 0.4)),
-      );
-    }
-
-    canvas.restore();
+    paintEdgePointer(
+      canvas,
+      size,
+      target: husk,
+      onScreen: place(husk),
+      aim: controller.pose.forward,
+      colour: light,
+      pulse: 0.55 + 0.45 * math.sin(_sim.tick / 9),
+    );
   }
 
   /// The ring at the middle of the screen that closes as the reaper steadies
@@ -545,4 +512,58 @@ class HuntHudPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(HuntHudPainter oldDelegate) => false;
+}
+
+/// An arrow at the edge of the screen pointing toward [target] when it is
+/// out of view: [onScreen] is where it falls on the screen, if anywhere, and
+/// [aim] is where the phone points. [pulse], from 0 to 1, is how brightly
+/// it shows this frame.
+void paintEdgePointer(
+  Canvas canvas,
+  Size size, {
+  required Vec3 target,
+  required Offset? onScreen,
+  required Vec3 aim,
+  required Color colour,
+  required double pulse,
+}) {
+  final visible =
+      onScreen != null && (Offset.zero & size).deflate(24).contains(onScreen);
+
+  if (visible) {
+    return;
+  }
+
+  final turn = wrapAngle(target.yaw - aim.yaw);
+  final lift = target.pitch - aim.pitch;
+  final angle = math.atan2(-lift, turn);
+  final centre = size.center(Offset.zero);
+  final at =
+      centre +
+      Offset(
+        math.cos(angle) * (size.width / 2 - 34),
+        math.sin(angle) * (size.height / 2 - 120),
+      );
+  final paint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2.2
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round;
+
+  canvas
+    ..save()
+    ..translate(at.dx, at.dy)
+    ..rotate(angle);
+
+  for (final offset in [0.0, -11.0]) {
+    canvas.drawPath(
+      Path()
+        ..moveTo(offset - 7, -11)
+        ..lineTo(offset + 5, 0)
+        ..lineTo(offset - 7, 11),
+      paint..color = colour.withValues(alpha: pulse * (offset == 0 ? 1 : 0.4)),
+    );
+  }
+
+  canvas.restore();
 }

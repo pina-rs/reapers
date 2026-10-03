@@ -16,6 +16,7 @@ export 'src/hunt/hunt_plan.dart';
 export 'src/hunt/hunt_sim.dart';
 export 'src/hunt/hunt_stats.dart';
 export 'src/hunt/husk_pose.dart';
+export 'src/hunt/sigil.dart';
 export 'src/nft_catalogue.dart';
 export 'src/nft_look.dart';
 export 'src/player_state.dart';

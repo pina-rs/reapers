@@ -53,6 +53,39 @@ void main() {
     });
   });
 
+  group('the music of a sigil', () {
+    test('draws nearer with every light, to where the stalk takes it up', () {
+      final trace = SigilTrace(
+        Sigil.draw(seed: 3, shape: Rarity.rare.sigil, gait: Gait.ground),
+        centre: 0,
+      );
+      final heard = [sigilMix(trace)];
+
+      while (!trace.isClosed) {
+        trace.advance(
+          trace.directionOf(trace.caught),
+          turnSpeed: 0,
+          deltaSeconds: 1 / 60,
+        );
+
+        if (trace.fill == 0) {
+          heard.add(sigilMix(trace));
+        }
+      }
+
+      expect(heard.first.volume, Mix.waiting.volume);
+      expect(heard.first.veil, Mix.waiting.veil);
+
+      for (var step = 1; step < heard.length; step++) {
+        expect(heard[step].volume, greaterThan(heard[step - 1].volume));
+        expect(heard[step].veil, lessThan(heard[step - 1].veil));
+      }
+
+      expect(heard.last.volume, closeTo(huntMix(_hunt()).volume, 1e-9));
+      expect(heard.last.veil, closeTo(huntMix(_hunt()).veil, 1e-9));
+    });
+  });
+
   group('the music of a hunt', () {
     test('is far off while the husk has not been found', () {
       final sim = _hunt();

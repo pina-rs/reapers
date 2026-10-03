@@ -55,6 +55,13 @@ final class Vec3 {
 
   double dot(Vec3 other) => x * other.x + y * other.y + z * other.z;
 
+  /// The vector at right angles to both this and [other].
+  Vec3 cross(Vec3 other) => Vec3(
+    y * other.z - z * other.y,
+    z * other.x - x * other.z,
+    x * other.y - y * other.x,
+  );
+
   /// The angle between this vector and [other], in radians.
   double angleTo(Vec3 other) {
     final cosine = normalized.dot(other.normalized);

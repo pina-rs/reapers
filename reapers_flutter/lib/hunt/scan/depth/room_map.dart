@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:reapers_shared/reapers_shared.dart';
 
 import '../../pose/ar_pose.dart';
-import '../room_survey.dart';
 
 /// One look at the room: how far away everything in a picture is, and where
 /// the phone was pointing when it was taken.
@@ -188,13 +187,6 @@ final class RoomMap {
     null => false,
   };
 
-  /// How much of the arc a husk needs has been read, from 0 to 1.
-  double get progress {
-    final (_, length) = widestRun(_marked);
-
-    return ((length - 1) * _markWidth / RoomSurvey.neededArc).clamp(0.0, 1.0);
-  }
-
   /// How much of the circle has been read at all, in radians.
   double get coverage =>
       Iterable<int>.generate(
@@ -202,47 +194,31 @@ final class RoomMap {
       ).where((slice) => read(slice) >= 1).length *
       HuntPlan.sliceWidth;
 
-  /// Where a husk may go, or null until a wide enough arc has been read.
+  /// The plan for a hunt kept to [halfWidth] radians either side of the
+  /// bearing [centre]: the floor where it was found, and how far the way is
+  /// clear along every slice that has been read.
   ///
   /// A room is never too small to hunt in. Where there is little clear
   /// floor the husk stands closer, and the plan says how much there is.
-  HuntPlan? get plan {
-    final (start, length) = widestRun(_marked);
-
-    if ((length - 1) * _markWidth < RoomSurvey.neededArc) {
-      return null;
-    }
-
-    if (length >= _marks) {
-      return _room;
-    }
-
-    final from = _bearingOfMark(start);
-
-    return HuntPlan.between(
-      from,
-      from + (length - 1) * _markWidth,
-      eyeCentimetres: _room.eyeCentimetres,
-      reachDecimetres: _room.reachDecimetres,
-    );
-  }
-
-  /// The whole circle with the floor where it was found and nothing known
-  /// of what stands on it: for a hunt begun before the room was read.
-  HuntPlan get planUnread => HuntPlan(
-    centreCentidegrees: 0,
-    halfWidthCentidegrees: 18000,
-    eyeCentimetres: _room.eyeCentimetres,
+  /// Nothing is known to be in the way along a slice that has not been
+  /// read, so it is given the most a plan can say. A plan made before any
+  /// slice was read says nothing about the room but the floor.
+  HuntPlan planWithin(double centre, double halfWidth) => HuntPlan.between(
+    centre - halfWidth,
+    centre + halfWidth,
+    eyeCentimetres: ((floorDepth ?? HuntRules.eyeHeight) * 100).round(),
+    reachDecimetres: _reach.every((metres) => metres == null)
+        ? const []
+        : [
+            for (final metres in _reach)
+              metres == null
+                  ? HuntPlan.maxReachDecimetres
+                  : (metres * 10).floor().clamp(
+                      0,
+                      HuntPlan.maxReachDecimetres,
+                    ),
+          ],
   );
-
-  /// The circle is marked twice in every slice, at its edge and at its
-  /// middle, so that an arc can begin and end in the middle of a slice
-  /// that has been read.
-  static const _marks = 2 * HuntPlan.slices;
-  static const _markWidth = HuntPlan.sliceWidth / 2;
-
-  static double _bearingOfMark(int mark) =>
-      wrapAngle(mark * _markWidth - math.pi);
 
   // What the pictures so far add up to. Worked out once for each picture
   // taken in, not each time it is asked for.
@@ -252,12 +228,6 @@ final class RoomMap {
 
   /// Each slice's reach in metres, or null where it has not been read.
   List<double?> _reach = List.filled(HuntPlan.slices, null);
-
-  /// The whole room as a plan would carry it.
-  HuntPlan _room = HuntPlan.open;
-
-  /// For each mark round the circle, whether it has been read.
-  List<bool> _marked = List.filled(_marks, false);
 
   void _reckon() {
     // One ring of the map in metres.
@@ -273,26 +243,6 @@ final class RoomMap {
     _reach = [
       for (var slice = 0; slice < HuntPlan.slices; slice++)
         _read[slice] < 1 ? null : clear[slice].rings * _ringSize * unit,
-    ];
-    _room = HuntPlan(
-      centreCentidegrees: 0,
-      halfWidthCentidegrees: 18000,
-      eyeCentimetres: ((floorDepth ?? HuntRules.eyeHeight) * 100).round(),
-      reachDecimetres: [
-        for (final metres in _reach)
-          // Nothing is known to be in the way along a slice not read, so
-          // it is given the most a plan can say.
-          metres == null
-              ? HuntPlan.maxReachDecimetres
-              : (metres * 10).floor().clamp(0, HuntPlan.maxReachDecimetres),
-      ],
-    );
-
-    _marked = [
-      for (var mark = 0; mark < _marks; mark++)
-        // A mark on the edge between two slices needs both of them read.
-        read(mark ~/ 2) >= 1 &&
-            (mark.isOdd || read((mark ~/ 2 - 1) % HuntPlan.slices) >= 1),
     ];
   }
 

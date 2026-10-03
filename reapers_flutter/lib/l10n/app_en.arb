@@ -299,22 +299,21 @@
   "refusalHuntUnproven": "The record of that hunt does not hold up.",
   "refusalNotAttuned": "This rift only answers a reaper who carries one of its dead. Absorb an NFT from its collection first.",
 
-  "scanLabel": "Reading the room",
+  "scanLabel": "Drawing it out",
   "scanTitle": "Something is nearby.",
-  "scanFloor": "It keeps to the ground. Tip the phone down and sweep it slowly across the floor in front of you, so the veil knows where it can stand.",
-  "scanFloorDrag": "It keeps to the ground. Drag down to look at the floor, then drag slowly across it, so the veil knows where it can stand.",
-  "scanAir": "It keeps to the air. Look around slowly at about head height, so the veil knows where it can go.",
-  "scanAirDrag": "It keeps to the air. Drag slowly from side to side at about head height, so the veil knows where it can go.",
-  "scanReading": "Reading. Keep going.",
-  "scanSlower": "Slower. Nothing can be made out.",
-  "scanLower": "Too high. Tip the phone down.",
-  "scanHigher": "Too low. Tip the phone up.",
+  "sigilHow": "Trace its sigil to draw it out. Turn until the ring rests on the first light, hold the phone still until it catches, then find the next.",
+  "sigilHowDrag": "Trace its sigil to draw it out. Drag until the ring rests on the first light, wait there until it catches, then find the next.",
+  "sigilCaught": "{caught} of {total} caught",
+  "@sigilCaught": {
+    "placeholders": { "caught": { "type": "int" }, "total": { "type": "int" } }
+  },
+  "sigilSteady": "Hold still. It cannot catch while you move.",
+  "sigilSlipping": "It is slipping. Find the next light.",
   "scanFloorFound": "Floor {metres} m below the phone",
   "@scanFloorFound": {
     "placeholders": { "metres": { "type": "String" } }
   },
   "scanSkip": "Hunt anyway",
-  "scanProgress": "Read",
   "scanFound": "It is here",
 
   "feedingMeagre": "Meagre ×0.85",
@@ -330,6 +329,7 @@
   "huntPracticeLabel": "A stray, for practice",
   "huntSafety": "Stand still to hunt, and stay aware of what is around you. You only need to turn on the spot.",
   "huntBegin": "Raise the blade",
+  "huntHowSigil": "Trace its sigil: rest the ring on each light in turn until it catches.",
   "huntHowStalk": "Find it and hold the ring on it, still, to ambush it.",
   "huntHowStrike": "Tap the lit seals on its body to wear down its ward.",
   "huntHowHold": "When it draws breath, freeze. Do not move and do not tap.",

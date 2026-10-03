@@ -1,20 +1,72 @@
+import 'hunt/sigil.dart';
 import 'nft_look.dart';
 import 'seeded_random.dart';
 import 'vessel.dart';
 
 /// How scarce an NFT is inside its collection, and so how hard its husk
-/// fights and how much it is worth to absorb.
+/// fights, how hard it is to draw out, and how much it is worth to absorb.
 enum Rarity {
-  common(ward: 280, xp: 40, anima: 16, lamports: 20000000),
-  uncommon(ward: 420, xp: 70, anima: 28, lamports: 45000000),
-  rare(ward: 760, xp: 120, anima: 48, lamports: 110000000),
-  epic(ward: 1400, xp: 210, anima: 85, lamports: 260000000);
+  common(
+    ward: 280,
+    xp: 40,
+    anima: 16,
+    lamports: 20000000,
+    sigil: SigilShape(
+      lights: 3,
+      spanDegrees: 90,
+      radiusDegrees: 8,
+      holdSeconds: 0.6,
+      crossings: 0,
+    ),
+  ),
+  uncommon(
+    ward: 420,
+    xp: 70,
+    anima: 28,
+    lamports: 45000000,
+    sigil: SigilShape(
+      lights: 4,
+      spanDegrees: 110,
+      radiusDegrees: 7,
+      holdSeconds: 0.7,
+      crossings: 1,
+    ),
+  ),
+  rare(
+    ward: 760,
+    xp: 120,
+    anima: 48,
+    lamports: 110000000,
+    sigil: SigilShape(
+      lights: 5,
+      spanDegrees: 130,
+      radiusDegrees: 6,
+      holdSeconds: 0.8,
+      crossings: 2,
+      fraySeconds: 6,
+    ),
+  ),
+  epic(
+    ward: 1400,
+    xp: 210,
+    anima: 85,
+    lamports: 260000000,
+    sigil: SigilShape(
+      lights: 6,
+      spanDegrees: 160,
+      radiusDegrees: 5.5,
+      holdSeconds: 0.9,
+      crossings: 3,
+      fraySeconds: 5,
+    ),
+  );
 
   const Rarity({
     required this.ward,
     required this.xp,
     required this.anima,
     required this.lamports,
+    required this.sigil,
   });
 
   /// The ward a husk of this rarity starts a hunt with.
@@ -28,6 +80,9 @@ enum Rarity {
 
   /// The stand-in market price, in lamports (a billionth of one SOL).
   final int lamports;
+
+  /// How hard a husk of this rarity's sigil is to trace.
+  final SigilShape sigil;
 }
 
 /// A collection whose NFTs can be released into the veil and hunted.

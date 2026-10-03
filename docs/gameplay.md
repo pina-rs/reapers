@@ -7,7 +7,7 @@ This is the rulebook as the code plays it. Every number here lives in `reapers_s
 1. Take the oath. The shuffle binds you to one reaper. You do not choose it.
 2. Buy an NFT into your vault (a simulated market for now; see [nfts.md](nfts.md)).
 3. Release it into the veil. It becomes a husk and surfaces 6 to 14 seconds later, with a "husk sighted" notice.
-4. Hunt it through your phone. Read the room so it has somewhere to be, break its ward, then reap it.
+4. Hunt it through your phone. Trace its sigil to draw it out, break its ward, then reap it.
 5. Absorbing it feeds your reaper: experience (with a roll of luck), anima, and an entry in your codex. The NFT is gone for good: absorbing is a sink.
 6. Spend anima in the armory. Level up. Absorb three of a collection to complete its set.
 7. Carry one of a collection's dead and that collection's rift opens to you: a husk too big for one reaper, fought by a circle of four at a real place.
@@ -27,36 +27,62 @@ In a rift, everyone in the circle is told to hold still at the same instant. Fou
 
 The hunt runs at a fixed 60 ticks a second whatever the display does. You never see your reaper during it: you are the reaper.
 
-### Reading the room
+### Drawing it out
 
-A hunt opens with "Something is nearby". Before the husk shows itself, you look around and the phone reads the room:
+A hunt opens with "Something is nearby". The husk has not shown itself yet: you draw it out by tracing its sigil.
 
-- For a husk that walks, tip the phone down and sweep it slowly across the floor in front of you.
-- For one that flies, look around at about head height.
-- Pointing at the ceiling or at your own feet reads nothing, and neither does turning too fast. The screen says which.
+A sigil is a handful of lights hung in the air around you, in the husk's own colour. Turn until the ring in the middle of the screen rests on the first light and hold the phone still: the ring fills, the light catches with a knock, and a thread runs from it to the ring. Find the next, and the next. When the last light catches, the husk gathers itself into view, with "It is here".
 
-The circle around you is cut into 72 slices of 5°, and the dial on screen fills in as each is read. When an arc of 115° has been read, the husk gathers itself into view somewhere inside it, with "It is here".
+- The lights catch only in order. The next one breathes and is numbered, and the ones to come are drawn faintly with the path between them, so the whole shape is there to be seen in the room.
+- A small drawing of the whole sigil sits under the words, with a cross for where you are pointing. Only one or two lights are in view at a time, so this is how to see what you are tracing.
+- When the next light is out of view, an arrow at the edge of the screen points to it.
+- A light only fills while you turn slower than 0.7 rad/s. Faster, and it holds where it is ("Hold still"). Look away and it drains twice as fast as it filled.
+- The music draws nearer with every light that catches.
 
-There are two ways the room gets read, and the game picks whichever the phone can manage.
+The sigil is drawn from the hunt's seed, so the same husk always has the same one. It hangs around wherever you face when you raise the blade.
 
-**A phone that can see** (a camera, motion sensors, and the depth model: the Seeker and other Android phones today) takes a picture about twice a second while you sweep and works out from each one how far away everything in it is. From those it learns:
+**A rarer husk has a harder sigil.** The lights stand in a row of evenly spaced columns, one to a column, each at one of three heights and never at the height of the one beside it. A common sigil runs straight along the row. Harder ones double back and cross themselves, but a trace never passes over a light it does not stop at, so the order can always be read from the shape.
+
+| Rarity | Lights | Spread across | Ring must come within | Hold each for | Crosses itself | A caught light goes out after |
+| --- | --- | --- | --- | --- | --- | --- |
+| Common | 3 | 90° | 8° | 0.6 s | never | never |
+| Uncommon | 4 | 110° | 7° | 0.7 s | once | never |
+| Rare | 5 | 130° | 6° | 0.8 s | twice | 6 s without the next |
+| Epic | 6 | 160° | 5.5° | 0.9 s | three times | 5 s without the next |
+
+A light that goes out takes the thread back one light, and the thread reddens and fades as it comes near to going out ("It is slipping"). It never goes out while the ring is resting on the next light. A simulated reaper turning at an easy 1 rad/s traces a common sigil in about 4 seconds and an epic one in about 12. One turning at 0.3 rad/s loses lights on an epic sigil at normal and none at easy.
+
+The testing difficulty widens or narrows how near the ring must come (×1.75 at easy, ×0.85 at hard) and lengthens how long a light waits at easy (×2). It never changes the sigil's shape.
+
+After 60 seconds there is a "Hunt anyway" button, for anyone who cannot turn far enough or whose room will not let them.
+
+#### Reading the room
+
+Tracing the sigil is also how the phone reads the room. The lights hang where the phone has to look:
+
+- For a husk that walks, between 14° and 42° below the horizon, so the camera sees the floor from under your feet to several metres out.
+- For one that flies, between 6° below and 26° above: about head height, where it will be.
+
+The arc the husk will keep to is the sigil's, out to its outermost lights and 15° beyond on either side (half of what the camera takes in across): 120° for a common husk, 190° for an epic one.
+
+**A phone that can see** (a camera, motion sensors, and the depth model: the Seeker and other Android phones today) takes a picture about twice a second while you trace, whenever the phone turns slower than 0.7 rad/s, which is what holding on a light does. From those pictures it learns:
 
 - **How far below the phone the floor is.** The screen shows it as it is found. Sit down and it comes up to meet you.
-- **How far the way is clear in each slice**: to the sofa, the table leg, the wall. The dial's spokes are drawn that long, so it takes the shape of your room. A slice is red where it is tight: so little clear floor that the husk can only stand there as close as it ever comes.
+- **How far the way is clear in each slice** of a circle cut into 72 slices of 5°: to the sofa, the table leg, the wall. A small dial in the corner shows them, spokes as long as the way is clear and red where it is tight: so little clear floor that the husk can only stand there as close as it ever comes. A thin arc round the dial is the arc the husk will keep to.
 
-A picture is only taken while the phone turns slower than 0.7 rad/s. A slice counts as read once a picture has shown it. No room is too small: where there is little clear floor the husk stands closer, and it does not refuse to appear. After 30 seconds without a plan there is a "Hunt anyway" button, which starts the hunt with nothing known about the room but the floor's depth, if that was found.
+No room is too small: where there is little clear floor the husk stands closer, and it does not refuse to appear. A slice inside the arc that no picture showed is left open.
 
-The floor is whatever level surface lies lowest in what you show it. Scan a table top and nothing else, and the husk will stand on the table.
+The floor is whatever level surface lies lowest in what you show it. Point at nothing but a table top, and the husk will stand on the table.
 
-**A phone that cannot see** (a simulator, a refused camera, an iPhone until the depth model is tried on one) goes by where you have looked: a slice is read after 0.3 seconds of steady looking at the right height, turning slower than 1.5 rad/s. It learns nothing about the floor or the furniture.
+**A phone that cannot see** (a simulator, a refused camera, an iPhone until the depth model is tried on one) traces the same sigil and learns nothing about the floor or the furniture.
 
 Either way the result is the hunt's plan:
 
-- **The arc** the husk keeps to. It is never anywhere that has not been read. A plan narrower than 100° is not allowed: it would pen the husk in.
+- **The arc** the husk keeps to. It is never anywhere that was not traced. A plan narrower than 100° is not allowed: it would pen the husk in.
 - **The height of your eye above the floor**, measured, or 1.45 m when it could not be.
 - **How far the way is clear along each slice**, when the phone could see.
 
-The plan is about 80 bytes. It is recorded with the hunt, and the server replays the hunt inside the same plan.
+The plan is about 80 bytes. It is recorded with the hunt, and the server replays the hunt inside the same plan. The sigil itself is not recorded: it decides when the hunt starts and where, and nothing about what it pays.
 
 ### Where a husk is
 
@@ -135,6 +161,8 @@ A build that is not a release has a "Testing difficulty" button on the screen be
 | How long the fight may run | 150 s | 75 s | 75 s |
 | How long a charge takes to arrive | ×1.6 | ×1 | ×0.85 |
 | The swing that turns a charge aside | ×0.6 | ×1 | ×1.15 |
+| How near the ring must come to a sigil's light | ×1.75 | ×1 | ×0.85 |
+| How long a caught light waits for the next | ×2 | ×1 | ×1 |
 
 A simulated beginner (slow to react, wide with every other tap) takes every creature on easy and loses most hunts on hard. The difficulty is recorded with the hunt. The server replays at the recorded difficulty, and refuses anything but normal when it runs in production. A release build has no button and plays on normal.
 
@@ -205,7 +233,7 @@ Each weapon has four tempers, and each outfit is one of the same four states. A 
 
 A husk is what is left of an NFT. Every supported collection has a creature of its own, and each NFT dresses it: three colours, the colour of the light in its eyes, and at most one thing it wears. The one epic of each collection is gilded. An NFT's picture in the game is a portrait of its own creature.
 
-Its ward and its worth come from its rarity.
+Its ward, its worth and its sigil come from its rarity (see [Drawing it out](#drawing-it-out) for the sigils).
 
 | Rarity | Ward | Experience | Anima | Simulated price |
 | --- | --- | --- | --- | --- |
@@ -271,7 +299,8 @@ A hunt never switches tune. It has one piece, and the hunt changes how that piec
 
 | Moment | Loudness | Veil |
 | --- | --- | --- |
-| Reading the room | 0.22 | 0.9 |
+| The sigil, before a light has caught | 0.22 | 0.9 |
+| The sigil, as its lights catch | rises to 0.30 | falls to 0.8 |
 | Stalking, unseen | 0.30 | 0.8 |
 | Stalking, steadied on the husk | up to 0.45 | down to 0.5 |
 | The fight | 0.8 | clear |
@@ -302,7 +331,7 @@ What the game does, on a phone that can see:
 - It shows the real camera feed, drawn through the camera's own lens so that husks hold their place as you turn.
 - It measures how far down the floor is, and husks that walk stand on it with a soft shadow under them.
 - It finds what stands on the floor and how far away, and husks go round it.
-- It only puts a husk where it has looked.
+- It only puts a husk where you traced its sigil.
 
 On a phone that cannot see, the floor is taken to be 1.45 m down and nothing is known about the furniture.
 

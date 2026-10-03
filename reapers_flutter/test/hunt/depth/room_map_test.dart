@@ -10,6 +10,10 @@ import '../../support/drawn_room.dart';
 int _sliceAt(double degreesRight) =>
     ((radians(degreesRight) + radians(180)) / HuntPlan.sliceWidth).floor();
 
+/// The plan for a hunt kept to [degreesEitherSide] of straight ahead.
+HuntPlan _ahead(RoomMap map, double degreesEitherSide) =>
+    map.planWithin(0, radians(degreesEitherSide));
+
 /// A sofa: 80 cm tall, a metre and a half ahead and a little to the right.
 const _sofa = Block(left: 0.4, right: 2, near: 1.5, far: 2.3, height: 0.8);
 
@@ -35,7 +39,7 @@ void main() {
       );
 
       expect(map.floorDepth, closeTo(0.95, 0.03));
-      expect(map.plan!.eyeCentimetres, inInclusiveRange(92, 98));
+      expect(_ahead(map, 60).eyeCentimetres, inInclusiveRange(92, 98));
     });
 
     test('a table top is not taken for the floor', () {
@@ -58,7 +62,7 @@ void main() {
       sweep(map, const DrawnRoom(), from: -60, to: 60, pitch: -30, noise: 0.03);
 
       expect(map.floorDepth, closeTo(1.45, 0.06));
-      expect(map.plan, isNotNull);
+      expect(map.reach(_sliceAt(0)), isNotNull);
     });
 
     test('a picture that takes a table for the floor is set aside', () {
@@ -85,7 +89,8 @@ void main() {
       expect(map.add(room.picture(yaw: 0, pitch: 25)), isFalse);
       expect(map.frames, 0);
       expect(map.floorDepth, isNull);
-      expect(map.plan, isNull);
+      expect(_ahead(map, 60).isSurveyed, isFalse);
+      expect(_ahead(map, 60).eyeCentimetres, HuntRules.eyeCentimetres);
     });
   });
 
@@ -134,7 +139,7 @@ void main() {
         pitch: -30,
       );
 
-      final plan = map.plan!;
+      final plan = _ahead(map, 70);
 
       expect(map.tight(_sliceAt(35)), isTrue);
       expect(map.tight(_sliceAt(-40)), isFalse);
@@ -153,7 +158,7 @@ void main() {
 
       sweep(map, room, from: -70, to: 70, pitch: -30);
 
-      final plan = map.plan!;
+      final plan = _ahead(map, 70);
 
       expect(plan.contains(radians(25)), isTrue);
       expect(plan.reach(radians(25)), inInclusiveRange(2.5, 3.0));
@@ -213,13 +218,30 @@ void main() {
   });
 
   group('the plan', () {
-    test('there is none until enough of the room has been seen', () {
+    test('it keeps to the arc it is asked for', () {
+      final map = RoomMap(vessel: Vessel.penguin);
+
+      sweep(map, const DrawnRoom(), from: -60, to: 60, pitch: -30);
+
+      final plan = map.planWithin(radians(90), radians(65));
+
+      expect(plan.centre, closeTo(radians(90), 1e-3));
+      expect(plan.halfWidth, closeTo(radians(65), 1e-3));
+    });
+
+    test('a direction never looked in is left open', () {
       final map = RoomMap(vessel: Vessel.penguin);
 
       map.add(const DrawnRoom().picture(yaw: 0, pitch: -30));
 
-      expect(map.progress, inExclusiveRange(0, 1));
-      expect(map.plan, isNull);
+      final plan = _ahead(map, 90);
+
+      expect(plan.isSurveyed, isTrue);
+      expect(
+        plan.reachDecimetres[_sliceAt(-80)],
+        HuntPlan.maxReachDecimetres,
+      );
+      expect(plan.reachDecimetres[_sliceAt(0)], lessThan(50));
     });
 
     test('a swept room gives a plan a hunt can be played in', () {
@@ -227,15 +249,14 @@ void main() {
 
       sweep(map, const DrawnRoom(), from: -70, to: 70, pitch: -30);
 
-      final plan = map.plan!;
+      final plan = _ahead(map, 70);
 
-      expect(map.progress, 1);
       expect(plan.isSurveyed, isTrue);
       expect(plan.isWellFormed, isTrue);
       expect(plan.eyeCentimetres, inInclusiveRange(142, 148));
       expect(plan.contains(radians(50)), isTrue);
       expect(plan.contains(radians(-50)), isTrue);
-      expect(plan.contains(radians(150)), isFalse, reason: 'never looked');
+      expect(plan.contains(radians(150)), isFalse, reason: 'not asked for');
 
       // The rules take it, and it survives being written down and read back.
       final log = HuntLog.decode(HuntLog(const [], plan: plan).encode());
@@ -253,17 +274,14 @@ void main() {
       );
     });
 
-    test('begun before the room is read, a hunt still gets the floor', () {
+    test('after a single picture, a hunt still gets the floor', () {
       final map = RoomMap(vessel: Vessel.penguin);
 
-      expect(map.planUnread, HuntPlan.open);
+      expect(_ahead(map, 60).eyeCentimetres, HuntRules.eyeCentimetres);
 
       map.add(const DrawnRoom(eyeHeight: 1.1).picture(yaw: 0, pitch: -30));
 
-      expect(map.plan, isNull);
-      expect(map.planUnread.isWholeCircle, isTrue);
-      expect(map.planUnread.isSurveyed, isFalse);
-      expect(map.planUnread.eyeCentimetres, inInclusiveRange(107, 113));
+      expect(_ahead(map, 60).eyeCentimetres, inInclusiveRange(107, 113));
     });
 
     test('a room too small all round still gives a plan, all of it tight', () {
@@ -271,7 +289,7 @@ void main() {
 
       sweep(map, const DrawnRoom(wall: 1.1), from: -70, to: 70, pitch: -35);
 
-      final plan = map.plan!;
+      final plan = _ahead(map, 70);
 
       expect(map.tight(_sliceAt(0)), isTrue);
       expect(plan.reach(0), lessThan(1.3));
@@ -298,7 +316,7 @@ void main() {
 
       sweep(map, const DrawnRoom(wall: 3), from: -70, to: 70, pitch: 5);
 
-      final plan = map.plan!;
+      final plan = _ahead(map, 70);
 
       expect(map.reach(_sliceAt(0)), closeTo(3, 0.2));
       expect(plan.isWellFormed, isTrue);
@@ -317,7 +335,7 @@ void main() {
 
       expect(map.reach(_sliceAt(0)), closeTo(1.3, 0.15));
       expect(map.tight(_sliceAt(0)), isFalse);
-      expect(map.plan!.reach(0), closeTo(1.3, 0.2));
+      expect(_ahead(map, 70).reach(0), closeTo(1.3, 0.2));
     });
   });
 }

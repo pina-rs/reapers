@@ -20,6 +20,7 @@ import 'scan/depth/depth_survey.dart';
 import 'scan/open_room_survey.dart';
 import 'scan/room_survey.dart';
 import 'scan/scan_overlay.dart';
+import 'scan/sigil_painter.dart';
 
 /// What a hunt is for: which husk, and who is hunting it.
 final class HuntBrief {
@@ -51,6 +52,15 @@ final class HuntBrief {
     ward: nft.rarity.ward,
     stats: HuntStats.derive(loadout),
     plan: plan,
+    difficulty: difficulty,
+  );
+
+  /// The sigil that draws this husk out, as forgiving as [difficulty] makes
+  /// it.
+  Sigil sigilFor(Difficulty difficulty) => Sigil.draw(
+    seed: seed,
+    shape: nft.rarity.sigil,
+    gait: nft.collection.vessel.gait,
     difficulty: difficulty,
   );
 }
@@ -96,16 +106,17 @@ final class HuntReward {
   bool get levelledUp => levelAfter > levelBefore;
 }
 
-/// One hunt, from the first look around to the reap.
+/// One hunt, from the sigil that draws the husk out to the reap.
 ///
 /// The reaper is never drawn here: the player is the reaper, and the phone
 /// is what it sees through.
 class HuntScreen extends HookConsumerWidget {
   const HuntScreen({super.key, required this.brief, required this.settle});
 
-  /// How long the room is given to be read before the player is offered
-  /// the hunt without it.
-  static const _skipAfter = Duration(seconds: 30);
+  /// How long a sigil is given to be traced before the player is offered
+  /// the hunt without it: for anyone who cannot turn far enough, or whose
+  /// room will not let them.
+  static const _skipAfter = Duration(seconds: 60);
 
   final HuntBrief brief;
 
@@ -121,6 +132,7 @@ class HuntScreen extends HookConsumerWidget {
     );
     final vessel = brief.nft.collection.vessel;
     final survey = useState<RoomSurvey?>(null);
+    final trace = useState<SigilTrace?>(null);
     final skipOffered = useState(false);
     final loaded = useState(false);
     final begun = useState(false);
@@ -131,10 +143,10 @@ class HuntScreen extends HookConsumerWidget {
     final banner = useState<String?>(null);
     final l10n = context.l10n;
 
-    /// Starts the hunt in the part of the room that has been read.
+    /// Starts the hunt inside [plan].
     void engage(HuntPlan plan) {
-      // The room has been read, so the reading stops: no more pictures are
-      // taken once the husk is in view.
+      // The sigil is traced and the room read, so the reading stops: no
+      // more pictures are taken once the husk is in view.
       survey.value?.dispose();
       survey.value = null;
       arena.engage(
@@ -187,7 +199,9 @@ class HuntScreen extends HookConsumerWidget {
     }, [arena]);
 
     // The reading of the room is got ready while the player is still at the
-    // threshold, so that it starts the moment they raise the phone.
+    // threshold, so that it starts the moment they raise the phone. A phone
+    // that cannot see has none, and the sigil alone decides where the husk
+    // may go.
     useEffect(() {
       var cancelled = false;
       RoomSurvey? opened;
@@ -195,6 +209,10 @@ class HuntScreen extends HookConsumerWidget {
       Future<void> open() async {
         try {
           final ready = await openRoomSurvey(arena: arena, vessel: vessel);
+
+          if (ready == null) {
+            return;
+          }
 
           if (cancelled) {
             ready.dispose();
@@ -238,12 +256,20 @@ class HuntScreen extends HookConsumerWidget {
         }, onError: (Object error) => seeing.failure = error),
       );
 
-      // A room that will not be read should not keep the player from the
-      // hunt for ever. After a while there is a way on without it.
+      return null;
+    }, [seeing]);
+
+    // A sigil that cannot be traced should not keep the player from the
+    // hunt for ever. After a while there is a way on without it.
+    useEffect(() {
+      if (trace.value == null) {
+        return null;
+      }
+
       final timer = Timer(_skipAfter, () => skipOffered.value = true);
 
       return timer.cancel;
-    }, [seeing]);
+    }, [trace.value]);
 
     // A banner names what just happened, then steps aside.
     useEffect(() {
@@ -301,48 +327,79 @@ class HuntScreen extends HookConsumerWidget {
             loaded: loaded.value,
             running: engaged.value,
             onEvents: onEvents,
-            // Before the hunt, the phone reads the room as the player looks
-            // around. The husk appears once there is somewhere for it to be.
+            // Before the hunt, the player traces the husk's sigil, and the
+            // phone reads the room as they turn. The husk appears when the
+            // last light catches.
             onIdle: (deltaSeconds) {
-              final reading = survey.value;
+              final tracing = trace.value;
 
-              if (!begun.value || engaged.value || reading == null) {
+              if (!begun.value || engaged.value || tracing == null) {
                 return;
               }
 
-              reading.observe(arena.pose, deltaSeconds);
+              final reading = survey.value;
 
-              if (reading.failure case final error?) {
+              if (reading?.failure case final error?) {
                 failure.value = error;
 
                 return;
               }
 
-              if (reading.plan case final plan?) {
-                engage(plan);
+              final pose = arena.pose;
+              final events = tracing.advance(
+                pose.forward,
+                turnSpeed: pose.turnSpeed,
+                deltaSeconds: deltaSeconds,
+              );
+
+              soundtrack.shape(sigilMix(tracing));
+
+              for (final event in events) {
+                switch (event) {
+                  case LightCaught():
+                    unawaited(HapticFeedback.mediumImpact());
+                  case LightLost():
+                    unawaited(HapticFeedback.lightImpact());
+                  case SigilClosed():
+                    engage(sigilPlan(tracing, reading));
+                }
               }
             },
             showSealOrder: brief.loadout.reaperClass.perk == ClassPerk.measure,
           ),
-          // While the room is read there is nothing to strike, so the whole
-          // screen is for looking around.
+          // While the sigil is traced there is nothing to strike, so the
+          // whole screen is for looking around.
           if (loaded.value && begun.value && !engaged.value)
             _LookAround(arena: arena),
-          if (survey.value case final reading?
-              when loaded.value && begun.value && !engaged.value)
+          if (trace.value case final tracing?
+              when loaded.value && begun.value && !engaged.value) ...[
+            IgnorePointer(
+              child: CustomPaint(
+                painter: SigilPainter(
+                  trace: tracing,
+                  pose: () => arena.pose,
+                  verticalFov: () => arena.fieldOfView,
+                  light: arena.rig.light,
+                  repaint: arena.frame,
+                ),
+              ),
+            ),
             ScanOverlay(
-              survey: reading,
-              gait: vessel.gait,
+              trace: tracing,
               pose: () => arena.pose,
               followsDevice: arena.poseSource.followsDevice,
+              light: arena.rig.light,
               repaint: arena.frame,
-              floorDepth: reading is DepthSurvey
-                  ? () => reading.floorDepth
-                  : null,
+              survey: survey.value,
+              floorDepth: switch (survey.value) {
+                final DepthSurvey depth => () => depth.floorDepth,
+                _ => null,
+              },
               onSkip: skipOffered.value
-                  ? () => engage(reading.planUnread)
+                  ? () => engage(sigilPlan(tracing, survey.value))
                   : null,
             ),
+          ],
           if (loaded.value && engaged.value)
             SafeArea(
               child: IgnorePointer(
@@ -371,10 +428,20 @@ class HuntScreen extends HookConsumerWidget {
               onBegin: () {
                 begun.value = true;
 
-                // A hunt that plays itself has no room to read.
+                // A hunt that plays itself has no sigil to trace and no
+                // room to read.
                 if (HuntArena.autoplay) {
                   engage(HuntPlan.open);
+
+                  return;
                 }
+
+                // The sigil hangs around wherever the player faces as the
+                // hunt begins.
+                trace.value = SigilTrace(
+                  brief.sigilFor(ref.read(testingDifficultyProvider)),
+                  centre: arena.pose.forward.yaw,
+                );
               },
             ),
           // The reckoning waits for the husk to finish coming apart: the
@@ -435,6 +502,7 @@ class _Threshold extends HookWidget {
               const SizedBox(height: 18),
               // The whole of a hunt, in the order it happens.
               for (final (step, line) in [
+                l10n.huntHowSigil,
                 l10n.huntHowStalk,
                 l10n.huntHowStrike,
                 l10n.huntHowHold,

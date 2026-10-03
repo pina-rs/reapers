@@ -13,7 +13,7 @@ You are bound to a reaper you did not choose, and the phone is its blade. The hu
 ## What is in this version
 
 - The shuffle: six classes, each with its own silhouette, weapon and perk, and a few hundred looks apiece.
-- The full hunt over the camera feed: read the room, stalk, strike, shriek, reap.
+- The full hunt over the camera feed: trace a sigil to draw the husk out (harder for rarer husks) while the phone reads the room, then stalk, strike, shriek, reap.
 - Husks that are creatures with a place in the room: walkers on the floor, fliers in the air.
 - A roll of luck on every absorption, decided and signed by the server.
 - A vault and a market, an armory of weapons and outfits, a codex, levels and collection sets.

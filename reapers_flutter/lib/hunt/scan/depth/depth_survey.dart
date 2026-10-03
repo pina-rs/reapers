@@ -12,8 +12,8 @@ import 'depth_model.dart';
 import 'room_map.dart';
 
 /// Reads the room by looking at it: camera frames go through the depth
-/// model as the player sweeps the phone around, and what comes out is put
-/// together into a map of the floor and what stands on it.
+/// model as the player traces the sigil, and what comes out is put together
+/// into a map of the floor and what stands on it.
 ///
 /// Nothing leaves the phone. What the hunt keeps of the room is the plan:
 /// how high the phone was held, and how far the way is clear in each
@@ -40,7 +40,6 @@ final class DepthSurvey implements RoomSurvey {
   static const steadyTurnSpeed = 0.7;
 
   final RoomMap _map;
-  ReadingAdvice _posture = ReadingAdvice.keepGoing;
   bool _busy = false;
   bool _disposed = false;
 
@@ -59,18 +58,6 @@ final class DepthSurvey implements RoomSurvey {
   Future<bool> start() => camera.watch(_onFrame);
 
   @override
-  ReadingAdvice get advice => _posture;
-
-  @override
-  void observe(ArPose pose, double deltaSeconds) {
-    _posture = postureAdvice(
-      pose,
-      _map.vessel.gait,
-      steadyTurnSpeed: steadyTurnSpeed,
-    );
-  }
-
-  @override
   double read(int index) => _map.read(index);
 
   @override
@@ -80,13 +67,8 @@ final class DepthSurvey implements RoomSurvey {
   bool tight(int index) => _map.tight(index);
 
   @override
-  double get progress => _map.progress;
-
-  @override
-  HuntPlan? get plan => _map.plan;
-
-  @override
-  HuntPlan get planUnread => _map.planUnread;
+  HuntPlan planWithin(double centre, double halfWidth) =>
+      _map.planWithin(centre, halfWidth);
 
   @override
   void dispose() {
@@ -111,13 +93,8 @@ final class DepthSurvey implements RoomSurvey {
     }
 
     final taken = pose();
-    final posture = postureAdvice(
-      taken,
-      _map.vessel.gait,
-      steadyTurnSpeed: steadyTurnSpeed,
-    );
 
-    if (posture != ReadingAdvice.keepGoing) {
+    if (!canRead(taken, _map.vessel.gait, steadyTurnSpeed: steadyTurnSpeed)) {
       return;
     }
 
@@ -202,8 +179,7 @@ final class DepthSurvey implements RoomSurvey {
         debugPrint(
           'Room reading: picture ${learnt ? 'kept' : 'set aside'}, '
           'floor ${_map.floorDepth?.toStringAsFixed(2) ?? 'not found'} m '
-          'down, ${degrees(_map.coverage).round()}° read '
-          '(${(_map.progress * 100).round()}% of what it needs), '
+          'down, ${degrees(_map.coverage).round()}° read, '
           '${reaches.isEmpty ? 'nothing clear yet' : 'clear '
                     '${reaches.first.toStringAsFixed(1)} to '
                     '${reaches.last.toStringAsFixed(1)} m, middle '

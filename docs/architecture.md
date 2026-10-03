@@ -46,18 +46,17 @@ lib/
 
 **The arena.** `HuntArena` owns the scene, the husk and the phone's pose, and shows whatever `HuntSim` it is given. A lone hunt and a seat in a rift are both fought in it. Screens lay their own words over it.
 
-**Reading the room.** Before a hunt, a `RoomSurvey` turns what the player has looked over into a `HuntPlan`: the arc a husk may move in, how far down the floor is, and how far the way is clear in each direction. There are two, chosen by `openRoomSurvey`:
+**Drawing the husk out.** Before a hunt, the player traces the husk's `Sigil`: lights around them that catch in order. The sigil is a rule, so it lives in `reapers_shared`: `Sigil.draw` lays one out from the hunt's seed and the rarity's `SigilShape`, and `SigilTrace` follows the phone across it, reading no clock. On the phone, `SigilPainter` hangs it in the room and `ScanOverlay` lays the words and a flat drawing of it over the top.
 
-- `DepthSurvey`, for a phone that can see. Frames from `HuntCamera` are cut down by `CameraPicture`, run through `DepthModel` (Depth Anything V2 small, on the phone, through ONNX Runtime), and put together by `RoomMap`. `RoomMap` is plain arithmetic with no camera or model in it, so it is tested against rooms drawn by hand.
-- `RoomReader`, for anywhere else. It knows only where the player has looked.
+**Reading the room.** While the sigil is traced, a `RoomSurvey` reads the room, and when the last light catches, `sigilPlan` asks it for a `HuntPlan` over the arc the sigil covered: how far down the floor is, and how far the way is clear in each direction. `openRoomSurvey` gives a `DepthSurvey` on a phone that can see, and nothing anywhere else. Frames from `HuntCamera` are cut down by `CameraPicture`, run through `DepthModel` (Depth Anything V2 small, on the phone, through ONNX Runtime), and put together by `RoomMap`. `RoomMap` is plain arithmetic with no camera or model in it, so it is tested against rooms drawn by hand.
 
-Anything that learns more about the room (ARKit, ARCore, a server that names what it sees) is a third survey and hands the hunt a better plan. See [environment.md](environment.md).
+Anything that learns more about the room (ARKit, ARCore, a server that names what it sees) is another survey and hands the hunt a better plan. See [environment.md](environment.md).
 
 **The lens.** `CameraOptics` asks the phone for its camera's focal length and sensor size, and the hunt is drawn with the field of view that follows from them. A husk seen through a different lens from the floor it stands on slides across the floor when the phone turns.
 
 **Where a rift stands.** A rift's `RiftRoom` holds one `GeoPoint` for its husk and every `RiftFrame` carries it, so whoever hosts the room is the one place that knows where the enemy is. On the phone, `Whereabouts` says where the phone is, the pose source says where north lies in the view (`AttitudeFilter` listens to the magnetometer for that and nothing else), and `RiftPlacer` turns the three into a `RiftSighting`: the direction and distance this reaper sees the husk at. `RiftPlacer` has no sensors in it and is tested with two phones side by side.
 
-**Music.** `Soundtrack` decides which piece plays and how it is heard, and a `ScoreEngine` makes the sound. The real engine is SoLoud, handed in at startup; everywhere else, including every test, the engine is silent. `huntMix` is the whole of how a hunt sounds: a pure function from the hunt's state to a loudness and a veil. The recordings are other people's, built by `tool/build_music.dart` and credited in `assets/music/CREDITS.md` and on the colophon page.
+**Music.** `Soundtrack` decides which piece plays and how it is heard, and a `ScoreEngine` makes the sound. The real engine is SoLoud, handed in at startup; everywhere else, including every test, the engine is silent. `sigilMix` and `huntMix` are the whole of how a hunt sounds: pure functions from the sigil's and the hunt's state to a loudness and a veil. The recordings are other people's, built by `tool/build_music.dart` and credited in `assets/music/CREDITS.md` and on the colophon page.
 
 **Pose.** Where the phone points comes from a `PoseSource`. `DevicePoseSource` fuses the gyroscope and accelerometer; `DragPoseSource` follows a finger, for simulators and desktops; `AdaptivePoseSource` uses the device when it answers and the drag when it does not. ARKit and ARCore would be a fourth source behind the same interface.
 

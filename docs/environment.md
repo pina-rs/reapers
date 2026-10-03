@@ -8,10 +8,10 @@ This page says how the game does that, how far it can be trusted, what it still 
 
 On a phone with a camera and motion sensors, the hunt now sees the room:
 
-1. A hunt opens with "Something is nearby".
-2. You sweep the phone round. About twice a second it takes a picture and works out, on the phone, how far away everything in it is.
-3. From those pictures it finds the floor, measures how far below the phone it is, and maps how far the floor is clear in each direction. The dial on screen takes the shape of the room as it goes.
-4. Once it has read an arc of 115°, the husk gathers into view there. No room is too small: where the floor is tight the husk stands closer, down to 0.8 m.
+1. A hunt opens with "Something is nearby", and the husk's sigil hangs in the air around you: a few lights to rest the ring on, one after another.
+2. The lights are where the camera needs to look: over the floor for a husk that walks, at head height for one that flies, spread across the arc the husk will keep to. Holding still on each one is what lets the camera take a sharp picture there. About twice a second, while the phone is steady, it takes one and works out, on the phone, how far away everything in it is.
+3. From those pictures it finds the floor, measures how far below the phone it is, and maps how far the floor is clear in each direction. A small dial takes the shape of the room as it goes.
+4. When the last light catches, the husk gathers into view inside the sigil's arc. No room is too small: where the floor is tight the husk stands closer, down to 0.8 m.
 5. A walker stands on the measured floor and runs round whatever is in the way. A flier keeps clear of walls and cupboards.
 
 Nothing leaves the phone. What the hunt keeps of your room is about 80 bytes: the height of your eye and one distance for each of 72 directions.
@@ -93,7 +93,7 @@ Debug builds print a line for every picture: whether it had floor in it, where t
 - **Is the floor depth about right?** Measure from the phone to the floor. If it is consistently out by the same factor, the correction curve needs moving for this camera.
 - **Do husks stand on the floor or hover?** Hovering or sinking by the same amount everywhere means the pictures are being matched to the wrong direction, which is a bug in how frames are turned upright or timed, not in the model.
 - **Does the dial look like the room?** Red spokes should be where the furniture is.
-- **Does a scan finish?** It should, in any room, within a few seconds of sweeping. The first real run did not: see below.
+- **Does the scan finish?** It now ends when the sigil is traced, whatever has been read. The first real run, before the sigil, did not finish: see below.
 
 ### What the first real run showed
 
@@ -104,6 +104,8 @@ On 2 October 2026 the game was scanned in a real room for the first time, on the
 - **The floor moved**, from 1.40 m to 0.55 m, over the run. Either the phone was lowered or it was shown a table or a bed: the floor is the lowest level surface in view, so a husk will stand on a table if that is all it is shown. Pictures that disagree with the rest by more than a quarter are set aside, which slowed the scan while the two disagreed.
 
 What the log cannot say is whether the map matched the room: whether the directions it called tight had furniture in them. That needs someone looking at the dial and at the room.
+
+On 3 October 2026 the scan was reported to work, with a request for something clearer to do than sweeping: a pattern to trace, harder for harder husks. The scan is now the husk's sigil ([gameplay.md](gameplay.md#drawing-it-out)). Its lights are placed so that tracing it does what the sweep was for: the phone looks over the floor across the whole arc, and holds still at each light long enough for a sharp picture.
 
 `--dart-define=REAPERS_DEPTH_PROBE=true` opens a bench instead of the game: the camera, the model's depth picture beside it, and the timings.
 

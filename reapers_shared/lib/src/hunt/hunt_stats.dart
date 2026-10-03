@@ -133,6 +133,29 @@ abstract final class HuntRules {
   /// A level-one strike with a plain weapon, before the class's lean.
   static const baseStrike = 4.0;
 
+  // Sigil -------------------------------------------------------------
+
+  /// The lowest and highest a sigil's lights hang for a husk that walks, in
+  /// radians above the horizon. Resting on any of them, the camera sees the
+  /// floor from under the reaper's feet to several metres out.
+  static final sigilGroundBand = (radians(-42), radians(-14));
+
+  /// The same for a husk that flies: about head height, where it will be.
+  static final sigilAirBand = (radians(-6), radians(26));
+
+  /// Turning faster than this, in radians a second, a light the view rests
+  /// on does not fill. It is also as fast as the camera can turn and still
+  /// take a picture the room can be read from.
+  static const sigilSteadySpeed = 0.7;
+
+  /// A light the view has left empties this many times as fast as it
+  /// filled.
+  static const sigilDrain = 2.0;
+
+  /// How far past a sigil's outermost lights the room is read, either side:
+  /// half of what the camera takes in across.
+  static final sigilMargin = radians(15);
+
   // Stalk -------------------------------------------------------------
 
   /// Turning faster than this, in radians a second, alarms an unaware husk.

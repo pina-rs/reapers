@@ -1327,7 +1327,7 @@ abstract class AppLocalizations {
   /// No description provided for @scanLabel.
   ///
   /// In en, this message translates to:
-  /// **'Reading the room'**
+  /// **'Drawing it out'**
   String get scanLabel;
 
   /// No description provided for @scanTitle.
@@ -1336,53 +1336,35 @@ abstract class AppLocalizations {
   /// **'Something is nearby.'**
   String get scanTitle;
 
-  /// No description provided for @scanFloor.
+  /// No description provided for @sigilHow.
   ///
   /// In en, this message translates to:
-  /// **'It keeps to the ground. Tip the phone down and sweep it slowly across the floor in front of you, so the veil knows where it can stand.'**
-  String get scanFloor;
+  /// **'Trace its sigil to draw it out. Turn until the ring rests on the first light, hold the phone still until it catches, then find the next.'**
+  String get sigilHow;
 
-  /// No description provided for @scanFloorDrag.
+  /// No description provided for @sigilHowDrag.
   ///
   /// In en, this message translates to:
-  /// **'It keeps to the ground. Drag down to look at the floor, then drag slowly across it, so the veil knows where it can stand.'**
-  String get scanFloorDrag;
+  /// **'Trace its sigil to draw it out. Drag until the ring rests on the first light, wait there until it catches, then find the next.'**
+  String get sigilHowDrag;
 
-  /// No description provided for @scanAir.
+  /// No description provided for @sigilCaught.
   ///
   /// In en, this message translates to:
-  /// **'It keeps to the air. Look around slowly at about head height, so the veil knows where it can go.'**
-  String get scanAir;
+  /// **'{caught} of {total} caught'**
+  String sigilCaught(int caught, int total);
 
-  /// No description provided for @scanAirDrag.
+  /// No description provided for @sigilSteady.
   ///
   /// In en, this message translates to:
-  /// **'It keeps to the air. Drag slowly from side to side at about head height, so the veil knows where it can go.'**
-  String get scanAirDrag;
+  /// **'Hold still. It cannot catch while you move.'**
+  String get sigilSteady;
 
-  /// No description provided for @scanReading.
+  /// No description provided for @sigilSlipping.
   ///
   /// In en, this message translates to:
-  /// **'Reading. Keep going.'**
-  String get scanReading;
-
-  /// No description provided for @scanSlower.
-  ///
-  /// In en, this message translates to:
-  /// **'Slower. Nothing can be made out.'**
-  String get scanSlower;
-
-  /// No description provided for @scanLower.
-  ///
-  /// In en, this message translates to:
-  /// **'Too high. Tip the phone down.'**
-  String get scanLower;
-
-  /// No description provided for @scanHigher.
-  ///
-  /// In en, this message translates to:
-  /// **'Too low. Tip the phone up.'**
-  String get scanHigher;
+  /// **'It is slipping. Find the next light.'**
+  String get sigilSlipping;
 
   /// No description provided for @scanFloorFound.
   ///
@@ -1395,12 +1377,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Hunt anyway'**
   String get scanSkip;
-
-  /// No description provided for @scanProgress.
-  ///
-  /// In en, this message translates to:
-  /// **'Read'**
-  String get scanProgress;
 
   /// No description provided for @scanFound.
   ///
@@ -1479,6 +1455,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Raise the blade'**
   String get huntBegin;
+
+  /// No description provided for @huntHowSigil.
+  ///
+  /// In en, this message translates to:
+  /// **'Trace its sigil: rest the ring on each light in turn until it catches.'**
+  String get huntHowSigil;
 
   /// No description provided for @huntHowStalk.
   ///

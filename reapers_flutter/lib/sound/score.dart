@@ -33,6 +33,10 @@ final class Mix {
   /// off.
   static const waiting = Mix(volume: 0.22, veil: 0.9);
 
+  /// The husk has shown itself and not yet seen the reaper: nearer, still
+  /// muffled.
+  static const unseen = Mix(volume: 0.3, veil: 0.8);
+
   /// From 0 (silent) to 1 (as loud as the game gets).
   final double volume;
 
@@ -56,6 +60,20 @@ final class Mix {
   String toString() => 'Mix(volume $volume, veil $veil)';
 }
 
+/// How the hunt's music is heard while its sigil is traced: far off at
+/// first, and nearer with every light that catches, until it is where the
+/// stalk takes it up.
+Mix sigilMix(SigilTrace trace) {
+  final drawn =
+      (trace.caught + trace.fill) / trace.sigil.lights.length.toDouble();
+
+  return Mix(
+    volume:
+        Mix.waiting.volume + (Mix.unseen.volume - Mix.waiting.volume) * drawn,
+    veil: Mix.waiting.veil + (Mix.unseen.veil - Mix.waiting.veil) * drawn,
+  );
+}
+
 /// How the hunt's music is heard at this moment of [sim].
 ///
 /// The music follows what the hunt asks of the player. It comes clear when
@@ -66,8 +84,8 @@ final class Mix {
 Mix huntMix(HuntSim sim) => switch (sim.phase) {
   // Unseen, the music is far off. Holding steady on the husk draws it in.
   HuntPhase.stalk => Mix(
-    volume: 0.3 + 0.15 * sim.steadiness,
-    veil: 0.8 - 0.3 * sim.steadiness,
+    volume: Mix.unseen.volume + 0.15 * sim.steadiness,
+    veil: Mix.unseen.veil - 0.3 * sim.steadiness,
   ),
   HuntPhase.fight => Mix(volume: sim.staggered ? 1 : 0.8, veil: 0),
   HuntPhase.windup => Mix(

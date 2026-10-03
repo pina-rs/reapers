@@ -732,38 +732,29 @@ class AppLocalizationsEn extends AppLocalizations {
       'This rift only answers a reaper who carries one of its dead. Absorb an NFT from its collection first.';
 
   @override
-  String get scanLabel => 'Reading the room';
+  String get scanLabel => 'Drawing it out';
 
   @override
   String get scanTitle => 'Something is nearby.';
 
   @override
-  String get scanFloor =>
-      'It keeps to the ground. Tip the phone down and sweep it slowly across the floor in front of you, so the veil knows where it can stand.';
+  String get sigilHow =>
+      'Trace its sigil to draw it out. Turn until the ring rests on the first light, hold the phone still until it catches, then find the next.';
 
   @override
-  String get scanFloorDrag =>
-      'It keeps to the ground. Drag down to look at the floor, then drag slowly across it, so the veil knows where it can stand.';
+  String get sigilHowDrag =>
+      'Trace its sigil to draw it out. Drag until the ring rests on the first light, wait there until it catches, then find the next.';
 
   @override
-  String get scanAir =>
-      'It keeps to the air. Look around slowly at about head height, so the veil knows where it can go.';
+  String sigilCaught(int caught, int total) {
+    return '$caught of $total caught';
+  }
 
   @override
-  String get scanAirDrag =>
-      'It keeps to the air. Drag slowly from side to side at about head height, so the veil knows where it can go.';
+  String get sigilSteady => 'Hold still. It cannot catch while you move.';
 
   @override
-  String get scanReading => 'Reading. Keep going.';
-
-  @override
-  String get scanSlower => 'Slower. Nothing can be made out.';
-
-  @override
-  String get scanLower => 'Too high. Tip the phone down.';
-
-  @override
-  String get scanHigher => 'Too low. Tip the phone up.';
+  String get sigilSlipping => 'It is slipping. Find the next light.';
 
   @override
   String scanFloorFound(String metres) {
@@ -772,9 +763,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get scanSkip => 'Hunt anyway';
-
-  @override
-  String get scanProgress => 'Read';
 
   @override
   String get scanFound => 'It is here';
@@ -815,6 +803,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get huntBegin => 'Raise the blade';
+
+  @override
+  String get huntHowSigil =>
+      'Trace its sigil: rest the ring on each light in turn until it catches.';
 
   @override
   String get huntHowStalk =>
