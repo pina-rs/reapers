@@ -814,6 +814,12 @@ abstract class AppLocalizations {
   /// **'This phone cannot say where it is, so the rift stands dead ahead of you.'**
   String get riftUnplaced;
 
+  /// No description provided for @riftNoCompass.
+  ///
+  /// In en, this message translates to:
+  /// **'This phone has no compass to say which way the rift lies, so it stands dead ahead of you.'**
+  String get riftNoCompass;
+
   /// No description provided for @riftStands.
   ///
   /// In en, this message translates to:

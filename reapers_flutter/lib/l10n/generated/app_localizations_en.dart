@@ -445,6 +445,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'This phone cannot say where it is, so the rift stands dead ahead of you.';
 
   @override
+  String get riftNoCompass =>
+      'This phone has no compass to say which way the rift lies, so it stands dead ahead of you.';
+
+  @override
   String riftStands(int metres) {
     return 'The rift stands $metres m from you. Everyone here sees it in the same place: turn until you find it.';
   }

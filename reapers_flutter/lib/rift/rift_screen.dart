@@ -328,8 +328,14 @@ class RiftScreen extends HookConsumerWidget {
     required double? north,
     required bool stillLooking,
   }) {
-    if (fix == null || north == null) {
+    if (fix == null) {
       return stillLooking ? l10n.riftFinding : l10n.riftUnplaced;
+    }
+
+    // Knowing where it is, a phone with no compass still cannot say which
+    // way the rift lies from there.
+    if (north == null) {
+      return l10n.riftNoCompass;
     }
 
     // What the phone measured, for whoever is testing how well it knows.

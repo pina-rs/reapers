@@ -283,6 +283,8 @@ A rift's husk stands at one place on the earth, and everyone in the circle is po
 
 How well this works is down to the phone. Out of doors a phone knows where it is to within 3 to 10 m, and at 25 m that is 7 to 20 degrees of bearing. A compass is good to about 10 degrees, and much worse near steel, cars or indoors. So people standing together face the same way, give or take; they do not all touch the same stone. Indoors, expect it to be rough.
 
+**Tried against a running server** on 3 October 2026: a simulator and a second client signed in as guests, each absorbed a Degenerate Ape through the server (the hunt replayed and the receipt signed), entered London Bridge within the same minute, and were seated in one circle with two shades. The second client said where it stood; the rift took its place 25 m in front of it, and every frame to both carried that one place from the gathering through the fight, the reap and the seal. A Seeker also hunted and sealed a rift against the same server. What has not been tried is two phones that both know where they are and which way north lies, standing together: the Seeker is the only such phone here.
+
 Compass north is used as it comes. True north differs from it by a few degrees in most places and by 13 in New York and San Francisco. For a rift planted in front of a reaper that makes no difference, since everyone uses the same compass north. For a rift at its real site it moves the husk by that angle for everyone alike.
 
 ## Music

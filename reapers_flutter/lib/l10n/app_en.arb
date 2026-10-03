@@ -181,6 +181,7 @@
   "riftSeatWaiting": "Arriving",
   "riftFinding": "Finding where you stand, so the rift can take its place.",
   "riftUnplaced": "This phone cannot say where it is, so the rift stands dead ahead of you.",
+  "riftNoCompass": "This phone has no compass to say which way the rift lies, so it stands dead ahead of you.",
   "riftStands": "The rift stands {metres} m from you. Everyone here sees it in the same place: turn until you find it.",
   "@riftStands": {
     "placeholders": { "metres": { "type": "int" } }
