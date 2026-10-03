@@ -185,6 +185,14 @@ class SigilPainter extends CustomPainter {
         aim: view.forward,
         colour: light,
         pulse: breath,
+        // Clear of the words at the top of the screen and the dial and the
+        // count at the bottom.
+        within: Rect.fromLTRB(
+          34,
+          size.height * 0.38,
+          size.width - 34,
+          size.height - 170,
+        ),
       );
     }
   }

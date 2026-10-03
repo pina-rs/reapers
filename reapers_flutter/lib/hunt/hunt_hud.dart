@@ -517,7 +517,8 @@ class HuntHudPainter extends CustomPainter {
 /// An arrow at the edge of the screen pointing toward [target] when it is
 /// out of view: [onScreen] is where it falls on the screen, if anywhere, and
 /// [aim] is where the phone points. [pulse], from 0 to 1, is how brightly
-/// it shows this frame.
+/// it shows this frame. The arrow runs round the oval that fills [within],
+/// or most of the view when that is not given.
 void paintEdgePointer(
   Canvas canvas,
   Size size, {
@@ -526,6 +527,7 @@ void paintEdgePointer(
   required Vec3 aim,
   required Color colour,
   required double pulse,
+  Rect? within,
 }) {
   final visible =
       onScreen != null && (Offset.zero & size).deflate(24).contains(onScreen);
@@ -537,12 +539,18 @@ void paintEdgePointer(
   final turn = wrapAngle(target.yaw - aim.yaw);
   final lift = target.pitch - aim.pitch;
   final angle = math.atan2(-lift, turn);
-  final centre = size.center(Offset.zero);
+  final track =
+      within ??
+      Rect.fromCenter(
+        center: size.center(Offset.zero),
+        width: size.width - 68,
+        height: size.height - 240,
+      );
   final at =
-      centre +
+      track.center +
       Offset(
-        math.cos(angle) * (size.width / 2 - 34),
-        math.sin(angle) * (size.height / 2 - 120),
+        math.cos(angle) * track.width / 2,
+        math.sin(angle) * track.height / 2,
       );
   final paint = Paint()
     ..style = PaintingStyle.stroke
