@@ -40,6 +40,16 @@
         <meta-data
             android:name="io.flutter.embedding.android.EnableFlutterGPU"
             android:value="true" />
+        <!-- Impeller draws through OpenGL ES rather than Vulkan. On the
+             Seeker (a Mali-G615 behind MediaTek's Vulkan driver), closing the
+             camera after a hunt made the driver take the GPU for lost and
+             reset it, after which every texture drawn before, the letters of
+             the text among them, drew broken until the game was restarted.
+             Through OpenGL ES the same moment is at worst a slow frame. See
+             docs/environment.md. -->
+        <meta-data
+            android:name="io.flutter.embedding.android.ImpellerBackend"
+            android:value="opengles" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

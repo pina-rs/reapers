@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:flutter_scene/scene.dart';
 import 'package:vector_math/vector_math.dart' as vm;
 
@@ -12,7 +15,8 @@ abstract final class VeilLook {
   /// whatever the reaper wears on its head; the shader's rim does the rest.
   static void sanctum(Scene scene) {
     scene
-      ..environment = _nightSky()
+      ..renderScale = _renderScale
+      ..environment = _nightSky
       ..directionalLight = DirectionalLight(
         direction: vm.Vector3(0.35, -1, 0.55),
         color: vm.Vector3(0.82, 0.9, 1),
@@ -49,7 +53,8 @@ abstract final class VeilLook {
   /// real world, and it has to stay honest.
   static void hunt(Scene scene) {
     scene
-      ..environment = _nightSky()
+      ..renderScale = _renderScale
+      ..environment = _nightSky
       ..directionalLight = DirectionalLight(
         direction: vm.Vector3(-0.3, -1, 0.4),
         color: vm.Vector3(0.8, 0.9, 1),
@@ -67,8 +72,31 @@ abstract final class VeilLook {
       );
   }
 
+  /// The most physical pixels the 3D is drawn with for each logical one.
+  ///
+  /// A phone screen can be three times as dense as that, which for a small
+  /// GPU is more than twice the pixels to light and bloom each frame. The
+  /// Seeker's could not keep up: it drew the sanctum at about 30 frames a
+  /// second, and its slowest frames ran long enough for its Vulkan driver
+  /// to take the GPU for lost. At arm's length two is as sharp to the eye.
+  static const _density = 2.0;
+
+  static double get _renderScale {
+    final view = ui.PlatformDispatcher.instance.implicitView;
+
+    return view == null ? 1 : math.min(1, _density / view.devicePixelRatio);
+  }
+
   /// A dim, cold sky to light surfaces from. It is never drawn.
-  static EnvironmentMap _nightSky() => EnvironmentMap.fromSky(
+  ///
+  /// Baking it is one long job on the GPU, so it is baked once, the first
+  /// time a scene is lit, and every scene after shares it. Baked afresh for
+  /// each scene, at the size flutter_scene bakes by default, it held the
+  /// Seeker's GPU for about 0.4 s every time a hunt opened, which its Vulkan
+  /// driver takes for a lost GPU: it resets, and every picture uploaded
+  /// before then, the letters of the text among them, is drawn broken. A
+  /// smooth sky that only lights things needs a quarter of that size.
+  static final _nightSky = EnvironmentMap.fromSky(
     GradientSkySource(
       zenithColor: vm.Vector3(0.05, 0.08, 0.16),
       horizonColor: vm.Vector3(0.1, 0.15, 0.2),
@@ -77,5 +105,7 @@ abstract final class VeilLook {
       sunColor: vm.Vector3(1.6, 1.9, 2.4),
       sunSharpness: 40,
     ),
+    faceResolution: 64,
+    equirectWidth: 256,
   );
 }

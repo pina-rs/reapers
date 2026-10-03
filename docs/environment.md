@@ -129,6 +129,20 @@ In the order I would do them:
 4. **The same on iPhone**, through ARKit where there is a depth sensor: real surfaces, and husks that stay put when you walk.
 5. **Naming things, on the server.** You said frames may be sent if it makes things better, and asked that descriptions be sent in place of pictures. The plan is already that description, and already travels with every hunt. What a server could add is meaning: which obstacle is a sofa to hide behind, which is a table to stand on. That needs a few small pictures (three at 320 pixels is about 40 KB), a vision model, and a key for it. Nothing here sends a picture anywhere, and I would want a consent screen and a rule about not keeping them before anything did.
 
+## The Seeker's GPU
+
+On 3 October 2026, driving the game on the Seeker against a running server, the text started drawing with letters missing and NFT pictures came out as noise, and stayed that way until the game was restarted. The phone's log said why: Impeller's Vulkan backend had waited too long on the GPU, and MediaTek's driver had declared the GPU lost and reset it. Anything uploaded before the reset (the atlas the letters are drawn from, the pictures) was broken after it, and the driver went on timing out every ten seconds for as long as the game ran, taking the phone's own status bar with it.
+
+Three things set it off, found one at a time by opening and leaving hunts while reading the log:
+
+- **Baking the sky's lighting.** `VeilLook` baked the same night-sky environment map afresh for every scene: about 0.4 s of GPU work each time a hunt or the sanctum opened. It is now baked once, at a quarter of flutter_scene's default size, and shared.
+- **Drawing at the screen's full density.** The Seeker's screen is three physical pixels to the point, and its GPU (a two-core Mali-G615) drew the lit, bloomed sanctum at about 30 frames a second. The 3D is now drawn at no more than two pixels to the point, which is as sharp at arm's length; the sanctum runs at about 45.
+- **Closing the camera.** Even with both of those fixed, the reset came a tenth of a second after the camera hardware closed, every few hunts. That is between the camera plugin, the engine and the driver, not the game.
+
+So Android draws through Impeller's OpenGL ES backend instead (`io.flutter.embedding.android.ImpellerBackend` in the manifest). There, the same moments are at worst a slow frame: eight hunts opened and closed and a minute idle gave no resets, no timeouts and no stalls at all. iPhones draw through Metal and are untouched.
+
+What OpenGL ES costs: Flutter's own reports describe [OpenGL ES freezing some MediaTek/Mali phones](https://github.com/flutter/flutter/issues/193428) when the app goes to the background while a picture is being read back from the GPU, which flutter_scene does when it loads a texture. Nothing like it happened here. If it does, the next thing to try is Vulkan again with the camera kept open between hunts.
+
 ## The Seeker has no ARCore
 
 For the record, since it is why all of this is done from the camera picture:

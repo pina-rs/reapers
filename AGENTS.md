@@ -27,6 +27,7 @@ Reapers is an AR game for phones: you are a reaper, and you hunt dead NFTs throu
 - **How a hunt sounds is one function.** `huntMix` maps the hunt's state to a loudness and a veil. Screens never touch the engine; they tell `Soundtrack`, whose engine is silent unless `main` hands it a real one.
 - **The depth model is built, never edited.** `reapers_flutter/assets/depth/*.onnx` comes from `dart tool/build_depth_model.dart`. The picture size there, in `DepthModel` and in the model file must agree: change it in one and rebuild.
 - **The room is read by arithmetic that has no camera in it.** `RoomMap` takes depth pictures and poses and nothing else, so it can be tested against rooms drawn by hand (`test/support/drawn_room.dart`). Keep it that way: anything that needs a camera or the model belongs in `DepthSurvey`.
+- **Android draws through OpenGL ES, on purpose.** The manifest sets Impeller's backend to `opengles` because the Seeker's Vulkan driver reset the GPU when the camera closed, and broke every texture, text included, until a restart. Do not switch it back without opening and closing hunts on the Seeker while reading its log (`docs/environment.md`, "The Seeker's GPU"). For the same reason, bake an environment map once and share it, never per scene.
 - **Never add `analyzer: exclude:` entries for the packages to the root `analysis_options.yaml`.** They also apply when the analyzer runs inside a package, where it then analyses nothing and reports "No issues found".
 
 ## Landing a change
