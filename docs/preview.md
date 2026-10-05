@@ -25,11 +25,14 @@ Publish the complete `build/web` directory, including its local WebGL bindings. 
 
 **Soul** shows the specimen's permanent birth gift, its temperament and its original lore. Try the three gifts of a calling, inspect every awakening's concrete effect, scrub levels and add illustrative successful hunts along **Unseen**, **Stillness** and **Rhythm**. A level-thirty reaper with no remembered deeds still has its birth power: awakening requires both level and the gift's favoured memory. Real memories come from server-replayed hunt inputs, with at most one mark per path per successful hunt. Preview controls cannot change the books. See [the rules](gameplay.md) and [identity research](research/reaper-identity-and-growth.md).
 
+**The Book of Becoming** opens from the book button in the studio. Its four chapters explain evolution, chance, the NFT future and the reasons behind the rules. Explore all gifts and temperaments, level and memory gates, exact feeding odds and unsaved random examples. Bookmark `/#/decisions` on the standalone web host; refreshing that link opens the book. Planned commerce and publicly verifiable randomness are labelled as future work. The durable knowledge base is [decisions.md](decisions.md).
+
 Run the renderer and soul journey in separate phone app containers, preserving the normal install and its saves:
 
 ```sh
 fvm dart tool/test_studio.dart android <device-id>
 fvm dart tool/test_studio.dart ios <simulator-id>
+fvm dart tool/test_studio.dart android <device-id> decisions
 ```
 
 Run these commands from the repository root. The helper temporarily isolates the application identifier, restores the project afterwards, and saves screenshots under `.impeccable/review/`.

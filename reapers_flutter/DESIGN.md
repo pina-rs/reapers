@@ -65,9 +65,9 @@ components:
 
 **Creative North Star: "The Funeral Ledger"**
 
-The native interface is a funeral ledger set in warm bone on blue-black ink. Large, sharp words give names and numbers ceremony; small ruled entries keep the game readable. The spirit realm supplies movement and depth behind the ledger. This records the incumbent Flutter world and its branding and model-viewer extensions, rather than a replacement identity.
+The native interface is a funeral ledger set in warm bone on blue-black ink. Large, sharp words give names and numbers ceremony; small ruled entries keep the game readable. The spirit realm supplies movement and depth behind the ledger. This records the incumbent Flutter world and its branding, model-viewer and decision-reader extensions.
 
-[PRODUCT.md](PRODUCT.md) owns product truth, with the premise and rules detailed in [README](../README.md), [gameplay](../docs/gameplay.md) and [architecture](../docs/architecture.md). Visual authority is [Veil](lib/theme/veil.dart), the [ledger kit](lib/widgets/ledger.dart), and the implemented [threshold](lib/screens/threshold_screen.dart), [arrival](lib/brand/splash_gate.dart), [studio](lib/studio/reaper_studio.dart) and shared [Soul ledger](lib/widgets/soul_ledger.dart). Values in the frontmatter translate Flutter logical pixels to portable `px`; the Dart source remains the implementation authority.
+[PRODUCT.md](PRODUCT.md) owns product truth, with the premise and rules detailed in [README](../README.md), [gameplay](../docs/gameplay.md) and [architecture](../docs/architecture.md). Visual authority is [Veil](lib/theme/veil.dart), the [ledger kit](lib/widgets/ledger.dart), and the implemented [threshold](lib/screens/threshold_screen.dart), [arrival](lib/brand/splash_gate.dart), [studio](lib/studio/reaper_studio.dart), [decision reader](lib/studio/decision_ledger.dart) and shared [Soul ledger](lib/widgets/soul_ledger.dart). Values in the frontmatter translate Flutter logical pixels to portable `px`; the Dart source remains the implementation authority.
 
 **Key Characteristics:**
 
@@ -137,6 +137,14 @@ Inspect the actual game model through `ReaperStage`, retaining the specimen's li
 `SoulLedger` shares the birth-gift and earned-memory presentation between the codex and studio. The gift name is one Fraunces heading (28) in the reaper's light, followed by its current effect, awakening figure and next requirement. The temperament combines its name and meaning in one Fraunces heading (22), followed by its benefit and cost. Neither title has a repeated category eyebrow above it.
 
 Remembered hunts use ruled ledger rows and tabular counts; the gift's preferred path borrows the reaper's light. Expandable lore and earned/locked milestone rows reveal more detail without adding a new container language. Preview gift choices and remembered-hunt actions belong to the studio brief, not the saved codex.
+
+### Decision reader
+
+The Book of Becoming extends the same ledger with readable chapters and unsaved demonstrations of shared rules. Its explanatory `Text` inside `SelectionArea` retains readable semantics and allows copying. The shared `LedgerRow` measures the current text scale and stacks its label and figure when the pair cannot fit beside the dotted leader. The reader's composition, exact-rules controls and bookmarkable route belong to the [decision-reader brief](.impeccable/surfaces/reapers-flutter-lib-studio-decision-ledger-dart.md); its measurements remain surface-specific.
+
+The fresh [reader review](../.impeccable/review/ledger/review.md) returned **fix** for one material prose-measure issue. The same reviewer's [final verdict](../.impeccable/review/ledger/verdict.md) resolved the correction, observed no visible regression introduced by it and returned **ship for that scored correction only**. The [verification record](../docs/verification/decision-ledger.md) bounds the browser and physical Android evidence; it does not establish whole-surface approval or extend the studio's earlier iOS review to this reader.
+
+Subsequent Chrome widget journeys, the rebuilt release browser and the physical Seeker exercised birth and feeding draws after a browser-only integer-bound correction. That correction changed no layout or visual direction. The reader brief records those functional checks and the final full gate's 529 passing tests. The guarded local merge remains pending.
 
 ### Mark and wordmark
 

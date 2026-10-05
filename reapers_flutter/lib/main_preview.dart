@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import 'l10n/l10n.dart';
+import 'studio/decision_ledger.dart';
 import 'studio/reaper_studio.dart';
 import 'theme/veil.dart';
 
@@ -30,6 +31,9 @@ class ReaperPreviewApp extends HookWidget {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: const ReaperStudio(),
+      routes: {
+        DecisionLedger.route: (context) => const DecisionLedger(),
+      },
     );
   }
 }

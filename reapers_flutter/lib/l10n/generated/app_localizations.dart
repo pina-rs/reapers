@@ -94,6 +94,498 @@ abstract class AppLocalizations {
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[Locale('en')];
 
+  /// No description provided for @ledgerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The Book of Becoming'**
+  String get ledgerTitle;
+
+  /// No description provided for @ledgerOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Read the design decisions'**
+  String get ledgerOpen;
+
+  /// No description provided for @ledgerIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'How a reaper becomes itself. Explore the rules in the game today, the role of luck, and the work ahead for an NFT world.'**
+  String get ledgerIntro;
+
+  /// No description provided for @ledgerEvolution.
+  ///
+  /// In en, this message translates to:
+  /// **'Evolution'**
+  String get ledgerEvolution;
+
+  /// No description provided for @ledgerChance.
+  ///
+  /// In en, this message translates to:
+  /// **'Chance'**
+  String get ledgerChance;
+
+  /// No description provided for @ledgerNfts.
+  ///
+  /// In en, this message translates to:
+  /// **'NFT future'**
+  String get ledgerNfts;
+
+  /// No description provided for @ledgerDecisions.
+  ///
+  /// In en, this message translates to:
+  /// **'Decisions'**
+  String get ledgerDecisions;
+
+  /// No description provided for @ledgerCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'Current rules · illustrative controls · nothing is saved or traded here.'**
+  String get ledgerCurrent;
+
+  /// No description provided for @ledgerCalling.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an office'**
+  String get ledgerCalling;
+
+  /// No description provided for @ledgerGift.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a birth gift'**
+  String get ledgerGift;
+
+  /// No description provided for @ledgerLevel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reaper level'**
+  String get ledgerLevel;
+
+  /// No description provided for @ledgerTraits.
+  ///
+  /// In en, this message translates to:
+  /// **'Every birth combines an office, one of its three gifts and a temperament. The fixed genome also carries its name, silhouette, colour and aura. Rare cosmetics do not grant stronger powers.'**
+  String get ledgerTraits;
+
+  /// No description provided for @ledgerLevelHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Experience strengthens strikes. An awakening needs both the required level and remembered successful hunts in the gift’s path. Raising a level slider does not earn those memories.'**
+  String get ledgerLevelHelp;
+
+  /// No description provided for @ledgerPathMarks.
+  ///
+  /// In en, this message translates to:
+  /// **'Try remembered hunts'**
+  String get ledgerPathMarks;
+
+  /// No description provided for @ledgerTotalXp.
+  ///
+  /// In en, this message translates to:
+  /// **'Total XP to reach this level'**
+  String get ledgerTotalXp;
+
+  /// No description provided for @ledgerBaseStrike.
+  ///
+  /// In en, this message translates to:
+  /// **'Strike from levels alone'**
+  String get ledgerBaseStrike;
+
+  /// No description provided for @ledgerTradeoff.
+  ///
+  /// In en, this message translates to:
+  /// **'Temperaments carry a benefit and a cost. The complete current gift, its lore and all three future effects are below.'**
+  String get ledgerTradeoff;
+
+  /// No description provided for @ledgerTable.
+  ///
+  /// In en, this message translates to:
+  /// **'Every level, written out'**
+  String get ledgerTable;
+
+  /// No description provided for @ledgerLevelColumn.
+  ///
+  /// In en, this message translates to:
+  /// **'Level'**
+  String get ledgerLevelColumn;
+
+  /// No description provided for @ledgerXpColumn.
+  ///
+  /// In en, this message translates to:
+  /// **'Total XP'**
+  String get ledgerXpColumn;
+
+  /// No description provided for @ledgerStrikeColumn.
+  ///
+  /// In en, this message translates to:
+  /// **'Level strike'**
+  String get ledgerStrikeColumn;
+
+  /// No description provided for @ledgerEquipment.
+  ///
+  /// In en, this message translates to:
+  /// **'What equipment changes'**
+  String get ledgerEquipment;
+
+  /// No description provided for @ledgerEquipmentHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Any class can learn another weapon. Weapon temper multiplies strikes; outfits change the silhouette and light. Unlocking a level permits a purchase with earned anima; it does not give the item for free.'**
+  String get ledgerEquipmentHelp;
+
+  /// No description provided for @ledgerWeaponGate.
+  ///
+  /// In en, this message translates to:
+  /// **'Weapon temper · level {level} · {price} anima · ×{factor} strike'**
+  String ledgerWeaponGate(int level, int price, String factor);
+
+  /// No description provided for @ledgerOutfitGate.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfit · level {level} · {price} anima'**
+  String ledgerOutfitGate(int level, int price);
+
+  /// No description provided for @ledgerSetBonus.
+  ///
+  /// In en, this message translates to:
+  /// **'A completed collection set adds {bonus}% to strikes. Anima belongs to the account; XP, equipment, codex and memories belong to the individual reaper.'**
+  String ledgerSetBonus(int bonus);
+
+  /// No description provided for @ledgerLuckHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Chance gives the same hunt a different ending.'**
+  String get ledgerLuckHeading;
+
+  /// No description provided for @ledgerLuckBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Two equally clean absorptions can feed differently. Birth, encounters and feeding use fresh random draws. Once chosen, a draw is recorded so the keeper can check the same hunt and preserve its history.'**
+  String get ledgerLuckBody;
+
+  /// No description provided for @ledgerBirthOdds.
+  ///
+  /// In en, this message translates to:
+  /// **'The shuffle'**
+  String get ledgerBirthOdds;
+
+  /// No description provided for @ledgerBirthBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Offices are drawn equally. Names, body variants and continuous traits are drawn at birth. Gifts and temperaments are derived from those permanent fields; they are not separate rarity prizes. An omen changes appearance only.'**
+  String get ledgerBirthBody;
+
+  /// No description provided for @ledgerDraw.
+  ///
+  /// In en, this message translates to:
+  /// **'Draw an illustrative birth'**
+  String get ledgerDraw;
+
+  /// No description provided for @ledgerBirthPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} · {calling}\n{gift} · {temperament} · {omen}'**
+  String ledgerBirthPreview(
+    String name,
+    String calling,
+    String gift,
+    String temperament,
+    String omen,
+  );
+
+  /// No description provided for @ledgerOmenOdds.
+  ///
+  /// In en, this message translates to:
+  /// **'Cosmetic omen odds'**
+  String get ledgerOmenOdds;
+
+  /// No description provided for @ledgerFeedingOdds.
+  ///
+  /// In en, this message translates to:
+  /// **'Feeding odds'**
+  String get ledgerFeedingOdds;
+
+  /// No description provided for @ledgerChanceRow.
+  ///
+  /// In en, this message translates to:
+  /// **'{chance}% · ×{factor} XP · {xp} XP'**
+  String ledgerChanceRow(String chance, String factor, int xp);
+
+  /// No description provided for @ledgerOmenRow.
+  ///
+  /// In en, this message translates to:
+  /// **'{chance}% of birth draws'**
+  String ledgerOmenRow(String chance);
+
+  /// No description provided for @ledgerScenario.
+  ///
+  /// In en, this message translates to:
+  /// **'Try one successful absorption'**
+  String get ledgerScenario;
+
+  /// No description provided for @ledgerGrade.
+  ///
+  /// In en, this message translates to:
+  /// **'Reap quality'**
+  String get ledgerGrade;
+
+  /// No description provided for @ledgerAmbush.
+  ///
+  /// In en, this message translates to:
+  /// **'The hunt began with an ambush'**
+  String get ledgerAmbush;
+
+  /// No description provided for @ledgerRoll.
+  ///
+  /// In en, this message translates to:
+  /// **'Roll an illustrative feeding'**
+  String get ledgerRoll;
+
+  /// No description provided for @ledgerRollEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a husk and cut, then roll. These are local demonstrations, never a purchase or a reward claim.'**
+  String get ledgerRollEmpty;
+
+  /// No description provided for @ledgerRollResult.
+  ///
+  /// In en, this message translates to:
+  /// **'{feeding} · {xp} XP · {anima} anima'**
+  String ledgerRollResult(String feeding, int xp, int anima);
+
+  /// No description provided for @ledgerRollNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'One illustration. The percentages above are the odds; a few draws are not a prediction. Feeding changes XP only. The same successful hunt still earns its demonstrated memory marks.'**
+  String get ledgerRollNotice;
+
+  /// No description provided for @ledgerAverage.
+  ///
+  /// In en, this message translates to:
+  /// **'Expected XP for this scenario: {xp}. Anima: {anima}. Expectation uses each rounded reward and its weight.'**
+  String ledgerAverage(String xp, int anima);
+
+  /// No description provided for @ledgerEncounter.
+  ///
+  /// In en, this message translates to:
+  /// **'An encounter has its own draw'**
+  String get ledgerEncounter;
+
+  /// No description provided for @ledgerEncounterBody.
+  ///
+  /// In en, this message translates to:
+  /// **'A released husk surfaces after {min}–{max} seconds in the prototype. Its seed varies seals, movement and warnings. Retrying that same released husk keeps its encounter seed; a new release receives a new one.'**
+  String ledgerEncounterBody(int min, int max);
+
+  /// No description provided for @ledgerTrust.
+  ///
+  /// In en, this message translates to:
+  /// **'Who controls the luck?'**
+  String get ledgerTrust;
+
+  /// No description provided for @ledgerTrustBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Online feeding is drawn once by the keeper after an accepted absorption. The receipt records and signs the outcome. This proves what that keeper signed; it does not prove the keeper chose the seed without bias. Publicly verifiable randomness and a commitment protocol are future work. Offline draws are local and cannot be imported as verified NFT growth.'**
+  String get ledgerTrustBody;
+
+  /// No description provided for @ledgerNoMutation.
+  ///
+  /// In en, this message translates to:
+  /// **'Awakenings currently deepen a permanent gift at clear milestones. There are no random permanent mutations in this version. Random evolution is an open product decision; it must be designed and versioned before it changes existing NFTs.'**
+  String get ledgerNoMutation;
+
+  /// No description provided for @ledgerNftHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'An NFT with a life, not just a portrait.'**
+  String get ledgerNftHeading;
+
+  /// No description provided for @ledgerNftBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The reaper NFT is the continuing character. Its permanent birth identity stays fixed. Its earned XP, equipment, codex and memories follow that asset to its next owner. A player can hold several reapers; each grows separately. A starter remains non-tradable.'**
+  String get ledgerNftBody;
+
+  /// No description provided for @ledgerNftCurrentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Implemented foundation'**
+  String get ledgerNftCurrentTitle;
+
+  /// No description provided for @ledgerNftCurrentBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Solana Kit verifies wallet signatures and finalized Metaplex Core ownership. The configured collection and permanent genome contract govern imports. Canonical server records preserve growth on transfer. The real wallet balance is separate from the prototype’s simulated market.'**
+  String get ledgerNftCurrentBody;
+
+  /// No description provided for @ledgerNftNextTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Next: bring an owned husk'**
+  String get ledgerNftNextTitle;
+
+  /// No description provided for @ledgerNftNextBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Proposed first playable NFT release: support a small set of approved collections and let players bring an NFT they already own. Verify the rights, traits and asset standard. Escrow it before a hunt; confirm a receipt-bound burn before transferable rewards settle. Failed or expired transactions need recovery.'**
+  String get ledgerNftNextBody;
+
+  /// No description provided for @ledgerNftRiftsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Then: a shared veil'**
+  String get ledgerNftRiftsTitle;
+
+  /// No description provided for @ledgerNftRiftsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Rifts can give old collections a second shared story. Before rewarding NFT reapers, group combat needs authoritative results and safe locations. New creatures require authored models and collection permission. This phase has no promised date.'**
+  String get ledgerNftRiftsBody;
+
+  /// No description provided for @ledgerNftLaterTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Later: a history worth reading'**
+  String get ledgerNftLaterTitle;
+
+  /// No description provided for @ledgerNftLaterBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Proposed additions: story passages reacting to remembered deeds, richer cosmetic history, collection-specific encounters and optional cooperative specialisms. A new genome version can introduce future birth rules while preserving existing identities. PvP, token rewards and random mutations are not committed features.'**
+  String get ledgerNftLaterBody;
+
+  /// No description provided for @ledgerNftStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Real husk purchases, escrow and burning are not implemented. Production blocks their simulated substitutes. The browser studio connects no wallet. iOS wallet transport, distribution and production operations still need decisions and engineering.'**
+  String get ledgerNftStatus;
+
+  /// No description provided for @ledgerNftEconomy.
+  ///
+  /// In en, this message translates to:
+  /// **'Why growth should be worth keeping'**
+  String get ledgerNftEconomy;
+
+  /// No description provided for @ledgerNftEconomyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The value we can design is attachment, distinct play and a legible history. Buying a grown reaper buys its earned progression, so purchasing can confer an advantage. Burned supply does not guarantee demand, liquidity or resale value. No earnings, prices or investment returns are promised.'**
+  String get ledgerNftEconomyBody;
+
+  /// No description provided for @ledgerDesignHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Why the rules are this way.'**
+  String get ledgerDesignHeading;
+
+  /// No description provided for @ledgerDecisionBody.
+  ///
+  /// In en, this message translates to:
+  /// **'These are the design decisions behind the implementation, with unresolved choices kept visible. The repository’s research record separates developer evidence from our inferences.'**
+  String get ledgerDecisionBody;
+
+  /// No description provided for @ledgerPhysicalTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The phone is the blade'**
+  String get ledgerPhysicalTitle;
+
+  /// No description provided for @ledgerPhysicalBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Stillness, a careful ambush, a held shriek and one slow reap make the hunt physically different. Gifts strengthen those existing verbs instead of adding a spell bar.'**
+  String get ledgerPhysicalBody;
+
+  /// No description provided for @ledgerIdentityTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Birth is a promise'**
+  String get ledgerIdentityTitle;
+
+  /// No description provided for @ledgerIdentityBody.
+  ///
+  /// In en, this message translates to:
+  /// **'A fixed identity makes a reaper recognisable and tradeable. Cosmetic rarity grants no stronger gift. The R1 mapping is permanent; future mappings require a new version.'**
+  String get ledgerIdentityBody;
+
+  /// No description provided for @ledgerMemoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'History means something'**
+  String get ledgerMemoryTitle;
+
+  /// No description provided for @ledgerMemoryBody.
+  ///
+  /// In en, this message translates to:
+  /// **'One successful absorption can grant one mark per demonstrated path. Repeated holds in one fight cannot farm marks. Escapes, abandoned hunts, practice and rifts grant no soul memories. Old saves keep their XP and begin with zero remembered deeds.'**
+  String get ledgerMemoryBody;
+
+  /// No description provided for @ledgerFairTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Luck without an invisible veto'**
+  String get ledgerFairTitle;
+
+  /// No description provided for @ledgerFairBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Feeding varies the speed of XP growth. Skill and remembered practice decide awakenings. The initial system avoids a failed upgrade roll that consumes progress. Permanent random evolution remains undecided.'**
+  String get ledgerFairBody;
+
+  /// No description provided for @ledgerResearchTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Learned from other worlds'**
+  String get ledgerResearchTitle;
+
+  /// No description provided for @ledgerResearchBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Hades connects myth to repeatable builds. Destiny’s shared verbs and Guild Wars 2’s triggered traits informed powers with readable conditions. Disco Elysium informed action-shaped memory. Shadow of War informed persistent identity; Baldur’s Gate 3 informed a birth perspective. Slay the Spire informed testing the numbers with feedback. These are design inferences, not copied systems.'**
+  String get ledgerResearchBody;
+
+  /// No description provided for @ledgerBalanceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Evidence before balance claims'**
+  String get ledgerBalanceTitle;
+
+  /// No description provided for @ledgerBalanceBody.
+  ///
+  /// In en, this message translates to:
+  /// **'All eighteen gifts have exercised combat triggers. The committed pacing trials span 1,152 encounters across 72 birth builds and two growth stages. One rare-husk bot scenario exposes large starting differences; it does not establish player enjoyment or balance. Phone playtests must test defensive value, comfort and comprehension.'**
+  String get ledgerBalanceBody;
+
+  /// No description provided for @ledgerSourcesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Research, code and source of truth'**
+  String get ledgerSourcesTitle;
+
+  /// No description provided for @ledgerSourcesBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The interactive values read the shared game rules, not a second calculator. Durable records: docs/gameplay.md; docs/research/reaper-identity-and-growth.md; docs/research/soul-pacing-trials.md; docs/solana.md; docs/launch-readiness.md. The six offices, eighteen gifts and their lore are original Reapers fiction.'**
+  String get ledgerSourcesBody;
+
+  /// No description provided for @ledgerNeedsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Open decisions for the builder'**
+  String get ledgerNeedsTitle;
+
+  /// No description provided for @ledgerNeedsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'First release and age/markets; Core collection and mint process; husk rights and standards; iOS wallet/distribution; store signing; domains, RPC, backups and receipt custody; privacy, retention and deletion; real-phone playtests. Add these before public NFT trading and burning.'**
+  String get ledgerNeedsBody;
+
+  /// No description provided for @ledgerProgressionFormula.
+  ///
+  /// In en, this message translates to:
+  /// **'XP to the next level is 90 + 55 × (level − 1) + 6 × (level − 1)². Level strikes scale by 1 + {step}% × (level − 1); equipment, completed sets, temperament and triggered gifts then apply their own effects.'**
+  String ledgerProgressionFormula(int step);
+
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:

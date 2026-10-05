@@ -1,4 +1,194 @@
 {
+  "ledgerTitle": "The Book of Becoming",
+  "ledgerOpen": "Read the design decisions",
+  "ledgerIntro": "How a reaper becomes itself. Explore the rules in the game today, the role of luck, and the work ahead for an NFT world.",
+  "ledgerEvolution": "Evolution",
+  "ledgerChance": "Chance",
+  "ledgerNfts": "NFT future",
+  "ledgerDecisions": "Decisions",
+  "ledgerCurrent": "Current rules · illustrative controls · nothing is saved or traded here.",
+  "ledgerCalling": "Choose an office",
+  "ledgerGift": "Choose a birth gift",
+  "ledgerLevel": "Reaper level",
+  "ledgerTraits": "Every birth combines an office, one of its three gifts and a temperament. The fixed genome also carries its name, silhouette, colour and aura. Rare cosmetics do not grant stronger powers.",
+  "ledgerLevelHelp": "Experience strengthens strikes. An awakening needs both the required level and remembered successful hunts in the gift’s path. Raising a level slider does not earn those memories.",
+  "ledgerPathMarks": "Try remembered hunts",
+  "ledgerTotalXp": "Total XP to reach this level",
+  "ledgerBaseStrike": "Strike from levels alone",
+  "ledgerTradeoff": "Temperaments carry a benefit and a cost. The complete current gift, its lore and all three future effects are below.",
+  "ledgerTable": "Every level, written out",
+  "ledgerLevelColumn": "Level",
+  "ledgerXpColumn": "Total XP",
+  "ledgerStrikeColumn": "Level strike",
+  "ledgerEquipment": "What equipment changes",
+  "ledgerEquipmentHelp": "Any class can learn another weapon. Weapon temper multiplies strikes; outfits change the silhouette and light. Unlocking a level permits a purchase with earned anima; it does not give the item for free.",
+  "ledgerWeaponGate": "Weapon temper · level {level} · {price} anima · ×{factor} strike",
+  "@ledgerWeaponGate": {
+    "placeholders": {
+      "level": {
+        "type": "int"
+      },
+      "price": {
+        "type": "int"
+      },
+      "factor": {
+        "type": "String"
+      }
+    }
+  },
+  "ledgerOutfitGate": "Outfit · level {level} · {price} anima",
+  "@ledgerOutfitGate": {
+    "placeholders": {
+      "level": {
+        "type": "int"
+      },
+      "price": {
+        "type": "int"
+      }
+    }
+  },
+  "ledgerSetBonus": "A completed collection set adds {bonus}% to strikes. Anima belongs to the account; XP, equipment, codex and memories belong to the individual reaper.",
+  "@ledgerSetBonus": {
+    "placeholders": {
+      "bonus": {
+        "type": "int"
+      }
+    }
+  },
+  "ledgerLuckHeading": "Chance gives the same hunt a different ending.",
+  "ledgerLuckBody": "Two equally clean absorptions can feed differently. Birth, encounters and feeding use fresh random draws. Once chosen, a draw is recorded so the keeper can check the same hunt and preserve its history.",
+  "ledgerBirthOdds": "The shuffle",
+  "ledgerBirthBody": "Offices are drawn equally. Names, body variants and continuous traits are drawn at birth. Gifts and temperaments are derived from those permanent fields; they are not separate rarity prizes. An omen changes appearance only.",
+  "ledgerDraw": "Draw an illustrative birth",
+  "ledgerBirthPreview": "{name} · {calling}\n{gift} · {temperament} · {omen}",
+  "@ledgerBirthPreview": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "calling": {
+        "type": "String"
+      },
+      "gift": {
+        "type": "String"
+      },
+      "temperament": {
+        "type": "String"
+      },
+      "omen": {
+        "type": "String"
+      }
+    }
+  },
+  "ledgerOmenOdds": "Cosmetic omen odds",
+  "ledgerFeedingOdds": "Feeding odds",
+  "ledgerChanceRow": "{chance}% · ×{factor} XP · {xp} XP",
+  "@ledgerChanceRow": {
+    "placeholders": {
+      "chance": {
+        "type": "String"
+      },
+      "factor": {
+        "type": "String"
+      },
+      "xp": {
+        "type": "int"
+      }
+    }
+  },
+  "ledgerOmenRow": "{chance}% of birth draws",
+  "@ledgerOmenRow": {
+    "placeholders": {
+      "chance": {
+        "type": "String"
+      }
+    }
+  },
+  "ledgerScenario": "Try one successful absorption",
+  "ledgerGrade": "Reap quality",
+  "ledgerAmbush": "The hunt began with an ambush",
+  "ledgerRoll": "Roll an illustrative feeding",
+  "ledgerRollEmpty": "Choose a husk and cut, then roll. These are local demonstrations, never a purchase or a reward claim.",
+  "ledgerRollResult": "{feeding} · {xp} XP · {anima} anima",
+  "@ledgerRollResult": {
+    "placeholders": {
+      "feeding": {
+        "type": "String"
+      },
+      "xp": {
+        "type": "int"
+      },
+      "anima": {
+        "type": "int"
+      }
+    }
+  },
+  "ledgerRollNotice": "One illustration. The percentages above are the odds; a few draws are not a prediction. Feeding changes XP only. The same successful hunt still earns its demonstrated memory marks.",
+  "ledgerAverage": "Expected XP for this scenario: {xp}. Anima: {anima}. Expectation uses each rounded reward and its weight.",
+  "@ledgerAverage": {
+    "placeholders": {
+      "xp": {
+        "type": "String"
+      },
+      "anima": {
+        "type": "int"
+      }
+    }
+  },
+  "ledgerEncounter": "An encounter has its own draw",
+  "ledgerEncounterBody": "A released husk surfaces after {min}–{max} seconds in the prototype. Its seed varies seals, movement and warnings. Retrying that same released husk keeps its encounter seed; a new release receives a new one.",
+  "@ledgerEncounterBody": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "ledgerTrust": "Who controls the luck?",
+  "ledgerTrustBody": "Online feeding is drawn once by the keeper after an accepted absorption. The receipt records and signs the outcome. This proves what that keeper signed; it does not prove the keeper chose the seed without bias. Publicly verifiable randomness and a commitment protocol are future work. Offline draws are local and cannot be imported as verified NFT growth.",
+  "ledgerNoMutation": "Awakenings currently deepen a permanent gift at clear milestones. There are no random permanent mutations in this version. Random evolution is an open product decision; it must be designed and versioned before it changes existing NFTs.",
+  "ledgerNftHeading": "An NFT with a life, not just a portrait.",
+  "ledgerNftBody": "The reaper NFT is the continuing character. Its permanent birth identity stays fixed. Its earned XP, equipment, codex and memories follow that asset to its next owner. A player can hold several reapers; each grows separately. A starter remains non-tradable.",
+  "ledgerNftCurrentTitle": "Implemented foundation",
+  "ledgerNftCurrentBody": "Solana Kit verifies wallet signatures and finalized Metaplex Core ownership. The configured collection and permanent genome contract govern imports. Canonical server records preserve growth on transfer. The real wallet balance is separate from the prototype’s simulated market.",
+  "ledgerNftNextTitle": "Next: bring an owned husk",
+  "ledgerNftNextBody": "Proposed first playable NFT release: support a small set of approved collections and let players bring an NFT they already own. Verify the rights, traits and asset standard. Escrow it before a hunt; confirm a receipt-bound burn before transferable rewards settle. Failed or expired transactions need recovery.",
+  "ledgerNftRiftsTitle": "Then: a shared veil",
+  "ledgerNftRiftsBody": "Rifts can give old collections a second shared story. Before rewarding NFT reapers, group combat needs authoritative results and safe locations. New creatures require authored models and collection permission. This phase has no promised date.",
+  "ledgerNftLaterTitle": "Later: a history worth reading",
+  "ledgerNftLaterBody": "Proposed additions: story passages reacting to remembered deeds, richer cosmetic history, collection-specific encounters and optional cooperative specialisms. A new genome version can introduce future birth rules while preserving existing identities. PvP, token rewards and random mutations are not committed features.",
+  "ledgerNftStatus": "Real husk purchases, escrow and burning are not implemented. Production blocks their simulated substitutes. The browser studio connects no wallet. iOS wallet transport, distribution and production operations still need decisions and engineering.",
+  "ledgerNftEconomy": "Why growth should be worth keeping",
+  "ledgerNftEconomyBody": "The value we can design is attachment, distinct play and a legible history. Buying a grown reaper buys its earned progression, so purchasing can confer an advantage. Burned supply does not guarantee demand, liquidity or resale value. No earnings, prices or investment returns are promised.",
+  "ledgerDesignHeading": "Why the rules are this way.",
+  "ledgerDecisionBody": "These are the design decisions behind the implementation, with unresolved choices kept visible. The repository’s research record separates developer evidence from our inferences.",
+  "ledgerPhysicalTitle": "The phone is the blade",
+  "ledgerPhysicalBody": "Stillness, a careful ambush, a held shriek and one slow reap make the hunt physically different. Gifts strengthen those existing verbs instead of adding a spell bar.",
+  "ledgerIdentityTitle": "Birth is a promise",
+  "ledgerIdentityBody": "A fixed identity makes a reaper recognisable and tradeable. Cosmetic rarity grants no stronger gift. The R1 mapping is permanent; future mappings require a new version.",
+  "ledgerMemoryTitle": "History means something",
+  "ledgerMemoryBody": "One successful absorption can grant one mark per demonstrated path. Repeated holds in one fight cannot farm marks. Escapes, abandoned hunts, practice and rifts grant no soul memories. Old saves keep their XP and begin with zero remembered deeds.",
+  "ledgerFairTitle": "Luck without an invisible veto",
+  "ledgerFairBody": "Feeding varies the speed of XP growth. Skill and remembered practice decide awakenings. The initial system avoids a failed upgrade roll that consumes progress. Permanent random evolution remains undecided.",
+  "ledgerResearchTitle": "Learned from other worlds",
+  "ledgerResearchBody": "Hades connects myth to repeatable builds. Destiny’s shared verbs and Guild Wars 2’s triggered traits informed powers with readable conditions. Disco Elysium informed action-shaped memory. Shadow of War informed persistent identity; Baldur’s Gate 3 informed a birth perspective. Slay the Spire informed testing the numbers with feedback. These are design inferences, not copied systems.",
+  "ledgerBalanceTitle": "Evidence before balance claims",
+  "ledgerBalanceBody": "All eighteen gifts have exercised combat triggers. The committed pacing trials span 1,152 encounters across 72 birth builds and two growth stages. One rare-husk bot scenario exposes large starting differences; it does not establish player enjoyment or balance. Phone playtests must test defensive value, comfort and comprehension.",
+  "ledgerSourcesTitle": "Research, code and source of truth",
+  "ledgerSourcesBody": "The interactive values read the shared game rules, not a second calculator. Durable records: docs/gameplay.md; docs/research/reaper-identity-and-growth.md; docs/research/soul-pacing-trials.md; docs/solana.md; docs/launch-readiness.md. The six offices, eighteen gifts and their lore are original Reapers fiction.",
+  "ledgerNeedsTitle": "Open decisions for the builder",
+  "ledgerNeedsBody": "First release and age/markets; Core collection and mint process; husk rights and standards; iOS wallet/distribution; store signing; domains, RPC, backups and receipt custody; privacy, retention and deletion; real-phone playtests. Add these before public NFT trading and burning.",
+  "ledgerProgressionFormula": "XP to the next level is 90 + 55 × (level − 1) + 6 × (level − 1)². Level strikes scale by 1 + {step}% × (level − 1); equipment, completed sets, temperament and triggered gifts then apply their own effects.",
+  "@ledgerProgressionFormula": {
+    "placeholders": {
+      "step": {
+        "type": "int"
+      }
+    }
+  },
   "@@locale": "en",
 
   "appTitle": "Reapers",

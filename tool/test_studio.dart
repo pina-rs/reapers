@@ -3,9 +3,11 @@
 import 'dart:io';
 
 Future<void> main(List<String> arguments) async {
-  if (arguments.length != 2 || !['android', 'ios'].contains(arguments.first)) {
+  if ((arguments.length != 2 && arguments.length != 3) ||
+      !['android', 'ios'].contains(arguments.first) ||
+      (arguments.length == 3 && arguments.last != 'decisions')) {
     stderr.writeln(
-      'Usage: fvm dart tool/test_studio.dart <android|ios> <device id>',
+      'Usage: fvm dart tool/test_studio.dart <android|ios> <device id> [decisions]',
     );
     exitCode = 64;
     return;
@@ -40,9 +42,11 @@ Future<void> main(List<String> arguments) async {
         'drive',
         '--no-pub',
         '--driver=test_driver/arrival.dart',
-        '--target=integration_test/studio_test.dart',
+        arguments.length == 3
+            ? '--target=integration_test/decision_ledger_test.dart'
+            : '--target=integration_test/studio_test.dart',
         '-d',
-        arguments.last,
+        arguments[1],
       ],
       workingDirectory: 'reapers_flutter',
       mode: ProcessStartMode.inheritStdio,

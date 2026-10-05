@@ -10,6 +10,304 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get ledgerTitle => 'The Book of Becoming';
+
+  @override
+  String get ledgerOpen => 'Read the design decisions';
+
+  @override
+  String get ledgerIntro =>
+      'How a reaper becomes itself. Explore the rules in the game today, the role of luck, and the work ahead for an NFT world.';
+
+  @override
+  String get ledgerEvolution => 'Evolution';
+
+  @override
+  String get ledgerChance => 'Chance';
+
+  @override
+  String get ledgerNfts => 'NFT future';
+
+  @override
+  String get ledgerDecisions => 'Decisions';
+
+  @override
+  String get ledgerCurrent =>
+      'Current rules · illustrative controls · nothing is saved or traded here.';
+
+  @override
+  String get ledgerCalling => 'Choose an office';
+
+  @override
+  String get ledgerGift => 'Choose a birth gift';
+
+  @override
+  String get ledgerLevel => 'Reaper level';
+
+  @override
+  String get ledgerTraits =>
+      'Every birth combines an office, one of its three gifts and a temperament. The fixed genome also carries its name, silhouette, colour and aura. Rare cosmetics do not grant stronger powers.';
+
+  @override
+  String get ledgerLevelHelp =>
+      'Experience strengthens strikes. An awakening needs both the required level and remembered successful hunts in the gift’s path. Raising a level slider does not earn those memories.';
+
+  @override
+  String get ledgerPathMarks => 'Try remembered hunts';
+
+  @override
+  String get ledgerTotalXp => 'Total XP to reach this level';
+
+  @override
+  String get ledgerBaseStrike => 'Strike from levels alone';
+
+  @override
+  String get ledgerTradeoff =>
+      'Temperaments carry a benefit and a cost. The complete current gift, its lore and all three future effects are below.';
+
+  @override
+  String get ledgerTable => 'Every level, written out';
+
+  @override
+  String get ledgerLevelColumn => 'Level';
+
+  @override
+  String get ledgerXpColumn => 'Total XP';
+
+  @override
+  String get ledgerStrikeColumn => 'Level strike';
+
+  @override
+  String get ledgerEquipment => 'What equipment changes';
+
+  @override
+  String get ledgerEquipmentHelp =>
+      'Any class can learn another weapon. Weapon temper multiplies strikes; outfits change the silhouette and light. Unlocking a level permits a purchase with earned anima; it does not give the item for free.';
+
+  @override
+  String ledgerWeaponGate(int level, int price, String factor) {
+    return 'Weapon temper · level $level · $price anima · ×$factor strike';
+  }
+
+  @override
+  String ledgerOutfitGate(int level, int price) {
+    return 'Outfit · level $level · $price anima';
+  }
+
+  @override
+  String ledgerSetBonus(int bonus) {
+    return 'A completed collection set adds $bonus% to strikes. Anima belongs to the account; XP, equipment, codex and memories belong to the individual reaper.';
+  }
+
+  @override
+  String get ledgerLuckHeading =>
+      'Chance gives the same hunt a different ending.';
+
+  @override
+  String get ledgerLuckBody =>
+      'Two equally clean absorptions can feed differently. Birth, encounters and feeding use fresh random draws. Once chosen, a draw is recorded so the keeper can check the same hunt and preserve its history.';
+
+  @override
+  String get ledgerBirthOdds => 'The shuffle';
+
+  @override
+  String get ledgerBirthBody =>
+      'Offices are drawn equally. Names, body variants and continuous traits are drawn at birth. Gifts and temperaments are derived from those permanent fields; they are not separate rarity prizes. An omen changes appearance only.';
+
+  @override
+  String get ledgerDraw => 'Draw an illustrative birth';
+
+  @override
+  String ledgerBirthPreview(
+    String name,
+    String calling,
+    String gift,
+    String temperament,
+    String omen,
+  ) {
+    return '$name · $calling\n$gift · $temperament · $omen';
+  }
+
+  @override
+  String get ledgerOmenOdds => 'Cosmetic omen odds';
+
+  @override
+  String get ledgerFeedingOdds => 'Feeding odds';
+
+  @override
+  String ledgerChanceRow(String chance, String factor, int xp) {
+    return '$chance% · ×$factor XP · $xp XP';
+  }
+
+  @override
+  String ledgerOmenRow(String chance) {
+    return '$chance% of birth draws';
+  }
+
+  @override
+  String get ledgerScenario => 'Try one successful absorption';
+
+  @override
+  String get ledgerGrade => 'Reap quality';
+
+  @override
+  String get ledgerAmbush => 'The hunt began with an ambush';
+
+  @override
+  String get ledgerRoll => 'Roll an illustrative feeding';
+
+  @override
+  String get ledgerRollEmpty =>
+      'Choose a husk and cut, then roll. These are local demonstrations, never a purchase or a reward claim.';
+
+  @override
+  String ledgerRollResult(String feeding, int xp, int anima) {
+    return '$feeding · $xp XP · $anima anima';
+  }
+
+  @override
+  String get ledgerRollNotice =>
+      'One illustration. The percentages above are the odds; a few draws are not a prediction. Feeding changes XP only. The same successful hunt still earns its demonstrated memory marks.';
+
+  @override
+  String ledgerAverage(String xp, int anima) {
+    return 'Expected XP for this scenario: $xp. Anima: $anima. Expectation uses each rounded reward and its weight.';
+  }
+
+  @override
+  String get ledgerEncounter => 'An encounter has its own draw';
+
+  @override
+  String ledgerEncounterBody(int min, int max) {
+    return 'A released husk surfaces after $min–$max seconds in the prototype. Its seed varies seals, movement and warnings. Retrying that same released husk keeps its encounter seed; a new release receives a new one.';
+  }
+
+  @override
+  String get ledgerTrust => 'Who controls the luck?';
+
+  @override
+  String get ledgerTrustBody =>
+      'Online feeding is drawn once by the keeper after an accepted absorption. The receipt records and signs the outcome. This proves what that keeper signed; it does not prove the keeper chose the seed without bias. Publicly verifiable randomness and a commitment protocol are future work. Offline draws are local and cannot be imported as verified NFT growth.';
+
+  @override
+  String get ledgerNoMutation =>
+      'Awakenings currently deepen a permanent gift at clear milestones. There are no random permanent mutations in this version. Random evolution is an open product decision; it must be designed and versioned before it changes existing NFTs.';
+
+  @override
+  String get ledgerNftHeading => 'An NFT with a life, not just a portrait.';
+
+  @override
+  String get ledgerNftBody =>
+      'The reaper NFT is the continuing character. Its permanent birth identity stays fixed. Its earned XP, equipment, codex and memories follow that asset to its next owner. A player can hold several reapers; each grows separately. A starter remains non-tradable.';
+
+  @override
+  String get ledgerNftCurrentTitle => 'Implemented foundation';
+
+  @override
+  String get ledgerNftCurrentBody =>
+      'Solana Kit verifies wallet signatures and finalized Metaplex Core ownership. The configured collection and permanent genome contract govern imports. Canonical server records preserve growth on transfer. The real wallet balance is separate from the prototype’s simulated market.';
+
+  @override
+  String get ledgerNftNextTitle => 'Next: bring an owned husk';
+
+  @override
+  String get ledgerNftNextBody =>
+      'Proposed first playable NFT release: support a small set of approved collections and let players bring an NFT they already own. Verify the rights, traits and asset standard. Escrow it before a hunt; confirm a receipt-bound burn before transferable rewards settle. Failed or expired transactions need recovery.';
+
+  @override
+  String get ledgerNftRiftsTitle => 'Then: a shared veil';
+
+  @override
+  String get ledgerNftRiftsBody =>
+      'Rifts can give old collections a second shared story. Before rewarding NFT reapers, group combat needs authoritative results and safe locations. New creatures require authored models and collection permission. This phase has no promised date.';
+
+  @override
+  String get ledgerNftLaterTitle => 'Later: a history worth reading';
+
+  @override
+  String get ledgerNftLaterBody =>
+      'Proposed additions: story passages reacting to remembered deeds, richer cosmetic history, collection-specific encounters and optional cooperative specialisms. A new genome version can introduce future birth rules while preserving existing identities. PvP, token rewards and random mutations are not committed features.';
+
+  @override
+  String get ledgerNftStatus =>
+      'Real husk purchases, escrow and burning are not implemented. Production blocks their simulated substitutes. The browser studio connects no wallet. iOS wallet transport, distribution and production operations still need decisions and engineering.';
+
+  @override
+  String get ledgerNftEconomy => 'Why growth should be worth keeping';
+
+  @override
+  String get ledgerNftEconomyBody =>
+      'The value we can design is attachment, distinct play and a legible history. Buying a grown reaper buys its earned progression, so purchasing can confer an advantage. Burned supply does not guarantee demand, liquidity or resale value. No earnings, prices or investment returns are promised.';
+
+  @override
+  String get ledgerDesignHeading => 'Why the rules are this way.';
+
+  @override
+  String get ledgerDecisionBody =>
+      'These are the design decisions behind the implementation, with unresolved choices kept visible. The repository’s research record separates developer evidence from our inferences.';
+
+  @override
+  String get ledgerPhysicalTitle => 'The phone is the blade';
+
+  @override
+  String get ledgerPhysicalBody =>
+      'Stillness, a careful ambush, a held shriek and one slow reap make the hunt physically different. Gifts strengthen those existing verbs instead of adding a spell bar.';
+
+  @override
+  String get ledgerIdentityTitle => 'Birth is a promise';
+
+  @override
+  String get ledgerIdentityBody =>
+      'A fixed identity makes a reaper recognisable and tradeable. Cosmetic rarity grants no stronger gift. The R1 mapping is permanent; future mappings require a new version.';
+
+  @override
+  String get ledgerMemoryTitle => 'History means something';
+
+  @override
+  String get ledgerMemoryBody =>
+      'One successful absorption can grant one mark per demonstrated path. Repeated holds in one fight cannot farm marks. Escapes, abandoned hunts, practice and rifts grant no soul memories. Old saves keep their XP and begin with zero remembered deeds.';
+
+  @override
+  String get ledgerFairTitle => 'Luck without an invisible veto';
+
+  @override
+  String get ledgerFairBody =>
+      'Feeding varies the speed of XP growth. Skill and remembered practice decide awakenings. The initial system avoids a failed upgrade roll that consumes progress. Permanent random evolution remains undecided.';
+
+  @override
+  String get ledgerResearchTitle => 'Learned from other worlds';
+
+  @override
+  String get ledgerResearchBody =>
+      'Hades connects myth to repeatable builds. Destiny’s shared verbs and Guild Wars 2’s triggered traits informed powers with readable conditions. Disco Elysium informed action-shaped memory. Shadow of War informed persistent identity; Baldur’s Gate 3 informed a birth perspective. Slay the Spire informed testing the numbers with feedback. These are design inferences, not copied systems.';
+
+  @override
+  String get ledgerBalanceTitle => 'Evidence before balance claims';
+
+  @override
+  String get ledgerBalanceBody =>
+      'All eighteen gifts have exercised combat triggers. The committed pacing trials span 1,152 encounters across 72 birth builds and two growth stages. One rare-husk bot scenario exposes large starting differences; it does not establish player enjoyment or balance. Phone playtests must test defensive value, comfort and comprehension.';
+
+  @override
+  String get ledgerSourcesTitle => 'Research, code and source of truth';
+
+  @override
+  String get ledgerSourcesBody =>
+      'The interactive values read the shared game rules, not a second calculator. Durable records: docs/gameplay.md; docs/research/reaper-identity-and-growth.md; docs/research/soul-pacing-trials.md; docs/solana.md; docs/launch-readiness.md. The six offices, eighteen gifts and their lore are original Reapers fiction.';
+
+  @override
+  String get ledgerNeedsTitle => 'Open decisions for the builder';
+
+  @override
+  String get ledgerNeedsBody =>
+      'First release and age/markets; Core collection and mint process; husk rights and standards; iOS wallet/distribution; store signing; domains, RPC, backups and receipt custody; privacy, retention and deletion; real-phone playtests. Add these before public NFT trading and burning.';
+
+  @override
+  String ledgerProgressionFormula(int step) {
+    return 'XP to the next level is 90 + 55 × (level − 1) + 6 × (level − 1)². Level strikes scale by 1 + $step% × (level − 1); equipment, completed sets, temperament and triggered gifts then apply their own effects.';
+  }
+
+  @override
   String get appTitle => 'Reapers';
 
   @override

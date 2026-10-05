@@ -51,7 +51,7 @@ These are the decisions the simulation already bakes in. They are worth agreeing
 2. **The player owns the NFT before it is hunted.** Buying and releasing are separate so that a real purchase (which can fail, or take time) never happens in the middle of a hunt.
 3. **Releasing is the point of no return.** Once released, the NFT can only be hunted. In the real version this is where it should move into escrow, so a player cannot release an NFT, start the hunt and sell it meanwhile.
 4. **A supported collection has a creature of its own.** Supporting a collection means modelling its animal, so it is a deliberate act and not something any collection gets for free.
-5. **Luck is decided off-chain and signed.** How well a reaper feeds is rolled by our server, because randomness on a chain is slow and costly. The server signs what it rolled so that a chain can trust it. See the next section.
+5. **Luck is decided off-chain and signed.** How well a reaper feeds is rolled by our server. Its signature authenticates the stated result; it does not prove the operator sampled fairly. Publicly verifiable randomness is not implemented. See the next section and [the decision record](decisions.md).
 6. **Anima and experience stay off-chain.** Anima belongs to the account and cannot be traded. Experience is earned by play and cannot be purchased directly; an NFT reaper's earned growth, codex and equipment follow the asset when its ownership changes. This changes the earlier single-reaper design to support trading grown reapers.
 7. **Rifts drive demand.** A collection's rift only opens to someone who has absorbed one of that collection, so a rift is a reason to buy the floor.
 
@@ -61,7 +61,7 @@ If any of these is wrong, the change is in `PlayerState`, not in the chain code.
 
 When a reaper absorbs an NFT, the server decides three things the player cannot: the verdict of the hunt (by replaying it), how well the reaper fed (a weighted roll from the server's secure random numbers), and when it happened. It then signs all of it.
 
-- **The roll** is `Feeding.roll(seed)` in the shared rules: meagre ×0.85, fair ×1, rich ×1.25, a feast ×2, at 25, 50, 20 and 5 in a hundred. It scales experience only. The seed is the server's and is recorded as the receipt's nonce, so anyone can check that the feeding follows from the nonce, and nobody could have chosen it.
+- **The roll** is `Feeding.roll(seed)` in the shared rules: meagre ×0.85, fair ×1, rich ×1.25, a feast ×2, at 25, 50, 20 and 5 in a hundred. It scales experience only. The seed is the server's and is recorded as the receipt's nonce, so anyone can check that the feeding follows from the nonce. This does not prove an unbiased draw: an operator could choose or withhold a seed. A public randomness or commitment protocol remains future work.
 - **The message** is 98 bytes in a fixed layout, documented on `AbsorptionReceipt`: a tag and version, the player, the NFT's mint, the grade, the feeding, the experience and anima paid, the time and the nonce.
 - **The signature** is Ed25519, the scheme Solana itself uses. A Solana program can check it with the built-in Ed25519 program, so a transaction can carry the server's receipt and the program can trust the roll without doing any randomness of its own.
 - **The key** is derived from one secret, `receiptSigningKey`. Development and tests run without it and sign with a key anyone can derive, so their receipts prove nothing. A deployed server refuses to start without the real secret. The public key is served by `player.receiptKey`.

@@ -101,6 +101,7 @@ The hooks make that the only way in: `main` refuses any commit that `tool/merge.
 | [docs/research/solana-collections.md](docs/research/solana-collections.md) | 116 old Solana collections, and why these five. |
 | [docs/research/dark-games-and-ar-hunting.md](docs/research/dark-games-and-ar-hunting.md) | The research the classes and the hunt came from. |
 | [docs/research/reaper-identity-and-growth.md](docs/research/reaper-identity-and-growth.md) | Developer sources and the reasoning behind birth gifts, memory and awakenings. |
+| [docs/decisions.md](docs/decisions.md) | The Book of Becoming: interactive evolution, exact randomness, design decisions and the proposed NFT future. |
 | [docs/launch-readiness.md](docs/launch-readiness.md) | Completed integration, launch engineering still required and decisions needed from Ifiok. |
 | [art/blender/README.md](art/blender/README.md) | How the 3D art is built. |
 | [AGENTS.md](AGENTS.md) | Conventions for anyone, human or not, changing the code. |

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-05T09:29:33Z",
+  "generatedAt": "2026-10-05T21:07:16Z",
   "title": "Design System: Reapers",
   "extensions": {
     "colorMeta": {
@@ -48,7 +48,7 @@
   ],
   "narrative": {
     "northStar": "The Funeral Ledger",
-    "overview": "The native interface is a funeral ledger set in warm bone on blue-black ink. Large, sharp words give names and numbers ceremony; small ruled entries keep the game readable. The spirit realm supplies movement and depth behind the ledger. This records the incumbent Flutter world and its branding and model-viewer extensions, rather than a replacement identity.\n\nThe product premise comes from [README](../README.md), [gameplay](../docs/gameplay.md) and [architecture](../docs/architecture.md). Visual authority is [Veil](lib/theme/veil.dart), the [ledger kit](lib/widgets/ledger.dart), and the implemented [threshold](lib/screens/threshold_screen.dart), [arrival](lib/brand/splash_gate.dart) and [studio](lib/studio/reaper_studio.dart). Values in the frontmatter translate Flutter logical pixels to portable `px`; the Dart source remains the implementation authority.",
+    "overview": "The native interface is a funeral ledger set in warm bone on blue-black ink. Large, sharp words give names and numbers ceremony; small ruled entries keep the game readable. The spirit realm supplies movement and depth behind the ledger. This records the incumbent Flutter world and its branding, model-viewer and decision-reader extensions.\n\n[PRODUCT.md](PRODUCT.md) owns product truth, with the premise and rules detailed in [README](../README.md), [gameplay](../docs/gameplay.md) and [architecture](../docs/architecture.md). Visual authority is [Veil](lib/theme/veil.dart), the [ledger kit](lib/widgets/ledger.dart), and the implemented [threshold](lib/screens/threshold_screen.dart), [arrival](lib/brand/splash_gate.dart), [studio](lib/studio/reaper_studio.dart), [decision reader](lib/studio/decision_ledger.dart) and shared [Soul ledger](lib/widgets/soul_ledger.dart). Values in the frontmatter translate Flutter logical pixels to portable `px`; the Dart source remains the implementation authority.",
     "keyCharacteristics": [
       "Warm bone words and fine rules on tinted ink.",
       "Fraunces for names and large numerals; DM Sans for instructions, labels and figures.",
@@ -67,10 +67,10 @@
       "Do rebuild and relaunch after changing installed native artwork."
     ],
     "donts": [
-      "Don't treat the provisional logo default as a final user selection.",
+      "Don't discard the other three logo masters or treat the provisional Bound Sigil choice as a permanent selection.",
       "Don't add decorative eyebrows to arrival; its mark, name and premise already establish the hierarchy.",
       "Don't expose the underlying game to interaction or accessibility focus while the arrival gate covers it.",
-      "Don't infer Android or tablet visual approval from a successful compile or the iOS correction verdict."
+      "Don't extend a captured phone view or a verdict on named corrections into tablet approval, release performance proof or approval of uncaptured flows."
     ]
   }
 }

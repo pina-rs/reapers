@@ -22,6 +22,7 @@ import '../render/reaper_stage.dart';
 import '../theme/veil.dart';
 import '../widgets/ledger.dart';
 import '../widgets/soul_ledger.dart';
+import 'decision_ledger.dart';
 
 typedef StudioStageBuilder = Widget Function(ReaperGenome, Weapon, Outfit);
 
@@ -496,6 +497,18 @@ class ReaperStudio extends HookWidget {
       child: Scaffold(
         appBar: AppBar(
           title: Text(l10n.studioAppTitle, style: Veil.display(22)),
+          actions: [
+            IconButton(
+              tooltip: l10n.ledgerOpen,
+              icon: const Icon(Icons.menu_book_outlined),
+              onPressed: () => Navigator.of(context).push<void>(
+                MaterialPageRoute(
+                  settings: const RouteSettings(name: DecisionLedger.route),
+                  builder: (context) => const DecisionLedger(),
+                ),
+              ),
+            ),
+          ],
         ),
         body: SafeArea(
           child: LayoutBuilder(

@@ -174,21 +174,54 @@ class LedgerRow extends HookWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(label.toUpperCase(), style: Veil.label()),
-          const Expanded(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(10, 0, 10, 3),
-              child: _Leader(),
-            ),
-          ),
-          Text(
-            value,
-            style: Veil.figure(color: emphasised ? light : Veil.bone, size: 15),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final labelStyle = Veil.label();
+          final valueStyle = Veil.figure(
+            color: emphasised ? light : Veil.bone,
+            size: 15,
+          );
+
+          double width(String text, TextStyle style) {
+            final painter = TextPainter(
+              text: TextSpan(text: text, style: style),
+              textDirection: Directionality.of(context),
+              textScaler: MediaQuery.textScalerOf(context),
+            )..layout();
+            final measured = painter.width;
+            painter.dispose();
+            return measured;
+          }
+
+          final labelText = Text(label.toUpperCase(), style: labelStyle);
+          final valueText = Text(value, style: valueStyle);
+
+          // Keep every figure readable when a translated label or enlarged
+          // text no longer leaves room for the dotted leader.
+          if (width(label.toUpperCase(), labelStyle) +
+                  width(value, valueStyle) +
+                  20 >
+              constraints.maxWidth) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [labelText, const SizedBox(height: 4), valueText],
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              labelText,
+              const Expanded(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(10, 0, 10, 3),
+                  child: _Leader(),
+                ),
+              ),
+              valueText,
+            ],
+          );
+        },
       ),
     );
   }
