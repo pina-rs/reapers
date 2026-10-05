@@ -1,6 +1,6 @@
 # Reapers branding
 
-Four imagegen masters live in `art/branding`: **Quiet Cut** (a scythe R and broken halo), **The Veil** (a faceless shroud), **Bound Sigil** (an angular knot) and **Last Ember** (a captured spirit). Quiet Cut is the current default. Generation prompts, mode and the production cleanup direction are in `art/branding/prompts.json`.
+Four imagegen masters live in `art/branding`: **Quiet Cut** (a scythe R and broken halo), **The Veil** (a faceless shroud), **Bound Sigil** (an angular knot) and **Last Ember** (a captured spirit). Bound Sigil is the current default, selected by Ifiok on 5 October 2026. All four masters remain available. Generation prompts, mode and the production cleanup direction are in `art/branding/prompts.json`.
 
 The warm ivory emblem on Veil ink keeps the game's Fraunces wordmark and existing palette. The splash opens with the same mark at the same position as the native still, draws one fine reaping arc, then reveals the name. It respects reduced motion and cannot hide loading or recovery indefinitely.
 

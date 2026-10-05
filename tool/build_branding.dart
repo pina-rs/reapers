@@ -31,7 +31,7 @@ Future<void> main(List<String> arguments) async {
     return;
   }
   final source = arguments.isEmpty
-      ? 'art/branding/quiet-cut.png'
+      ? 'art/branding/bound-sigil.png'
       : arguments.single;
   if (!File(source).existsSync()) {
     throw ArgumentError('Missing logo master: $source');
@@ -156,6 +156,31 @@ Future<void> main(List<String> arguments) async {
         '',
       ),
     );
+  }
+  // Platform generators strip source metadata. Keep provenance on their
+  // outputs too, including the solid backgrounds generated from pubspec.
+  for (final root in [
+    'reapers_flutter/android/app/src/main/res',
+    'reapers_flutter/ios/Runner/Assets.xcassets',
+  ]) {
+    final images =
+        Directory(root)
+            .listSync(recursive: true, followLinks: false)
+            .whereType<File>()
+            .where((file) => file.path.endsWith('.png'))
+            .toList()
+          ..sort((a, b) => a.path.compareTo(b.path));
+    for (final image in images) {
+      await _run('magick', [
+        image.path,
+        '-set',
+        'impeccable:prompt',
+        '$provenance Platform sizes and solid backgrounds: '
+            'flutter_launcher_icons and flutter_native_splash, configured '
+            'in reapers_flutter/pubspec.yaml.',
+        image.path,
+      ]);
+    }
   }
   print('Branding built from $source.');
 }
