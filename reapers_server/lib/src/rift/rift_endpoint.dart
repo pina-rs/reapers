@@ -45,12 +45,27 @@ class RiftEndpoint extends Endpoint {
     });
 
     final chair = hall.join(riftSite, entrant);
-    final listening = reports.listen(chair.report);
+    Object? reportFailure;
+    final listening = reports.listen(
+      (report) {
+        final standing = report.standing;
+        if (standing != null && !standing.isUsableAt(DateTime.now().toUtc())) {
+          reportFailure = Refused(refusal: Refusal.locationUnusable.name);
+          return;
+        }
+        chair.report(report);
+      },
+      onError: (Object error) => reportFailure = error,
+      cancelOnError: true,
+    );
 
     try {
       yield chair.frame;
 
       await for (final _ in chair.beats) {
+        if (reportFailure case final failure?) {
+          throw failure;
+        }
         final frame = chair.frame;
 
         if (!frame.phase.isOver) {

@@ -44,6 +44,8 @@ lib/
 
 **Backends.** Screens read the player from one Riverpod notifier, which asks a `GameBackend`. `LocalBackend` keeps the books in shared preferences and is the whole game with no server. `ServerBackend` sends the same requests to Serverpod. Which one a build uses is decided by `--dart-define=REAPERS_SERVER_URL=…`; without it the build is fully offline.
 
+**Arrival.** The native Android/iOS splash and the first Flutter frame use the same `splash_mark.png` on the veil's ink. `SplashGate` preloads that still, then draws one 1.8-second reaping arc and reveals the wordmark. Reduced motion holds a still for 250 ms. The mounted game cannot tick, receive focus, touches or accessibility focus until arrival ends. A four-second ceiling reveals the loading or recovery screen even when the keeper is slow. See [branding.md](branding.md) for the masters and rebuild command.
+
 **The arena.** `HuntArena` owns the scene, the husk and the phone's pose, and shows whatever `HuntSim` it is given. A lone hunt and a seat in a rift are both fought in it. Screens lay their own words over it.
 
 **Drawing the husk out.** Before a hunt, the player traces the husk's `Sigil`: lights around them that catch in order. The sigil is a rule, so it lives in `reapers_shared`: `Sigil.draw` lays one out from the hunt's seed and the rarity's `SigilShape`, and `SigilTrace` follows the phone across it, reading no clock. On the phone, `SigilPainter` hangs it in the room and `ScanOverlay` lays the words and a flat drawing of it over the top.
@@ -55,6 +57,8 @@ Anything that learns more about the room (ARKit, ARCore, a server that names wha
 **The lens.** `CameraOptics` asks the phone for its camera's focal length and sensor size, and the hunt is drawn with the field of view that follows from them. A husk seen through a different lens from the floor it stands on slides across the floor when the phone turns.
 
 **Where a rift stands.** A rift's `RiftRoom` holds one `GeoPoint` for its husk and every `RiftFrame` carries it, so whoever hosts the room is the one place that knows where the enemy is. On the phone, `Whereabouts` says where the phone is, the pose source says where north lies in the view (`AttitudeFilter` listens to the magnetometer for that and nothing else), and `RiftPlacer` turns the three into a `RiftSighting`: the direction and distance this reaper sees the husk at. `RiftPlacer` has no sensors in it and is tested with two phones side by side.
+
+`GeoFix` carries the device observation time and accuracy alongside its point. Shared rules validate it with a supplied clock. `LocationTracker` owns the foreground subscription, expiry timer and one serial, latest-only upload queue. It cancels GPS and clears the remote reading when inactive or disposed. `DeviceWhereabouts` uses foreground-only Apple settings and has explicit permission/service failures; the gathering screen explains these and offers Settings or retry. The server validates again before accepting a location or a rift standing. GPS course is not used as a compass.
 
 **Music.** `Soundtrack` decides which piece plays and how it is heard, and a `ScoreEngine` makes the sound. The real engine is SoLoud, handed in at startup; everywhere else, including every test, the engine is silent. `sigilMix` and `huntMix` are the whole of how a hunt sounds: pure functions from the sigil's and the hunt's state to a loudness and a veil. The recordings are other people's, built by `tool/build_music.dart` and credited in `assets/music/CREDITS.md` and on the colophon page.
 
@@ -82,6 +86,7 @@ Serverpod 4, with its embedded Postgres in development and tests.
 
 - **Sign-in.** A fresh install plays as a guest (the anonymous identity provider) so nobody signs up before their first hunt. That guest account is what a wallet will later link to.
 - **`PlayerEndpoint`** stores each player's `PlayerState` whole, in one row. Every request locks the row, applies one shared rule and stores the result (`PlayerBooks.change`). No method takes a player id from the client.
+- **Location.** `updateLocation` and `location` require authentication and use the same player row. Only the latest `GeoFix` is kept; out-of-order updates are ignored, null clears it, and stale readings are never returned. This is positioning, not proof of physical presence: coordinates reported by a modified client remain untrusted.
 - **Receipts.** When a hunt is absorbed, the server rolls how well the reaper fed and signs the result with Ed25519 (`AbsorptionReceipt`, `ReceiptSigner`), in a fixed 98-byte layout a Solana program could verify. See [nfts.md](nfts.md).
 - **`RiftEndpoint`** is one streaming call per reaper: frames come down, the reaper's reports go up. `RiftHall` keeps the open rifts in memory and moves each on ten times a second.
 - **Refusals** cross the wire as a `Refused` exception carrying the shared `Refusal`'s name, so an online player is told exactly what an offline one would be.

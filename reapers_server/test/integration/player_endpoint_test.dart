@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:reapers_server/src/generated/protocol.dart';
 import 'package:reapers_server/src/receipts/absorption_receipt.dart';
 import 'package:reapers_shared/reapers_shared.dart';
+import 'package:serverpod/serverpod.dart' show UuidValue;
 import 'package:test/test.dart';
 
 import 'test_tools/serverpod_test_tools.dart';
@@ -45,6 +46,87 @@ void main() {
         const {},
       ),
     );
+
+    GeoFix measured({
+      double accuracy = 4,
+      GeoPoint at = const GeoPoint(51.5, -.08),
+      Duration age = Duration.zero,
+    }) => GeoFix(
+      at: at,
+      accuracy: accuracy,
+      observedAt: DateTime.now().toUtc().subtract(age),
+    );
+
+    test(
+      'location belongs to the signed-in player and survives book changes',
+      () async {
+        await endpoints.player.load(player);
+        final fix = measured();
+        await endpoints.player.updateLocation(player, fix);
+        await endpoints.player.takeOath(player);
+        expect((await endpoints.player.location(player))!.at, fix.at);
+        expect(await endpoints.player.location(other), isNull);
+        await endpoints.player.updateLocation(player, null);
+        expect(await endpoints.player.location(player), isNull);
+        expect((await endpoints.player.load(player)).oathTaken, isTrue);
+      },
+    );
+
+    test(
+      'location rejects coarse, malformed, stale and future readings',
+      () async {
+        for (final fix in [
+          measured(accuracy: 80),
+          measured(accuracy: 0),
+          measured(at: const GeoPoint(95, 0)),
+          measured(age: const Duration(seconds: 31)),
+          measured(age: const Duration(seconds: -10)),
+        ]) {
+          await expectLater(
+            endpoints.player.updateLocation(player, fix),
+            refuses(Refusal.locationUnusable),
+          );
+        }
+        expect(await endpoints.player.location(player), isNull);
+      },
+    );
+
+    test('out-of-order uploads cannot replace a newer location', () async {
+      final older = measured(age: const Duration(seconds: 2));
+      final newer = measured(at: const GeoPoint(51.501, -.08));
+      await endpoints.player.updateLocation(player, newer);
+      await endpoints.player.updateLocation(player, older);
+      expect((await endpoints.player.location(player))!.at, newer.at);
+    });
+
+    test('an expired stored fix is not returned', () async {
+      await endpoints.player.load(player);
+      final session = sessionBuilder.build();
+      final record = (await PlayerRecord.db.find(session)).single;
+      await PlayerRecord.db.updateRow(
+        session,
+        record.copyWith(location: measured(age: const Duration(minutes: 1))),
+      );
+      expect(await endpoints.player.location(player), isNull);
+    });
+
+    test('location read, write and clear all require authentication', () async {
+      final nobody = sessionBuilder.copyWith(
+        authentication: AuthenticationOverride.unauthenticated(),
+      );
+      await expectLater(
+        endpoints.player.location(nobody),
+        throwsA(isA<ServerpodUnauthenticatedException>()),
+      );
+      await expectLater(
+        endpoints.player.updateLocation(nobody, measured()),
+        throwsA(isA<ServerpodUnauthenticatedException>()),
+      );
+      await expectLater(
+        endpoints.player.updateLocation(nobody, null),
+        throwsA(isA<ServerpodUnauthenticatedException>()),
+      );
+    });
 
     /// Moves every loose husk's surfacing time into the past, so a test does
     /// not have to wait out the real delay.
@@ -484,4 +566,39 @@ void main() {
       },
     );
   });
+
+  withServerpod(
+    'Concurrent game and location requests',
+    rollbackDatabase: RollbackDatabase.disabled,
+    (sessionBuilder, endpoints) {
+      const id = 'dcc079e3-0056-4a1b-8b12-8a8bf4aa0e93';
+      final player = sessionBuilder.copyWith(
+        authentication: AuthenticationOverride.authenticationInfo(id, const {}),
+      );
+      setUp(() => endpoints.player.takeOath(player));
+      tearDown(
+        () => PlayerRecord.db.deleteWhere(
+          sessionBuilder.build(),
+          where: (table) => table.authUserId.equals(UuidValue.fromString(id)),
+        ),
+      );
+
+      test(
+        'location uploads preserve purchases arriving at the same time',
+        () async {
+          final fix = GeoFix(
+            at: const GeoPoint(51.5, -.08),
+            accuracy: 4,
+            observedAt: DateTime.now().toUtc(),
+          );
+          await Future.wait<Object?>([
+            endpoints.player.acquire(player, saint),
+            endpoints.player.updateLocation(player, fix),
+          ]);
+          expect((await endpoints.player.load(player)).vault.single.id, saint);
+          expect((await endpoints.player.location(player))!.at, fix.at);
+        },
+      );
+    },
+  );
 }

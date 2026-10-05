@@ -13,6 +13,56 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appTitle => 'Reapers';
 
   @override
+  String get startupOpeningBooks => 'Opening your books…';
+
+  @override
+  String get startupUnreadable =>
+      'Your books could not be opened. Try again to recover your place in the veil.';
+
+  @override
+  String get riftsLocationNote =>
+      'Location helps your circle face the same husk, only while a rift is open and on screen. Online play shares your latest reading, never a trail. It is optional.';
+
+  @override
+  String get locationDenied =>
+      'Location permission was declined. The husk will stand ahead of you. Allow location to share its place with your circle.';
+
+  @override
+  String get locationBlocked =>
+      'Location permission is off for Reapers. You can allow it in Settings, or play with the husk ahead of you.';
+
+  @override
+  String get locationServices =>
+      'Location services are off. Turn them on to find where your circle stands.';
+
+  @override
+  String get locationUnsupported =>
+      'This device cannot read its location. The husk will stand ahead of you.';
+
+  @override
+  String get locationUnavailable =>
+      'Your location could not be read. You can try again or keep playing.';
+
+  @override
+  String get locationInaccurate =>
+      'Waiting for a more precise location. An open view of the sky helps; the husk will stand ahead of you meanwhile.';
+
+  @override
+  String get locationStale =>
+      'Your location reading is too old. Waiting for a fresh reading before placing the rift.';
+
+  @override
+  String get locationSharingFailed =>
+      'Your location could not reach the keeper. The next fresh reading will try again.';
+
+  @override
+  String get locationSettings => 'Open Settings';
+
+  @override
+  String get locationSettingsFailed =>
+      'Settings could not be opened. Open your device Settings to allow location for Reapers.';
+
+  @override
   String get commonBack => 'Back';
 
   @override
@@ -51,10 +101,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commonUnreachable =>
-      'The keeper of the books could not be reached. Nothing was changed.';
-
-  @override
-  String get thresholdOverline => 'Beyond the veil';
+      'The keeper of the books could not be reached. Try again to recover your place in the veil.';
 
   @override
   String get thresholdTagline =>

@@ -1,7 +1,5 @@
 import 'package:reapers_shared/reapers_shared.dart';
 
-import 'whereabouts.dart';
-
 /// Works out, frame by frame, where a rift stands for one reaper.
 ///
 /// A rift stands at one place on the earth for its whole circle. The first
@@ -15,6 +13,10 @@ import 'whereabouts.dart';
 /// near steel. It is enough to face the same way, not to touch the same
 /// stone. See docs/gameplay.md.
 final class RiftPlacer {
+  RiftPlacer({DateTime Function()? now}) : _now = now ?? DateTime.now;
+
+  final DateTime Function() _now;
+
   /// Frames between one telling of where this reaper stands and the next,
   /// while the rift has yet to take its place. About half a second.
   static const tellEveryFrames = 10;
@@ -53,7 +55,10 @@ final class RiftPlacer {
     required double facing,
     required double? north,
   }) {
-    final here = fix;
+    final measured = fix;
+    final here = measured != null && measured.isUsableAt(_now())
+        ? measured
+        : null;
 
     _framesWaited++;
 
@@ -77,6 +82,7 @@ final class RiftPlacer {
       at: here.at,
       facing: wrapAngle(facing - north),
       accuracy: here.accuracy,
+      observedAt: here.observedAt,
     );
   }
 

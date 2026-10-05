@@ -13,6 +13,7 @@
 import 'dart:async' as _ida;
 import 'dart:typed_data' as _idt;
 import 'package:http/http.dart' as _i85jenna;
+import 'package:reapers_shared/src/geo.dart' as _i3e1ekpd;
 import 'package:reapers_shared/src/player_state.dart' as _ildkp1az;
 import 'package:reapers_shared/src/rift/rift_frame.dart' as _ivi8svxc;
 import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
@@ -107,6 +108,22 @@ class EndpointPlayer extends _isc.EndpointRef {
       caller.callServerEndpoint<_ildkp1az.PlayerState>(
         'player',
         'load',
+        {},
+      );
+
+  /// Shares only this authenticated player's latest foreground location.
+  _ida.Future<void> updateLocation(_i3e1ekpd.GeoFix? fix) =>
+      caller.callServerEndpoint<void>(
+        'player',
+        'updateLocation',
+        {'fix': fix},
+      );
+
+  /// A fix older than thirty seconds is no longer a location.
+  _ida.Future<_i3e1ekpd.GeoFix?> location() =>
+      caller.callServerEndpoint<_i3e1ekpd.GeoFix?>(
+        'player',
+        'location',
         {},
       );
 

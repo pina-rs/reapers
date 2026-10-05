@@ -10,6 +10,8 @@ fields:
   authUserId: UuidValue, unique
   ### The player as they stand now.
   state: PlayerState
+  ### The latest foreground fix only; never a history. Null when tracking stops.
+  location: GeoFix?
   ### When the books were opened.
   createdAt: DateTime, default=now
   ### When they last changed.

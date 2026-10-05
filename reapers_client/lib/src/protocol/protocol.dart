@@ -72,6 +72,12 @@ class Protocol extends _isc.SerializationManager {
     if (t == _izkb583i.PlayerState) {
       return _izkb583i.PlayerState.fromJson(data) as T;
     }
+    if (t == _isc.getType<_izkb583i.GeoFix?>()) {
+      return (data != null ? _izkb583i.GeoFix.fromJson(data) : null) as T;
+    }
+    if (t == _izkb583i.GeoFix) {
+      return _izkb583i.GeoFix.fromJson(data) as T;
+    }
     if (t == _izkb583i.HuntSettlement) {
       return _izkb583i.HuntSettlement.fromJson(data) as T;
     }
@@ -80,6 +86,9 @@ class Protocol extends _isc.SerializationManager {
     }
     if (t == _izkb583i.RiftReport) {
       return _izkb583i.RiftReport.fromJson(data) as T;
+    }
+    if (t == _isc.getType<_izkb583i.GeoFix?>()) {
+      return (data != null ? _izkb583i.GeoFix.fromJson(data) : null) as T;
     }
     if (t == _isc.getType<_izkb583i.PlayerState?>()) {
       return (data != null ? _izkb583i.PlayerState.fromJson(data) : null) as T;
@@ -105,6 +114,7 @@ class Protocol extends _isc.SerializationManager {
 
   static String? getClassNameForType(Type type) {
     return switch (type) {
+      _izkb583i.GeoFix => 'GeoFix',
       _izkb583i.PlayerState => 'PlayerState',
       _izkb583i.HuntSettlement => 'HuntSettlement',
       _izkb583i.RiftFrame => 'RiftFrame',
@@ -125,6 +135,8 @@ class Protocol extends _isc.SerializationManager {
     }
 
     switch (data) {
+      case _izkb583i.GeoFix():
+        return 'GeoFix';
       case _izkb583i.PlayerState():
         return 'PlayerState';
       case _izkb583i.HuntSettlement():
@@ -158,6 +170,9 @@ class Protocol extends _isc.SerializationManager {
     var dataClassName = data['className'];
     if (dataClassName is! String) {
       return super.deserializeByClassName(data);
+    }
+    if (dataClassName == 'GeoFix') {
+      return deserialize<_izkb583i.GeoFix>(data['data']);
     }
     if (dataClassName == 'PlayerState') {
       return deserialize<_izkb583i.PlayerState>(data['data']);

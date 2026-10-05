@@ -23,9 +23,14 @@ const reapersServerUrl = String.fromEnvironment('REAPERS_SERVER_URL');
 /// Whoever keeps this player's books: the server when the build names one,
 /// and the phone itself otherwise.
 @Riverpod(keepAlive: true)
-GameBackend gameBackend(Ref ref) => reapersServerUrl.isEmpty
-    ? LocalBackend(ref.watch(sharedPreferencesProvider))
-    : ServerBackend(reapersClient(reapersServerUrl));
+GameBackend gameBackend(Ref ref) {
+  if (reapersServerUrl.isEmpty) {
+    return LocalBackend(ref.watch(sharedPreferencesProvider));
+  }
+  final client = reapersClient(reapersServerUrl);
+  ref.onDispose(client.close);
+  return ServerBackend(client);
+}
 
 /// The player: what they own and what they have done.
 ///

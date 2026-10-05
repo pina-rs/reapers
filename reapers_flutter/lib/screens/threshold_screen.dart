@@ -5,6 +5,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:reapers_shared/reapers_shared.dart';
 
+import '../brand/reapers_mark.dart';
 import '../hunt/hunt_arena.dart';
 import '../hunt/pose/ar_pose.dart';
 import '../hunt/start_hunt.dart';
@@ -22,11 +23,21 @@ class ThresholdScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final drift = useAnimationController(duration: const Duration(minutes: 4))
-      ..repeat();
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    final drift = useAnimationController(duration: const Duration(minutes: 4));
     final arrival = useAnimationController(
       duration: const Duration(milliseconds: 1600),
-    )..forward();
+    );
+    useEffect(() {
+      if (reduced) {
+        drift.stop();
+        arrival.value = 1;
+      } else {
+        drift.repeat();
+        arrival.forward();
+      }
+      return null;
+    }, [reduced]);
 
     return Scaffold(
       body: Stack(
@@ -47,50 +58,64 @@ class ThresholdScreen extends HookConsumerWidget {
                 constraints: const BoxConstraints(maxWidth: Veil.contentWidth),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
-                  child: FadeTransition(
-                    opacity: CurvedAnimation(
-                      parent: arrival,
-                      curve: const Interval(0.35, 1, curve: Curves.easeOut),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.thresholdOverline.toUpperCase(),
-                          style: Veil.label(),
-                        ),
-                        const Spacer(),
-                        Text(
-                          l10n.appTitle,
-                          key: const Key('threshold-title'),
-                          style: Veil.display(92, weight: 360),
-                        ),
-                        const SizedBox(height: 18),
-                        Text(
-                          l10n.thresholdTagline,
-                          style: Veil.body(color: Veil.ash, size: 16),
-                        ),
-                        const SizedBox(height: 34),
-                        LedgerButton(
-                          key: const Key('threshold-oath'),
-                          label: l10n.thresholdOath,
-                          detail: l10n.thresholdOathDetail,
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const OathScreen(),
+                  child: CustomScrollView(
+                    slivers: [
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: FadeTransition(
+                          opacity: CurvedAnimation(
+                            parent: arrival,
+                            curve: const Interval(
+                              0.35,
+                              1,
+                              curve: Curves.easeOut,
                             ),
                           ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Spacer(),
+                              const ReapersMark(size: 88),
+                              const SizedBox(height: 20),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  l10n.appTitle,
+                                  key: const Key('threshold-title'),
+                                  style: Veil.display(92, weight: 360),
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+                              Text(
+                                l10n.thresholdTagline,
+                                style: Veil.body(color: Veil.ash, size: 16),
+                              ),
+                              const SizedBox(height: 34),
+                              LedgerButton(
+                                key: const Key('threshold-oath'),
+                                label: l10n.thresholdOath,
+                                detail: l10n.thresholdOathDetail,
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => const OathScreen(),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              LedgerButton(
+                                key: const Key('threshold-shade'),
+                                label: l10n.thresholdShade,
+                                detail: l10n.thresholdShadeDetail,
+                                quiet: true,
+                                onPressed: () =>
+                                    startPracticeHunt(context, ref),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 4),
-                        LedgerButton(
-                          key: const Key('threshold-shade'),
-                          label: l10n.thresholdShade,
-                          detail: l10n.thresholdShadeDetail,
-                          quiet: true,
-                          onPressed: () => startPracticeHunt(context, ref),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),

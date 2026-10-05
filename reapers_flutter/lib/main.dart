@@ -10,12 +10,13 @@ import 'sound/soundtrack.dart';
 import 'src/state/player.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  final binding = WidgetsFlutterBinding.ensureInitialized();
 
   // The hunt reads the phone's motion in portrait, so the game never turns.
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   final preferences = await SharedPreferences.getInstance();
+  binding.deferFirstFrame();
 
   runApp(
     ProviderScope(
@@ -24,7 +25,7 @@ Future<void> main() async {
         scoreEngineProvider.overrideWithValue(SoLoudEngine()),
         whereaboutsProvider.overrideWithValue(const DeviceWhereabouts()),
       ],
-      child: const ReapersApp(),
+      child: ReapersApp(onFirstFrameReady: binding.allowFirstFrame),
     ),
   );
 }

@@ -110,7 +110,7 @@ final class GameBackendProvider
   }
 }
 
-String _$gameBackendHash() => r'ba16d97776b0dc5a742ff2f9a52e710fc5dc8dff';
+String _$gameBackendHash() => r'0249ee877841bb63c666f5acb91f7e5f5b16d089';
 
 /// The player: what they own and what they have done.
 ///

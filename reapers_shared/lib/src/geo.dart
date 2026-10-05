@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'vec3.dart';
+import 'rift/rift_rules.dart';
 
 /// A place on the earth, in degrees.
 final class GeoPoint {
@@ -21,6 +22,13 @@ final class GeoPoint {
 
   /// Degrees east of Greenwich.
   final double longitude;
+
+  /// Whether these are finite coordinates on the earth.
+  bool get isValid =>
+      latitude.isFinite &&
+      longitude.isFinite &&
+      latitude.abs() <= 90 &&
+      longitude.abs() <= 180;
 
   /// How far it is to [other] over the ground, in metres.
   double distanceTo(GeoPoint other) {
@@ -92,6 +100,53 @@ final class GeoPoint {
   String toString() => 'GeoPoint($latitude, $longitude)';
 }
 
+/// One measured location. Times are supplied by the device; trust and
+/// freshness are checked again by the server, with its own supplied time.
+final class GeoFix {
+  const GeoFix({
+    required this.at,
+    required this.accuracy,
+    required this.observedAt,
+  });
+
+  factory GeoFix.fromJson(Map<String, dynamic> json) => GeoFix(
+    at: GeoPoint.fromJson((json['at'] as Map).cast<String, dynamic>()),
+    accuracy: (json['accuracy'] as num).toDouble(),
+    observedAt: DateTime.parse(json['observedAt'] as String).toUtc(),
+  );
+
+  final GeoPoint at;
+  final double accuracy;
+  final DateTime observedAt;
+
+  bool get isPrecise =>
+      at.isValid &&
+      accuracy.isFinite &&
+      accuracy > 0 &&
+      accuracy <= RiftRules.locationAccuracyMetres;
+
+  bool isFreshAt(DateTime now) {
+    final age = now.difference(observedAt);
+    return age <= RiftRules.locationMaxAge &&
+        age >= -RiftRules.locationClockSkew;
+  }
+
+  bool isUsableAt(DateTime now) => isPrecise && isFreshAt(now);
+
+  GeoFix copyWith({GeoPoint? at, double? accuracy, DateTime? observedAt}) =>
+      GeoFix(
+        at: at ?? this.at,
+        accuracy: accuracy ?? this.accuracy,
+        observedAt: observedAt ?? this.observedAt,
+      );
+
+  Map<String, dynamic> toJson() => {
+    'at': at.toJson(),
+    'accuracy': accuracy,
+    'observedAt': observedAt.toUtc().toIso8601String(),
+  };
+}
+
 /// Where a reaper is standing and which way their phone points, as the phone
 /// itself measured it.
 final class GeoStanding {
@@ -99,6 +154,7 @@ final class GeoStanding {
     required this.at,
     required this.facing,
     required this.accuracy,
+    this.observedAt,
   });
 
   /// Reads a standing written by [toJson].
@@ -106,6 +162,9 @@ final class GeoStanding {
     at: GeoPoint.fromJson((json['at'] as Map).cast<String, dynamic>()),
     facing: (json['facing'] as num).toDouble(),
     accuracy: (json['accuracy'] as num).toDouble(),
+    observedAt: json['observedAt'] == null
+        ? null
+        : DateTime.parse(json['observedAt'] as String).toUtc(),
   );
 
   final GeoPoint at;
@@ -117,9 +176,22 @@ final class GeoStanding {
   /// How far out [at] may be, in metres, by the phone's own reckoning.
   final double accuracy;
 
+  /// Older recordings may omit this. Live servers require a timestamp.
+  final DateTime? observedAt;
+
+  bool isUsableAt(DateTime now) =>
+      facing.isFinite &&
+      observedAt != null &&
+      GeoFix(
+        at: at,
+        accuracy: accuracy,
+        observedAt: observedAt!,
+      ).isUsableAt(now);
+
   Map<String, dynamic> toJson() => {
     'at': at.toJson(),
     'facing': facing,
     'accuracy': accuracy,
+    if (observedAt != null) 'observedAt': observedAt!.toUtc().toIso8601String(),
   };
 }

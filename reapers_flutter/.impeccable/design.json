@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-05T07:53:33Z",
+  "title": "Design System: Reapers",
+  "extensions": {
+    "colorMeta": {
+      "ink": { "role": "neutral", "displayName": "Ink" },
+      "ink-raised": { "role": "neutral", "displayName": "Raised ink" },
+      "bone": { "role": "neutral", "displayName": "Bone" },
+      "ash": { "role": "neutral", "displayName": "Ash" },
+      "hairline": { "role": "neutral", "displayName": "Hairline" },
+      "wound": { "role": "primary", "displayName": "Wound" },
+      "unbound": { "role": "primary", "displayName": "Unbound" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Names and ceremonial numerals; variable Fraunces with optical size matched to text size, SOFT=0 and WONK=1." },
+      "body": { "displayName": "Body", "purpose": "Readable instructions and running text." },
+      "label": { "displayName": "Label", "purpose": "Functional ledger headings, units and action labels; not decorative eyebrows." },
+      "figure": { "displayName": "Figure", "purpose": "Prices, counts and standings with tabular numerals." }
+    },
+    "motion": [
+      { "name": "ledger-press", "value": "90ms", "purpose": "LedgerButton fill and text change while pressed." },
+      { "name": "arrival-ritual", "value": "1800ms", "purpose": "One reaping sweep with easeInOutCubic drawing and easeOut wordmark reveal." },
+      { "name": "arrival-exit", "value": "220ms", "purpose": "Fade away once ready and elapsed, or the startup deadline is reached." },
+      { "name": "arrival-reduced", "value": "250ms", "purpose": "Still composition and direct release under reduced motion." },
+      { "name": "arrival-deadline", "value": "4000ms", "purpose": "Deadline from mount; expose the underlying loading or recovery UI." },
+      { "name": "threshold-arrival", "value": "1600ms", "purpose": "Draw the blade and reveal the threshold; settled immediately under reduced motion." },
+      { "name": "threshold-drift", "value": "240000ms", "purpose": "One slow turn of the veil; stopped under reduced motion." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Ledger action",
+      "kind": "button",
+      "refersTo": "ledger-action",
+      "description": "Illustrative native LedgerButton snapshot with a detail. Native interaction changes only while pressed; hover and focus do not introduce a new visual treatment. DM Sans must be available for exact typography.",
+      "html": "<button class=\"ds-ledger-action\"><span class=\"ds-ledger-label\">Take the oath</span><span class=\"ds-ledger-detail\">Be bound to a reaper</span></button>",
+      "css": ".ds-ledger-action{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 16px;width:100%;min-height:56px;padding:16px 18px;border:1px solid rgba(233,228,212,.7);border-radius:0;background:transparent;color:#E9E4D4;text-align:left;font-family:'DM Sans';transition:background-color 90ms,color 90ms}.ds-ledger-label{font-size:13px;font-variation-settings:'wght' 600;line-height:1.2;letter-spacing:2.86px;text-transform:uppercase}.ds-ledger-detail{font-size:13px;font-variation-settings:'wght' 500;font-variant-numeric:tabular-nums;line-height:1.2}.ds-ledger-action:hover,.ds-ledger-action:focus-visible{background:transparent;color:#E9E4D4}.ds-ledger-action:active{background:#BFC8CF;color:#07080B}.ds-ledger-action:disabled{color:#8E897D;border-color:#E9E4D42E;background:transparent}"
+    },
+    {
+      "name": "Quiet ledger action",
+      "kind": "button",
+      "refersTo": "ledger-action-quiet",
+      "description": "The lesser choice retains action geometry and pressed fill while omitting the border. Illustrative native snapshot; DM Sans must be available for exact typography.",
+      "html": "<button class=\"ds-ledger-quiet\"><span class=\"ds-quiet-label\">Walk as a shade</span><span class=\"ds-quiet-detail\">A practice hunt</span></button>",
+      "css": ".ds-ledger-quiet{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 16px;width:100%;min-height:56px;padding:16px 18px;border:0;border-radius:0;background:transparent;color:#E9E4D4;text-align:left;font-family:'DM Sans';transition:background-color 90ms,color 90ms}.ds-quiet-label{font-size:13px;font-variation-settings:'wght' 600;line-height:1.2;letter-spacing:2.86px;text-transform:uppercase}.ds-quiet-detail{font-size:13px;font-variation-settings:'wght' 500;font-variant-numeric:tabular-nums;line-height:1.2}.ds-ledger-quiet:hover,.ds-ledger-quiet:focus-visible{background:transparent;color:#E9E4D4}.ds-ledger-quiet:active{background:#BFC8CF;color:#07080B}.ds-ledger-quiet:disabled{color:#8E897D;background:transparent}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Funeral Ledger",
+    "overview": "The native interface is a funeral ledger set in warm bone on blue-black ink. Large, sharp words give names and numbers ceremony; small ruled entries keep the game readable. The spirit realm supplies movement and depth behind the ledger. This records the incumbent Flutter world and its branding extension, rather than a replacement identity.\n\nThe product premise comes from [README](../README.md), [gameplay](../docs/gameplay.md) and [architecture](../docs/architecture.md). Visual authority is [Veil](lib/theme/veil.dart), the [ledger kit](lib/widgets/ledger.dart), and the implemented [threshold](lib/screens/threshold_screen.dart) and [arrival](lib/brand/splash_gate.dart). Values in the frontmatter translate Flutter logical pixels to portable `px`; the Dart source remains the implementation authority.",
+    "keyCharacteristics": [
+      "Warm bone words and fine rules on tinted ink.",
+      "Fraunces for names and large numerals; DM Sans for instructions, labels and figures.",
+      "A reaper's single light carries the interface's active colour.",
+      "Spacious ceremonial entry, with compact ledger controls inside the game."
+    ],
+    "rules": [
+      { "name": "The Borrowed Light Rule", "body": "Active interface colour comes from the player's reaper; new screens use the theme's primary colour rather than inventing an accent.", "section": "colors" },
+      { "name": "The Name and Number Rule", "body": "Names and ceremonial numerals use `Veil.display`; instructions and ledger figures use their respective `Veil` helpers.", "section": "typography" }
+    ],
+    "dos": [
+      "Do reuse `Veil`, the ledger kit and `ReapersMark` on new native screens.",
+      "Do let short screens scroll, scale the wordmark down and wrap action details.",
+      "Do keep launch motion finite, honour reduced motion and expose startup recovery.",
+      "Do rebuild and relaunch after changing installed native artwork."
+    ],
+    "donts": [
+      "Don't treat the provisional logo default as a final user selection.",
+      "Don't add decorative eyebrows to arrival; its mark, name and premise already establish the hierarchy.",
+      "Don't expose the underlying game to interaction or accessibility focus while the arrival gate covers it.",
+      "Don't infer Android or tablet visual approval from a successful compile or the iOS correction verdict."
+    ]
+  }
+}

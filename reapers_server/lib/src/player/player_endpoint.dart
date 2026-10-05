@@ -35,6 +35,13 @@ class PlayerEndpoint extends Endpoint {
   Future<PlayerState> load(Session session) =>
       PlayerBooks.change(session, (state) => state);
 
+  /// Shares only this authenticated player's latest foreground location.
+  Future<void> updateLocation(Session session, GeoFix? fix) =>
+      PlayerBooks.locate(session, fix);
+
+  /// A fix older than thirty seconds is no longer a location.
+  Future<GeoFix?> location(Session session) => PlayerBooks.location(session);
+
   /// Binds a reaper drawn from a seed only the server knows.
   Future<PlayerState> takeOath(Session session) =>
       PlayerBooks.change(session, (state) => state.takeOath(seed: _seed()));

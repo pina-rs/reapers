@@ -11,14 +11,13 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:typed_data' as _idt;
-
+import 'package:reapers_shared/src/geo.dart' as _i3e1ekpd;
 import 'package:reapers_shared/src/rift/rift_frame.dart' as _ivi8svxc;
 import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
     as _iacs;
 import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
-
 import '../auth/anonymous_idp_endpoint.dart' as _in0zita6;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
 import '../player/player_endpoint.dart' as _ikcol2tc;
@@ -119,6 +118,35 @@ class Endpoints extends _is.EndpointDispatch {
               ) async => (endpoints['player'] as _ikcol2tc.PlayerEndpoint).load(
                 session,
               ),
+        ),
+        'updateLocation': _is.MethodConnector(
+          name: 'updateLocation',
+          params: {
+            'fix': _is.ParameterDescription(
+              name: 'fix',
+              type: _is.getType<_i3e1ekpd.GeoFix?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['player'] as _ikcol2tc.PlayerEndpoint)
+                  .updateLocation(
+                    session,
+                    params['fix'],
+                  ),
+        ),
+        'location': _is.MethodConnector(
+          name: 'location',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['player'] as _ikcol2tc.PlayerEndpoint)
+                  .location(session),
         ),
         'takeOath': _is.MethodConnector(
           name: 'takeOath',

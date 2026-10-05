@@ -49,6 +49,7 @@ reapers_server/web/app/
 .vscode/mcp.json
 .mcp.json
 .scloud/
+.impeccable/review/
 
 # Symbolication and obfuscation
 app.*.symbols

@@ -1,6 +1,8 @@
 package com.reapers.app
 
 import android.content.Context
+import android.os.Build
+import android.os.Bundle
 import android.hardware.camera2.CameraAccessException
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
@@ -9,6 +11,15 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // The first Flutter frame matches this still; a system fade
+            // would ghost the icon over the animated sweep.
+            splashScreen.setOnExitAnimationListener { it.remove() }
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 

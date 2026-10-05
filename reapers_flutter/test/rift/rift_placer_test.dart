@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:reapers_flutter/rift/place/rift_placer.dart';
-import 'package:reapers_flutter/rift/place/whereabouts.dart';
 import 'package:reapers_shared/reapers_shared.dart';
 
 const _garden = GeoPoint(52.2, 0.12);
 
-GeoFix _fix(GeoPoint at) => (at: at, accuracy: 4.0);
+GeoFix _fix(GeoPoint at) =>
+    GeoFix(at: at, accuracy: 4, observedAt: DateTime.now().toUtc());
 
 /// A phone in a rift: its placer, where it is, which way its owner first
 /// faced (which is what its own view calls straight ahead), and which way it
@@ -66,6 +66,24 @@ int _join(RiftRoom room, String name) =>
     room.join(RiftEntrant(name: name, loadout: HuntLoadout.borrowed));
 
 void main() {
+  test('a stale or coarse fix cannot place the shared husk', () {
+    final now = DateTime.utc(2026, 10, 5);
+    final room = _room();
+    final seat = _join(room, 'One');
+    final placer = RiftPlacer(now: () => now);
+    final precise = GeoFix(at: _garden, accuracy: 4, observedAt: now);
+    for (final fix in [
+      precise.copyWith(accuracy: 80),
+      precise.copyWith(observedAt: now.subtract(const Duration(seconds: 31))),
+    ]) {
+      placer.fix = fix;
+      expect(placer.observe(room.frameFor(seat), facing: 0, north: 0), isNull);
+      expect(placer.sighting, isNull);
+    }
+    placer.fix = precise;
+    expect(placer.observe(room.frameFor(seat), facing: 0, north: 0), isNotNull);
+  });
+
   test('the first phone to find itself plants the rift ahead of it', () {
     final room = _room();
     final seat = _join(room, 'One');

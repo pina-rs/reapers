@@ -18,19 +18,7 @@ abstract final class PlayerBooks {
     Session session,
     FutureOr<PlayerState> Function(PlayerState state) rule,
   ) => session.db.transaction((transaction) async {
-    final authUserId = session.authenticated!.authUserId;
-    final record =
-        await PlayerRecord.db.findFirstRow(
-          session,
-          where: (table) => table.authUserId.equals(authUserId),
-          lockMode: LockMode.forUpdate,
-          transaction: transaction,
-        ) ??
-        await PlayerRecord.db.insertRow(
-          session,
-          PlayerRecord(authUserId: authUserId, state: PlayerState.initial()),
-          transaction: transaction,
-        );
+    final record = await _record(session, transaction);
     final PlayerState next;
 
     try {
@@ -51,4 +39,58 @@ abstract final class PlayerBooks {
 
     return next;
   });
+
+  /// Updates the same locked row as game mutations, so a location update
+  /// cannot overwrite a purchase or a hunt settlement.
+  static Future<void> locate(Session session, GeoFix? fix) async {
+    if (fix != null && !fix.isUsableAt(DateTime.now().toUtc())) {
+      throw Refused(refusal: Refusal.locationUnusable.name);
+    }
+
+    await session.db.transaction((transaction) async {
+      final record = await _record(session, transaction);
+      final before = record.location;
+
+      // Delayed requests must not move a player back to an older reading.
+      if (fix != null &&
+          before != null &&
+          !fix.observedAt.isAfter(before.observedAt)) {
+        return;
+      }
+
+      await PlayerRecord.db.updateRow(
+        session,
+        record.copyWith(location: fix),
+        transaction: transaction,
+      );
+    });
+  }
+
+  static Future<GeoFix?> location(Session session) async {
+    final record = await PlayerRecord.db.findFirstRow(
+      session,
+      where: (table) =>
+          table.authUserId.equals(session.authenticated!.authUserId),
+    );
+    final fix = record?.location;
+    return fix != null && fix.isUsableAt(DateTime.now().toUtc()) ? fix : null;
+  }
+
+  static Future<PlayerRecord> _record(
+    Session session,
+    Transaction transaction,
+  ) async {
+    final authUserId = session.authenticated!.authUserId;
+    return await PlayerRecord.db.findFirstRow(
+          session,
+          where: (table) => table.authUserId.equals(authUserId),
+          lockMode: LockMode.forUpdate,
+          transaction: transaction,
+        ) ??
+        await PlayerRecord.db.insertRow(
+          session,
+          PlayerRecord(authUserId: authUserId, state: PlayerState.initial()),
+          transaction: transaction,
+        );
+  }
 }

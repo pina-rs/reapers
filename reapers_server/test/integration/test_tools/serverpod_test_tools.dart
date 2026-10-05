@@ -14,7 +14,7 @@
 import 'dart:async' as _ida;
 import 'dart:io' as _idi;
 import 'dart:typed_data' as _idt;
-
+import 'package:reapers_shared/src/geo.dart' as _i3e1ekpd;
 import 'package:reapers_shared/src/player_state.dart' as _ildkp1az;
 import 'package:reapers_shared/src/rift/rift_frame.dart' as _ivi8svxc;
 import 'package:serverpod/serverpod.dart' as _is;
@@ -217,10 +217,12 @@ class _AnonymousIdpEndpoint {
           parameters: _ist.testObjectToJson({'token': token}),
           serializationManager: _serializationManager,
         );
-        var _localReturnValue = await (_localCallContext.method.call(
-          _localUniqueSession,
-          _localCallContext.arguments,
-        ) as _ida.Future<_iacs.AuthSuccess>);
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_iacs.AuthSuccess>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();
@@ -257,10 +259,12 @@ class _JwtRefreshEndpoint {
           parameters: _ist.testObjectToJson({'refreshToken': refreshToken}),
           serializationManager: _serializationManager,
         );
-        var _localReturnValue = await (_localCallContext.method.call(
-          _localUniqueSession,
-          _localCallContext.arguments,
-        ) as _ida.Future<_iacs.AuthSuccess>);
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_iacs.AuthSuccess>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();
@@ -296,10 +300,73 @@ class _PlayerEndpoint {
           parameters: _ist.testObjectToJson({}),
           serializationManager: _serializationManager,
         );
-        var _localReturnValue = await (_localCallContext.method.call(
-          _localUniqueSession,
-          _localCallContext.arguments,
-        ) as _ida.Future<_ildkp1az.PlayerState>);
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ildkp1az.PlayerState>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<void> updateLocation(
+    _ist.TestSessionBuilder sessionBuilder,
+    _i3e1ekpd.GeoFix? fix,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'player',
+            method: 'updateLocation',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'player',
+          methodName: 'updateLocation',
+          parameters: _ist.testObjectToJson({'fix': fix}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<void>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_i3e1ekpd.GeoFix?> location(
+    _ist.TestSessionBuilder sessionBuilder,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'player',
+            method: 'location',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'player',
+          methodName: 'location',
+          parameters: _ist.testObjectToJson({}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_i3e1ekpd.GeoFix?>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();
@@ -324,10 +391,12 @@ class _PlayerEndpoint {
           parameters: _ist.testObjectToJson({}),
           serializationManager: _serializationManager,
         );
-        var _localReturnValue = await (_localCallContext.method.call(
-          _localUniqueSession,
-          _localCallContext.arguments,
-        ) as _ida.Future<_ildkp1az.PlayerState>);
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ildkp1az.PlayerState>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();
@@ -353,10 +422,12 @@ class _PlayerEndpoint {
           parameters: _ist.testObjectToJson({'nftId': nftId}),
           serializationManager: _serializationManager,
         );
-        var _localReturnValue = await (_localCallContext.method.call(
-          _localUniqueSession,
-          _localCallContext.arguments,
-        ) as _ida.Future<_ildkp1az.PlayerState>);
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ildkp1az.PlayerState>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();
@@ -382,10 +453,12 @@ class _PlayerEndpoint {
           parameters: _ist.testObjectToJson({'nftId': nftId}),
           serializationManager: _serializationManager,
         );
-        var _localReturnValue = await (_localCallContext.method.call(
-          _localUniqueSession,
-          _localCallContext.arguments,
-        ) as _ida.Future<_ildkp1az.PlayerState>);
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ildkp1az.PlayerState>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();
@@ -415,10 +488,12 @@ class _PlayerEndpoint {
           }),
           serializationManager: _serializationManager,
         );
-        var _localReturnValue = await (_localCallContext.method.call(
-          _localUniqueSession,
-          _localCallContext.arguments,
-        ) as _ida.Future<_ildkp1az.HuntSettlement>);
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ildkp1az.HuntSettlement>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();
@@ -441,10 +516,12 @@ class _PlayerEndpoint {
           parameters: _ist.testObjectToJson({}),
           serializationManager: _serializationManager,
         );
-        var _localReturnValue = await (_localCallContext.method.call(
-          _localUniqueSession,
-          _localCallContext.arguments,
-        ) as _ida.Future<String>);
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<String>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();
@@ -470,10 +547,12 @@ class _PlayerEndpoint {
           parameters: _ist.testObjectToJson({'weaponId': weaponId}),
           serializationManager: _serializationManager,
         );
-        var _localReturnValue = await (_localCallContext.method.call(
-          _localUniqueSession,
-          _localCallContext.arguments,
-        ) as _ida.Future<_ildkp1az.PlayerState>);
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ildkp1az.PlayerState>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();
@@ -499,10 +578,12 @@ class _PlayerEndpoint {
           parameters: _ist.testObjectToJson({'weaponId': weaponId}),
           serializationManager: _serializationManager,
         );
-        var _localReturnValue = await (_localCallContext.method.call(
-          _localUniqueSession,
-          _localCallContext.arguments,
-        ) as _ida.Future<_ildkp1az.PlayerState>);
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ildkp1az.PlayerState>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();
@@ -528,10 +609,12 @@ class _PlayerEndpoint {
           parameters: _ist.testObjectToJson({'outfit': outfit}),
           serializationManager: _serializationManager,
         );
-        var _localReturnValue = await (_localCallContext.method.call(
-          _localUniqueSession,
-          _localCallContext.arguments,
-        ) as _ida.Future<_ildkp1az.PlayerState>);
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ildkp1az.PlayerState>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();
@@ -557,10 +640,12 @@ class _PlayerEndpoint {
           parameters: _ist.testObjectToJson({'outfit': outfit}),
           serializationManager: _serializationManager,
         );
-        var _localReturnValue = await (_localCallContext.method.call(
-          _localUniqueSession,
-          _localCallContext.arguments,
-        ) as _ida.Future<_ildkp1az.PlayerState>);
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ildkp1az.PlayerState>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();

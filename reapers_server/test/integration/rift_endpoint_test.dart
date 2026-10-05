@@ -184,6 +184,39 @@ void main() {
       );
     });
 
+    test('a stale standing ends the stream with a location refusal', () async {
+      await attune(player, playerId);
+      final reports = StreamController<RiftReport>()
+        ..add(
+          RiftReport(
+            ready: true,
+            standing: GeoStanding(
+              at: const GeoPoint(51.5, -.08),
+              facing: 1,
+              accuracy: 4,
+              observedAt: DateTime.now().toUtc().subtract(
+                const Duration(minutes: 1),
+              ),
+            ),
+          ),
+        );
+      try {
+        await expectLater(
+          endpoints.rift.enter(player, site, reports.stream).drain<void>(),
+          throwsA(
+            isA<Refused>().having(
+              (refused) => refused.refusal,
+              'refusal',
+              Refusal.locationUnusable.name,
+            ),
+          ),
+        );
+        expect((await endpoints.player.load(player)).riftsSealed, 0);
+      } finally {
+        await reports.close();
+      }
+    });
+
     test(
       'when one reaper comes then shades fill the circle and sealing pays',
       () async {
@@ -314,11 +347,21 @@ void main() {
           final beside = garden.moved(bearing: 2, metres: 4);
           final first = _Reaper(
             (await attune(player, playerId)).loadout,
-            standing: const GeoStanding(at: garden, facing: 1.2, accuracy: 4),
+            standing: GeoStanding(
+              at: garden,
+              facing: 1.2,
+              accuracy: 4,
+              observedAt: DateTime.now().toUtc(),
+            ),
           );
           final second = _Reaper(
             (await attune(other, otherId)).loadout,
-            standing: GeoStanding(at: beside, facing: -2, accuracy: 6),
+            standing: GeoStanding(
+              at: beside,
+              facing: -2,
+              accuracy: 6,
+              observedAt: DateTime.now().toUtc(),
+            ),
           );
 
           await Future.wait([

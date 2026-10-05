@@ -14,6 +14,9 @@ import 'rift_session.dart';
 /// clock, which is fine for one player's own game and is exactly what the
 /// server exists to take away.
 final class LocalBackend implements GameBackend {
+  @override
+  Future<void> locate(GeoFix? fix) async {}
+
   LocalBackend(
     this._preferences, {
     DateTime Function()? clock,

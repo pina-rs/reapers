@@ -24,6 +24,7 @@ abstract class PlayerRecord
     this.id,
     required this.authUserId,
     required this.state,
+    this.location,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) : createdAt = createdAt ?? DateTime.now(),
@@ -33,6 +34,7 @@ abstract class PlayerRecord
     int? id,
     required _is.UuidValue authUserId,
     required _izkb583i.PlayerState state,
+    _izkb583i.GeoFix? location,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) = _PlayerRecordImpl;
@@ -44,6 +46,9 @@ abstract class PlayerRecord
         jsonSerialization['authUserId'],
       ),
       state: _izkb583i.PlayerState.fromJson(jsonSerialization['state']),
+      location: jsonSerialization['location'] == null
+          ? null
+          : _izkb583i.GeoFix.fromJson(jsonSerialization['location']),
       createdAt: jsonSerialization['createdAt'] == null
           ? null
           : _is.DateTimeJsonExtension.fromJson(jsonSerialization['createdAt']),
@@ -66,6 +71,9 @@ abstract class PlayerRecord
   /// The player as they stand now.
   _izkb583i.PlayerState state;
 
+  /// The latest foreground fix only; never a history. Null when tracking stops.
+  _izkb583i.GeoFix? location;
+
   /// When the books were opened.
   DateTime createdAt;
 
@@ -82,6 +90,7 @@ abstract class PlayerRecord
     int? id,
     _is.UuidValue? authUserId,
     _izkb583i.PlayerState? state,
+    _izkb583i.GeoFix? location,
     DateTime? createdAt,
     DateTime? updatedAt,
   });
@@ -92,6 +101,7 @@ abstract class PlayerRecord
       if (id != null) 'id': id,
       'authUserId': authUserId.toJson(),
       'state': state.toJson(),
+      if (location != null) 'location': location?.toJson(),
       'createdAt': createdAt.toJson(),
       'updatedAt': updatedAt.toJson(),
     };
@@ -110,6 +120,14 @@ abstract class PlayerRecord
           :
             // ignore: dead_code
             state.toJson(),
+      if (location != null)
+        'location':
+            // ignore: unnecessary_type_check
+            location is _is.ProtocolSerialization
+            ? (location as _is.ProtocolSerialization).toJsonForProtocol()
+            :
+              // ignore: dead_code
+              location?.toJson(),
       'createdAt': createdAt.toJson(),
       'updatedAt': updatedAt.toJson(),
     };
@@ -150,12 +168,14 @@ class _PlayerRecordImpl extends PlayerRecord {
     int? id,
     required _is.UuidValue authUserId,
     required _izkb583i.PlayerState state,
+    _izkb583i.GeoFix? location,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) : super._(
          id: id,
          authUserId: authUserId,
          state: state,
+         location: location,
          createdAt: createdAt,
          updatedAt: updatedAt,
        );
@@ -168,6 +188,7 @@ class _PlayerRecordImpl extends PlayerRecord {
     Object? id = _Undefined,
     _is.UuidValue? authUserId,
     _izkb583i.PlayerState? state,
+    Object? location = _Undefined,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -175,6 +196,9 @@ class _PlayerRecordImpl extends PlayerRecord {
       id: id is int? ? id : this.id,
       authUserId: authUserId ?? this.authUserId,
       state: state ?? this.state.copyWith(),
+      location: location is _izkb583i.GeoFix?
+          ? location
+          : this.location?.copyWith(),
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -195,6 +219,13 @@ class PlayerRecordUpdateTable extends _is.UpdateTable<PlayerRecordTable> {
     _izkb583i.PlayerState value,
   ) => _is.ColumnValue(
     table.state,
+    value,
+  );
+
+  _is.ColumnValue<_izkb583i.GeoFix, _izkb583i.GeoFix> location(
+    _izkb583i.GeoFix? value,
+  ) => _is.ColumnValue(
+    table.location,
     value,
   );
 
@@ -222,6 +253,10 @@ class PlayerRecordTable extends _is.Table<int?> {
       'state',
       this,
     );
+    location = _is.ColumnSerializable<_izkb583i.GeoFix>(
+      'location',
+      this,
+    );
     createdAt = _is.ColumnDateTime(
       'createdAt',
       this,
@@ -242,6 +277,9 @@ class PlayerRecordTable extends _is.Table<int?> {
   /// The player as they stand now.
   late final _is.ColumnSerializable<_izkb583i.PlayerState> state;
 
+  /// The latest foreground fix only; never a history. Null when tracking stops.
+  late final _is.ColumnSerializable<_izkb583i.GeoFix> location;
+
   /// When the books were opened.
   late final _is.ColumnDateTime createdAt;
 
@@ -253,6 +291,7 @@ class PlayerRecordTable extends _is.Table<int?> {
     id,
     authUserId,
     state,
+    location,
     createdAt,
     updatedAt,
   ];

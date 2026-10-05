@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:reapers_shared/reapers_shared.dart';
@@ -7,16 +8,21 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'whereabouts.g.dart';
 
-/// Where the phone is, and how far out that may be, in metres.
-typedef GeoFix = ({GeoPoint at, double accuracy});
+enum LocationIssue { denied, blocked, services, unsupported, unavailable }
+
+/// A permission or device condition the player can recover from.
+final class LocationFailure implements Exception {
+  const LocationFailure(this.issue);
+  final LocationIssue issue;
+}
 
 /// Whatever can say where the phone is.
 abstract interface class Whereabouts {
   /// Where the phone is, each time it has a better or newer idea, for as
   /// long as anyone listens.
   ///
-  /// A phone that cannot say, or whose owner would rather it did not, says
-  /// nothing: the stream simply stays empty. A rift is played either way.
+  /// Permission and service failures use [LocationFailure]. A rift remains
+  /// playable without location, with its husk standing dead ahead.
   Stream<GeoFix> watch();
 }
 
@@ -43,32 +49,40 @@ final class DeviceWhereabouts implements Whereabouts {
   @override
   Stream<GeoFix> watch() async* {
     try {
-      if (!await _allowed()) {
-        return;
-      }
+      await _allowed();
 
       yield* Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.best,
-        ),
+        locationSettings: switch (defaultTargetPlatform) {
+          TargetPlatform.android => AndroidSettings(
+            accuracy: LocationAccuracy.best,
+            intervalDuration: RiftRules.locationReportInterval,
+          ),
+          TargetPlatform.iOS || TargetPlatform.macOS => AppleSettings(
+            accuracy: LocationAccuracy.best,
+            allowBackgroundLocationUpdates: false,
+            pauseLocationUpdatesAutomatically: true,
+          ),
+          _ => const LocationSettings(accuracy: LocationAccuracy.best),
+        },
       ).map(
-        (position) => (
+        (position) => GeoFix(
           at: GeoPoint(position.latitude, position.longitude),
           accuracy: position.accuracy,
+          observedAt: position.timestamp.toUtc(),
         ),
       );
     } on MissingPluginException {
-      // A platform with no way of telling where it is.
-      return;
+      throw const LocationFailure(LocationIssue.unsupported);
     } on LocationServiceDisabledException {
-      // Location was switched off part-way through. Nothing more is known.
-      return;
+      throw const LocationFailure(LocationIssue.services);
+    } on PermissionDeniedException {
+      throw const LocationFailure(LocationIssue.denied);
     }
   }
 
-  static Future<bool> _allowed() async {
+  static Future<void> _allowed() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
-      return false;
+      throw const LocationFailure(LocationIssue.services);
     }
 
     var permission = await Geolocator.checkPermission();
@@ -77,7 +91,12 @@ final class DeviceWhereabouts implements Whereabouts {
       permission = await Geolocator.requestPermission();
     }
 
-    return permission == LocationPermission.always ||
-        permission == LocationPermission.whileInUse;
+    if (permission == LocationPermission.deniedForever) {
+      throw const LocationFailure(LocationIssue.blocked);
+    }
+    if (permission != LocationPermission.always &&
+        permission != LocationPermission.whileInUse) {
+      throw const LocationFailure(LocationIssue.denied);
+    }
   }
 }

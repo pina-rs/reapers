@@ -18,7 +18,6 @@ import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
     as _iacs;
 import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
-
 import 'player/player_record.dart' as _iyg31bwx;
 import 'player/refused.dart' as _i5uoxhqi;
 export 'player/player_record.dart';
@@ -56,6 +55,12 @@ class Protocol extends _is.DatabaseSerializationManager {
           columnType: _isp.ColumnType.json,
           isNullable: false,
           dartType: 'package:reapers_shared/reapers_shared.dart:PlayerState',
+        ),
+        _isp.ColumnDefinition(
+          name: 'location',
+          columnType: _isp.ColumnType.json,
+          isNullable: true,
+          dartType: 'package:reapers_shared/reapers_shared.dart:GeoFix?',
         ),
         _isp.ColumnDefinition(
           name: 'createdAt',
@@ -137,6 +142,12 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _izkb583i.PlayerState) {
       return _izkb583i.PlayerState.fromJson(data) as T;
     }
+    if (t == _is.getType<_izkb583i.GeoFix?>()) {
+      return (data != null ? _izkb583i.GeoFix.fromJson(data) : null) as T;
+    }
+    if (t == _izkb583i.GeoFix) {
+      return _izkb583i.GeoFix.fromJson(data) as T;
+    }
     if (t == _izkb583i.HuntSettlement) {
       return _izkb583i.HuntSettlement.fromJson(data) as T;
     }
@@ -145,6 +156,9 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (t == _izkb583i.RiftReport) {
       return _izkb583i.RiftReport.fromJson(data) as T;
+    }
+    if (t == _is.getType<_izkb583i.GeoFix?>()) {
+      return (data != null ? _izkb583i.GeoFix.fromJson(data) : null) as T;
     }
     if (t == _is.getType<_izkb583i.PlayerState?>()) {
       return (data != null ? _izkb583i.PlayerState.fromJson(data) : null) as T;
@@ -173,6 +187,7 @@ class Protocol extends _is.DatabaseSerializationManager {
 
   static String? getClassNameForType(Type type) {
     return switch (type) {
+      _izkb583i.GeoFix => 'GeoFix',
       _izkb583i.PlayerState => 'PlayerState',
       _izkb583i.HuntSettlement => 'HuntSettlement',
       _izkb583i.RiftFrame => 'RiftFrame',
@@ -193,6 +208,8 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
 
     switch (data) {
+      case _izkb583i.GeoFix():
+        return 'GeoFix';
       case _izkb583i.PlayerState():
         return 'PlayerState';
       case _izkb583i.HuntSettlement():
@@ -230,6 +247,9 @@ class Protocol extends _is.DatabaseSerializationManager {
     var dataClassName = data['className'];
     if (dataClassName is! String) {
       return super.deserializeByClassName(data);
+    }
+    if (dataClassName == 'GeoFix') {
+      return deserialize<_izkb583i.GeoFix>(data['data']);
     }
     if (dataClassName == 'PlayerState') {
       return deserialize<_izkb583i.PlayerState>(data['data']);

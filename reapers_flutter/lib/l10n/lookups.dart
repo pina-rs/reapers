@@ -115,6 +115,7 @@ String refusalMessage(AppLocalizations l10n, Refusal refusal) =>
       Refusal.notSurfaced => l10n.refusalNotSurfaced,
       Refusal.huntUnproven => l10n.refusalHuntUnproven,
       Refusal.notAttuned => l10n.refusalNotAttuned,
+      Refusal.locationUnusable => l10n.locationInaccurate,
     };
 
 /// A balance in lamports as SOL, to two or three places.

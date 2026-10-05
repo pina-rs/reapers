@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import 'brand/splash_gate.dart';
 import 'dev/depth_probe.dart';
 import 'dev/reaper_gallery.dart';
 import 'l10n/l10n.dart';
@@ -11,6 +12,7 @@ import 'screens/sanctum_screen.dart';
 import 'sound/score.dart';
 import 'sound/soundtrack.dart';
 import 'screens/threshold_screen.dart';
+import 'src/backend/game_backend.dart';
 import 'src/state/player.dart';
 import 'theme/veil.dart';
 import 'widgets/ledger.dart';
@@ -18,7 +20,9 @@ import 'widgets/ledger.dart';
 /// The game. Which screen is home depends on one thing: whether the player
 /// has been bound to a reaper yet.
 class ReapersApp extends HookConsumerWidget {
-  const ReapersApp({super.key});
+  const ReapersApp({super.key, this.onFirstFrameReady});
+
+  final VoidCallback? onFirstFrameReady;
 
   /// Whether this build opens at the developer's reaper bench. Only a debug
   /// build honours it.
@@ -53,6 +57,11 @@ class ReapersApp extends HookConsumerWidget {
       debugShowCheckedModeBanner: false,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) => SplashGate(
+        ready: player.hasValue || player.hasError,
+        onFirstFrameReady: onFirstFrameReady,
+        child: child ?? const SizedBox.shrink(),
+      ),
       // The whole interface is lit with the reaper's own light.
       theme: Veil.theme(
         bound ? reaperLight(player.requireValue.genome) : Veil.unbound,
@@ -65,10 +74,10 @@ class ReapersApp extends HookConsumerWidget {
         ),
         AsyncData() => const ThresholdScreen(),
         AsyncError(:final error) => _Unreadable(
-          reason: '$error',
+          failure: error,
           onRetry: () => ref.invalidate(playerProvider),
         ),
-        AsyncLoading() => const Scaffold(body: SizedBox.expand()),
+        AsyncLoading() => const _OpeningBooks(),
       },
     );
   }
@@ -77,18 +86,40 @@ class ReapersApp extends HookConsumerWidget {
 /// Shown when the player could not be read at all: a damaged save, or a
 /// keeper that cannot be reached.
 class _Unreadable extends HookConsumerWidget {
-  const _Unreadable({required this.reason, required this.onRetry});
+  const _Unreadable({required this.failure, required this.onRetry});
 
-  final String reason;
+  final Object failure;
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => Scaffold(
     body: LedgerNotice(
       title: context.l10n.commonFailedTitle,
-      body: context.l10n.commonFailedBody(reason),
+      body: failure is BackendUnavailable
+          ? context.l10n.commonUnreachable
+          : context.l10n.startupUnreadable,
       action: context.l10n.commonRetry,
       onAction: onRetry,
+    ),
+  );
+}
+
+class _OpeningBooks extends HookWidget {
+  const _OpeningBooks();
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Semantics(
+          liveRegion: true,
+          child: Text(
+            context.l10n.startupOpeningBooks,
+            style: Veil.body(color: Veil.ash),
+          ),
+        ),
+      ),
     ),
   );
 }

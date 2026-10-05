@@ -59,6 +59,11 @@ class RiftsScreen extends HookConsumerWidget {
       title: l10n.riftsTitle,
       children: [
         Text(l10n.riftsStandIn, style: Veil.body(color: Veil.ash, size: 13)),
+        const SizedBox(height: 8),
+        Text(
+          l10n.riftsLocationNote,
+          style: Veil.body(color: Veil.ash, size: 13),
+        ),
         for (final site in RiftSite.values)
           _SiteBlock(
             site: site,

@@ -65,6 +65,14 @@ abstract final class RiftRules {
   /// place.
   static const plantMetres = 25.0;
 
+  /// Coarse, old or future-dated fixes cannot place a shared rift.
+  static const locationAccuracyMetres = 25.0;
+  static const locationMaxAge = Duration(seconds: 30);
+  static const locationClockSkew = Duration(seconds: 5);
+
+  /// The latest foreground reading is shared at most this often.
+  static const locationReportInterval = Duration(seconds: 5);
+
   /// A reaper farther than this from where the rift stands is not there in
   /// any useful sense, and sees it dead ahead, as through the veil.
   static const sightMetres = 150.0;

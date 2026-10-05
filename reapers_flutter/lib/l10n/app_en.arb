@@ -2,6 +2,19 @@
   "@@locale": "en",
 
   "appTitle": "Reapers",
+  "startupOpeningBooks": "Opening your books…",
+  "startupUnreadable": "Your books could not be opened. Try again to recover your place in the veil.",
+  "riftsLocationNote": "Location helps your circle face the same husk, only while a rift is open and on screen. Online play shares your latest reading, never a trail. It is optional.",
+  "locationDenied": "Location permission was declined. The husk will stand ahead of you. Allow location to share its place with your circle.",
+  "locationBlocked": "Location permission is off for Reapers. You can allow it in Settings, or play with the husk ahead of you.",
+  "locationServices": "Location services are off. Turn them on to find where your circle stands.",
+  "locationUnsupported": "This device cannot read its location. The husk will stand ahead of you.",
+  "locationUnavailable": "Your location could not be read. You can try again or keep playing.",
+  "locationInaccurate": "Waiting for a more precise location. An open view of the sky helps; the husk will stand ahead of you meanwhile.",
+  "locationStale": "Your location reading is too old. Waiting for a fresh reading before placing the rift.",
+  "locationSharingFailed": "Your location could not reach the keeper. The next fresh reading will try again.",
+  "locationSettings": "Open Settings",
+  "locationSettingsFailed": "Settings could not be opened. Open your device Settings to allow location for Reapers.",
 
   "commonBack": "Back",
   "commonLoading": "Parting the veil…",
@@ -20,9 +33,8 @@
     "placeholders": { "reason": { "type": "String" } }
   },
   "commonRetry": "Try again",
-  "commonUnreachable": "The keeper of the books could not be reached. Nothing was changed.",
+  "commonUnreachable": "The keeper of the books could not be reached. Try again to recover your place in the veil.",
 
-  "thresholdOverline": "Beyond the veil",
   "thresholdTagline": "The dead market did not stay dead. What it left behind still drifts between worlds, and someone has to bring it in.",
   "thresholdOath": "Take the oath",
   "thresholdOathDetail": "Be bound to a reaper",

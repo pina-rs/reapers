@@ -25,6 +25,10 @@ final class ServerBackend implements GameBackend {
   Future<PlayerState> load() => _ask(_client.player.load);
 
   @override
+  Future<void> locate(GeoFix? fix) =>
+      _ask(() => _client.player.updateLocation(fix));
+
+  @override
   Future<PlayerState> takeOath() => _ask(_client.player.takeOath);
 
   @override
@@ -92,10 +96,16 @@ final class ServerBackend implements GameBackend {
       return await request();
     } on Refused catch (refused) {
       throw RuleBreach(_refusal(refused.refusal));
+    } on BackendUnavailable {
+      _signedIn = null;
+      rethrow;
     } on ServerpodClientException catch (error) {
       // A failed sign-in must be tried again on the next request.
       _signedIn = null;
 
+      throw BackendUnavailable('$error');
+    } on TimeoutException catch (error) {
+      _signedIn = null;
       throw BackendUnavailable('$error');
     }
   }
@@ -105,7 +115,11 @@ final class ServerBackend implements GameBackend {
   /// A guest account is what a wallet will later be linked to; until then a
   /// player is whoever holds this install's session.
   Future<void> _signIn() async {
-    await _client.auth.initialize();
+    if (!await _client.auth.initialize(timeout: _client.connectionTimeout)) {
+      // Keep the persisted guest session on a transient outage. Creating
+      // another guest here would strand this install's existing progress.
+      throw const BackendUnavailable('Could not validate the stored session');
+    }
 
     if (_client.auth.isAuthenticated) {
       return;
@@ -146,6 +160,7 @@ final class _ServerRiftSession implements RiftSession {
 
 /// A client for the server at [url], with sign-in sessions kept on the
 /// device.
-Client reapersClient(String url) => Client(url)
-  ..connectivityMonitor = FlutterConnectivityMonitor()
-  ..authSessionManager = FlutterAuthSessionManager();
+Client reapersClient(String url) =>
+    Client(url, connectionTimeout: const Duration(seconds: 10))
+      ..connectivityMonitor = FlutterConnectivityMonitor()
+      ..authSessionManager = FlutterAuthSessionManager();

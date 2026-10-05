@@ -16,6 +16,8 @@ import '../src/backend/game_backend.dart';
 import '../src/backend/rift_session.dart';
 import 'place/rift_placer.dart';
 import 'place/whereabouts.dart';
+import 'place/location_tracker.dart';
+import 'place/location_notice.dart';
 import '../sound/score.dart';
 import '../sound/soundtrack.dart';
 import '../src/state/player.dart';
@@ -66,6 +68,25 @@ class RiftScreen extends HookConsumerWidget {
     // Where the rift stands for this reaper, and where the husk was last
     // put because of it.
     final placer = useMemoized(RiftPlacer.new, const []);
+    final tracker = useMemoized(
+      () => LocationTracker(
+        source: ref.read(whereaboutsProvider),
+        share: ref.read(gameBackendProvider).locate,
+      ),
+      const [],
+    );
+    useListenable(tracker);
+    placer.fix = tracker.fix;
+    final lifecycle = useAppLifecycleState();
+    useEffect(() {
+      if (lifecycle == null || lifecycle == AppLifecycleState.resumed) {
+        tracker.start();
+      } else {
+        tracker.stop();
+      }
+      return null;
+    }, [lifecycle, tracker]);
+    useEffect(() => tracker.dispose, [tracker]);
     final placed = useRef<RiftSighting?>(null);
     final everPlaced = useRef(false);
 
@@ -182,18 +203,18 @@ class RiftScreen extends HookConsumerWidget {
             failure.value = error;
           }
         },
+        onDone: () {
+          if (!closed && frame.value?.phase.isOver != true) {
+            failure.value = const BackendUnavailable('Rift stream ended early');
+          }
+        },
       );
-      final locating = ref
-          .read(whereaboutsProvider)
-          .watch()
-          .listen((found) => placer.fix = found);
 
       unawaited(load());
 
       return () {
         closed = true;
         unawaited(listening.cancel());
-        unawaited(locating.cancel());
         session.leave();
         arena.dispose();
       };
@@ -299,6 +320,7 @@ class RiftScreen extends HookConsumerWidget {
             _Gathering(
               site: site,
               frame: current,
+              location: LocationNotice(tracker: tracker),
               placing: _placing(
                 l10n,
                 anchor: current?.anchor,
@@ -475,6 +497,7 @@ class _Gathering extends HookWidget {
     required this.site,
     required this.frame,
     required this.placing,
+    required this.location,
     required this.onReady,
   });
 
@@ -482,6 +505,7 @@ class _Gathering extends HookWidget {
 
   /// Where the rift stands for this reaper, in words.
   final String placing;
+  final Widget location;
 
   /// Null until the rift has answered.
   final RiftFrame? frame;
@@ -514,67 +538,77 @@ class _Gathering extends HookWidget {
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(28, 16, 28, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              LedgerBack(
-                onPressed: () => Navigator.of(context).pop(),
-                label: l10n.riftLeave,
-              ),
-              const Spacer(),
-              Text(l10n.riftLabel.toUpperCase(), style: Veil.label()),
-              const SizedBox(height: 8),
-              Text(site.title, style: Veil.display(44)),
-              const SizedBox(height: 10),
-              Text(
-                l10n.huntSafety,
-                style: Veil.body(color: Veil.ash, size: 14),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                placing,
-                key: const Key('rift-placing'),
-                style: Veil.body(size: 14),
-              ),
-              LedgerHeading(
-                l10n.riftCircle,
-                trailing: '${members.length}/${RiftRules.circle}',
-              ),
-              for (var place = 0; place < RiftRules.circle; place++)
-                if (place < members.length)
-                  _SeatRow(
-                    name: place == frame!.seat
-                        ? l10n.riftSeatYou
-                        : members[place].name,
-                    detail: members[place].shade
-                        ? l10n.riftSeatShade
-                        : '${className(l10n, members[place].reaperClass)} '
-                              '${romanNumeral(members[place].level)}',
-                    status: members[place].ready
-                        ? l10n.riftSeatReady
-                        : l10n.riftSeatWaiting,
-                    lit: members[place].ready,
-                    light: light,
-                  )
-                else
-                  _SeatRow(
-                    name: l10n.riftSeatEmpty,
-                    detail: l10n.riftSeatEmptyDetail,
-                    status: '',
-                    lit: false,
-                    light: light,
-                    empty: true,
-                  ),
-              const SizedBox(height: 18),
-              LedgerButton(
-                key: const Key('rift-ready'),
-                label: switch (frame) {
-                  null => l10n.riftEntering,
-                  RiftFrame(countingDown: true) => l10n.riftBegins(seconds),
-                  _ when ready => l10n.riftWaiting,
-                  _ => l10n.riftStandReady,
-                },
-                onPressed: frame == null || ready ? null : onReady,
+          child: CustomScrollView(
+            slivers: [
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    LedgerBack(
+                      onPressed: () => Navigator.of(context).pop(),
+                      label: l10n.riftLeave,
+                    ),
+                    const Spacer(),
+                    Text(l10n.riftLabel.toUpperCase(), style: Veil.label()),
+                    const SizedBox(height: 8),
+                    Text(site.title, style: Veil.display(44)),
+                    const SizedBox(height: 10),
+                    Text(
+                      l10n.huntSafety,
+                      style: Veil.body(color: Veil.ash, size: 14),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      placing,
+                      key: const Key('rift-placing'),
+                      style: Veil.body(size: 14),
+                    ),
+                    location,
+                    LedgerHeading(
+                      l10n.riftCircle,
+                      trailing: '${members.length}/${RiftRules.circle}',
+                    ),
+                    for (var place = 0; place < RiftRules.circle; place++)
+                      if (place < members.length)
+                        _SeatRow(
+                          name: place == frame!.seat
+                              ? l10n.riftSeatYou
+                              : members[place].name,
+                          detail: members[place].shade
+                              ? l10n.riftSeatShade
+                              : '${className(l10n, members[place].reaperClass)} '
+                                    '${romanNumeral(members[place].level)}',
+                          status: members[place].ready
+                              ? l10n.riftSeatReady
+                              : l10n.riftSeatWaiting,
+                          lit: members[place].ready,
+                          light: light,
+                        )
+                      else
+                        _SeatRow(
+                          name: l10n.riftSeatEmpty,
+                          detail: l10n.riftSeatEmptyDetail,
+                          status: '',
+                          lit: false,
+                          light: light,
+                          empty: true,
+                        ),
+                    const SizedBox(height: 18),
+                    LedgerButton(
+                      key: const Key('rift-ready'),
+                      label: switch (frame) {
+                        null => l10n.riftEntering,
+                        RiftFrame(countingDown: true) => l10n.riftBegins(
+                          seconds,
+                        ),
+                        _ when ready => l10n.riftWaiting,
+                        _ => l10n.riftStandReady,
+                      },
+                      onPressed: frame == null || ready ? null : onReady,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

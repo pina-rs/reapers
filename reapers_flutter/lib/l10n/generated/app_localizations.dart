@@ -100,6 +100,84 @@ abstract class AppLocalizations {
   /// **'Reapers'**
   String get appTitle;
 
+  /// No description provided for @startupOpeningBooks.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening your books…'**
+  String get startupOpeningBooks;
+
+  /// No description provided for @startupUnreadable.
+  ///
+  /// In en, this message translates to:
+  /// **'Your books could not be opened. Try again to recover your place in the veil.'**
+  String get startupUnreadable;
+
+  /// No description provided for @riftsLocationNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Location helps your circle face the same husk, only while a rift is open and on screen. Online play shares your latest reading, never a trail. It is optional.'**
+  String get riftsLocationNote;
+
+  /// No description provided for @locationDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Location permission was declined. The husk will stand ahead of you. Allow location to share its place with your circle.'**
+  String get locationDenied;
+
+  /// No description provided for @locationBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Location permission is off for Reapers. You can allow it in Settings, or play with the husk ahead of you.'**
+  String get locationBlocked;
+
+  /// No description provided for @locationServices.
+  ///
+  /// In en, this message translates to:
+  /// **'Location services are off. Turn them on to find where your circle stands.'**
+  String get locationServices;
+
+  /// No description provided for @locationUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'This device cannot read its location. The husk will stand ahead of you.'**
+  String get locationUnsupported;
+
+  /// No description provided for @locationUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Your location could not be read. You can try again or keep playing.'**
+  String get locationUnavailable;
+
+  /// No description provided for @locationInaccurate.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for a more precise location. An open view of the sky helps; the husk will stand ahead of you meanwhile.'**
+  String get locationInaccurate;
+
+  /// No description provided for @locationStale.
+  ///
+  /// In en, this message translates to:
+  /// **'Your location reading is too old. Waiting for a fresh reading before placing the rift.'**
+  String get locationStale;
+
+  /// No description provided for @locationSharingFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Your location could not reach the keeper. The next fresh reading will try again.'**
+  String get locationSharingFailed;
+
+  /// No description provided for @locationSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get locationSettings;
+
+  /// No description provided for @locationSettingsFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings could not be opened. Open your device Settings to allow location for Reapers.'**
+  String get locationSettingsFailed;
+
   /// No description provided for @commonBack.
   ///
   /// In en, this message translates to:
@@ -169,14 +247,8 @@ abstract class AppLocalizations {
   /// No description provided for @commonUnreachable.
   ///
   /// In en, this message translates to:
-  /// **'The keeper of the books could not be reached. Nothing was changed.'**
+  /// **'The keeper of the books could not be reached. Try again to recover your place in the veil.'**
   String get commonUnreachable;
-
-  /// No description provided for @thresholdOverline.
-  ///
-  /// In en, this message translates to:
-  /// **'Beyond the veil'**
-  String get thresholdOverline;
 
   /// No description provided for @thresholdTagline.
   ///

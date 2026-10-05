@@ -59,6 +59,9 @@ enum Refusal {
 
   /// The reaper has absorbed nothing from this rift's collection yet.
   notAttuned,
+
+  /// A location is malformed, too coarse, stale or future-dated.
+  locationUnusable,
 }
 
 /// A request the rules refused.

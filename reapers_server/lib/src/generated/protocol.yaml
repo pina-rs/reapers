@@ -4,6 +4,8 @@ jwtRefresh:
   - refreshAccessToken:
 player:
   - load:
+  - updateLocation:
+  - location:
   - takeOath:
   - acquire:
   - release:

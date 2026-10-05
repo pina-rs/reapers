@@ -12,6 +12,9 @@ abstract interface class GameBackend {
   /// The player as they stand now, created on first use.
   Future<PlayerState> load();
 
+  /// Shares the latest foreground fix, or clears it when tracking stops.
+  Future<void> locate(GeoFix? fix);
+
   /// Binds a reaper. The keeper, never the player, draws it.
   Future<PlayerState> takeOath();
 
@@ -39,7 +42,8 @@ abstract interface class GameBackend {
 }
 
 /// The keeper could not be reached, or answered with something that is not
-/// an answer. The player is unchanged; the request can be tried again.
+/// an answer. A timed-out mutation may have reached the keeper; read the
+/// books again before deciding whether to repeat it.
 final class BackendUnavailable implements Exception {
   const BackendUnavailable(this.reason);
 
