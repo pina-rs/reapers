@@ -2,20 +2,26 @@ PODS:
   - Flutter (1.0.0)
   - solana_kit_mobile_wallet_adapter (0.0.1):
     - Flutter
+  - three_js_sensors (0.2.0):
+    - Flutter
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
   - solana_kit_mobile_wallet_adapter (from `.symlinks/plugins/solana_kit_mobile_wallet_adapter/ios`)
+  - three_js_sensors (from `.symlinks/plugins/three_js_sensors/ios`)
 
 EXTERNAL SOURCES:
   Flutter:
     :path: Flutter
   solana_kit_mobile_wallet_adapter:
     :path: ".symlinks/plugins/solana_kit_mobile_wallet_adapter/ios"
+  three_js_sensors:
+    :path: ".symlinks/plugins/three_js_sensors/ios"
 
 SPEC CHECKSUMS:
   Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
   solana_kit_mobile_wallet_adapter: a463ea7f4944a52d5bfcee7b104572e2b17d383c
+  three_js_sensors: 2d72494c9196911aee0bbb7751100f5f157f60d2
 
 PODFILE CHECKSUM: 3ba3a73b1b12adcf321a227a745625fe0888cc82
 

@@ -69,7 +69,7 @@ Anything that learns more about the room (ARKit, ARCore, a server that names wha
 
 **Music.** `Soundtrack` decides which piece plays and how it is heard, and a `ScoreEngine` makes the sound. The real engine is SoLoud, handed in at startup; everywhere else, including every test, the engine is silent. `sigilMix` and `huntMix` are the whole of how a hunt sounds: pure functions from the sigil's and the hunt's state to a loudness and a veil. The recordings are other people's, built by `tool/build_music.dart` and credited in `assets/music/CREDITS.md` and on the colophon page.
 
-**Pose.** Where the phone points comes from a `PoseSource`. `DevicePoseSource` fuses the gyroscope and accelerometer; `DragPoseSource` follows a finger, for simulators and desktops; `AdaptivePoseSource` uses the device when it answers and the drag when it does not. ARKit and ARCore would be a fourth source behind the same interface.
+**Pose.** Where the phone points comes from a `PoseSource`. `DevicePoseSource` fuses the gyroscope and accelerometer; `DragPoseSource` follows a finger on simulators; `AdaptivePoseSource` uses the device when it answers and the drag when it does not. ARKit and ARCore would be a fourth source behind the same interface.
 
 **3D.** Rendering is `flutter_scene` on Flutter GPU (Impeller). Three custom materials in `assets/materials/` do most of the visual work:
 
@@ -80,6 +80,8 @@ Anything that learns more about the room (ARKit, ARCore, a server that names wha
 **Creatures.** A husk's creature is not skinned. It is built from rigid parts on named pivots, and `HuskRig` moves the pivots from what the rules say the husk is doing: legs swing as fast as it is going, wings beat, the jaw drops as it draws breath, the head turns to watch the player.
 
 Models and materials are compiled by the build hook in `hook/build.dart`, so changing one needs a full `flutter run`, not a hot restart.
+
+**Browser studio.** Supported targets are web, Android and iOS. `main_preview.dart` opens the isolated studio on each; the camera game targets Android and iOS. `ReaperStage` conditionally exports the mobile Flutter GPU portrait or a WebGL 2 portrait. The web portrait loads the same models and adapts the authored `reaper.fmat` fragment to a lit material, including its vertex masks, burn front and hollowing. Colour uniforms convert from sRGB to linear light, as the native material's `source_color` hint does. Calling changes release the previous model; cached trait changes update uniforms and morph weights. Web does not import the native GPU scene, read preferences, or open a wallet.
 
 **Autoplay.** `--dart-define=REAPERS_AUTOPLAY=true` has a simulated player fight every hunt and rift. It is how the game can be watched on a simulator, which has no gyroscope.
 

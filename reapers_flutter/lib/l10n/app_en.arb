@@ -524,6 +524,7 @@
     }
   },
   "studioModelFailed": "This specimen could not be drawn.",
+  "studioWebGLUnavailable": "Your browser needs WebGL 2 to draw this specimen. Try another browser or open the studio on Android or iOS.",
   "studioXp": "XP",
   "studioCapped": "Max",
   "studioPause": "Pause rotation",

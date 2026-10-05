@@ -130,7 +130,7 @@ Transparent `Material` and `InkWell` provide touch and Enter/Space activation wi
 
 ### Model viewers
 
-Inspect the actual game model through `ReaperStage`, retaining the specimen's light, materials and manual drag rotation. Automatic turning respects the native reduced-motion preference. The studio adds a finite demonstration and keeps its unsaved specimen separate from owned growth; its composition, controls and review scope belong to the [studio surface brief](.impeccable/surfaces/reapers-flutter-lib-studio-reaper-studio-dart.md).
+Inspect the actual game model through `ReaperStage`, retaining the specimen's light, materials and manual drag rotation. Automatic turning respects reduced motion. Supported targets are browser, Android and iOS: the browser uses WebGL 2 with the same authored models and surface arithmetic, while mobile uses Flutter GPU. The studio adds a finite demonstration and keeps its unsaved specimen separate from owned growth; its composition, controls and review scope belong to the [studio surface brief](.impeccable/surfaces/reapers-flutter-lib-studio-reaper-studio-dart.md).
 
 ### Mark and wordmark
 

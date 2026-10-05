@@ -2236,6 +2236,12 @@ abstract class AppLocalizations {
   /// **'This specimen could not be drawn.'**
   String get studioModelFailed;
 
+  /// No description provided for @studioWebGLUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Your browser needs WebGL 2 to draw this specimen. Try another browser or open the studio on Android or iOS.'**
+  String get studioWebGLUnavailable;
+
   /// No description provided for @studioXp.
   ///
   /// In en, this message translates to:

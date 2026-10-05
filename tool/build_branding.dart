@@ -26,6 +26,10 @@ Future<void> _run(
 }
 
 Future<void> main(List<String> arguments) async {
+  if (arguments.length == 1 && arguments.single == '--web-only') {
+    await _webIcons();
+    return;
+  }
   final source = arguments.isEmpty
       ? 'art/branding/quiet-cut.png'
       : arguments.single;
@@ -85,6 +89,7 @@ Future<void> main(List<String> arguments) async {
   await canvas('adaptive_monochrome', 1080, 600, white: true);
   // Android 12's 288dp artboard: 180dp mark inside its 192dp safe circle.
   await canvas('splash_mark', 1152, 720);
+  await _webIcons();
 
   for (final (density, size) in [
     ('mdpi', 24),
@@ -153,4 +158,28 @@ Future<void> main(List<String> arguments) async {
     );
   }
   print('Branding built from $source.');
+}
+
+/// The browser uses the same installed artwork as Android and iOS.
+Future<void> _webIcons() async {
+  const icon = 'reapers_flutter/assets/branding/app_icon.png';
+  final directory = Directory('reapers_flutter/web/icons');
+  directory.createSync(recursive: true);
+
+  for (final size in [192, 512]) {
+    for (final name in ['Icon-$size', 'Icon-maskable-$size']) {
+      await _run('magick', [
+        icon,
+        '-resize',
+        '${size}x$size',
+        '${directory.path}/$name.png',
+      ]);
+    }
+  }
+  await _run('magick', [
+    icon,
+    '-resize',
+    '32x32',
+    'reapers_flutter/web/favicon.png',
+  ]);
 }

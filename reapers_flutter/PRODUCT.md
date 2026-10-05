@@ -4,7 +4,9 @@
 
 ## Platform
 
-Native Flutter on Android and iOS, with a macOS studio preview. Native reviews use adaptive guidance; this classification does not claim every game flow changes its visual language per OS.
+adaptive
+
+Flutter on Android and iOS, with a browser studio preview. Web, Android and iOS are the supported targets; desktop applications are outside scope. Native reviews use adaptive guidance; this classification does not claim every game flow changes its visual language per OS.
 
 ## Users
 
@@ -20,7 +22,7 @@ Birth traits define a fixed reaper; weapons and outfits change through progressi
 
 ## Capabilities and Constraints
 
-Actual game models and shared deterministic rules are authoritative. Flutter GPU requires a native preview. Solana Kit provides wallet proof, RPC and Core ownership decoding. Android has Mobile Wallet Adapter support; other wallet transports remain undecided. Collection, app identity and marketplace are deployment inputs the user has not supplied. Husk purchases and burns remain simulated until escrow and burn support is built. NFT rifts await result verification.
+Actual game models and shared deterministic rules are authoritative. Mobile uses Flutter GPU; the browser studio uses WebGL 2 with the same models and authored surface arithmetic. Solana Kit provides wallet proof, RPC and Core ownership decoding. Android has Mobile Wallet Adapter support; iOS wallet transport remains undecided. The web studio opens no wallet. Collection, app identity and marketplace are deployment inputs the user has not supplied. Husk purchases and burns remain simulated until escrow and burn support is built. NFT rifts await result verification.
 
 ## Voice and Assets
 

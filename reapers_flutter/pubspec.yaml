@@ -41,6 +41,8 @@ dependencies:
   solana_kit_mobile_wallet_adapter: ^0.6.0
   solana_kit_mobile_wallet_adapter_protocol: ^0.6.0
   url_launcher: ^6.3.2
+  three_js: ^0.3.0
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_launcher_icons: ^0.14.4

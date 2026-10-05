@@ -32,7 +32,7 @@ Before every NFT-bearing game mutation, the server refreshes ownership and locks
 
 ## Current boundaries
 
-- Wallet connection is implemented on Android. iOS and desktop show an explicit unavailable state; their studio remains fully usable.
+- Wallet connection is implemented on Android. iOS shows an explicit unavailable state. The web studio opens no wallet and remains fully usable as a preview.
 - No collection, mint, marketplace listing or purchase transaction is fabricated. No live wallet transaction has been exercised without deployment settings and a test collection.
 - Growth follows the NFT through server records, not metadata updates or a new on-chain progression program. Birth traits remain fixed.
 - Solo hunt rewards are replayed. NFT reapers cannot enter rifts until rift replay is built, preventing trusted client reports from earning tradable growth.

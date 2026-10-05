@@ -1256,6 +1256,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get studioModelFailed => 'This specimen could not be drawn.';
 
   @override
+  String get studioWebGLUnavailable =>
+      'Your browser needs WebGL 2 to draw this specimen. Try another browser or open the studio on Android or iOS.';
+
+  @override
   String get studioXp => 'XP';
 
   @override

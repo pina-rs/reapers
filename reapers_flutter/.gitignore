@@ -30,9 +30,7 @@
 .pub-cache/
 .pub/
 /build/
-
-# Web related
-lib/generated_plugin_registrant.dart
+.kotlin/
 
 # Symbolization related
 app.*.symbols
@@ -44,4 +42,3 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
-

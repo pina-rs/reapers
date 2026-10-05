@@ -20,7 +20,7 @@ You are bound to a reaper you did not choose, and the phone is its blade. The hu
 - Rifts: four-reaper raids, with shades filling the seats nobody takes.
 - A server that keeps players' books and replays every hunt before paying for it. The game also runs entirely offline.
 
-The NFT side is a simulation on purpose. The five collections are real ones from Solana's first wave (Degenerate Ape Academy, Thugbirdz, Pesky Penguins, Sollamas, Solarians), each with a creature we modelled ourselves, but there is no wallet and no chain, and nothing is licensed. [docs/nfts.md](docs/nfts.md) lists every stand-in and where the real thing plugs in. [docs/gameplay.md](docs/gameplay.md) is the rulebook, and ends with what is not built yet.
+Purchasing and burning hunt husks remains simulated. The five collections are real ones from Solana's first wave (Degenerate Ape Academy, Thugbirdz, Pesky Penguins, Sollamas, Solarians), each with a creature we modelled ourselves; those stand-ins are not licensed. Wallet proof and verified reaper ownership are separate, as described below. [docs/nfts.md](docs/nfts.md) lists every stand-in and where the real thing plugs in. [docs/gameplay.md](docs/gameplay.md) is the rulebook, and ends with what is not built yet.
 
 ## Run it
 
@@ -42,10 +42,10 @@ Open **Reaper studio** from the sanctum, or run the standalone preview:
 
 ```sh
 cd reapers_flutter
-fvm flutter run -d macos -t lib/main_preview.dart --enable-impeller
+fvm flutter run -d chrome -t lib/main_preview.dart
 ```
 
-The studio shows the actual 3D models. Change birth traits, absorb illustrative husks, scrub levels and try unlocked weapons and outfits. It never reads or writes a player save. macOS requires 14 or newer because of the existing depth runtime. See [docs/preview.md](docs/preview.md).
+The studio runs in a browser or on Android and iOS. It shows the actual 3D models: change birth traits, absorb illustrative husks, scrub levels and try unlocked weapons and outfits. It never reads or writes a player save. The camera hunt runs on Android and iOS; desktop apps are not supported targets. See [docs/preview.md](docs/preview.md).
 
 **Your reapers** holds the starter and verified NFT reapers, each with its own experience, equipment and codex. Online Android builds can prove wallet ownership through Mobile Wallet Adapter. Solana Kit verifies assets from a configured Metaplex Core collection; buying happens in the configured marketplace, then the game imports the asset. No collection or marketplace is invented by default. The hunt's five husk collections, prices and burns remain simulated. See [docs/solana.md](docs/solana.md) for setup and the remaining chain work.
 
