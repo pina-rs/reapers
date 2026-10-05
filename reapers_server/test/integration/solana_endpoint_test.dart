@@ -233,16 +233,44 @@ void main() {
       await endpoints.player.selectReaper(first, asset);
       await PlayerBooks.change(
         first.build(),
-        (state) => state.settleRift(xp: 700, anima: 70),
+        (state) {
+          final now = DateTime.utc(2026, 10, 5);
+          final nft = marketListings.first;
+          final loose = state.acquire(nft).release(nft, seed: 19, now: now);
+          final sim = HuntSim(
+            seed: 19,
+            vessel: nft.collection.vessel,
+            ward: nft.rarity.ward,
+            stats: HuntStats.derive(loose.loadout),
+          );
+          final bot = HuntBot(sim)..play();
+          return loose
+              .judgeHunt(
+                loose.sightings.single.id,
+                HuntLog(bot.recorded),
+                now: now.add(const Duration(seconds: 30)),
+                feedingSeed: 23,
+              )
+              .state;
+        },
       );
       final before = await endpoints.player.load(first);
-      expect(before.xp, 700);
+      expect(before.xp, greaterThan(0));
+      expect(before.activeReaper!.memory.unseen, 1);
       owner = secondWallet.address;
       final imported = await endpoints.solana.importReaper(second, asset);
-      expect(imported.reapers.last.xp, 700);
+      expect(imported.reapers.last.xp, before.xp);
+      expect(
+        imported.reapers.last.memory.toJson(),
+        before.activeReaper!.memory.toJson(),
+      );
       final selected = await endpoints.player.selectReaper(second, asset);
       expect(selected.genome, genome);
-      expect(selected.xp, 700);
+      expect(selected.xp, before.xp);
+      expect(
+        selected.activeReaper!.memory.toJson(),
+        before.activeReaper!.memory.toJson(),
+      );
       expect(selected.anima, 0);
       await expectLater(
         endpoints.player.selectReaper(first, asset),
@@ -251,7 +279,7 @@ void main() {
       expect((await endpoints.player.load(first)).reapers.length, 1);
       expect(
         (await ReaperRecord.db.find(sessionBuilder.build())).single.state.xp,
-        700,
+        before.xp,
       );
     });
 

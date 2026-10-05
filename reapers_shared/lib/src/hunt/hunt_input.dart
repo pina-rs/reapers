@@ -4,6 +4,11 @@ import '../vec3.dart';
 import 'difficulty.dart';
 import 'hunt_plan.dart';
 
+/// The encoded log belongs to a different combat-rules deployment.
+final class UnsupportedHuntVersion extends FormatException {
+  const UnsupportedHuntVersion() : super('Unsupported combat rules');
+}
+
 /// A direction stored as whole hundredths of a degree.
 ///
 /// The simulation only ever sees directions in this form. Whole numbers are
@@ -97,13 +102,15 @@ final class HuntLog {
   ///
   /// Throws a [FormatException] when the bytes are not a whole log.
   factory HuntLog.decode(Uint8List bytes) {
-    if (bytes.isEmpty || bytes.first != _version) {
+    if (bytes.isEmpty) {
       throw const FormatException('Not a hunt log');
     }
 
     if (bytes.length < _headerBytes) {
       throw const FormatException('Hunt log has no plan');
     }
+
+    if (bytes.first != _version) throw const UnsupportedHuntVersion();
 
     final data = ByteData.sublistView(bytes);
     final reachCount = data.getUint8(6);
@@ -131,6 +138,9 @@ final class HuntLog {
     var offset = _headerBytes + reachCount;
 
     while (offset < bytes.length) {
+      if (inputs.length >= maxTicks) {
+        throw const FormatException('Hunt log exceeds the encounter limit');
+      }
       if (offset + _tickBytes > bytes.length) {
         throw const FormatException('Hunt log ends mid-tick');
       }
@@ -141,6 +151,8 @@ final class HuntLog {
       );
       final turnSpeed = data.getUint16(offset + 4, Endian.little);
       final tapCount = data.getUint8(offset + 6);
+
+      if (!_validAim(aim)) throw const FormatException('Impossible hunt aim');
       offset += _tickBytes;
 
       if (offset + tapCount * _tapBytes > bytes.length) {
@@ -154,6 +166,10 @@ final class HuntLog {
             data.getInt16(offset + tap * _tapBytes + 2, Endian.little),
           ),
       ];
+
+      if (taps.any((tap) => !_validAim(tap))) {
+        throw const FormatException('Impossible tap aim');
+      }
       offset += tapCount * _tapBytes;
 
       inputs.add(HuntInput(aim: aim, turnSpeed: turnSpeed, taps: taps));
@@ -170,10 +186,18 @@ final class HuntLog {
   /// room for the stalk, the fight and every reap window.
   static const maxTicks = 300 * 60;
 
-  static const _version = 4;
+  // The birth-gift rules change replay results. Refuse old clients rather
+  // than silently reinterpret a version-four hunt under the new rules.
+  static const _version = 5;
   static const _headerBytes = 8;
   static const _tickBytes = 7;
   static const _tapBytes = 4;
+
+  static bool _validAim(Aim aim) =>
+      aim.yawCentidegrees >= -18000 &&
+      aim.yawCentidegrees <= 18000 &&
+      aim.pitchCentidegrees >= -9000 &&
+      aim.pitchCentidegrees <= 9000;
 
   /// One entry for every tick the hunt ran.
   final List<HuntInput> inputs;

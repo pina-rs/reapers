@@ -87,7 +87,16 @@ The implemented Dart stack uses `solana_kit`, its typed RPC API and Metaplex Cor
 
 ## What has to be true before real money
 
-- Rift results are trusted, not replayed. NFT reapers are refused entry until verification is built; the non-tradable starter can still enter.
+The server now refuses simulated purchases, releases, hunt settlements and rifts in
+staging and production. Development and test retain the prototype economy.
+This prevents invented mints and the mock wallet from granting live NFT growth;
+it does not implement a burn. See [launch-readiness.md](launch-readiness.md).
+
+Reaper NFTs carry their earned soul memories as well as XP, equipment and
+codex in the canonical server record. A transferred reaper retains its birth
+gift and temperament, which are derived from its permanent R1 genome.
+
+- Rift results are trusted, not replayed. NFT reapers are refused entry until verification is built; the non-tradable starter can enter in development and test.
 - Rifts are free to enter and have no cooldown.
 - The simulated prices are invented. Real floors move.
 - Supported collections need the consent of whoever holds their rights. Burning someone's art for sport is a decision to make with them, and so is using their name.

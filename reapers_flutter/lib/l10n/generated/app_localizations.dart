@@ -2277,6 +2277,540 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'NFT reapers can hunt solo. Rifts will open once their results can be verified.'**
   String get refusalRiftUnproven;
+
+  /// No description provided for @soulTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The soul remembers'**
+  String get soulTitle;
+
+  /// No description provided for @refusalHuntVersionUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'The hunt rules have changed. Update Reapers before trying another hunt.'**
+  String get refusalHuntVersionUnsupported;
+
+  /// No description provided for @refusalMarketUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'NFT hunting hasn’t opened here yet. You can practise with your reaper.'**
+  String get refusalMarketUnavailable;
+
+  /// No description provided for @soulTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Soul'**
+  String get soulTab;
+
+  /// No description provided for @soulBirth.
+  ///
+  /// In en, this message translates to:
+  /// **'Born with a gift'**
+  String get soulBirth;
+
+  /// No description provided for @soulTemperament.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} temperament'**
+  String soulTemperament(String name);
+
+  /// No description provided for @soulIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Your gift is fixed at birth. The way you hunt teaches it to grow. Every reaper keeps its own memories.'**
+  String get soulIntro;
+
+  /// No description provided for @soulGiftChoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Try a gift'**
+  String get soulGiftChoice;
+
+  /// No description provided for @soulMarks.
+  ///
+  /// In en, this message translates to:
+  /// **'Hunts remembered'**
+  String get soulMarks;
+
+  /// No description provided for @soulRank.
+  ///
+  /// In en, this message translates to:
+  /// **'Awakening {rank} / {max}'**
+  String soulRank(int rank, int max);
+
+  /// No description provided for @soulMilestone.
+  ///
+  /// In en, this message translates to:
+  /// **'Level {level} · {marks} {path} marks'**
+  String soulMilestone(int level, int marks, String path);
+
+  /// No description provided for @soulNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Next awakening: level {level} and {marks} {path} marks. You have {earned}.'**
+  String soulNext(int level, int marks, String path, int earned);
+
+  /// No description provided for @soulComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Every awakening earned. Your birth gift stays yours.'**
+  String get soulComplete;
+
+  /// No description provided for @soulLore.
+  ///
+  /// In en, this message translates to:
+  /// **'What the gift remembers'**
+  String get soulLore;
+
+  /// No description provided for @soulUnseen.
+  ///
+  /// In en, this message translates to:
+  /// **'Unseen'**
+  String get soulUnseen;
+
+  /// No description provided for @soulStillness.
+  ///
+  /// In en, this message translates to:
+  /// **'Stillness'**
+  String get soulStillness;
+
+  /// No description provided for @soulRhythm.
+  ///
+  /// In en, this message translates to:
+  /// **'Rhythm'**
+  String get soulRhythm;
+
+  /// No description provided for @soulUnseenHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Absorb a husk after an ambush.'**
+  String get soulUnseenHelp;
+
+  /// No description provided for @soulStillnessHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Absorb a husk after an unflinching hold.'**
+  String get soulStillnessHelp;
+
+  /// No description provided for @soulRhythmHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Absorb a husk after five landed hits in cadence.'**
+  String get soulRhythmHelp;
+
+  /// No description provided for @soulMemoryHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'One mark per path per absorption. Escapes and abandoned hunts grant none. Old hunts keep their XP; memories begin with your next hunt.'**
+  String get soulMemoryHelp;
+
+  /// No description provided for @soulPreviewHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'These memories are an unsaved specimen. Real memories come from the keeper’s replay of your hunts.'**
+  String get soulPreviewHelp;
+
+  /// No description provided for @soulPreviewMark.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview hunt: {path}'**
+  String soulPreviewMark(String path);
+
+  /// No description provided for @soulPreviewReset.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear specimen memories'**
+  String get soulPreviewReset;
+
+  /// No description provided for @soulBirthLink.
+  ///
+  /// In en, this message translates to:
+  /// **'{gift} · {temperament}'**
+  String soulBirthLink(String gift, String temperament);
+
+  /// No description provided for @soulRankEarned.
+  ///
+  /// In en, this message translates to:
+  /// **'Your gift awakened: {gift}, awakening {rank}.'**
+  String soulRankEarned(String gift, int rank);
+
+  /// No description provided for @soulDeedsEarned.
+  ///
+  /// In en, this message translates to:
+  /// **'The soul remembers this hunt: {paths}.'**
+  String soulDeedsEarned(String paths);
+
+  /// No description provided for @temperamentPatient.
+  ///
+  /// In en, this message translates to:
+  /// **'Patient'**
+  String get temperamentPatient;
+
+  /// No description provided for @temperamentKeen.
+  ///
+  /// In en, this message translates to:
+  /// **'Keen'**
+  String get temperamentKeen;
+
+  /// No description provided for @temperamentStalwart.
+  ///
+  /// In en, this message translates to:
+  /// **'Stalwart'**
+  String get temperamentStalwart;
+
+  /// No description provided for @temperamentHungry.
+  ///
+  /// In en, this message translates to:
+  /// **'Hungry'**
+  String get temperamentHungry;
+
+  /// No description provided for @temperamentPatientHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Half a second longer to reap. Every swing takes two ticks longer.'**
+  String get temperamentPatientHelp;
+
+  /// No description provided for @temperamentKeenHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'A wider reach by 0.6°. Four tenths of a second less to reap.'**
+  String get temperamentKeenHelp;
+
+  /// No description provided for @temperamentStalwartHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'One more resolve. Strikes deal 5% less damage.'**
+  String get temperamentStalwartHelp;
+
+  /// No description provided for @temperamentHungryHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Strikes deal 8% more damage. You must hold 8% steadier through a shriek.'**
+  String get temperamentHungryHelp;
+
+  /// No description provided for @giftFurrow.
+  ///
+  /// In en, this message translates to:
+  /// **'The Last Furrow'**
+  String get giftFurrow;
+
+  /// No description provided for @giftAftermath.
+  ///
+  /// In en, this message translates to:
+  /// **'Aftermath'**
+  String get giftAftermath;
+
+  /// No description provided for @giftGathering.
+  ///
+  /// In en, this message translates to:
+  /// **'The Gathering'**
+  String get giftGathering;
+
+  /// No description provided for @giftPassage.
+  ///
+  /// In en, this message translates to:
+  /// **'Safe Passage'**
+  String get giftPassage;
+
+  /// No description provided for @giftAnchor.
+  ///
+  /// In en, this message translates to:
+  /// **'The Anchor'**
+  String get giftAnchor;
+
+  /// No description provided for @giftReturnLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Returning Light'**
+  String get giftReturnLight;
+
+  /// No description provided for @giftForeknowledge.
+  ///
+  /// In en, this message translates to:
+  /// **'Foreknowledge'**
+  String get giftForeknowledge;
+
+  /// No description provided for @giftVerdict.
+  ///
+  /// In en, this message translates to:
+  /// **'The Verdict'**
+  String get giftVerdict;
+
+  /// No description provided for @giftEquilibrium.
+  ///
+  /// In en, this message translates to:
+  /// **'Equilibrium'**
+  String get giftEquilibrium;
+
+  /// No description provided for @giftFirstLight.
+  ///
+  /// In en, this message translates to:
+  /// **'First Light'**
+  String get giftFirstLight;
+
+  /// No description provided for @giftReprisal.
+  ///
+  /// In en, this message translates to:
+  /// **'Reprisal'**
+  String get giftReprisal;
+
+  /// No description provided for @giftLastWord.
+  ///
+  /// In en, this message translates to:
+  /// **'The Last Word'**
+  String get giftLastWord;
+
+  /// No description provided for @giftHunger.
+  ///
+  /// In en, this message translates to:
+  /// **'Old Hunger'**
+  String get giftHunger;
+
+  /// No description provided for @giftEcho.
+  ///
+  /// In en, this message translates to:
+  /// **'The Echo'**
+  String get giftEcho;
+
+  /// No description provided for @giftUnbroken.
+  ///
+  /// In en, this message translates to:
+  /// **'Unbroken'**
+  String get giftUnbroken;
+
+  /// No description provided for @giftHush.
+  ///
+  /// In en, this message translates to:
+  /// **'Hush'**
+  String get giftHush;
+
+  /// No description provided for @giftKeening.
+  ///
+  /// In en, this message translates to:
+  /// **'Keening'**
+  String get giftKeening;
+
+  /// No description provided for @giftRefrain.
+  ///
+  /// In en, this message translates to:
+  /// **'The Refrain'**
+  String get giftRefrain;
+
+  /// No description provided for @giftFurrowEffect.
+  ///
+  /// In en, this message translates to:
+  /// **'Your ambush cleave catches other open seals for {share}% of its blow.'**
+  String giftFurrowEffect(int share);
+
+  /// No description provided for @giftAftermathEffect.
+  ///
+  /// In en, this message translates to:
+  /// **'After an unflinching hold, your next cleave leaves the other seals open for at least {seconds}s.'**
+  String giftAftermathEffect(String seconds);
+
+  /// No description provided for @giftGatheringEffect.
+  ///
+  /// In en, this message translates to:
+  /// **'Every third hit in cadence reopens its seal for {seconds}s.'**
+  String giftGatheringEffect(String seconds);
+
+  /// No description provided for @giftPassageEffect.
+  ///
+  /// In en, this message translates to:
+  /// **'An ambush shields you from one charge. The husk is stunned for {seconds}s.'**
+  String giftPassageEffect(String seconds);
+
+  /// No description provided for @giftAnchorEffect.
+  ///
+  /// In en, this message translates to:
+  /// **'An unflinching hold restores one lost resolve, {uses, plural, one{once} other{up to {uses} times}} per hunt.'**
+  String giftAnchorEffect(int uses);
+
+  /// No description provided for @giftReturnLightEffect.
+  ///
+  /// In en, this message translates to:
+  /// **'Five hits in cadence prepare a light that forgives your next flinch, up to {uses} times per hunt.'**
+  String giftReturnLightEffect(int uses);
+
+  /// No description provided for @giftForeknowledgeEffect.
+  ///
+  /// In en, this message translates to:
+  /// **'An ambush keeps the seals open for {seconds}s longer.'**
+  String giftForeknowledgeEffect(String seconds);
+
+  /// No description provided for @giftVerdictEffect.
+  ///
+  /// In en, this message translates to:
+  /// **'After an unflinching hold, your next in-order strike deals {bonus}% more damage.'**
+  String giftVerdictEffect(int bonus);
+
+  /// No description provided for @giftEquilibriumEffect.
+  ///
+  /// In en, this message translates to:
+  /// **'Three in-order strikes reopen every seal for {seconds}s.'**
+  String giftEquilibriumEffect(String seconds);
+
+  /// No description provided for @giftFirstLightEffect.
+  ///
+  /// In en, this message translates to:
+  /// **'Your first ambush strike deals {bonus}% extra damage.'**
+  String giftFirstLightEffect(int bonus);
+
+  /// No description provided for @giftReprisalEffect.
+  ///
+  /// In en, this message translates to:
+  /// **'A parry readies Chosen Blow, with a further {bonus}% damage.'**
+  String giftReprisalEffect(int bonus);
+
+  /// No description provided for @giftLastWordEffect.
+  ///
+  /// In en, this message translates to:
+  /// **'At three hits in cadence, seal strikes against a husk below 35% ward deal {bonus}% more damage.'**
+  String giftLastWordEffect(int bonus);
+
+  /// No description provided for @giftHungerEffect.
+  ///
+  /// In en, this message translates to:
+  /// **'An ambush starts your cadence at {beats}.'**
+  String giftHungerEffect(int beats);
+
+  /// No description provided for @giftEchoEffect.
+  ///
+  /// In en, this message translates to:
+  /// **'An unflinching hold restores your cadence from the warning, plus {beats}. Cadence still caps at ten.'**
+  String giftEchoEffect(int beats);
+
+  /// No description provided for @giftUnbrokenEffect.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to {uses} misses preserve cadence each hunt. Its timer keeps running.'**
+  String giftUnbrokenEffect(int uses);
+
+  /// No description provided for @giftHushEffect.
+  ///
+  /// In en, this message translates to:
+  /// **'An ambush delays the first shriek by {seconds}s.'**
+  String giftHushEffect(String seconds);
+
+  /// No description provided for @giftKeeningEffect.
+  ///
+  /// In en, this message translates to:
+  /// **'After an unflinching hold, your next seal strike deals {bonus}% more damage.'**
+  String giftKeeningEffect(int bonus);
+
+  /// No description provided for @giftRefrainEffect.
+  ///
+  /// In en, this message translates to:
+  /// **'Every third hit in cadence adds {seconds}s to your reap window, up to six times per hunt.'**
+  String giftRefrainEffect(String seconds);
+
+  /// No description provided for @giftFurrowLore.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing in the field dies alone. The first cut follows the roots beneath it.'**
+  String get giftFurrowLore;
+
+  /// No description provided for @giftAftermathLore.
+  ///
+  /// In en, this message translates to:
+  /// **'The harvest remembers what survived. Those touched by the blade remain within its reach.'**
+  String get giftAftermathLore;
+
+  /// No description provided for @giftGatheringLore.
+  ///
+  /// In en, this message translates to:
+  /// **'One stalk, then another. The hand finds a rhythm that the field cannot close against.'**
+  String get giftGatheringLore;
+
+  /// No description provided for @giftPassageLore.
+  ///
+  /// In en, this message translates to:
+  /// **'A ferryman promises arrival. Even a furious passenger cannot overturn that promise.'**
+  String get giftPassageLore;
+
+  /// No description provided for @giftAnchorLore.
+  ///
+  /// In en, this message translates to:
+  /// **'The crossing has no shore beneath it. The ferryman learns to make a shore of stillness.'**
+  String get giftAnchorLore;
+
+  /// No description provided for @giftReturnLightLore.
+  ///
+  /// In en, this message translates to:
+  /// **'Every stroke of the pole leaves a little light behind. Enough light can guide a trembling hand home.'**
+  String get giftReturnLightLore;
+
+  /// No description provided for @giftForeknowledgeLore.
+  ///
+  /// In en, this message translates to:
+  /// **'A careful keeper opens the ledger before the dead arrive. The first reading leaves nothing concealed.'**
+  String get giftForeknowledgeLore;
+
+  /// No description provided for @giftVerdictLore.
+  ///
+  /// In en, this message translates to:
+  /// **'Judgement begins when the room falls silent. Only the right seal can carry the sentence.'**
+  String get giftVerdictLore;
+
+  /// No description provided for @giftEquilibriumLore.
+  ///
+  /// In en, this message translates to:
+  /// **'Three true measures bring the scales level. For a moment, every debt lies open.'**
+  String get giftEquilibriumLore;
+
+  /// No description provided for @giftFirstLightLore.
+  ///
+  /// In en, this message translates to:
+  /// **'The chooser sees a death before anyone else does. The first light is also the first wound.'**
+  String get giftFirstLightLore;
+
+  /// No description provided for @giftReprisalLore.
+  ///
+  /// In en, this message translates to:
+  /// **'A death that reaches for the chooser has chosen itself. The answer arrives on the returning blade.'**
+  String get giftReprisalLore;
+
+  /// No description provided for @giftLastWordLore.
+  ///
+  /// In en, this message translates to:
+  /// **'A spirit may argue until the end. The chooser saves the last word for what remains.'**
+  String get giftLastWordLore;
+
+  /// No description provided for @giftHungerLore.
+  ///
+  /// In en, this message translates to:
+  /// **'The empty collar remembers every meal it missed. Silence gives that hunger a head start.'**
+  String get giftHungerLore;
+
+  /// No description provided for @giftEchoLore.
+  ///
+  /// In en, this message translates to:
+  /// **'A shriek cannot drown out an absence. Beneath the noise, the old rhythm waits.'**
+  String get giftEchoLore;
+
+  /// No description provided for @giftUnbrokenLore.
+  ///
+  /// In en, this message translates to:
+  /// **'There is no head to lose. Even a wandering hand cannot break the chain at once.'**
+  String get giftUnbrokenLore;
+
+  /// No description provided for @giftHushLore.
+  ///
+  /// In en, this message translates to:
+  /// **'Before a death is announced, the mourner grants a little silence. Even the dead must wait their turn.'**
+  String get giftHushLore;
+
+  /// No description provided for @giftKeeningLore.
+  ///
+  /// In en, this message translates to:
+  /// **'The mourner listens until the cry has passed. The next toll carries what was heard.'**
+  String get giftKeeningLore;
+
+  /// No description provided for @giftRefrainLore.
+  ///
+  /// In en, this message translates to:
+  /// **'A bell cannot call a name only once. Each refrain gives the departing soul longer to answer.'**
+  String get giftRefrainLore;
 }
 
 class _AppLocalizationsDelegate

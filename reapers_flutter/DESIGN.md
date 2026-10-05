@@ -67,7 +67,7 @@ components:
 
 The native interface is a funeral ledger set in warm bone on blue-black ink. Large, sharp words give names and numbers ceremony; small ruled entries keep the game readable. The spirit realm supplies movement and depth behind the ledger. This records the incumbent Flutter world and its branding and model-viewer extensions, rather than a replacement identity.
 
-The product premise comes from [README](../README.md), [gameplay](../docs/gameplay.md) and [architecture](../docs/architecture.md). Visual authority is [Veil](lib/theme/veil.dart), the [ledger kit](lib/widgets/ledger.dart), and the implemented [threshold](lib/screens/threshold_screen.dart), [arrival](lib/brand/splash_gate.dart) and [studio](lib/studio/reaper_studio.dart). Values in the frontmatter translate Flutter logical pixels to portable `px`; the Dart source remains the implementation authority.
+[PRODUCT.md](PRODUCT.md) owns product truth, with the premise and rules detailed in [README](../README.md), [gameplay](../docs/gameplay.md) and [architecture](../docs/architecture.md). Visual authority is [Veil](lib/theme/veil.dart), the [ledger kit](lib/widgets/ledger.dart), and the implemented [threshold](lib/screens/threshold_screen.dart), [arrival](lib/brand/splash_gate.dart), [studio](lib/studio/reaper_studio.dart) and shared [Soul ledger](lib/widgets/soul_ledger.dart). Values in the frontmatter translate Flutter logical pixels to portable `px`; the Dart source remains the implementation authority.
 
 **Key Characteristics:**
 
@@ -118,7 +118,7 @@ The ledger controls are flat: tonal surfaces, transparent controls and fine bord
 
 ## Shapes
 
-Ledger actions have square corners and straight borders. Rows use dotted leaders; resource meters use a narrow bar with a visible end notch; pips are small diamonds. The emblem's broken halo and scythe curve belong to the ceremonial brand, while ledger controls retain their rectilinear form.
+Ledger actions have square corners and straight borders. Rows use dotted leaders; resource meters use a narrow bar with a visible end notch; pips are small diamonds. Bound Sigil's angular knot and the arrival blade arc belong to the ceremonial brand, while ledger controls retain their rectilinear form.
 
 ## Components
 
@@ -132,9 +132,15 @@ Transparent `Material` and `InkWell` provide touch and Enter/Space activation wi
 
 Inspect the actual game model through `ReaperStage`, retaining the specimen's light, materials and manual drag rotation. Automatic turning respects reduced motion. Supported targets are browser, Android and iOS: the browser uses WebGL 2 with the same authored models and surface arithmetic, while mobile uses Flutter GPU. The studio adds a finite demonstration and keeps its unsaved specimen separate from owned growth; its composition, controls and review scope belong to the [studio surface brief](.impeccable/surfaces/reapers-flutter-lib-studio-reaper-studio-dart.md).
 
+### Soul entries
+
+`SoulLedger` shares the birth-gift and earned-memory presentation between the codex and studio. The gift name is one Fraunces heading (28) in the reaper's light, followed by its current effect, awakening figure and next requirement. The temperament combines its name and meaning in one Fraunces heading (22), followed by its benefit and cost. Neither title has a repeated category eyebrow above it.
+
+Remembered hunts use ruled ledger rows and tabular counts; the gift's preferred path borrows the reaper's light. Expandable lore and earned/locked milestone rows reveal more detail without adding a new container language. Preview gift choices and remembered-hunt actions belong to the studio brief, not the saved codex.
+
 ### Mark and wordmark
 
-**Quiet Cut is the provisional default**, a scythe-R inside a broken halo. The Veil, Bound Sigil and Last Ember remain saved alternatives; no permanent user selection is implied. Use `ReapersMark` so launcher, native still and Flutter screens share the generated master. The wordmark is live Fraunces text, not lettering baked into the emblem. See [branding.md](../docs/branding.md) for masters, provenance and rebuild steps.
+**Bound Sigil is the current provisional choice**, selected by Ifiok on 5 October 2026. Its angular knot matches the supplied logo and [Bound Sigil master](../art/branding/bound-sigil.png). Quiet Cut, The Veil and Last Ember remain saved alongside it; all four original masters are retained. Use `ReapersMark` so launcher, native still and Flutter screens share the generated master. The wordmark is live Fraunces text, not lettering baked into the emblem. See [branding.md](../docs/branding.md) for masters, provenance and rebuild steps.
 
 ### Arrival gate
 
@@ -142,7 +148,7 @@ The native still matches the first Flutter mark and ink background. After image 
 
 The threshold then draws its blade over 1.6 seconds and slowly turns the veil over four minutes. Reduced motion stops the drift and shows the settled composition.
 
-The final reviewer returned **ship** for the resolved threshold eyebrow fix on the valid [iOS phone capture](../.impeccable/review/phone-ios.png). That verdict covers the named correction. Android compilation passed; Android and tablet visual captures were unavailable. This is not visual approval of those layouts or proof of installed launcher icons, every cold-start frame, or real-device motion.
+The earlier arrival reviewer returned **ship** for its named threshold eyebrow correction. At that historical review, Android compilation had passed but Android and tablet visual captures were unavailable. The current [iOS arrival capture](../.impeccable/review/phone-ios.png) shows the selected Bound Sigil on the iPhone 17 Pro simulator. Current studio captures include a physical Android Seeker and iOS simulator. The [Soul fix verdict](../.impeccable/review/soul-verdict.md) returned **ship** for its three scored corrections, all resolved, with no visible regression introduced by that batch. It covers those corrections only; the [studio surface brief](.impeccable/surfaces/reapers-flutter-lib-studio-reaper-studio-dart.md) records the evidence and remaining limits. These records do not prove every cold-start frame, installed launcher appearance or real-device motion.
 
 ## Do's and Don'ts
 
@@ -156,7 +162,7 @@ The final reviewer returned **ship** for the resolved threshold eyebrow fix on t
 
 ### Don't:
 
-- **Don't** treat the provisional logo default as a final user selection.
+- **Don't** discard the other three logo masters or treat the provisional Bound Sigil choice as a permanent selection.
 - **Don't** add decorative eyebrows to arrival; its mark, name and premise already establish the hierarchy.
 - **Don't** expose the underlying game to interaction or accessibility focus while the arrival gate covers it.
-- **Don't** infer Android or tablet visual approval from a successful compile or the iOS correction verdict.
+- **Don't** extend a captured phone view or a verdict on named corrections into tablet approval, release performance proof or approval of uncaptured flows.

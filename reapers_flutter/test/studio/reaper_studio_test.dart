@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:reapers_flutter/l10n/l10n.dart';
+import 'package:reapers_flutter/l10n/soul_lookups.dart';
 import 'package:reapers_flutter/solana/reaper_wallet.dart';
 import 'package:reapers_flutter/studio/reaper_studio.dart';
 import 'package:reapers_flutter/theme/veil.dart';
@@ -85,9 +86,65 @@ void main() {
         await tester.pumpAndSettle();
         expect(equipment!.temper, Temper.hollowed);
         expect(find.text('30 / 30'), findsOneWidget);
+        await tester.ensureVisible(find.text('Soul'));
+        await tester.tap(find.text('Soul'));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(
+          find.byKey(const Key('studio-gift-reprisal')),
+        );
+        await tester.tap(find.byKey(const Key('studio-gift-reprisal')));
+        await tester.pumpAndSettle();
+        expect(ReaperSoul.fromGenome(specimen!).gift, ReaperGift.reprisal);
+        expect(find.text('Awakening 3 / 3'), findsOneWidget);
+        await tester.ensureVisible(find.text('Clear specimen memories'));
+        await tester.tap(find.text('Clear specimen memories'));
+        await tester.pumpAndSettle();
+        expect(find.text('Awakening 0 / 3'), findsOneWidget);
+        final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+        expect(
+          find.text(giftEffect(l10n, ReaperGift.reprisal, 1)),
+          findsOneWidget,
+        );
+        await tester.ensureVisible(
+          find.byKey(const Key('studio-memory-stillness')),
+        );
+        await tester.tap(find.byKey(const Key('studio-memory-stillness')));
+        await tester.pumpAndSettle();
+        expect(find.text('Awakening 0 / 3'), findsOneWidget);
         expect(jsonEncode(saved.toJson()), before);
         expect(tester.takeException(), isNull);
       },
     );
   }
+
+  testWidgets('the soul remains readable on a narrow phone with large text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: Veil.theme(Veil.unbound),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: const TextScaler.linear(2)),
+          child: child!,
+        ),
+        home: ReaperStudio(stageBuilder: (_, _, _) => const SizedBox.expand()),
+      ),
+    );
+    final soulTab = find.descendant(
+      of: find.byType(SegmentedButton<int>),
+      matching: find.text('Soul'),
+    );
+    await tester.ensureVisible(soulTab);
+    await tester.tap(soulTab);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Clear specimen memories'));
+    expect(tester.takeException(), isNull);
+  });
 }

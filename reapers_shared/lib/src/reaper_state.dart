@@ -2,6 +2,7 @@ import 'armory.dart';
 import 'player_state.dart';
 import 'progression.dart';
 import 'reaper_genome.dart';
+import 'reaper_soul.dart';
 
 /// The progression that travels with one reaper, never with a selected slot.
 /// NFT-backed ids are their Core asset addresses; the starter has a local id.
@@ -17,6 +18,7 @@ final class ReaperState {
     required List<Absorption> codex,
     required this.huntsLost,
     required this.riftsSealed,
+    this.memory = const SoulMemory(),
   }) : weapons = Set.unmodifiable(weapons),
        outfits = Set.unmodifiable(outfits),
        codex = List.unmodifiable(codex) {
@@ -75,6 +77,11 @@ final class ReaperState {
       ],
       huntsLost: json['huntsLost'] as int,
       riftsSealed: json['riftsSealed'] as int,
+      memory: json['memory'] == null
+          ? const SoulMemory()
+          : SoulMemory.fromJson(
+              (json['memory'] as Map).cast<String, dynamic>(),
+            ),
     );
   }
 
@@ -88,10 +95,14 @@ final class ReaperState {
   final List<Absorption> codex;
   final int huntsLost;
   final int riftsSealed;
+  final SoulMemory memory;
 
   bool get isNft => id != oathId;
   ReaperGenome get genome => ReaperGenome.parse(genomeCode);
   int get level => Progression.levelForXp(xp);
+  ReaperSoul get soul => ReaperSoul.fromGenome(genome);
+  int get soulRank =>
+      SoulRules.rank(level: level, memory: memory, gift: soul.gift);
 
   ReaperState copyWith({
     int? xp,
@@ -102,6 +113,7 @@ final class ReaperState {
     List<Absorption>? codex,
     int? huntsLost,
     int? riftsSealed,
+    SoulMemory? memory,
   }) => ReaperState(
     id: id,
     genomeCode: genomeCode,
@@ -113,6 +125,7 @@ final class ReaperState {
     codex: codex ?? this.codex,
     huntsLost: huntsLost ?? this.huntsLost,
     riftsSealed: riftsSealed ?? this.riftsSealed,
+    memory: memory ?? this.memory,
   );
 
   Map<String, dynamic> toJson() => {
@@ -126,5 +139,6 @@ final class ReaperState {
     'codex': [for (final entry in codex) entry.toJson()],
     'huntsLost': huntsLost,
     'riftsSealed': riftsSealed,
+    'memory': memory.toJson(),
   };
 }

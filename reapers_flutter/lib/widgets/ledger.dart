@@ -337,20 +337,22 @@ class LedgerHeading extends HookWidget {
     child: LayoutBuilder(
       builder: (context, constraints) => Row(
         children: [
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: math.max(
-                0,
-                constraints.maxWidth -
-                    _ruleWidth -
-                    (trailing == null ? 0 : _figureWidth),
+          Flexible(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: math.max(
+                  0,
+                  constraints.maxWidth -
+                      _ruleWidth -
+                      (trailing == null ? 0 : _figureWidth),
+                ),
               ),
-            ),
-            child: Text(
-              text.toUpperCase(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Veil.label(color: Veil.bone),
+              child: Text(
+                text.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Veil.label(color: Veil.bone),
+              ),
             ),
           ),
           const SizedBox(width: 12),

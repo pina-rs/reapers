@@ -5,6 +5,7 @@ import 'package:reapers_shared/reapers_shared.dart';
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_auth_idp_server/core.dart';
 
+import '../generated/protocol.dart';
 import '../receipts/absorption_receipt.dart';
 import 'player_books.dart';
 
@@ -50,15 +51,19 @@ class PlayerEndpoint extends Endpoint {
       PlayerBooks.change(session, (state) => state.selectReaper(id));
 
   /// Buys the NFT [nftId] names into the vault.
-  Future<PlayerState> acquire(Session session, String nftId) =>
-      PlayerBooks.change(session, (state) => state.acquire(_nft(nftId)));
+  Future<PlayerState> acquire(Session session, String nftId) {
+    requireSimulation(session.serverpod.runMode);
+    return PlayerBooks.change(session, (state) => state.acquire(_nft(nftId)));
+  }
 
   /// Releases the NFT [nftId] names from the vault into the veil.
-  Future<PlayerState> release(Session session, String nftId) =>
-      PlayerBooks.change(
-        session,
-        (state) => state.release(_nft(nftId), seed: _seed(), now: _now()),
-      );
+  Future<PlayerState> release(Session session, String nftId) {
+    requireSimulation(session.serverpod.runMode);
+    return PlayerBooks.change(
+      session,
+      (state) => state.release(_nft(nftId), seed: _seed(), now: _now()),
+    );
+  }
 
   /// Replays the recorded hunt for [sightingId] and settles what it earned.
   ///
@@ -72,6 +77,7 @@ class PlayerEndpoint extends Endpoint {
     int sightingId,
     ByteData log,
   ) async {
+    requireSimulation(session.serverpod.runMode);
     late final HuntSettlement settlement;
 
     await PlayerBooks.change(session, (state) async {
@@ -170,16 +176,32 @@ class PlayerEndpoint extends Endpoint {
   static Outfit _outfit(String name) =>
       _parsed(() => Outfit.values.byName(name), Refusal.notOwned);
 
-  static HuntLog _log(ByteData bytes) => _parsed(
-    () => HuntLog.decode(
-      bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes),
-    ),
-    Refusal.huntUnproven,
-  );
+  /// A deployed keeper cannot turn prototype balances and invented mints
+  /// into tradable NFT progression. There is deliberately no bypass flag.
+  static void requireSimulation(String mode) {
+    if (mode != ServerpodRunMode.development && mode != ServerpodRunMode.test) {
+      throw Refused(refusal: Refusal.marketUnavailable.name);
+    }
+  }
+
+  static HuntLog _log(ByteData bytes) {
+    try {
+      return _parsed(
+        () => HuntLog.decode(
+          bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes),
+        ),
+        Refusal.huntUnproven,
+      );
+    } on UnsupportedHuntVersion {
+      throw const RuleBreach(Refusal.huntVersionUnsupported);
+    }
+  }
 
   static T _parsed<T>(T Function() parse, Refusal otherwise) {
     try {
       return parse();
+    } on UnsupportedHuntVersion {
+      rethrow;
     } on FormatException {
       throw RuleBreach(otherwise);
     } on ArgumentError {

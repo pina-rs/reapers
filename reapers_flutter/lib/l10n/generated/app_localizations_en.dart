@@ -1278,4 +1278,358 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get refusalRiftUnproven =>
       'NFT reapers can hunt solo. Rifts will open once their results can be verified.';
+
+  @override
+  String get soulTitle => 'The soul remembers';
+
+  @override
+  String get refusalHuntVersionUnsupported =>
+      'The hunt rules have changed. Update Reapers before trying another hunt.';
+
+  @override
+  String get refusalMarketUnavailable =>
+      'NFT hunting hasn’t opened here yet. You can practise with your reaper.';
+
+  @override
+  String get soulTab => 'Soul';
+
+  @override
+  String get soulBirth => 'Born with a gift';
+
+  @override
+  String soulTemperament(String name) {
+    return '$name temperament';
+  }
+
+  @override
+  String get soulIntro =>
+      'Your gift is fixed at birth. The way you hunt teaches it to grow. Every reaper keeps its own memories.';
+
+  @override
+  String get soulGiftChoice => 'Try a gift';
+
+  @override
+  String get soulMarks => 'Hunts remembered';
+
+  @override
+  String soulRank(int rank, int max) {
+    return 'Awakening $rank / $max';
+  }
+
+  @override
+  String soulMilestone(int level, int marks, String path) {
+    return 'Level $level · $marks $path marks';
+  }
+
+  @override
+  String soulNext(int level, int marks, String path, int earned) {
+    return 'Next awakening: level $level and $marks $path marks. You have $earned.';
+  }
+
+  @override
+  String get soulComplete =>
+      'Every awakening earned. Your birth gift stays yours.';
+
+  @override
+  String get soulLore => 'What the gift remembers';
+
+  @override
+  String get soulUnseen => 'Unseen';
+
+  @override
+  String get soulStillness => 'Stillness';
+
+  @override
+  String get soulRhythm => 'Rhythm';
+
+  @override
+  String get soulUnseenHelp => 'Absorb a husk after an ambush.';
+
+  @override
+  String get soulStillnessHelp => 'Absorb a husk after an unflinching hold.';
+
+  @override
+  String get soulRhythmHelp =>
+      'Absorb a husk after five landed hits in cadence.';
+
+  @override
+  String get soulMemoryHelp =>
+      'One mark per path per absorption. Escapes and abandoned hunts grant none. Old hunts keep their XP; memories begin with your next hunt.';
+
+  @override
+  String get soulPreviewHelp =>
+      'These memories are an unsaved specimen. Real memories come from the keeper’s replay of your hunts.';
+
+  @override
+  String soulPreviewMark(String path) {
+    return 'Preview hunt: $path';
+  }
+
+  @override
+  String get soulPreviewReset => 'Clear specimen memories';
+
+  @override
+  String soulBirthLink(String gift, String temperament) {
+    return '$gift · $temperament';
+  }
+
+  @override
+  String soulRankEarned(String gift, int rank) {
+    return 'Your gift awakened: $gift, awakening $rank.';
+  }
+
+  @override
+  String soulDeedsEarned(String paths) {
+    return 'The soul remembers this hunt: $paths.';
+  }
+
+  @override
+  String get temperamentPatient => 'Patient';
+
+  @override
+  String get temperamentKeen => 'Keen';
+
+  @override
+  String get temperamentStalwart => 'Stalwart';
+
+  @override
+  String get temperamentHungry => 'Hungry';
+
+  @override
+  String get temperamentPatientHelp =>
+      'Half a second longer to reap. Every swing takes two ticks longer.';
+
+  @override
+  String get temperamentKeenHelp =>
+      'A wider reach by 0.6°. Four tenths of a second less to reap.';
+
+  @override
+  String get temperamentStalwartHelp =>
+      'One more resolve. Strikes deal 5% less damage.';
+
+  @override
+  String get temperamentHungryHelp =>
+      'Strikes deal 8% more damage. You must hold 8% steadier through a shriek.';
+
+  @override
+  String get giftFurrow => 'The Last Furrow';
+
+  @override
+  String get giftAftermath => 'Aftermath';
+
+  @override
+  String get giftGathering => 'The Gathering';
+
+  @override
+  String get giftPassage => 'Safe Passage';
+
+  @override
+  String get giftAnchor => 'The Anchor';
+
+  @override
+  String get giftReturnLight => 'Returning Light';
+
+  @override
+  String get giftForeknowledge => 'Foreknowledge';
+
+  @override
+  String get giftVerdict => 'The Verdict';
+
+  @override
+  String get giftEquilibrium => 'Equilibrium';
+
+  @override
+  String get giftFirstLight => 'First Light';
+
+  @override
+  String get giftReprisal => 'Reprisal';
+
+  @override
+  String get giftLastWord => 'The Last Word';
+
+  @override
+  String get giftHunger => 'Old Hunger';
+
+  @override
+  String get giftEcho => 'The Echo';
+
+  @override
+  String get giftUnbroken => 'Unbroken';
+
+  @override
+  String get giftHush => 'Hush';
+
+  @override
+  String get giftKeening => 'Keening';
+
+  @override
+  String get giftRefrain => 'The Refrain';
+
+  @override
+  String giftFurrowEffect(int share) {
+    return 'Your ambush cleave catches other open seals for $share% of its blow.';
+  }
+
+  @override
+  String giftAftermathEffect(String seconds) {
+    return 'After an unflinching hold, your next cleave leaves the other seals open for at least ${seconds}s.';
+  }
+
+  @override
+  String giftGatheringEffect(String seconds) {
+    return 'Every third hit in cadence reopens its seal for ${seconds}s.';
+  }
+
+  @override
+  String giftPassageEffect(String seconds) {
+    return 'An ambush shields you from one charge. The husk is stunned for ${seconds}s.';
+  }
+
+  @override
+  String giftAnchorEffect(int uses) {
+    String _temp0 = intl.Intl.pluralLogic(
+      uses,
+      locale: localeName,
+      other: 'up to $uses times',
+      one: 'once',
+    );
+    return 'An unflinching hold restores one lost resolve, $_temp0 per hunt.';
+  }
+
+  @override
+  String giftReturnLightEffect(int uses) {
+    return 'Five hits in cadence prepare a light that forgives your next flinch, up to $uses times per hunt.';
+  }
+
+  @override
+  String giftForeknowledgeEffect(String seconds) {
+    return 'An ambush keeps the seals open for ${seconds}s longer.';
+  }
+
+  @override
+  String giftVerdictEffect(int bonus) {
+    return 'After an unflinching hold, your next in-order strike deals $bonus% more damage.';
+  }
+
+  @override
+  String giftEquilibriumEffect(String seconds) {
+    return 'Three in-order strikes reopen every seal for ${seconds}s.';
+  }
+
+  @override
+  String giftFirstLightEffect(int bonus) {
+    return 'Your first ambush strike deals $bonus% extra damage.';
+  }
+
+  @override
+  String giftReprisalEffect(int bonus) {
+    return 'A parry readies Chosen Blow, with a further $bonus% damage.';
+  }
+
+  @override
+  String giftLastWordEffect(int bonus) {
+    return 'At three hits in cadence, seal strikes against a husk below 35% ward deal $bonus% more damage.';
+  }
+
+  @override
+  String giftHungerEffect(int beats) {
+    return 'An ambush starts your cadence at $beats.';
+  }
+
+  @override
+  String giftEchoEffect(int beats) {
+    return 'An unflinching hold restores your cadence from the warning, plus $beats. Cadence still caps at ten.';
+  }
+
+  @override
+  String giftUnbrokenEffect(int uses) {
+    return 'Up to $uses misses preserve cadence each hunt. Its timer keeps running.';
+  }
+
+  @override
+  String giftHushEffect(String seconds) {
+    return 'An ambush delays the first shriek by ${seconds}s.';
+  }
+
+  @override
+  String giftKeeningEffect(int bonus) {
+    return 'After an unflinching hold, your next seal strike deals $bonus% more damage.';
+  }
+
+  @override
+  String giftRefrainEffect(String seconds) {
+    return 'Every third hit in cadence adds ${seconds}s to your reap window, up to six times per hunt.';
+  }
+
+  @override
+  String get giftFurrowLore =>
+      'Nothing in the field dies alone. The first cut follows the roots beneath it.';
+
+  @override
+  String get giftAftermathLore =>
+      'The harvest remembers what survived. Those touched by the blade remain within its reach.';
+
+  @override
+  String get giftGatheringLore =>
+      'One stalk, then another. The hand finds a rhythm that the field cannot close against.';
+
+  @override
+  String get giftPassageLore =>
+      'A ferryman promises arrival. Even a furious passenger cannot overturn that promise.';
+
+  @override
+  String get giftAnchorLore =>
+      'The crossing has no shore beneath it. The ferryman learns to make a shore of stillness.';
+
+  @override
+  String get giftReturnLightLore =>
+      'Every stroke of the pole leaves a little light behind. Enough light can guide a trembling hand home.';
+
+  @override
+  String get giftForeknowledgeLore =>
+      'A careful keeper opens the ledger before the dead arrive. The first reading leaves nothing concealed.';
+
+  @override
+  String get giftVerdictLore =>
+      'Judgement begins when the room falls silent. Only the right seal can carry the sentence.';
+
+  @override
+  String get giftEquilibriumLore =>
+      'Three true measures bring the scales level. For a moment, every debt lies open.';
+
+  @override
+  String get giftFirstLightLore =>
+      'The chooser sees a death before anyone else does. The first light is also the first wound.';
+
+  @override
+  String get giftReprisalLore =>
+      'A death that reaches for the chooser has chosen itself. The answer arrives on the returning blade.';
+
+  @override
+  String get giftLastWordLore =>
+      'A spirit may argue until the end. The chooser saves the last word for what remains.';
+
+  @override
+  String get giftHungerLore =>
+      'The empty collar remembers every meal it missed. Silence gives that hunger a head start.';
+
+  @override
+  String get giftEchoLore =>
+      'A shriek cannot drown out an absence. Beneath the noise, the old rhythm waits.';
+
+  @override
+  String get giftUnbrokenLore =>
+      'There is no head to lose. Even a wandering hand cannot break the chain at once.';
+
+  @override
+  String get giftHushLore =>
+      'Before a death is announced, the mourner grants a little silence. Even the dead must wait their turn.';
+
+  @override
+  String get giftKeeningLore =>
+      'The mourner listens until the cry has passed. The next toll carries what was heard.';
+
+  @override
+  String get giftRefrainLore =>
+      'A bell cannot call a name only once. Each refrain gives the departing soul longer to answer.';
 }

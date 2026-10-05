@@ -1,6 +1,7 @@
 import '../armory.dart';
 import '../progression.dart';
 import '../reaper_class.dart';
+import '../reaper_soul.dart';
 import '../vec3.dart';
 import 'difficulty.dart';
 
@@ -11,6 +12,8 @@ final class HuntLoadout {
     required this.level,
     required this.weapon,
     this.completedSets = 0,
+    this.soul,
+    this.soulRank = 0,
   });
 
   /// The fixed-strength reaper lent for a practice hunt.
@@ -28,6 +31,8 @@ final class HuntLoadout {
 
   /// How many collection sets the reaper has absorbed in full.
   final int completedSets;
+  final ReaperSoul? soul;
+  final int soulRank;
 }
 
 /// The numbers one hunt is played with, derived from a [HuntLoadout].
@@ -45,6 +50,8 @@ final class HuntStats {
     required this.flinchSpeed,
     required this.parrySpeed,
     required this.perk,
+    this.gift,
+    this.soulRank = 0,
   });
 
   /// Derives the hunt numbers for [loadout].
@@ -57,6 +64,20 @@ final class HuntStats {
     final profile = loadout.weapon.profile;
     final levelScale = 1 + Progression.strikePerLevel * (loadout.level - 1);
     final setScale = 1 + Progression.strikePerSet * loadout.completedSets;
+    final temperament = loadout.soul?.temperament;
+    final patient = temperament == Temperament.patient;
+    final keen = temperament == Temperament.keen;
+    final stalwart = temperament == Temperament.stalwart;
+    final hungry = temperament == Temperament.hungry;
+
+    if (loadout.level < 1 ||
+        loadout.level > Progression.levelCap ||
+        loadout.soulRank < 0 ||
+        loadout.soulRank > SoulRules.maxRank ||
+        (loadout.soul != null &&
+            loadout.soul!.gift.reaperClass != loadout.reaperClass)) {
+      throw ArgumentError('Invalid reaper loadout');
+    }
 
     return HuntStats(
       strikeDamage:
@@ -65,17 +86,35 @@ final class HuntStats {
           profile.strike *
           loadout.weapon.temper.strike *
           levelScale *
-          setScale,
+          setScale *
+          (stalwart ? SoulRules.stalwartStrike : 1) *
+          (hungry ? SoulRules.hungryStrike : 1),
       reachRadians:
-          radians(3.2 + 0.55 * stats.reach + profile.reachDegrees) * leniency,
-      swingTicks: profile.swingTicks,
-      resolve: 2 + (stats.resilience + 1) ~/ 2,
+          radians(
+            3.2 +
+                0.55 * stats.reach +
+                profile.reachDegrees +
+                (keen ? SoulRules.keenReachDegrees : 0),
+          ) *
+          leniency,
+      swingTicks:
+          profile.swingTicks + (patient ? SoulRules.patientSwingTicks : 0),
+      resolve: 2 + (stats.resilience + 1) ~/ 2 + (stalwart ? 1 : 0),
       captureTicks:
-          ((3.5 + 0.5 * stats.capture) * HuntRules.tickRate * leniency).round(),
+          (((3.5 + 0.5 * stats.capture) * HuntRules.tickRate +
+                      (patient ? SoulRules.patientCaptureTicks : 0) -
+                      (keen ? SoulRules.keenCaptureTicks : 0)) *
+                  leniency)
+              .round(),
       reapToleranceRadians: radians(5 + 0.8 * stats.capture) * leniency,
-      flinchSpeed: (0.42 + 0.035 * stats.resilience) * leniency,
+      flinchSpeed:
+          (0.42 + 0.035 * stats.resilience) *
+          leniency *
+          (hungry ? SoulRules.hungryFlinch : 1),
       parrySpeed: HuntRules.parrySpeed / leniency,
       perk: loadout.reaperClass.perk,
+      gift: loadout.soul?.gift,
+      soulRank: loadout.soulRank,
     );
   }
 
@@ -91,6 +130,8 @@ final class HuntStats {
     flinchSpeed: flinchSpeed * difficulty.flinch,
     parrySpeed: parrySpeed * difficulty.cut,
     perk: perk,
+    gift: gift,
+    soulRank: soulRank,
   );
 
   /// Ward removed by one strike on an open seal, before cadence and perks.
@@ -120,6 +161,11 @@ final class HuntStats {
   final double parrySpeed;
 
   final ClassPerk perk;
+  final ReaperGift? gift;
+  final int soulRank;
+
+  /// Every gift works at birth, then deepens through three awakenings.
+  int get giftStrength => soulRank + 1;
 }
 
 /// The fixed numbers of an encounter.

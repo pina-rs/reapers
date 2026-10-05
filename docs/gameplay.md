@@ -215,6 +215,78 @@ Birth traits are immutable for owned reapers. The studio freely changes an unsav
 
 Level cap 30. Going from level `n` to the next costs `90 + 55(n − 1) + 6(n − 1)²` experience. Each level adds 7% of a level-one strike. Each completed set adds 3%.
 
+### Birth gifts and the soul's memory
+
+Every R1 reaper has one of its class's three gifts and one of four
+temperaments. These are permanent birth properties, derived by `ReaperSoul`
+from the stored genome. Colours, auras and rare omens do not change them.
+There are 72 mechanical birth combinations. The [research and decision record](research/reaper-identity-and-growth.md)
+explains the original lore and why these rules use actions the game already has.
+
+| Temperament | Benefit | Cost |
+| --- | --- | --- |
+| Patient | Reap window +30 ticks (0.5 s) | Swing +2 ticks |
+| Keen | Reach +0.6° | Reap window −24 ticks (0.4 s) |
+| Stalwart | Resolve +1 | Base strike ×0.95 |
+| Hungry | Base strike ×1.08 | Flinch speed ×0.92 |
+
+Each reaper keeps three independent memories. A successful solo absorption
+grants at most one mark in each, calculated from the replay:
+
+- **Unseen:** the hunt began with an ambush.
+- **Stillness:** the player completed at least one unflinching hold.
+- **Rhythm:** at least five landed hits in a row within the cadence window.
+  Free cadence granted by a gift does not count as landed hits. A real miss,
+  flinch, charge hit or expired cadence breaks the landed-hit streak.
+
+Escapes, abandoned hunts, practice and rifts grant no soul marks. Repeating
+shriek holds in one encounter cannot farm extra marks. The memories, like XP,
+travel with that reaper's canonical NFT record. Old saves retain their XP and
+equipment, but start with zero memories rather than invented historical deeds.
+
+| Awakening | Minimum level | Marks in the gift's path | Gift strength |
+| --- | --- | --- | --- |
+| Birth | 1 | 0 | 1 |
+| First | 5 | 3 | 2 |
+| Second | 12 | 12 | 3 |
+| Third | 20 | 30 | 4 |
+
+Both requirements must be met. Money, feeding luck or unrelated practice does
+not substitute for the required marks. These are initial playtest thresholds.
+The following `S` is the strength in that table, never a random roll.
+
+| Class | Gift | Path | Actual effect |
+| --- | --- | --- | --- |
+| Harvester | The Last Furrow | Unseen | Ambush cleave's extra seals take `0.4 + 0.15S` of the primary blow. |
+| Harvester | Aftermath | Stillness | After a hold, the next cleave leaves caught extra seals open for at least `170 + 24S` ticks, instead of shutting them. |
+| Harvester | The Gathering | Rhythm | Every third cadence hit reopens its struck seal for `44 + 24S` ticks. |
+| Ferryman | Safe Passage | Unseen | An ambush protects against one un-parried charge and stuns the husk for `30S` ticks. This automatic protection is not a player parry. |
+| Ferryman | The Anchor | Stillness | A hold restores one lost resolve, at most `S` times per hunt; never above starting resolve. |
+| Ferryman | Returning Light | Rhythm | Five cadence hits prepare one flinch forgiveness, at most `S` preparations per hunt. The class's first free flinch is used before this light. |
+| Weigher | Foreknowledge | Unseen | The ambush's exposed seals stay open `30S` ticks longer. |
+| Weigher | The Verdict | Stillness | A hold prepares the next in-order strike for ×`(1 + 0.25S)` damage. An out-of-order hit does not spend it. |
+| Weigher | Equilibrium | Rhythm | Three in-order strikes reopen all seals for `44 + 24S` ticks. An out-of-order strike resets this count. |
+| Chooser | First Light | Unseen | First ambush strike gains a further ×`(1 + 0.25S)`. |
+| Chooser | Reprisal | Stillness | A player parry prepares Chosen Blow and a further ×`(1 + 0.25S)` on the next seal strike. |
+| Chooser | The Last Word | Rhythm | At cadence ≥3, a seal strike while ward is ≤35% of its starting value gains ×`(1 + 0.25S)`. |
+| Hollow | Old Hunger | Unseen | An ambush starts cadence at `S`; the normal cadence timer still applies. |
+| Hollow | The Echo | Stillness | A hold restores cadence from the shriek's warning plus `S`, capped at ten, and restarts its timer. |
+| Hollow | Unbroken | Rhythm | At most `S` real misses preserve cadence per hunt; its existing timer continues. The actual landed-hit streak still breaks. |
+| Mourner | Hush | Unseen | An ambush delays the first shriek by `30S` ticks. |
+| Mourner | Keening | Stillness | A hold prepares the next seal strike for ×`(1 + 0.25S)` damage. |
+| Mourner | The Refrain | Rhythm | Every third cadence hit adds `15S` ticks to the reap window, at most six times per hunt. |
+
+Gifts act only at their stated trigger; they add no paid training, cooldown
+skips or second spell bar. The studio's Soul view shows their exact current
+and future effects, temperament costs, marks and original lore. Studio memory
+buttons are explicitly illustrative and never write the saved player.
+
+Combat log version **5** identifies these rules. Older logs are refused with
+an update message, never silently reinterpreted. Staging and production refuse
+the simulated acquire, release, settlement and rift endpoints until real husk
+acquisition, escrow and confirmed burning replace them. Practice remains
+available. This is a launch guard, not a claim those transactions exist.
+
 ### Weapons and outfits
 
 Any class can buy any weapon. Each kind has its own feel:

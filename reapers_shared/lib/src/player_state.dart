@@ -8,6 +8,7 @@ import 'hunt/hunt_stats.dart';
 import 'nft_catalogue.dart';
 import 'reaper_genome.dart';
 import 'reaper_state.dart';
+import 'reaper_soul.dart';
 import 'rift/rift_room.dart';
 import 'rift/rift_rules.dart';
 import 'rift/rift_site.dart';
@@ -56,6 +57,12 @@ enum Refusal {
 
   /// The submitted hunt does not replay to a finished hunt.
   huntUnproven,
+
+  /// Client and keeper run different combat rules; update before retrying.
+  huntVersionUnsupported,
+
+  /// The simulated NFT economy is unavailable on a deployed keeper.
+  marketUnavailable,
 
   /// Tradable reapers require replayed rift results before earning growth.
   riftUnproven,
@@ -444,6 +451,8 @@ final class PlayerState {
       level: level,
       weapon: weapon,
       completedSets: completedSets,
+      soul: activeReaper?.soul,
+      soulRank: activeReaper?.soulRank ?? 0,
     );
   }
 
@@ -580,6 +589,7 @@ final class PlayerState {
           if (loose.id != sightingId) loose,
       ],
       codex: [...codex, absorption],
+      memory: activeReaper!.memory.remember(outcome),
     );
   }
 
@@ -796,6 +806,7 @@ final class PlayerState {
     int? huntsLost,
     int? riftsSealed,
     int? nextSightingId,
+    SoulMemory? memory,
   }) {
     final roster =
         reapers ??
@@ -811,6 +822,7 @@ final class PlayerState {
                     codex: codex,
                     huntsLost: huntsLost,
                     riftsSealed: riftsSealed,
+                    memory: memory,
                   )
                 : reaper,
         ];

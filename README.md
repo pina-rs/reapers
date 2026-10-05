@@ -13,6 +13,7 @@ You are bound to a reaper you did not choose, and the phone is its blade. The hu
 ## What is in this version
 
 - The shuffle: six classes, each with its own silhouette, weapon and perk, and a few hundred looks apiece.
+- Eighteen permanent birth gifts and four temperaments. Each reaper's remembered successful hunts awaken its own power at levels five, twelve and twenty.
 - The full hunt over the camera feed: trace a sigil to draw the husk out (harder for rarer husks) while the phone reads the room, then stalk, strike, shriek, reap.
 - Husks that are creatures with a place in the room: walkers on the floor, fliers in the air.
 - A roll of luck on every absorption, decided and signed by the server.
@@ -99,5 +100,7 @@ The hooks make that the only way in: `main` refuses any commit that `tool/merge.
 | [docs/environment.md](docs/environment.md) | What the game knows about the room, and how it could know more. |
 | [docs/research/solana-collections.md](docs/research/solana-collections.md) | 116 old Solana collections, and why these five. |
 | [docs/research/dark-games-and-ar-hunting.md](docs/research/dark-games-and-ar-hunting.md) | The research the classes and the hunt came from. |
+| [docs/research/reaper-identity-and-growth.md](docs/research/reaper-identity-and-growth.md) | Developer sources and the reasoning behind birth gifts, memory and awakenings. |
+| [docs/launch-readiness.md](docs/launch-readiness.md) | Completed integration, launch engineering still required and decisions needed from Ifiok. |
 | [art/blender/README.md](art/blender/README.md) | How the 3D art is built. |
 | [AGENTS.md](AGENTS.md) | Conventions for anyone, human or not, changing the code. |

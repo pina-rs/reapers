@@ -16,10 +16,12 @@ import 'package:reapers_shared/reapers_shared.dart';
 
 import '../l10n/l10n.dart';
 import '../l10n/lookups.dart';
+import '../l10n/soul_lookups.dart';
 import '../render/reaper_look.dart';
 import '../render/reaper_stage.dart';
 import '../theme/veil.dart';
 import '../widgets/ledger.dart';
+import '../widgets/soul_ledger.dart';
 
 typedef StudioStageBuilder = Widget Function(ReaperGenome, Weapon, Outfit);
 
@@ -35,6 +37,7 @@ class ReaperStudio extends HookWidget {
     final l10n = context.l10n;
     final genome = useState(initialGenome ?? ReaperGenome.shuffle(11));
     final xp = useState(0);
+    final memory = useState(const SoulMemory());
     final outfit = useState(Outfit.shrouded);
     final temper = useState(Temper.shrouded);
     final tab = useState(0);
@@ -53,12 +56,20 @@ class ReaperStudio extends HookWidget {
     }, [spinning.value]);
     final level = Progression.levelForXp(xp.value);
     final weapon = Weapon(genome.value.reaperClass.weapon, temper.value);
+    final soul = ReaperSoul.fromGenome(genome.value);
+    final soulRank = SoulRules.rank(
+      level: level,
+      memory: memory.value,
+      gift: soul.gift,
+    );
     final stats = HuntStats.derive(
       HuntLoadout(
         reaperClass: genome.value.reaperClass,
         level: level,
         weapon: weapon,
         completedSets: 0,
+        soul: soul,
+        soulRank: soulRank,
       ),
     );
     final starting = HuntStats.derive(
@@ -67,6 +78,7 @@ class ReaperStudio extends HookWidget {
         level: 1,
         weapon: Weapon(genome.value.reaperClass.weapon, Temper.shrouded),
         completedSets: 0,
+        soul: soul,
       ),
     );
     final light = reaperLight(genome.value);
@@ -78,18 +90,30 @@ class ReaperStudio extends HookWidget {
       if (outfit.value.levelRequired > next) outfit.value = Outfit.shrouded;
     }
 
-    void absorb() {
+    void absorb({SoulPath? path}) {
       // Illustrative clean cut and fair feeding, calculated by the same rules
       // as a real hunt. This never submits a claim or touches the saved player.
-      const outcome = HuntOutcome.absorbed(
+      final outcome = HuntOutcome.absorbed(
         grade: ReapGrade.clean,
-        ambushed: false,
+        ambushed: path == SoulPath.unseen,
         ticks: 0,
+        deeds: HuntDeeds(
+          holds: path == SoulPath.stillness ? 1 : 0,
+          maxCadence: path == SoulPath.rhythm ? SoulRules.cadenceForMark : 0,
+        ),
       );
       final earned = outcome.xpFor(Rarity.rare, Feeding.fair);
       xp.value += earned;
       captures.value++;
       reward.value = earned;
+      memory.value = memory.value.remember(outcome);
+    }
+
+    void tryGift(ReaperGift gift) {
+      final delta = (gift.index - soul.gift.index) % SoulRules.giftsPerClass;
+      var gaze = genome.value.gaze + delta;
+      if (gaze > ReaperGenome.traitScale) gaze -= SoulRules.giftsPerClass;
+      genome.value = genome.value.copyWith(gaze: gaze);
     }
 
     final portrait = Stack(
@@ -154,9 +178,13 @@ class ReaperStudio extends HookWidget {
           Text(l10n.studioIntro, style: Veil.body(color: Veil.ash)),
           const SizedBox(height: 20),
           SegmentedButton<int>(
+            direction: MediaQuery.textScalerOf(context).scale(14) > 20
+                ? Axis.vertical
+                : Axis.horizontal,
             segments: [
               ButtonSegment(value: 0, label: Text(l10n.studioTraits)),
               ButtonSegment(value: 1, label: Text(l10n.studioGrowth)),
+              ButtonSegment(value: 2, label: Text(l10n.soulTab)),
             ],
             selected: {tab.value},
             onSelectionChanged: (values) => tab.value = values.single,
@@ -176,6 +204,16 @@ class ReaperStudio extends HookWidget {
                     ),
                   ),
               ],
+            ),
+            const SizedBox(height: 14),
+            LedgerButton(
+              label: l10n.soulBirthLink(
+                giftName(l10n, soul.gift),
+                temperamentName(l10n, soul.temperament),
+              ),
+              detail: l10n.soulTab,
+              quiet: true,
+              onPressed: () => tab.value = 2,
             ),
             _Variants(
               label: l10n.studioHead,
@@ -279,7 +317,7 @@ class ReaperStudio extends HookWidget {
                 }
               },
             ),
-          ] else ...[
+          ] else if (tab.value == 1) ...[
             LedgerHeading(
               l10n.studioLevel,
               trailing: '$level / ${Progression.levelCap}',
@@ -318,12 +356,19 @@ class ReaperStudio extends HookWidget {
               l10n.studioGrowthLine,
               style: Veil.body(color: Veil.ash, size: 13),
             ),
+            const SizedBox(height: 14),
+            LedgerButton(
+              label: giftName(l10n, soul.gift),
+              detail: l10n.soulRank(soulRank, SoulRules.maxRank),
+              quiet: true,
+              onPressed: () => tab.value = 2,
+            ),
             const SizedBox(height: 18),
             LedgerButton(
               key: const Key('studio-absorb'),
               label: l10n.studioAbsorb,
               detail: l10n.studioCaptures(captures.value),
-              onPressed: absorb,
+              onPressed: () => absorb(),
             ),
             if (reward.value case final earned?)
               Padding(
@@ -373,12 +418,73 @@ class ReaperStudio extends HookWidget {
                 setLevel(Progression.levelCap);
                 temper.value = Temper.hollowed;
                 outfit.value = Outfit.hollowed;
+                memory.value = SoulMemory(
+                  unseen: SoulRules.rankMarks.last,
+                  stillness: SoulRules.rankMarks.last,
+                  rhythm: SoulRules.rankMarks.last,
+                );
               },
             ),
             const SizedBox(height: 12),
             Text(
               l10n.studioMultiple,
               style: Veil.body(color: Veil.ash, size: 13),
+            ),
+          ] else ...[
+            const SizedBox(height: 20),
+            Text(l10n.soulIntro, style: Veil.body(color: Veil.ash)),
+            LedgerHeading(
+              l10n.studioLevel,
+              trailing: '$level / ${Progression.levelCap}',
+            ),
+            Slider(
+              key: const Key('studio-soul-level'),
+              value: level.toDouble(),
+              min: 1,
+              max: Progression.levelCap.toDouble(),
+              divisions: Progression.levelCap - 1,
+              label: l10n.studioLevelValue(level),
+              onChanged: (value) => setLevel(value.round()),
+            ),
+            LedgerHeading(l10n.soulGiftChoice),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final gift in ReaperGift.values.where(
+                  (gift) => gift.reaperClass == genome.value.reaperClass,
+                ))
+                  ChoiceChip(
+                    key: Key('studio-gift-${gift.name}'),
+                    label: Text(giftName(l10n, gift)),
+                    selected: soul.gift == gift,
+                    onSelected: (_) => tryGift(gift),
+                  ),
+              ],
+            ),
+            SoulLedger(
+              genome: genome.value,
+              level: level,
+              memory: memory.value,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              l10n.soulPreviewHelp,
+              style: Veil.body(color: Veil.ash, size: 13),
+            ),
+            const SizedBox(height: 12),
+            for (final path in SoulPath.values) ...[
+              LedgerButton(
+                key: Key('studio-memory-${path.name}'),
+                label: l10n.soulPreviewMark(soulPathName(l10n, path)),
+                detail: '${memory.value.marks(path)}',
+                onPressed: () => absorb(path: path),
+              ),
+              const SizedBox(height: 8),
+            ],
+            TextButton(
+              onPressed: () => memory.value = const SoulMemory(),
+              child: Text(l10n.soulPreviewReset),
             ),
           ],
         ],

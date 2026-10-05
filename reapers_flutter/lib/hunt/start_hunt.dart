@@ -59,6 +59,9 @@ Future<void> startHunt(BuildContext context, WidgetRef ref, Sighting sighting) {
                 settlement.state.codex.last.signature != null,
             levelBefore: player.level,
             levelAfter: settlement.state.level,
+            gift: player.activeReaper?.soul.gift,
+            soulRankBefore: player.activeReaper?.soulRank ?? 0,
+            soulRankAfter: settlement.state.activeReaper?.soulRank ?? 0,
           );
         },
       ),

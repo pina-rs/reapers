@@ -8,6 +8,7 @@ import 'package:reapers_shared/reapers_shared.dart';
 
 import '../l10n/l10n.dart';
 import '../l10n/lookups.dart';
+import '../l10n/soul_lookups.dart';
 import '../sound/score.dart';
 import '../sound/soundtrack.dart';
 import '../src/state/testing_difficulty.dart';
@@ -75,6 +76,9 @@ final class HuntReward {
     required this.signed,
     required this.levelBefore,
     required this.levelAfter,
+    this.gift,
+    this.soulRankBefore = 0,
+    this.soulRankAfter = 0,
   });
 
   /// A practice hunt: the phone's own verdict, and nothing changes hands.
@@ -84,7 +88,10 @@ final class HuntReward {
       feeding = null,
       signed = false,
       levelBefore = 0,
-      levelAfter = 0;
+      levelAfter = 0,
+      gift = null,
+      soulRankBefore = 0,
+      soulRankAfter = 0;
 
   /// The verdict. For a real hunt this is the keeper's, which is the one
   /// that counts if it ever differs from what the phone saw.
@@ -102,6 +109,9 @@ final class HuntReward {
 
   final int levelBefore;
   final int levelAfter;
+  final ReaperGift? gift;
+  final int soulRankBefore;
+  final int soulRankAfter;
 
   bool get levelledUp => levelAfter > levelBefore;
 }
@@ -634,6 +644,41 @@ class _Reckoning extends HookWidget {
                     value: romanNumeral(reward.levelAfter),
                     emphasised: true,
                   ),
+                if (reward.gift != null &&
+                    reward.soulRankAfter > reward.soulRankBefore) ...[
+                  const SizedBox(height: 14),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      l10n.soulRankEarned(
+                        giftName(l10n, reward.gift!),
+                        reward.soulRankAfter,
+                      ),
+                      style: Veil.body(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ],
+                if (outcome.ambushed ||
+                    outcome.deeds.holds > 0 ||
+                    outcome.deeds.maxCadence >= SoulRules.cadenceForMark) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    l10n.soulDeedsEarned(
+                      [
+                        if (outcome.ambushed)
+                          soulPathName(l10n, SoulPath.unseen),
+                        if (outcome.deeds.holds > 0)
+                          soulPathName(l10n, SoulPath.stillness),
+                        if (outcome.deeds.maxCadence >=
+                            SoulRules.cadenceForMark)
+                          soulPathName(l10n, SoulPath.rhythm),
+                      ].join(', '),
+                    ),
+                    style: Veil.body(color: Veil.ash, size: 13),
+                  ),
+                ],
               ],
               const SizedBox(height: 30),
               LedgerButton(

@@ -21,6 +21,17 @@ Publish the complete `build/web` directory, including its local WebGL bindings. 
 
 **Birth traits** lets you try all six callings, head and mantle variants, hems, colourways, omens and auras. Sliders change stature, gauntness, gaze and tatter. Drag the model to turn it or pause its automatic rotation, which makes one slow revolution and then holds. Copy genome preserves a specimen's reproducible code. Owned reapers cannot edit these traits: mint metadata determines their birth.
 
-**Growth** demonstrates the shared level-one-to-thirty progression. Absorb a specimen adds the actual reward for an illustrative clean rare hunt with fair feeding. Scrubbing the level shows strike growth relative to a new reaper of the same calling. Weapon and outfit entries show their level gates and anima prices; select them once unlocked. **See full potential** shows level thirty and hollowed equipment. Outfits affect appearance; levels and weapon temper affect strikes. Capture windows are unchanged.
+**Growth** demonstrates the shared level-one-to-thirty progression. Absorb a specimen adds the actual reward for an illustrative clean rare hunt with fair feeding. Scrubbing the level shows strike growth relative to a new reaper of the same calling and temperament. Weapon and outfit entries show their level gates and anima prices; select them once unlocked. **See full potential** shows level thirty, hollowed equipment and all three gift awakenings. Outfits affect appearance; levels and weapon temper affect strikes. Some birth gifts and temperaments also change the capture window.
+
+**Soul** shows the specimen's permanent birth gift, its temperament and its original lore. Try the three gifts of a calling, inspect every awakening's concrete effect, scrub levels and add illustrative successful hunts along **Unseen**, **Stillness** and **Rhythm**. A level-thirty reaper with no remembered deeds still has its birth power: awakening requires both level and the gift's favoured memory. Real memories come from server-replayed hunt inputs, with at most one mark per path per successful hunt. Preview controls cannot change the books. See [the rules](gameplay.md) and [identity research](research/reaper-identity-and-growth.md).
+
+Run the renderer and soul journey in separate phone app containers, preserving the normal install and its saves:
+
+```sh
+fvm dart tool/test_studio.dart android <device-id>
+fvm dart tool/test_studio.dart ios <simulator-id>
+```
+
+Run these commands from the repository root. The helper temporarily isolates the application identifier, restores the project afterwards, and saves screenshots under `.impeccable/review/`.
 
 The preview neither buys gear nor charges currency. Its absorption count resets when it closes. The account roster is separate: it contains the starter and verified NFTs, with independent earned growth. Purchases and ownership setup are described in [solana.md](solana.md).

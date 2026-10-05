@@ -1,5 +1,6 @@
 import '../feeding.dart';
 import '../nft_catalogue.dart';
+import '../reaper_soul.dart';
 import 'hunt_stats.dart';
 
 /// Where an encounter is.
@@ -65,6 +66,13 @@ enum EscapeCause {
 /// feeds anything back from them.
 sealed class HuntEvent {
   const HuntEvent();
+}
+
+/// A birth gift changed this moment of the hunt.
+final class GiftStirred extends HuntEvent {
+  const GiftStirred(this.gift);
+
+  final ReaperGift gift;
 }
 
 /// The stalk is over and the fight has begun.
@@ -204,12 +212,14 @@ final class HuntOutcome {
     required ReapGrade this.grade,
     required this.ambushed,
     required this.ticks,
+    this.deeds = const HuntDeeds(),
   }) : escape = null;
 
   const HuntOutcome.escaped({
     required EscapeCause this.escape,
     required this.ambushed,
     required this.ticks,
+    this.deeds = const HuntDeeds(),
   }) : grade = null;
 
   /// Reads an outcome written by [toJson].
@@ -217,12 +227,16 @@ final class HuntOutcome {
     final grade = json['grade'] as String?;
     final ambushed = json['ambushed'] as bool;
     final ticks = json['ticks'] as int;
+    final deeds = json['deeds'] == null
+        ? const HuntDeeds()
+        : HuntDeeds.fromJson((json['deeds'] as Map).cast<String, dynamic>());
 
     if (grade != null) {
       return HuntOutcome.absorbed(
         grade: ReapGrade.values.byName(grade),
         ambushed: ambushed,
         ticks: ticks,
+        deeds: deeds,
       );
     }
 
@@ -230,6 +244,7 @@ final class HuntOutcome {
       escape: EscapeCause.values.byName(json['escape'] as String),
       ambushed: ambushed,
       ticks: ticks,
+      deeds: deeds,
     );
   }
 
@@ -244,6 +259,7 @@ final class HuntOutcome {
 
   /// How long the hunt ran.
   final int ticks;
+  final HuntDeeds deeds;
 
   bool get absorbed => grade != null;
 
@@ -252,6 +268,7 @@ final class HuntOutcome {
     'escape': escape?.name,
     'ambushed': ambushed,
     'ticks': ticks,
+    'deeds': deeds.toJson(),
   };
 
   /// Experience earned from a husk of [rarity] that fed the reaper as

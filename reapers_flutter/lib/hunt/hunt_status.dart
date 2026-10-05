@@ -6,6 +6,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:reapers_shared/reapers_shared.dart';
 
 import '../l10n/l10n.dart';
+import '../l10n/soul_lookups.dart';
 import '../theme/veil.dart';
 import '../widgets/ledger.dart';
 
@@ -151,6 +152,7 @@ class HuntStatus extends HookWidget {
 /// has none.
 String? huntBannerFor(AppLocalizations l10n, HuntEvent event) =>
     switch (event) {
+      GiftStirred(:final gift) => giftName(l10n, gift),
       StalkEnded(:final ambush) => ambush ? l10n.huntAmbush : l10n.huntNoticed,
       Flinched(:final forgiven) =>
         forgiven ? l10n.huntSteadfast : l10n.huntFlinched,
@@ -186,6 +188,7 @@ void knockFor(HuntEvent event) {
     StrikeLanded() => HapticFeedback.lightImpact,
     StrikeGlanced() => HapticFeedback.selectionClick,
     Flinched() || Struck() => HapticFeedback.vibrate,
+    GiftStirred() ||
     StrikeWhiffed() ||
     SealOpened() ||
     ShriekWindup() ||

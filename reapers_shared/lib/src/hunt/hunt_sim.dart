@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import '../reaper_class.dart';
+import '../reaper_soul.dart';
 import '../rift/rift_room.dart';
 import '../rift/rift_rules.dart';
 import '../seeded_random.dart';
@@ -236,6 +237,20 @@ final class HuntSim {
   int _lastHitTick = -HuntRules.cadenceWindowTicks - 1;
   bool _ambushStrikeReady = false;
   bool _chosenBlowReady = false;
+  bool _giftStrikeReady = false;
+  bool _passageReady = false;
+  bool _returnReady = false;
+  int _giftUses = 0;
+  int _orderedHits = 0;
+  int _refrainTolls = 0;
+  int _echoCadence = 0;
+  int _holds = 0;
+  int _parries = 0;
+  int _hitStreak = 0;
+  int _maxHitStreak = 0;
+
+  HuntDeeds get deeds =>
+      HuntDeeds(holds: _holds, parries: _parries, maxCadence: _maxHitStreak);
 
   // Shriek -------------------------------------------------------------
 
@@ -504,6 +519,28 @@ final class HuntSim {
     if (ambush) {
       _exposeAllSeals(events);
 
+      switch (stats.gift) {
+        case ReaperGift.passage:
+          _passageReady = true;
+          events.add(const GiftStirred(ReaperGift.passage));
+        case ReaperGift.foreknowledge:
+          for (var seal = 0; seal < vessel.seals.length; seal++) {
+            _openUntil[seal] +=
+                SoulRules.foreknowledgeTicksPerStrength * stats.giftStrength;
+          }
+          events.add(const GiftStirred(ReaperGift.foreknowledge));
+        case ReaperGift.hunger:
+          cadence = stats.giftStrength;
+          _lastHitTick = tick;
+          events.add(const GiftStirred(ReaperGift.hunger));
+        case ReaperGift.hush:
+          _nextShriekTick +=
+              SoulRules.hushTicksPerStrength * stats.giftStrength;
+          events.add(const GiftStirred(ReaperGift.hush));
+        default:
+          break;
+      }
+
       return;
     }
 
@@ -530,6 +567,7 @@ final class HuntSim {
 
     if (tick - _lastHitTick > HuntRules.cadenceWindowTicks) {
       cadence = 0;
+      _hitStreak = 0;
     }
 
     _stepShriek(input, events);
@@ -554,6 +592,7 @@ final class HuntSim {
 
   void _stepShriek(HuntInput input, List<HuntEvent> events) {
     if (phase == HuntPhase.fight && tick >= _nextShriekTick) {
+      _echoCadence = cadence;
       phase = HuntPhase.windup;
       _phaseEndTick = tick + HuntRules.windupTicks;
       events.add(const ShriekWindup());
@@ -609,6 +648,7 @@ final class HuntSim {
     }
 
     events.add(const HeldFirm());
+    _holds++;
     _exposeAllSeals(events);
 
     if (stats.perk == ClassPerk.chosenBlow) {
@@ -618,16 +658,42 @@ final class HuntSim {
     if (stats.perk == ClassPerk.toll) {
       _bonusCaptureTicks += HuntRules.tollTicks;
     }
+
+    switch (stats.gift) {
+      case ReaperGift.aftermath || ReaperGift.verdict || ReaperGift.keening:
+        _giftStrikeReady = true;
+      case ReaperGift.anchor:
+        if (_giftUses < stats.giftStrength && resolve < stats.resolve) {
+          resolve++;
+          _giftUses++;
+          events.add(const GiftStirred(ReaperGift.anchor));
+        }
+      case ReaperGift.echo:
+        cadence = math.min(
+          HuntRules.chainCadenceCap,
+          _echoCadence + stats.giftStrength,
+        );
+        _lastHitTick = tick;
+        events.add(const GiftStirred(ReaperGift.echo));
+      default:
+        break;
+    }
   }
 
   void _flinch(List<HuntEvent> events) {
     _flinchedThisShriek = true;
     cadence = 0;
+    _hitStreak = 0;
 
-    final forgiven = stats.perk == ClassPerk.steadfast && !_steadfastSpent;
+    final steadfast = stats.perk == ClassPerk.steadfast && !_steadfastSpent;
+    final returned = !steadfast && _returnReady;
+    final forgiven = steadfast || returned;
 
-    if (forgiven) {
+    if (steadfast) {
       _steadfastSpent = true;
+    } else if (returned) {
+      _returnReady = false;
+      events.add(const GiftStirred(ReaperGift.returnLight));
     } else {
       resolve--;
     }
@@ -730,15 +796,35 @@ final class HuntSim {
     _staggeredUntil = tick + HuntRules.staggerTicks;
     _nextBoltTick = _staggeredUntil;
     events.add(const Parried());
+    _parries++;
     _exposeAllSeals(events);
+
+    if (stats.gift == ReaperGift.reprisal) {
+      _chosenBlowReady = true;
+      _giftStrikeReady = true;
+      events.add(const GiftStirred(ReaperGift.reprisal));
+    }
   }
 
   /// The charge got through. It costs the reaper resolve, and the husk is
   /// off again at once.
   void _strikeReaper(List<HuntEvent> events) {
+    if (_passageReady) {
+      _passageReady = false;
+      _parry(events);
+      // This is the gift's protection, not an input the player performed.
+      _parries--;
+      _staggeredUntil =
+          tick + SoulRules.passageStaggerTicksPerStrength * stats.giftStrength;
+      _nextBoltTick = _staggeredUntil;
+      events.add(const GiftStirred(ReaperGift.passage));
+      return;
+    }
+
     _endCharge();
     resolve--;
     cadence = 0;
+    _hitStreak = 0;
     events.add(Struck(resolveLeft: resolve));
 
     if (resolve <= 0) {
@@ -859,11 +945,19 @@ final class HuntSim {
         : HuntRules.cadenceCap;
     var scale = 1 + math.min(cadence, cap) * HuntRules.cadenceStep;
     var empowered = false;
+    final firstStrike = _ambushStrikeReady;
+    final inOrder = sealRank(seal) == 0;
+    final aftermath = _giftStrikeReady && stats.gift == ReaperGift.aftermath;
 
     if (_ambushStrikeReady) {
       _ambushStrikeReady = false;
       scale *= HuntRules.ambushStrike;
       empowered = true;
+    }
+
+    if (firstStrike && stats.gift == ReaperGift.firstLight) {
+      scale *= 1 + SoulRules.giftStrikePerStrength * stats.giftStrength;
+      events.add(const GiftStirred(ReaperGift.firstLight));
     }
 
     if (_chosenBlowReady) {
@@ -872,9 +966,33 @@ final class HuntSim {
       empowered = true;
     }
 
-    if (stats.perk == ClassPerk.measure && sealRank(seal) == 0) {
+    if (stats.perk == ClassPerk.measure && inOrder) {
       scale *= HuntRules.measureStrike;
       empowered = true;
+    }
+
+    final verdict = stats.gift == ReaperGift.verdict && inOrder;
+    final promised =
+        _giftStrikeReady &&
+        (verdict ||
+            stats.gift == ReaperGift.keening ||
+            stats.gift == ReaperGift.reprisal);
+    final execution =
+        stats.gift == ReaperGift.lastWord &&
+        cadence >= SoulRules.executionCadence &&
+        ward <= wardMax * SoulRules.executionWardShare;
+
+    if (promised || execution) {
+      scale *= 1 + SoulRules.giftStrikePerStrength * stats.giftStrength;
+      empowered = true;
+      if (promised) _giftStrikeReady = false;
+      events.add(GiftStirred(stats.gift!));
+    }
+
+    if (aftermath) {
+      _giftStrikeReady = false;
+      empowered = true;
+      events.add(const GiftStirred(ReaperGift.aftermath));
     }
 
     var damage = stats.strikeDamage * scale;
@@ -894,14 +1012,35 @@ final class HuntSim {
           continue;
         }
 
-        _shutSeal(other);
+        if (aftermath) {
+          _openUntil[other] = math.max(
+            _openUntil[other],
+            tick +
+                HuntRules.exposedTicks +
+                SoulRules.gatheringTicksPerStrength * stats.giftStrength,
+          );
+        } else {
+          _shutSeal(other);
+        }
         cleaved.add(other);
-        damage += stats.strikeDamage * scale * HuntRules.cleaveShare;
+        final share =
+            HuntRules.cleaveShare +
+            (firstStrike && stats.gift == ReaperGift.furrow
+                ? SoulRules.furrowCleavePerStrength * stats.giftStrength
+                : 0);
+        damage += stats.strikeDamage * scale * share;
       }
+    }
+
+    if (firstStrike && stats.gift == ReaperGift.furrow && cleaved.isNotEmpty) {
+      empowered = true;
+      events.add(const GiftStirred(ReaperGift.furrow));
     }
 
     ward = math.max(0, ward - damage);
     cadence++;
+    _hitStreak++;
+    _maxHitStreak = math.max(_maxHitStreak, _hitStreak);
     _lastHitTick = tick;
     events.add(
       StrikeLanded(
@@ -912,11 +1051,78 @@ final class HuntSim {
         cleaved: cleaved,
       ),
     );
+    _afterGiftStrike(seal, inOrder: inOrder, events: events);
+  }
+
+  /// Conditional powers keep their own counters, never a second simulation.
+  void _afterGiftStrike(
+    int seal, {
+    required bool inOrder,
+    required List<HuntEvent> events,
+  }) {
+    switch (stats.gift) {
+      case ReaperGift.gathering:
+        if (cadence % SoulRules.gatheringHits == 0) {
+          _shutUntil[seal] = tick;
+          _openSeal(
+            seal,
+            ticks:
+                HuntRules.sealCooldownTicks +
+                SoulRules.gatheringTicksPerStrength * stats.giftStrength,
+            events: events,
+          );
+          events.add(const GiftStirred(ReaperGift.gathering));
+        }
+      case ReaperGift.returnLight:
+        if (cadence >= SoulRules.returnCadence &&
+            !_returnReady &&
+            _giftUses < stats.giftStrength) {
+          _returnReady = true;
+          _giftUses++;
+          events.add(const GiftStirred(ReaperGift.returnLight));
+        }
+      case ReaperGift.equilibrium:
+        _orderedHits = inOrder ? _orderedHits + 1 : 0;
+        if (_orderedHits == SoulRules.equilibriumHits) {
+          _orderedHits = 0;
+          for (var other = 0; other < vessel.seals.length; other++) {
+            _shutUntil[other] = tick;
+            _openSeal(
+              other,
+              ticks: math.max(
+                _openUntil[other] - tick,
+                HuntRules.sealCooldownTicks +
+                    SoulRules.equilibriumTicksPerStrength * stats.giftStrength,
+              ),
+              events: events,
+            );
+          }
+          events.add(const GiftStirred(ReaperGift.equilibrium));
+        }
+      case ReaperGift.refrain:
+        if (cadence % SoulRules.refrainHits == 0 &&
+            _refrainTolls < SoulRules.refrainMaxTolls) {
+          _bonusCaptureTicks +=
+              SoulRules.refrainTicksPerStrength * stats.giftStrength;
+          _refrainTolls++;
+          events.add(const GiftStirred(ReaperGift.refrain));
+        }
+      default:
+        break;
+    }
   }
 
   void _resolveMiss(Vec3 ray, HuskPose current, List<HuntEvent> events) {
     if (!current.covers(ray, pad: stats.reachRadians * 0.5)) {
-      cadence = 0;
+      _hitStreak = 0;
+      if (stats.gift == ReaperGift.unbroken &&
+          cadence > 0 &&
+          _giftUses < stats.giftStrength) {
+        _giftUses++;
+        events.add(const GiftStirred(ReaperGift.unbroken));
+      } else {
+        cadence = 0;
+      }
       events.add(const StrikeWhiffed());
       return;
     }
@@ -1049,6 +1255,7 @@ final class HuntSim {
       grade: grade,
       ambushed: ambushed,
       ticks: tick + 1,
+      deeds: deeds,
     );
     events.add(HuskAbsorbed(grade));
   }
@@ -1059,6 +1266,7 @@ final class HuntSim {
       escape: cause,
       ambushed: ambushed,
       ticks: tick + 1,
+      deeds: deeds,
     );
     events.add(HuskEscaped(cause));
   }

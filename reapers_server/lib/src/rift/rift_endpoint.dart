@@ -3,6 +3,7 @@ import 'package:serverpod/serverpod.dart';
 
 import '../generated/protocol.dart';
 import '../player/player_books.dart';
+import '../player/player_endpoint.dart';
 import 'rift_hall.dart';
 
 /// Rifts: husks too strong for one reaper, fought by a circle of them.
@@ -30,6 +31,9 @@ class RiftEndpoint extends Endpoint {
     String site,
     Stream<RiftReport> reports,
   ) async* {
+    // Reported results are not replayed yet; their rewards belong only in
+    // the simulated development economy.
+    PlayerEndpoint.requireSimulation(session.serverpod.runMode);
     final riftSite = RiftSite.values.asNameMap()[site];
 
     if (riftSite == null) {

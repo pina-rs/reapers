@@ -295,6 +295,27 @@ void main() {
 
         expect(stored.xp, settlement.state.xp);
         expect(stored.codex.single.nft.id, saint);
+        expect(
+          stored.activeReaper!.memory.toJson(),
+          const SoulMemory().remember(settlement.outcome).toJson(),
+        );
+      },
+    );
+
+    test(
+      'old combat rules receive an update refusal without changing growth',
+      () async {
+        final state = await withLooseHusk();
+        final bytes = play(state, state.sightings.single).encode()..[0] = 4;
+        await expectLater(
+          endpoints.player.settleHunt(
+            player,
+            state.sightings.single.id,
+            ByteData.sublistView(bytes),
+          ),
+          refuses(Refusal.huntVersionUnsupported),
+        );
+        expect((await endpoints.player.load(player)).toJson(), state.toJson());
       },
     );
 

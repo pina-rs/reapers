@@ -4,6 +4,30 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Resolve these once through Monosecret around the release build. Debug
+// builds need no secrets; release tasks must never use Android's debug key.
+val releaseKeys = listOf(
+    "REAPERS_ANDROID_KEYSTORE",
+    "REAPERS_ANDROID_STORE_PASSWORD",
+    "REAPERS_ANDROID_KEY_ALIAS",
+    "REAPERS_ANDROID_KEY_PASSWORD",
+)
+val signingValues = releaseKeys.associateWith { System.getenv(it) }
+val missingSigning = releaseKeys.filter { signingValues[it].isNullOrBlank() }
+val releaseRequested = gradle.startParameter.taskNames.any { it.contains("Release") }
+
+if (releaseRequested && missingSigning.isNotEmpty()) {
+    throw GradleException(
+        "Release signing is not configured. Resolve these through Monosecret: " +
+            missingSigning.joinToString(", ")
+    )
+}
+
+val releaseKeystore = signingValues["REAPERS_ANDROID_KEYSTORE"]?.let { file(it) }
+if (releaseRequested && releaseKeystore?.isFile != true) {
+    throw GradleException("The configured Reapers release keystore does not exist.")
+}
+
 android {
     namespace = "com.reapers.app"
     compileSdk = flutter.compileSdkVersion
@@ -15,7 +39,6 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.reapers.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
@@ -29,11 +52,22 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (missingSigning.isEmpty()) {
+            create("reapersRelease") {
+                storeFile = releaseKeystore
+                storePassword = signingValues["REAPERS_ANDROID_STORE_PASSWORD"]
+                keyAlias = signingValues["REAPERS_ANDROID_KEY_ALIAS"]
+                keyPassword = signingValues["REAPERS_ANDROID_KEY_PASSWORD"]
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (missingSigning.isEmpty()) {
+                signingConfigs.getByName("reapersRelease")
+            } else null
         }
     }
 }

@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../l10n/l10n.dart';
 import '../l10n/lookups.dart';
+import '../l10n/soul_lookups.dart';
 import '../solana/chain_state.dart';
 import '../src/backend/game_backend.dart';
 import '../src/backend/server_backend.dart';
@@ -72,7 +73,7 @@ class RosterScreen extends HookConsumerWidget {
                       contentPadding: EdgeInsets.zero,
                       title: Text(reaper.genome.name, style: Veil.display(22)),
                       subtitle: Text(
-                        '${reaper.isNft ? l10n.rosterNft : l10n.rosterStarter} · ${l10n.studioLevelValue(reaper.level)}',
+                        '${reaper.isNft ? l10n.rosterNft : l10n.rosterStarter} · ${l10n.studioLevelValue(reaper.level)}\n${giftName(l10n, reaper.soul.gift)} · ${temperamentName(l10n, reaper.soul.temperament)}',
                       ),
                       selected: reaper.id == player.activeReaperId,
                       trailing: reaper.id == player.activeReaperId

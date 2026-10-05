@@ -4,11 +4,13 @@ import 'package:reapers_shared/reapers_shared.dart';
 
 import '../l10n/l10n.dart';
 import '../l10n/lookups.dart';
+import '../l10n/soul_lookups.dart';
 import '../src/state/player.dart';
 import '../theme/veil.dart';
 import '../widgets/ledger.dart';
 import '../widgets/ledger_page.dart';
 import '../widgets/nft_thumbnail.dart';
+import '../widgets/soul_ledger.dart';
 
 /// The record of everything this reaper has absorbed, collection by
 /// collection, and how far each set is from complete.
@@ -25,6 +27,25 @@ class CodexScreen extends HookConsumerWidget {
       overline: l10n.codexOverline,
       title: l10n.codexTitle,
       children: [
+        if (player.activeReaper case final reaper?)
+          ExpansionTile(
+            key: const Key('codex-soul'),
+            tilePadding: EdgeInsets.zero,
+            title: Text(l10n.soulTitle, style: Veil.display(24)),
+            subtitle: Text(
+              l10n.soulBirthLink(
+                giftName(l10n, reaper.soul.gift),
+                temperamentName(l10n, reaper.soul.temperament),
+              ),
+            ),
+            children: [
+              SoulLedger(
+                genome: reaper.genome,
+                level: reaper.level,
+                memory: reaper.memory,
+              ),
+            ],
+          ),
         if (player.codex.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 14),
