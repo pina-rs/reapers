@@ -1,0 +1,9 @@
+class: WalletChallenge
+table: wallet_challenge
+fields:
+  challengeId: UuidValue, unique
+  authUserId: UuidValue, unique
+  address: String
+  message: String
+  expiresAt: DateTime
+  consumed: bool, default=false

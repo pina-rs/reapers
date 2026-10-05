@@ -65,9 +65,9 @@ components:
 
 **Creative North Star: "The Funeral Ledger"**
 
-The native interface is a funeral ledger set in warm bone on blue-black ink. Large, sharp words give names and numbers ceremony; small ruled entries keep the game readable. The spirit realm supplies movement and depth behind the ledger. This records the incumbent Flutter world and its branding extension, rather than a replacement identity.
+The native interface is a funeral ledger set in warm bone on blue-black ink. Large, sharp words give names and numbers ceremony; small ruled entries keep the game readable. The spirit realm supplies movement and depth behind the ledger. This records the incumbent Flutter world and its branding and model-viewer extensions, rather than a replacement identity.
 
-The product premise comes from [README](../README.md), [gameplay](../docs/gameplay.md) and [architecture](../docs/architecture.md). Visual authority is [Veil](lib/theme/veil.dart), the [ledger kit](lib/widgets/ledger.dart), and the implemented [threshold](lib/screens/threshold_screen.dart) and [arrival](lib/brand/splash_gate.dart). Values in the frontmatter translate Flutter logical pixels to portable `px`; the Dart source remains the implementation authority.
+The product premise comes from [README](../README.md), [gameplay](../docs/gameplay.md) and [architecture](../docs/architecture.md). Visual authority is [Veil](lib/theme/veil.dart), the [ledger kit](lib/widgets/ledger.dart), and the implemented [threshold](lib/screens/threshold_screen.dart), [arrival](lib/brand/splash_gate.dart) and [studio](lib/studio/reaper_studio.dart). Values in the frontmatter translate Flutter logical pixels to portable `px`; the Dart source remains the implementation authority.
 
 **Key Characteristics:**
 
@@ -82,7 +82,7 @@ The palette holds the interface in shadow while reserving light for words, actio
 
 ### Primary
 
-- **Reaper light:** supplied to `Veil.theme`, rather than fixed in this document. It fills a pressed ledger action and highlights important standings. **Unbound** is the provisional player's light before the oath.
+- **Reaper light:** supplied to `Veil.theme`, rather than fixed in this document. It fills a pressed ledger action, marks keyboard focus and highlights important standings. In a specimen viewer it comes from the displayed genome. **Unbound** is the provisional player's light before the oath.
 - **Wound:** a loss, refusal or error. It carries a meaning, rather than becoming a second decorative accent.
 
 ### Neutral
@@ -93,7 +93,7 @@ The palette holds the interface in shadow while reserving light for words, actio
 - **Ash:** supporting text and unavailable actions.
 - **Hairline:** low-opacity bone for dividers, dotted leaders and quiet borders. The frontmatter uses CSS RGBA hex; the Dart constant uses ARGB order.
 
-**The Borrowed Light Rule.** Active interface colour comes from the player's reaper; new screens use the theme's primary colour rather than inventing an accent.
+**The Borrowed Light Rule.** Active interface colour comes from the displayed reaper; new screens use the theme's primary colour rather than inventing an accent.
 
 ## Typography
 
@@ -108,7 +108,7 @@ Both variable fonts are bundled in [pubspec.yaml](pubspec.yaml). The incumbent p
 
 ## Layout
 
-Content columns grow only to `Veil.contentWidth` (520 logical pixels). Safe areas protect phone edges. The threshold uses a scrollable column with a 28-pixel horizontal inset, so a short viewport can scroll; its wordmark scales down to fit. Ledger action details wrap beneath their label when the pair cannot share a line. Retain these behaviours rather than introducing device-specific fixed heights.
+Standard ledger content columns grow only to `Veil.contentWidth` (520 logical pixels). Safe areas protect phone edges. The threshold uses a scrollable column with a 28-pixel horizontal inset, so a short viewport can scroll; its wordmark scales down to fit. Ledger action details wrap beneath their label when the pair cannot share a line. Retain these behaviours when adapting a surface; model-viewer compositions are recorded in their own surface briefs.
 
 The threshold places the mark above the large wordmark, premise, outlined oath action and quiet practice action. Its open upper field leaves room for the blade arc and moving veil. This composition belongs to arrival; it is not a template for inventory or combat screens.
 
@@ -124,7 +124,13 @@ Ledger actions have square corners and straight borders. Rows use dotted leaders
 
 ### Ledger actions
 
-`LedgerButton` is a full-width entry with a minimum height of 56. At rest, its outline is bone at 70% opacity; the quiet variant omits that outline. Pressing fills either variant with the reaper's light and changes text to ink over 90 ms. Disabled actions use ash text and a hairline border. Each action exposes its label, detail and enabled state through semantics. Detail text may wrap; the primary and quiet actions retain equal touch geometry.
+`LedgerButton` is a full-width entry with a minimum height of 56. At rest, its outline is bone at 70% opacity; the quiet variant omits that outline. Pressing fills either variant with the reaper's light and changes text to ink over 90 ms. Keyboard focus gives either variant a visible border in that light, including the quiet action. Disabled actions use ash text and, for outlined actions, a hairline border. Detail text may wrap; the primary and quiet actions retain equal touch geometry.
+
+Transparent `Material` and `InkWell` provide touch and Enter/Space activation without introducing a splash, hover fill, rounded shape or elevation. Semantics exposes the combined label and detail, enabled and focus states, and an activation action. Disabled actions cannot request focus or activate.
+
+### Model viewers
+
+Inspect the actual game model through `ReaperStage`, retaining the specimen's light, materials and manual drag rotation. Automatic turning respects the native reduced-motion preference. The studio adds a finite demonstration and keeps its unsaved specimen separate from owned growth; its composition, controls and review scope belong to the [studio surface brief](.impeccable/surfaces/reapers-flutter-lib-studio-reaper-studio-dart.md).
 
 ### Mark and wordmark
 
@@ -145,6 +151,7 @@ The final reviewer returned **ship** for the resolved threshold eyebrow fix on t
 - **Do** reuse `Veil`, the ledger kit and `ReapersMark` on new native screens.
 - **Do** let short screens scroll, scale the wordmark down and wrap action details.
 - **Do** keep launch motion finite, honour reduced motion and expose startup recovery.
+- **Do** make ledger actions operable by touch, keyboard and assistive technology, with visible focus in the displayed reaper's light.
 - **Do** rebuild and relaunch after changing installed native artwork.
 
 ### Don't:

@@ -1,0 +1,7 @@
+### One canonical growth record per NFT, shared across every owner.
+class: ReaperRecord
+table: reaper_record
+fields:
+  assetKey: String, unique
+  collection: String
+  state: ReaperState

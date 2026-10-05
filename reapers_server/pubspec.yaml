@@ -14,6 +14,10 @@ dependencies:
     path: ../reapers_shared
   serverpod: 4.0.3
   serverpod_auth_idp_server: 4.0.3
+  solana_kit: ^0.10.0
+  solana_kit_rpc_api: ^0.10.0
+  solana_kit_mpl_core: ^0.10.0
+  http: ^1.6.0
 
 dev_dependencies:
   lints: ">=3.0.0 <7.0.0"
@@ -30,3 +34,8 @@ serverpod:
       target: lib/main.dart
       dart-define:
         REAPERS_SERVER_URL=http://localhost:8080/
+    studio:
+      path: ../reapers_flutter
+      displayName: "Reaper studio"
+      auto_launch: false
+      target: lib/main_preview.dart

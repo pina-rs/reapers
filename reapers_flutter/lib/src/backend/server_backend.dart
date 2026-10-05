@@ -8,6 +8,7 @@ import 'package:serverpod_flutter/serverpod_flutter.dart';
 
 import 'game_backend.dart';
 import 'rift_session.dart';
+import '../../solana/reaper_wallet.dart';
 
 /// Keeps a player's books on the Reapers server.
 ///
@@ -30,6 +31,27 @@ final class ServerBackend implements GameBackend {
 
   @override
   Future<PlayerState> takeOath() => _ask(_client.player.takeOath);
+
+  @override
+  Future<PlayerState> selectReaper(String id) =>
+      _ask(() => _client.player.selectReaper(id));
+
+  Future<ChainStatus> chainStatus() => _ask(_client.solana.status);
+
+  Future<PlayerState> importReaper(String asset) =>
+      _ask(() => _client.solana.importReaper(asset));
+
+  Future<void> connectWallet(ChainStatus status) async {
+    await _ask(() async {});
+    final proof = await proveReaperWallet(
+      status: status,
+      challenge: (address) => _ask(() => _client.solana.challenge(address)),
+    );
+    final result = await _ask(
+      () => _client.solana.login(proof.challengeId, proof.signature),
+    );
+    await _client.auth.updateSignedInUser(result);
+  }
 
   @override
   Future<PlayerState> acquire(Nft nft) =>

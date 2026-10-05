@@ -198,6 +198,40 @@ final class ReaperGenome {
     'e$epithet',
   ].join('-');
 
+  /// Tries birth traits in the studio. A bound reaper's genome stays fixed.
+  /// Parsing the result enforces the same bounds as a minted genome.
+  ReaperGenome copyWith({
+    ReaperClass? reaperClass,
+    int? head,
+    int? mantle,
+    int? robe,
+    int? palette,
+    Omen? omen,
+    Aura? aura,
+    int? stature,
+    int? gauntness,
+    int? gaze,
+    int? tatter,
+  }) => ReaperGenome.parse(
+    ReaperGenome(
+      reaperClass: reaperClass ?? this.reaperClass,
+      head: head ?? this.head,
+      mantle: mantle ?? this.mantle,
+      robe: robe ?? this.robe,
+      palette: palette ?? this.palette,
+      omen: omen ?? this.omen,
+      aura: aura ?? this.aura,
+      stature: stature ?? this.stature,
+      gauntness: gauntness ?? this.gauntness,
+      gaze: gaze ?? this.gaze,
+      tatter: tatter ?? this.tatter,
+      givenName: givenName,
+      epithet: reaperClass == null || reaperClass == this.reaperClass
+          ? epithet
+          : 0,
+    ).code,
+  );
+
   /// A continuous trait as a fraction from 0 to 1.
   static double fraction(int trait) => trait / traitScale;
 

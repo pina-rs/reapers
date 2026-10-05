@@ -19,9 +19,10 @@ It is one Dart pub workspace. Flutter and Dart are pinned by `.fvmrc`.
 
 Everything that decides an outcome lives in `reapers_shared` and nowhere else: how a hunt plays, what a class is worth, what a refusal is, how a rift is sealed. The game runs those rules to play offline. The server runs the very same code to judge an online player. There is no second implementation to drift.
 
-Two types carry most of it:
+Three types carry most of it:
 
 - **`PlayerState`** is everything a player owns and has done, as one immutable value. Each thing a player can ask for is a method that returns the next state or throws a `RuleBreach` naming a `Refusal`. It reads no clock and rolls no dice: seeds and times are passed in, so the server decides them for an online player.
+- **`ReaperState`** owns one reaper's fixed genome, experience, equipment, codex and records. `PlayerState` owns the roster, selection and account currency. Schema three migrates the old single reaper without resetting it. The starter is non-tradable; an NFT reaper is identified by its Core asset address.
 - **`HuntSim`** is one encounter, advanced a tick at a time from quantised inputs (aim in hundredths of a degree, turn speed in thousandths of a radian a second). A husk has a real position around the player, in metres, and moves through it: along the floor or through the air, inside the `HuntPlan` it was given. The same seed, the same plan and the same inputs always end the same way, on any device.
 
 That determinism is what makes cheating a lone hunt pointless. The phone records the plan and each tick's input into a `HuntLog` (8 bytes for the plan and the difficulty, 72 more when the room was surveyed, then 7 a tick and 4 more per tap) and sends that, not a result. The server replays it and pays whatever the replay earns. It replays with windows 3% wider than the phone played with, so a hunt won by a hair is never lost to rounding. A plan too narrow to be a fair hunt, or with no room in it for the husk to stand, is refused.
@@ -43,6 +44,12 @@ lib/
 ```
 
 **Backends.** Screens read the player from one Riverpod notifier, which asks a `GameBackend`. `LocalBackend` keeps the books in shared preferences and is the whole game with no server. `ServerBackend` sends the same requests to Serverpod. Which one a build uses is decided by `--dart-define=REAPERS_SERVER_URL=…`; without it the build is fully offline.
+
+**Studio.** `main_preview.dart` runs `ReaperStudio` without preferences, authentication or a backend. It uses `ReaperStage`, `ReaperGenome` and the same `Progression`, equipment and strike arithmetic as the game. Its absorption button is explicitly illustrative. It is also accessible from the sanctum and replaces the developer-only gallery. Model changes are serialized and superseded loads cannot mount after disposal; auto rotation respects reduced motion.
+
+**Wallets and NFT reapers.** `SolanaEndpoint` creates short-lived, single-use challenges scoped to the authenticated guest, domain, chain and address. Kit verifies the exact Ed25519 signature; Mobile Wallet Adapter signs it on Android. The first proof links the guest; subsequent proofs restore that wallet's existing account without merging saves. Authentication remains Serverpod's token service. The real wallet balance is separate from the husk market's simulated SOL.
+
+Before an NFT-bearing player's mutation, `ReaperLedger` reads finalized ownership through Kit RPC and decodes Core accounts with Kit's Metaplex Core package. It validates program, collection, owner and the configured genome URI. Chain genesis is checked as well. Canonical `ReaperRecord` rows are locked in address order, and growth and player state commit together. Import starts at level one, never with submitted or offline growth; a transfer retains that asset's canonical growth. A failed RPC leaves the books intact and fails the action. Ownership is a finalized snapshot, not atomic with a subsequent on-chain transfer. [solana.md](solana.md) documents the contract and deployment settings.
 
 **Arrival.** The native Android/iOS splash and the first Flutter frame use the same `splash_mark.png` on the veil's ink. `SplashGate` preloads that still, then draws one 1.8-second reaping arc and reveals the wordmark. Reduced motion holds a still for 250 ms. The mounted game cannot tick, receive focus, touches or accessibility focus until arrival ends. A four-second ceiling reveals the loading or recovery screen even when the keeper is slow. See [branding.md](branding.md) for the masters and rebuild command.
 
@@ -84,7 +91,7 @@ There are no hand-made model files. Every reaper, weapon and husk is built by a 
 
 Serverpod 4, with its embedded Postgres in development and tests.
 
-- **Sign-in.** A fresh install plays as a guest (the anonymous identity provider) so nobody signs up before their first hunt. That guest account is what a wallet will later link to.
+- **Sign-in.** A fresh install plays as a guest (the anonymous identity provider) so nobody signs up before their first hunt. Android wallet proof links that guest, or restores the wallet's existing account.
 - **`PlayerEndpoint`** stores each player's `PlayerState` whole, in one row. Every request locks the row, applies one shared rule and stores the result (`PlayerBooks.change`). No method takes a player id from the client.
 - **Location.** `updateLocation` and `location` require authentication and use the same player row. Only the latest `GeoFix` is kept; out-of-order updates are ignored, null clears it, and stale readings are never returned. This is positioning, not proof of physical presence: coordinates reported by a modified client remain untrusted.
 - **Receipts.** When a hunt is absorbed, the server rolls how well the reaper fed and signs the result with Ed25519 (`AbsorptionReceipt`, `ReceiptSigner`), in a fixed 98-byte layout a Solana program could verify. See [nfts.md](nfts.md).
@@ -105,7 +112,7 @@ Shades are the same simulated player the tests use, stepped by the room.
 
 - **The room is read once, from where you stand.** The phone measures the floor and what stands on it before the hunt, by eye, to within about a tenth. It does not follow you walking, hide a husk behind anything, or know what anything is. See [environment.md](environment.md).
 - **The plan is the phone's word.** The server checks a plan is wide enough to be fair and has room for the husk, not that the room is really that shape. A made-up room cannot win a hunt, but it can bring the husk closer, where its seals are easier to hit.
-- **Rifts trust the client.** A hunt is replayed; a rift is not. Making it so means sending each seat's input log and replaying it against the shared ward's history.
+- **Rifts trust the client.** A hunt is replayed; a rift is not. NFT reapers cannot enter until rift input replay is implemented, so trusted reports cannot mint tradable growth. The starter can still play. Making it verified means sending each seat's input log and replaying it against the shared ward's history.
 - **Rifts live in one process.** Every reaper in a circle must be connected to the same server instance. Running more than one needs the room moved to shared state or the circle pinned to an instance.
 - **The player is one row.** That is the right size now and will not be once a codex holds thousands of entries.
 - **Models are heavy.** The six reaper models are 6 to 7 MB each, mostly from morph targets. They want trimming before a store build.

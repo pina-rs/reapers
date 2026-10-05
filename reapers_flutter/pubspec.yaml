@@ -37,6 +37,10 @@ dependencies:
   flutter_onnxruntime: ^1.8.5
   flutter_soloud: ^4.1.7
   geolocator: ^14.0.1
+  solana_kit: ^0.10.0
+  solana_kit_mobile_wallet_adapter: ^0.6.0
+  solana_kit_mobile_wallet_adapter_protocol: ^0.6.0
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_launcher_icons: ^0.14.4

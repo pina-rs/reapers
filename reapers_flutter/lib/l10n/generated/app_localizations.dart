@@ -1821,6 +1821,456 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The hunt could not be started: {reason}'**
   String huntFailedBody(String reason);
+
+  /// No description provided for @studioAppTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reaper studio'**
+  String get studioAppTitle;
+
+  /// No description provided for @studioTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'A life after death.'**
+  String get studioTitle;
+
+  /// No description provided for @studioIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Shape a specimen. Explore its growth. Everything here is a preview; your bound reaper stays yours.'**
+  String get studioIntro;
+
+  /// No description provided for @studioTraits.
+  ///
+  /// In en, this message translates to:
+  /// **'Birth traits'**
+  String get studioTraits;
+
+  /// No description provided for @studioGrowth.
+  ///
+  /// In en, this message translates to:
+  /// **'Growth'**
+  String get studioGrowth;
+
+  /// No description provided for @studioClass.
+  ///
+  /// In en, this message translates to:
+  /// **'Calling'**
+  String get studioClass;
+
+  /// No description provided for @studioHead.
+  ///
+  /// In en, this message translates to:
+  /// **'Head'**
+  String get studioHead;
+
+  /// No description provided for @studioMantle.
+  ///
+  /// In en, this message translates to:
+  /// **'Mantle'**
+  String get studioMantle;
+
+  /// No description provided for @studioRobe.
+  ///
+  /// In en, this message translates to:
+  /// **'Hem'**
+  String get studioRobe;
+
+  /// No description provided for @studioPalette.
+  ///
+  /// In en, this message translates to:
+  /// **'Colourway'**
+  String get studioPalette;
+
+  /// No description provided for @studioOmen.
+  ///
+  /// In en, this message translates to:
+  /// **'Omen'**
+  String get studioOmen;
+
+  /// No description provided for @studioAura.
+  ///
+  /// In en, this message translates to:
+  /// **'Aura'**
+  String get studioAura;
+
+  /// No description provided for @studioStature.
+  ///
+  /// In en, this message translates to:
+  /// **'Stature'**
+  String get studioStature;
+
+  /// No description provided for @studioGauntness.
+  ///
+  /// In en, this message translates to:
+  /// **'Gauntness'**
+  String get studioGauntness;
+
+  /// No description provided for @studioGaze.
+  ///
+  /// In en, this message translates to:
+  /// **'Gaze'**
+  String get studioGaze;
+
+  /// No description provided for @studioTatter.
+  ///
+  /// In en, this message translates to:
+  /// **'Tatter'**
+  String get studioTatter;
+
+  /// No description provided for @studioDrag.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag to turn your reaper'**
+  String get studioDrag;
+
+  /// No description provided for @studioShuffle.
+  ///
+  /// In en, this message translates to:
+  /// **'Draw another specimen'**
+  String get studioShuffle;
+
+  /// No description provided for @studioBirthTraits.
+  ///
+  /// In en, this message translates to:
+  /// **'Birth traits are fixed when a reaper is minted. Outfits and weapons can change as it grows.'**
+  String get studioBirthTraits;
+
+  /// No description provided for @studioCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy genome'**
+  String get studioCopy;
+
+  /// No description provided for @studioCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Genome copied'**
+  String get studioCopied;
+
+  /// No description provided for @studioLevel.
+  ///
+  /// In en, this message translates to:
+  /// **'Level'**
+  String get studioLevel;
+
+  /// No description provided for @studioStrength.
+  ///
+  /// In en, this message translates to:
+  /// **'Strike growth'**
+  String get studioStrength;
+
+  /// No description provided for @studioDamage.
+  ///
+  /// In en, this message translates to:
+  /// **'Strike damage'**
+  String get studioDamage;
+
+  /// No description provided for @studioGrowthLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Compared with a new reaper of this calling, carrying its starting weapon. Levels strengthen strikes; they do not widen the capture window.'**
+  String get studioGrowthLine;
+
+  /// No description provided for @studioAbsorb.
+  ///
+  /// In en, this message translates to:
+  /// **'Absorb a specimen'**
+  String get studioAbsorb;
+
+  /// No description provided for @studioExample.
+  ///
+  /// In en, this message translates to:
+  /// **'Illustration: a rare husk, a clean cut and fair feeding. Real rewards depend on rarity, cut, ambush and feeding.'**
+  String get studioExample;
+
+  /// No description provided for @studioWeapon.
+  ///
+  /// In en, this message translates to:
+  /// **'Weapon temper'**
+  String get studioWeapon;
+
+  /// No description provided for @studioOutfit.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfit'**
+  String get studioOutfit;
+
+  /// No description provided for @studioCosmetic.
+  ///
+  /// In en, this message translates to:
+  /// **'Outfits change the silhouette and light. Weapons change your strikes. In the game, both cost earned anima after reaching their required level.'**
+  String get studioCosmetic;
+
+  /// No description provided for @studioPotential.
+  ///
+  /// In en, this message translates to:
+  /// **'See full potential'**
+  String get studioPotential;
+
+  /// No description provided for @studioMultiple.
+  ///
+  /// In en, this message translates to:
+  /// **'Each owned reaper grows separately. Anima belongs to you; an NFT reaper’s experience, codex and equipment follow that asset when traded.'**
+  String get studioMultiple;
+
+  /// No description provided for @studioAuraMotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Motes'**
+  String get studioAuraMotes;
+
+  /// No description provided for @studioAuraEmbers.
+  ///
+  /// In en, this message translates to:
+  /// **'Embers'**
+  String get studioAuraEmbers;
+
+  /// No description provided for @studioAuraMist.
+  ///
+  /// In en, this message translates to:
+  /// **'Mist'**
+  String get studioAuraMist;
+
+  /// No description provided for @studioAuraWisps.
+  ///
+  /// In en, this message translates to:
+  /// **'Wisps'**
+  String get studioAuraWisps;
+
+  /// No description provided for @studioLevelValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Level {level}'**
+  String studioLevelValue(int level);
+
+  /// No description provided for @studioVariant.
+  ///
+  /// In en, this message translates to:
+  /// **'{number}'**
+  String studioVariant(int number);
+
+  /// No description provided for @studioStronger.
+  ///
+  /// In en, this message translates to:
+  /// **'+{percent}%'**
+  String studioStronger(int percent);
+
+  /// No description provided for @studioCaptures.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} absorbed'**
+  String studioCaptures(int count);
+
+  /// No description provided for @studioReward.
+  ///
+  /// In en, this message translates to:
+  /// **'+{xp} XP in this preview'**
+  String studioReward(int xp);
+
+  /// No description provided for @studioUnlock.
+  ///
+  /// In en, this message translates to:
+  /// **'Level {level} · {anima} anima'**
+  String studioUnlock(int level, int anima);
+
+  /// No description provided for @refusalReaperBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'Finish your loose hunts before switching reapers.'**
+  String get refusalReaperBusy;
+
+  /// No description provided for @refusalWalletUnproven.
+  ///
+  /// In en, this message translates to:
+  /// **'The wallet proof could not be verified. Connect your wallet again.'**
+  String get refusalWalletUnproven;
+
+  /// No description provided for @refusalChainUnconfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'Reaper NFT trading is waiting for the collection to open.'**
+  String get refusalChainUnconfigured;
+
+  /// No description provided for @sanctumRoster.
+  ///
+  /// In en, this message translates to:
+  /// **'Your reapers'**
+  String get sanctumRoster;
+
+  /// No description provided for @sanctumStudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Reaper studio'**
+  String get sanctumStudio;
+
+  /// No description provided for @sanctumStudioDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore traits and growth'**
+  String get sanctumStudioDetail;
+
+  /// No description provided for @rosterTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your reapers'**
+  String get rosterTitle;
+
+  /// No description provided for @rosterIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose who hunts tonight. Every reaper carries its own growth.'**
+  String get rosterIntro;
+
+  /// No description provided for @rosterStarter.
+  ///
+  /// In en, this message translates to:
+  /// **'Oathbound · not tradable'**
+  String get rosterStarter;
+
+  /// No description provided for @rosterNft.
+  ///
+  /// In en, this message translates to:
+  /// **'Solana NFT'**
+  String get rosterNft;
+
+  /// No description provided for @rosterActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Hunting tonight'**
+  String get rosterActive;
+
+  /// No description provided for @rosterConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect Solana wallet'**
+  String get rosterConnect;
+
+  /// No description provided for @rosterRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh ownership'**
+  String get rosterRefresh;
+
+  /// No description provided for @rosterImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Import owned reaper'**
+  String get rosterImport;
+
+  /// No description provided for @rosterAsset.
+  ///
+  /// In en, this message translates to:
+  /// **'Reaper NFT address'**
+  String get rosterAsset;
+
+  /// No description provided for @rosterImportHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste the address of a Reapers NFT already owned by your linked wallet.'**
+  String get rosterImportHelp;
+
+  /// No description provided for @rosterBuy.
+  ///
+  /// In en, this message translates to:
+  /// **'Find another reaper'**
+  String get rosterBuy;
+
+  /// No description provided for @rosterBuyHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Buy from the collection’s marketplace, then import your NFT here. Your wallet handles payment.'**
+  String get rosterBuyHelp;
+
+  /// No description provided for @rosterOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'NFT ownership needs the online keeper. You can explore specimens in the studio while playing offline.'**
+  String get rosterOffline;
+
+  /// No description provided for @rosterWalletUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect on an Android phone with a Solana wallet installed.'**
+  String get rosterWalletUnsupported;
+
+  /// No description provided for @rosterLinkHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting proves control of your wallet. It does not spend SOL or transfer an NFT.'**
+  String get rosterLinkHelp;
+
+  /// No description provided for @rosterLinked.
+  ///
+  /// In en, this message translates to:
+  /// **'Linked wallet'**
+  String get rosterLinked;
+
+  /// No description provided for @rosterBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'Wallet SOL'**
+  String get rosterBalance;
+
+  /// No description provided for @rosterNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Network'**
+  String get rosterNetwork;
+
+  /// No description provided for @rosterUnconfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'NFT imports are unavailable until a reaper collection is configured. Your starter remains yours.'**
+  String get rosterUnconfigured;
+
+  /// No description provided for @rosterCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} reapers'**
+  String rosterCount(int count);
+
+  /// No description provided for @studioModelFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'This specimen could not be drawn.'**
+  String get studioModelFailed;
+
+  /// No description provided for @studioXp.
+  ///
+  /// In en, this message translates to:
+  /// **'XP'**
+  String get studioXp;
+
+  /// No description provided for @studioCapped.
+  ///
+  /// In en, this message translates to:
+  /// **'Max'**
+  String get studioCapped;
+
+  /// No description provided for @studioPause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause rotation'**
+  String get studioPause;
+
+  /// No description provided for @studioRotate.
+  ///
+  /// In en, this message translates to:
+  /// **'Rotate specimen'**
+  String get studioRotate;
+
+  /// No description provided for @refusalRosterFull.
+  ///
+  /// In en, this message translates to:
+  /// **'Your reaper roster is full. Transfer an NFT before importing another.'**
+  String get refusalRosterFull;
+
+  /// No description provided for @refusalRiftUnproven.
+  ///
+  /// In en, this message translates to:
+  /// **'NFT reapers can hunt solo. Rifts will open once their results can be verified.'**
+  String get refusalRiftUnproven;
 }
 
 class _AppLocalizationsDelegate

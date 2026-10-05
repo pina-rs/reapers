@@ -5,7 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'brand/splash_gate.dart';
 import 'dev/depth_probe.dart';
-import 'dev/reaper_gallery.dart';
+import 'studio/reaper_studio.dart';
 import 'l10n/l10n.dart';
 import 'render/reaper_look.dart';
 import 'screens/sanctum_screen.dart';
@@ -67,7 +67,7 @@ class ReapersApp extends HookConsumerWidget {
         bound ? reaperLight(player.requireValue.genome) : Veil.unbound,
       ),
       home: switch (player) {
-        _ when _gallery => const ReaperGallery(),
+        _ when _gallery => const ReaperStudio(),
         _ when _depthProbe => const DepthProbe(),
         AsyncData(:final value) when value.oathTaken => SanctumScreen(
           player: value,

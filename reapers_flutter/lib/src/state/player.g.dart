@@ -154,7 +154,7 @@ final class PlayerProvider extends $AsyncNotifierProvider<Player, PlayerState> {
   Player create() => Player();
 }
 
-String _$playerHash() => r'ea0a991bf32f36b350a8db7e55eec8b0f08fafbb';
+String _$playerHash() => r'ad15393e47fb5c41a1033aacdfaecb24df04c8b4';
 
 /// The player: what they own and what they have done.
 ///

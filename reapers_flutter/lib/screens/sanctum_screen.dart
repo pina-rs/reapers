@@ -17,6 +17,8 @@ import 'codex_screen.dart';
 import 'colophon_screen.dart';
 import 'rifts_screen.dart';
 import 'vault_screen.dart';
+import 'roster_screen.dart';
+import '../studio/reaper_studio.dart';
 
 /// Home: the player's reaper, standing in the dark, and everything that can
 /// be done from here.
@@ -110,6 +112,22 @@ class SanctumScreen extends HookConsumerWidget {
                               onHunt: () => startHunt(context, ref, sighting),
                             ),
                           const SizedBox(height: 18),
+                          LedgerButton(
+                            key: const Key('sanctum-roster'),
+                            label: l10n.sanctumRoster,
+                            detail: l10n.rosterCount(player.reapers.length),
+                            onPressed: () => open(const RosterScreen()),
+                          ),
+                          const SizedBox(height: 8),
+                          LedgerButton(
+                            key: const Key('sanctum-studio'),
+                            label: l10n.sanctumStudio,
+                            detail: l10n.sanctumStudioDetail,
+                            onPressed: () => open(
+                              ReaperStudio(initialGenome: player.genome),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
                           LedgerButton(
                             key: const Key('sanctum-vault'),
                             label: l10n.sanctumVault,

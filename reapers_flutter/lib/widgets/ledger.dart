@@ -34,6 +34,7 @@ class LedgerButton extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final pressed = useState(false);
+    final focused = useState(false);
     final light = Theme.of(context).colorScheme.primary;
     final enabled = onPressed != null;
     final foreground = !enabled
@@ -42,56 +43,70 @@ class LedgerButton extends HookWidget {
         ? Veil.ink
         : Veil.bone;
 
+    void activate() {
+      HapticFeedback.selectionClick();
+      onPressed?.call();
+    }
+
     return Semantics(
       button: true,
       enabled: enabled,
+      focusable: enabled,
+      focused: focused.value,
       label: detail == null ? label : '$label, $detail',
+      onTap: enabled ? activate : null,
       excludeSemantics: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: enabled ? (_) => pressed.value = true : null,
-        onTapCancel: () => pressed.value = false,
-        onTapUp: enabled
-            ? (_) {
-                pressed.value = false;
-                HapticFeedback.selectionClick();
-                onPressed!();
-              }
-            : null,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 90),
-          constraints: const BoxConstraints(minHeight: 56),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          decoration: BoxDecoration(
-            color: pressed.value ? light : Colors.transparent,
-            border: quiet
-                ? null
-                : Border.all(
-                    color: enabled
-                        ? Veil.bone.withValues(alpha: 0.7)
-                        : Veil.hairline,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: enabled ? activate : null,
+          canRequestFocus: enabled,
+          onHighlightChanged: (value) => pressed.value = value,
+          onFocusChange: (value) => focused.value = value,
+          splashFactory: NoSplash.splashFactory,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+          focusColor: Colors.transparent,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 90),
+            constraints: const BoxConstraints(minHeight: 56),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            decoration: BoxDecoration(
+              color: pressed.value ? light : Colors.transparent,
+              border: quiet && !focused.value
+                  ? null
+                  : Border.all(
+                      color: focused.value
+                          ? light
+                          : enabled
+                          ? Veil.bone.withValues(alpha: 0.7)
+                          : Veil.hairline,
+                    ),
+            ),
+            // The label sits left and the detail right while both fit on one
+            // line. On a narrow phone the detail drops under the label rather
+            // than running into it.
+            child: SizedBox(
+              width: double.infinity,
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 16,
+                runSpacing: 6,
+                children: [
+                  Text(
+                    label.toUpperCase(),
+                    style: Veil.label(color: foreground, size: 13),
                   ),
-          ),
-          // The label sits left and the detail right while both fit on one
-          // line. On a narrow phone the detail drops under the label rather
-          // than running into it.
-          child: SizedBox(
-            width: double.infinity,
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 16,
-              runSpacing: 6,
-              children: [
-                Text(
-                  label.toUpperCase(),
-                  style: Veil.label(color: foreground, size: 13),
-                ),
-                if (detail != null)
-                  Text(detail!, style: Veil.figure(color: foreground, size: 13))
-                else if (enabled)
-                  Text('→', style: Veil.figure(color: foreground, size: 16)),
-              ],
+                  if (detail != null)
+                    Text(
+                      detail!,
+                      style: Veil.figure(color: foreground, size: 13),
+                    )
+                  else if (enabled)
+                    Text('→', style: Veil.figure(color: foreground, size: 16)),
+                ],
+              ),
             ),
           ),
         ),

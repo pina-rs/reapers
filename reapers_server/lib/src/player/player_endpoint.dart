@@ -46,6 +46,9 @@ class PlayerEndpoint extends Endpoint {
   Future<PlayerState> takeOath(Session session) =>
       PlayerBooks.change(session, (state) => state.takeOath(seed: _seed()));
 
+  Future<PlayerState> selectReaper(Session session, String id) =>
+      PlayerBooks.change(session, (state) => state.selectReaper(id));
+
   /// Buys the NFT [nftId] names into the vault.
   Future<PlayerState> acquire(Session session, String nftId) =>
       PlayerBooks.change(session, (state) => state.acquire(_nft(nftId)));

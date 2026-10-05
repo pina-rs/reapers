@@ -71,7 +71,11 @@ List<String> _handWritten() {
   final files = <String>[];
 
   for (final root in roots) {
-    for (final entity in Directory(root).listSync(recursive: true)) {
+    // CocoaPods links plugins from the shared pub cache. Those dependencies
+    // are not our sources, and following them checks another project's code.
+    for (final entity in Directory(
+      root,
+    ).listSync(recursive: true, followLinks: false)) {
       final path = entity.path;
       final skipped =
           entity is! File ||

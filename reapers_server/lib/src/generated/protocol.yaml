@@ -7,6 +7,7 @@ player:
   - updateLocation:
   - location:
   - takeOath:
+  - selectReaper:
   - acquire:
   - release:
   - settleHunt:
@@ -17,3 +18,8 @@ player:
   - wear:
 rift:
   - enter:
+solana:
+  - status:
+  - challenge:
+  - login:
+  - importReaper:

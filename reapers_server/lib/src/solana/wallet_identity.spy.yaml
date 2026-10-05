@@ -1,0 +1,5 @@
+class: WalletIdentity
+table: wallet_identity
+fields:
+  address: String, unique
+  authUserId: UuidValue, unique

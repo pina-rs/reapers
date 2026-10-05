@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-05T07:53:33Z",
+  "generatedAt": "2026-10-05T09:29:33Z",
   "title": "Design System: Reapers",
   "extensions": {
     "colorMeta": {
@@ -19,7 +19,7 @@
       "figure": { "displayName": "Figure", "purpose": "Prices, counts and standings with tabular numerals." }
     },
     "motion": [
-      { "name": "ledger-press", "value": "90ms", "purpose": "LedgerButton fill and text change while pressed." },
+      { "name": "ledger-press", "value": "90ms", "purpose": "LedgerButton pressed fill/text change and focus border transition." },
       { "name": "arrival-ritual", "value": "1800ms", "purpose": "One reaping sweep with easeInOutCubic drawing and easeOut wordmark reveal." },
       { "name": "arrival-exit", "value": "220ms", "purpose": "Fade away once ready and elapsed, or the startup deadline is reached." },
       { "name": "arrival-reduced", "value": "250ms", "purpose": "Still composition and direct release under reduced motion." },
@@ -33,22 +33,22 @@
       "name": "Ledger action",
       "kind": "button",
       "refersTo": "ledger-action",
-      "description": "Illustrative native LedgerButton snapshot with a detail. Native interaction changes only while pressed; hover and focus do not introduce a new visual treatment. DM Sans must be available for exact typography.",
+      "description": "Illustrative native LedgerButton snapshot with a detail, using the unbound light. Native Material/InkWell provides keyboard activation; focus changes the border to the reaper's light, press fills the action, and hover remains transparent. DM Sans must be available for exact typography.",
       "html": "<button class=\"ds-ledger-action\"><span class=\"ds-ledger-label\">Take the oath</span><span class=\"ds-ledger-detail\">Be bound to a reaper</span></button>",
-      "css": ".ds-ledger-action{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 16px;width:100%;min-height:56px;padding:16px 18px;border:1px solid rgba(233,228,212,.7);border-radius:0;background:transparent;color:#E9E4D4;text-align:left;font-family:'DM Sans';transition:background-color 90ms,color 90ms}.ds-ledger-label{font-size:13px;font-variation-settings:'wght' 600;line-height:1.2;letter-spacing:2.86px;text-transform:uppercase}.ds-ledger-detail{font-size:13px;font-variation-settings:'wght' 500;font-variant-numeric:tabular-nums;line-height:1.2}.ds-ledger-action:hover,.ds-ledger-action:focus-visible{background:transparent;color:#E9E4D4}.ds-ledger-action:active{background:#BFC8CF;color:#07080B}.ds-ledger-action:disabled{color:#8E897D;border-color:#E9E4D42E;background:transparent}"
+      "css": ".ds-ledger-action{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 16px;width:100%;min-height:56px;padding:16px 18px;border:1px solid rgba(233,228,212,.7);border-radius:0;background:transparent;color:#E9E4D4;text-align:left;font-family:'DM Sans';transition:background-color 90ms,color 90ms,border-color 90ms}.ds-ledger-label{font-size:13px;font-variation-settings:'wght' 600;line-height:1.2;letter-spacing:2.86px;text-transform:uppercase}.ds-ledger-detail{font-size:13px;font-variation-settings:'wght' 500;font-variant-numeric:tabular-nums;line-height:1.2}.ds-ledger-action:hover{background:transparent;color:#E9E4D4}.ds-ledger-action:focus-visible{border-color:#BFC8CF;outline:none}.ds-ledger-action:active{background:#BFC8CF;color:#07080B}.ds-ledger-action:disabled{color:#8E897D;border-color:#E9E4D42E;background:transparent}"
     },
     {
       "name": "Quiet ledger action",
       "kind": "button",
       "refersTo": "ledger-action-quiet",
-      "description": "The lesser choice retains action geometry and pressed fill while omitting the border. Illustrative native snapshot; DM Sans must be available for exact typography.",
+      "description": "The lesser choice retains action geometry, keyboard activation and pressed fill. Its border is omitted at rest and appears in the reaper's light on focus. Illustrative native snapshot using the unbound light; DM Sans must be available for exact typography.",
       "html": "<button class=\"ds-ledger-quiet\"><span class=\"ds-quiet-label\">Walk as a shade</span><span class=\"ds-quiet-detail\">A practice hunt</span></button>",
-      "css": ".ds-ledger-quiet{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 16px;width:100%;min-height:56px;padding:16px 18px;border:0;border-radius:0;background:transparent;color:#E9E4D4;text-align:left;font-family:'DM Sans';transition:background-color 90ms,color 90ms}.ds-quiet-label{font-size:13px;font-variation-settings:'wght' 600;line-height:1.2;letter-spacing:2.86px;text-transform:uppercase}.ds-quiet-detail{font-size:13px;font-variation-settings:'wght' 500;font-variant-numeric:tabular-nums;line-height:1.2}.ds-ledger-quiet:hover,.ds-ledger-quiet:focus-visible{background:transparent;color:#E9E4D4}.ds-ledger-quiet:active{background:#BFC8CF;color:#07080B}.ds-ledger-quiet:disabled{color:#8E897D;background:transparent}"
+      "css": ".ds-ledger-quiet{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 16px;width:100%;min-height:56px;padding:16px 18px;border:0;border-radius:0;background:transparent;color:#E9E4D4;text-align:left;font-family:'DM Sans';transition:background-color 90ms,color 90ms,border-color 90ms}.ds-quiet-label{font-size:13px;font-variation-settings:'wght' 600;line-height:1.2;letter-spacing:2.86px;text-transform:uppercase}.ds-quiet-detail{font-size:13px;font-variation-settings:'wght' 500;font-variant-numeric:tabular-nums;line-height:1.2}.ds-ledger-quiet:hover{background:transparent;color:#E9E4D4}.ds-ledger-quiet:focus-visible{border:1px solid #BFC8CF;outline:none}.ds-ledger-quiet:active{background:#BFC8CF;color:#07080B}.ds-ledger-quiet:disabled{color:#8E897D;background:transparent}"
     }
   ],
   "narrative": {
     "northStar": "The Funeral Ledger",
-    "overview": "The native interface is a funeral ledger set in warm bone on blue-black ink. Large, sharp words give names and numbers ceremony; small ruled entries keep the game readable. The spirit realm supplies movement and depth behind the ledger. This records the incumbent Flutter world and its branding extension, rather than a replacement identity.\n\nThe product premise comes from [README](../README.md), [gameplay](../docs/gameplay.md) and [architecture](../docs/architecture.md). Visual authority is [Veil](lib/theme/veil.dart), the [ledger kit](lib/widgets/ledger.dart), and the implemented [threshold](lib/screens/threshold_screen.dart) and [arrival](lib/brand/splash_gate.dart). Values in the frontmatter translate Flutter logical pixels to portable `px`; the Dart source remains the implementation authority.",
+    "overview": "The native interface is a funeral ledger set in warm bone on blue-black ink. Large, sharp words give names and numbers ceremony; small ruled entries keep the game readable. The spirit realm supplies movement and depth behind the ledger. This records the incumbent Flutter world and its branding and model-viewer extensions, rather than a replacement identity.\n\nThe product premise comes from [README](../README.md), [gameplay](../docs/gameplay.md) and [architecture](../docs/architecture.md). Visual authority is [Veil](lib/theme/veil.dart), the [ledger kit](lib/widgets/ledger.dart), and the implemented [threshold](lib/screens/threshold_screen.dart), [arrival](lib/brand/splash_gate.dart) and [studio](lib/studio/reaper_studio.dart). Values in the frontmatter translate Flutter logical pixels to portable `px`; the Dart source remains the implementation authority.",
     "keyCharacteristics": [
       "Warm bone words and fine rules on tinted ink.",
       "Fraunces for names and large numerals; DM Sans for instructions, labels and figures.",
@@ -56,13 +56,14 @@
       "Spacious ceremonial entry, with compact ledger controls inside the game."
     ],
     "rules": [
-      { "name": "The Borrowed Light Rule", "body": "Active interface colour comes from the player's reaper; new screens use the theme's primary colour rather than inventing an accent.", "section": "colors" },
+      { "name": "The Borrowed Light Rule", "body": "Active interface colour comes from the displayed reaper; new screens use the theme's primary colour rather than inventing an accent.", "section": "colors" },
       { "name": "The Name and Number Rule", "body": "Names and ceremonial numerals use `Veil.display`; instructions and ledger figures use their respective `Veil` helpers.", "section": "typography" }
     ],
     "dos": [
       "Do reuse `Veil`, the ledger kit and `ReapersMark` on new native screens.",
       "Do let short screens scroll, scale the wordmark down and wrap action details.",
       "Do keep launch motion finite, honour reduced motion and expose startup recovery.",
+      "Do make ledger actions operable by touch, keyboard and assistive technology, with visible focus in the displayed reaper's light.",
       "Do rebuild and relaunch after changing installed native artwork."
     ],
     "donts": [

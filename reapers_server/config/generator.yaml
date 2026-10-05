@@ -8,6 +8,7 @@ server_test_tools_path: test/integration/test_tools
 extraClasses:
   - package:reapers_shared/reapers_shared.dart:GeoFix
   - package:reapers_shared/reapers_shared.dart:PlayerState
+  - package:reapers_shared/reapers_shared.dart:ReaperState
   - package:reapers_shared/reapers_shared.dart:HuntSettlement
   - package:reapers_shared/reapers_shared.dart:RiftFrame
   - package:reapers_shared/reapers_shared.dart:RiftReport

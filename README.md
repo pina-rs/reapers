@@ -36,6 +36,19 @@ That is the whole game with no server. On a real phone you look around by turnin
 
 On an Android phone the hunt reads the room through the camera before the husk appears: it finds the floor and what stands on it, and the husk keeps to the floor and goes round the furniture. That runs on the phone, with a depth model bundled in the build. [docs/environment.md](docs/environment.md) says how, and how far to trust it.
 
+### Explore reapers without starting a game
+
+Open **Reaper studio** from the sanctum, or run the standalone preview:
+
+```sh
+cd reapers_flutter
+fvm flutter run -d macos -t lib/main_preview.dart --enable-impeller
+```
+
+The studio shows the actual 3D models. Change birth traits, absorb illustrative husks, scrub levels and try unlocked weapons and outfits. It never reads or writes a player save. macOS requires 14 or newer because of the existing depth runtime. See [docs/preview.md](docs/preview.md).
+
+**Your reapers** holds the starter and verified NFT reapers, each with its own experience, equipment and codex. Online Android builds can prove wallet ownership through Mobile Wallet Adapter. Solana Kit verifies assets from a configured Metaplex Core collection; buying happens in the configured marketplace, then the game imports the asset. No collection or marketplace is invented by default. The hunt's five husk collections, prices and burns remain simulated. See [docs/solana.md](docs/solana.md) for setup and the remaining chain work.
+
 To watch it play itself, which is the only way to see a full hunt on a simulator:
 
 ```sh

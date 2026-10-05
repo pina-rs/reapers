@@ -18,6 +18,8 @@ abstract interface class GameBackend {
   /// Binds a reaper. The keeper, never the player, draws it.
   Future<PlayerState> takeOath();
 
+  Future<PlayerState> selectReaper(String id);
+
   /// Buys [nft] into the vault.
   Future<PlayerState> acquire(Nft nft);
 

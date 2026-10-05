@@ -401,5 +401,133 @@
   "huntFailedBody": "The hunt could not be started: {reason}",
   "@huntFailedBody": {
     "placeholders": { "reason": { "type": "String" } }
-  }
+  },
+
+  "studioAppTitle": "Reaper studio",
+  "studioTitle": "A life after death.",
+  "studioIntro": "Shape a specimen. Explore its growth. Everything here is a preview; your bound reaper stays yours.",
+  "studioTraits": "Birth traits",
+  "studioGrowth": "Growth",
+  "studioClass": "Calling",
+  "studioHead": "Head",
+  "studioMantle": "Mantle",
+  "studioRobe": "Hem",
+  "studioPalette": "Colourway",
+  "studioOmen": "Omen",
+  "studioAura": "Aura",
+  "studioStature": "Stature",
+  "studioGauntness": "Gauntness",
+  "studioGaze": "Gaze",
+  "studioTatter": "Tatter",
+  "studioDrag": "Drag to turn your reaper",
+  "studioShuffle": "Draw another specimen",
+  "studioBirthTraits": "Birth traits are fixed when a reaper is minted. Outfits and weapons can change as it grows.",
+  "studioCopy": "Copy genome",
+  "studioCopied": "Genome copied",
+  "studioLevel": "Level",
+  "studioStrength": "Strike growth",
+  "studioDamage": "Strike damage",
+  "studioGrowthLine": "Compared with a new reaper of this calling, carrying its starting weapon. Levels strengthen strikes; they do not widen the capture window.",
+  "studioAbsorb": "Absorb a specimen",
+  "studioExample": "Illustration: a rare husk, a clean cut and fair feeding. Real rewards depend on rarity, cut, ambush and feeding.",
+  "studioWeapon": "Weapon temper",
+  "studioOutfit": "Outfit",
+  "studioCosmetic": "Outfits change the silhouette and light. Weapons change your strikes. In the game, both cost earned anima after reaching their required level.",
+  "studioPotential": "See full potential",
+  "studioMultiple": "Each owned reaper grows separately. Anima belongs to you; an NFT reaper’s experience, codex and equipment follow that asset when traded.",
+  "studioAuraMotes": "Motes",
+  "studioAuraEmbers": "Embers",
+  "studioAuraMist": "Mist",
+  "studioAuraWisps": "Wisps",
+  "studioLevelValue": "Level {level}",
+  "@studioLevelValue": {
+    "placeholders": {
+      "level": {
+        "type": "int"
+      }
+    }
+  },
+  "studioVariant": "{number}",
+  "@studioVariant": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "studioStronger": "+{percent}%",
+  "@studioStronger": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "studioCaptures": "{count} absorbed",
+  "@studioCaptures": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "studioReward": "+{xp} XP in this preview",
+  "@studioReward": {
+    "placeholders": {
+      "xp": {
+        "type": "int"
+      }
+    }
+  },
+  "studioUnlock": "Level {level} · {anima} anima",
+  "@studioUnlock": {
+    "placeholders": {
+      "level": {
+        "type": "int"
+      },
+      "anima": {
+        "type": "int"
+      }
+    }
+  },
+  "refusalReaperBusy": "Finish your loose hunts before switching reapers.",
+  "refusalWalletUnproven": "The wallet proof could not be verified. Connect your wallet again.",
+  "refusalChainUnconfigured": "Reaper NFT trading is waiting for the collection to open.",
+  "sanctumRoster": "Your reapers",
+  "sanctumStudio": "Reaper studio",
+  "sanctumStudioDetail": "Explore traits and growth",
+  "rosterTitle": "Your reapers",
+  "rosterIntro": "Choose who hunts tonight. Every reaper carries its own growth.",
+  "rosterStarter": "Oathbound · not tradable",
+  "rosterNft": "Solana NFT",
+  "rosterActive": "Hunting tonight",
+  "rosterConnect": "Connect Solana wallet",
+  "rosterRefresh": "Refresh ownership",
+  "rosterImport": "Import owned reaper",
+  "rosterAsset": "Reaper NFT address",
+  "rosterImportHelp": "Paste the address of a Reapers NFT already owned by your linked wallet.",
+  "rosterBuy": "Find another reaper",
+  "rosterBuyHelp": "Buy from the collection’s marketplace, then import your NFT here. Your wallet handles payment.",
+  "rosterOffline": "NFT ownership needs the online keeper. You can explore specimens in the studio while playing offline.",
+  "rosterWalletUnsupported": "Connect on an Android phone with a Solana wallet installed.",
+  "rosterLinkHelp": "Connecting proves control of your wallet. It does not spend SOL or transfer an NFT.",
+  "rosterLinked": "Linked wallet",
+  "rosterBalance": "Wallet SOL",
+  "rosterNetwork": "Network",
+  "rosterUnconfigured": "NFT imports are unavailable until a reaper collection is configured. Your starter remains yours.",
+  "rosterCount": "{count} reapers",
+  "@rosterCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "studioModelFailed": "This specimen could not be drawn.",
+  "studioXp": "XP",
+  "studioCapped": "Max",
+  "studioPause": "Pause rotation",
+  "studioRotate": "Rotate specimen",
+  "refusalRosterFull": "Your reaper roster is full. Transfer an NFT before importing another.",
+  "refusalRiftUnproven": "NFT reapers can hunt solo. Rifts will open once their results can be verified."
 }

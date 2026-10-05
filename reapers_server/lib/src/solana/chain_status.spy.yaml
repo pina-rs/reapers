@@ -1,0 +1,8 @@
+class: ChainStatus
+fields:
+  chain: String
+  identityUri: String
+  collection: String?
+  marketplaceUri: String?
+  wallet: String?
+  lamports: int?

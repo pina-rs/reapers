@@ -22,6 +22,7 @@ import '../auth/anonymous_idp_endpoint.dart' as _in0zita6;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
 import '../player/player_endpoint.dart' as _ikcol2tc;
 import '../rift/rift_endpoint.dart' as _iz5xxncc;
+import '../solana/solana_endpoint.dart' as _ic4phh6x;
 
 class Endpoints extends _is.EndpointDispatch {
   @override
@@ -49,6 +50,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'rift',
+          null,
+        ),
+      'solana': _ic4phh6x.SolanaEndpoint()
+        ..initialize(
+          server,
+          'solana',
           null,
         ),
     };
@@ -157,6 +164,25 @@ class Endpoints extends _is.EndpointDispatch {
                 Map<String, dynamic> params,
               ) async => (endpoints['player'] as _ikcol2tc.PlayerEndpoint)
                   .takeOath(session),
+        ),
+        'selectReaper': _is.MethodConnector(
+          name: 'selectReaper',
+          params: {
+            'id': _is.ParameterDescription(
+              name: 'id',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['player'] as _ikcol2tc.PlayerEndpoint)
+                  .selectReaper(
+                    session,
+                    params['id'],
+                  ),
         ),
         'acquire': _is.MethodConnector(
           name: 'acquire',
@@ -338,6 +364,85 @@ class Endpoints extends _is.EndpointDispatch {
                 params['site'],
                 streamParams['reports']!.cast<_ivi8svxc.RiftReport>(),
               ),
+        ),
+      },
+    );
+    connectors['solana'] = _is.EndpointConnector(
+      name: 'solana',
+      endpoint: endpoints['solana']!,
+      methodConnectors: {
+        'status': _is.MethodConnector(
+          name: 'status',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['solana'] as _ic4phh6x.SolanaEndpoint)
+                  .status(session),
+        ),
+        'challenge': _is.MethodConnector(
+          name: 'challenge',
+          params: {
+            'address': _is.ParameterDescription(
+              name: 'address',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['solana'] as _ic4phh6x.SolanaEndpoint).challenge(
+                    session,
+                    params['address'],
+                  ),
+        ),
+        'login': _is.MethodConnector(
+          name: 'login',
+          params: {
+            'challengeId': _is.ParameterDescription(
+              name: 'challengeId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'signature': _is.ParameterDescription(
+              name: 'signature',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['solana'] as _ic4phh6x.SolanaEndpoint).login(
+                    session,
+                    params['challengeId'],
+                    params['signature'],
+                  ),
+        ),
+        'importReaper': _is.MethodConnector(
+          name: 'importReaper',
+          params: {
+            'asset': _is.ParameterDescription(
+              name: 'asset',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['solana'] as _ic4phh6x.SolanaEndpoint)
+                  .importReaper(
+                    session,
+                    params['asset'],
+                  ),
         ),
       },
     );

@@ -47,6 +47,9 @@ class Player extends _$Player {
 
   Future<void> takeOath() => _apply(_backend.takeOath);
 
+  Future<void> selectReaper(String id) =>
+      _apply(() => _backend.selectReaper(id));
+
   Future<void> acquire(Nft nft) => _apply(() => _backend.acquire(nft));
 
   Future<void> release(Nft nft) => _apply(() => _backend.release(nft));

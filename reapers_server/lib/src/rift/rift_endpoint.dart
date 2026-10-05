@@ -37,9 +37,11 @@ class RiftEndpoint extends Endpoint {
     }
 
     late final RiftEntrant entrant;
+    late final String reaperId;
 
     await PlayerBooks.change(session, (state) {
       entrant = state.entrantFor(riftSite);
+      reaperId = state.activeReaperId!;
 
       return state;
     });
@@ -78,7 +80,11 @@ class RiftEndpoint extends Endpoint {
 
           await PlayerBooks.change(
             session,
-            (state) => state.settleRift(xp: reward.xp, anima: reward.anima),
+            (state) => state.settleRift(
+              xp: reward.xp,
+              anima: reward.anima,
+              reaperId: reaperId,
+            ),
           );
         }
 

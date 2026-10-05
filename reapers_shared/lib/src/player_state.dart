@@ -6,8 +6,8 @@ import 'hunt/hunt_input.dart';
 import 'hunt/hunt_sim.dart';
 import 'hunt/hunt_stats.dart';
 import 'nft_catalogue.dart';
-import 'progression.dart';
 import 'reaper_genome.dart';
+import 'reaper_state.dart';
 import 'rift/rift_room.dart';
 import 'rift/rift_rules.dart';
 import 'rift/rift_site.dart';
@@ -57,11 +57,29 @@ enum Refusal {
   /// The submitted hunt does not replay to a finished hunt.
   huntUnproven,
 
+  /// Tradable reapers require replayed rift results before earning growth.
+  riftUnproven,
+
   /// The reaper has absorbed nothing from this rift's collection yet.
   notAttuned,
 
   /// A location is malformed, too coarse, stale or future-dated.
   locationUnusable,
+
+  /// Finish loose hunts before taking another reaper.
+  reaperBusy,
+
+  /// The wallet proof is invalid, expired or already used.
+  walletUnproven,
+
+  /// NFT ownership requires a configured collection and online keeper.
+  chainUnconfigured,
+
+  /// The chain could not be read or returned an invalid response.
+  chainUnavailable,
+
+  /// The NFT roster has reached its bounded ownership-check capacity.
+  rosterFull,
 }
 
 /// A request the rules refused.
@@ -248,76 +266,65 @@ final class HuntSettlement {
 /// the two from drifting apart.
 final class PlayerState {
   const PlayerState({
-    required this.genomeCode,
-    required this.xp,
+    required this.reapers,
+    required this.activeReaperId,
     required this.anima,
     required this.lamports,
-    required this.weapons,
-    required this.outfits,
-    required this.weapon,
-    required this.outfit,
     required this.vault,
     required this.sightings,
-    required this.codex,
-    required this.huntsLost,
-    required this.riftsSealed,
     required this.nextSightingId,
   });
 
-  /// A player who has not taken the oath: no reaper, a stocked wallet.
   factory PlayerState.initial() => const PlayerState(
-    genomeCode: null,
-    xp: 0,
+    reapers: [],
+    activeReaperId: null,
     anima: 0,
     lamports: startingLamports,
-    weapons: {},
-    outfits: {Outfit.shrouded},
-    weapon: null,
-    outfit: Outfit.shrouded,
     vault: [],
     sightings: [],
-    codex: [],
-    huntsLost: 0,
-    riftsSealed: 0,
     nextSightingId: 1,
   );
 
-  /// Reads a state written by [toJson].
-  ///
-  /// Throws a [FormatException] when the document is from an unknown schema
-  /// or names something that does not exist.
+  /// Schema two's one reaper migrates intact into the oathbound roster seat.
   factory PlayerState.fromJson(Map<String, dynamic> json) {
-    if (json['schema'] != _schema) {
-      throw FormatException('Unknown player schema', json['schema']);
+    final schema = json['schema'];
+    if (schema != 2 && schema != _schema) {
+      throw FormatException('Unknown player schema', schema);
     }
-
-    final weapon = json['weapon'] as String?;
-
+    final List<ReaperState> roster;
+    final String? selected;
+    if (schema == 2) {
+      roster = json['genome'] == null
+          ? []
+          : [
+              ReaperState.fromJson({...json, 'id': ReaperState.oathId}),
+            ];
+      selected = roster.firstOrNull?.id;
+    } else {
+      roster = [
+        for (final entry in json['reapers'] as List)
+          ReaperState.fromJson((entry as Map).cast<String, dynamic>()),
+      ];
+      selected = json['activeReaperId'] as String?;
+    }
+    if (roster.map((reaper) => reaper.id).toSet().length != roster.length ||
+        (roster.isEmpty
+            ? selected != null
+            : !roster.any((reaper) => reaper.id == selected))) {
+      throw const FormatException(
+        'Invalid active reaper or duplicate roster seat',
+      );
+    }
     return PlayerState(
-      genomeCode: json['genome'] as String?,
-      xp: json['xp'] as int,
+      reapers: List.unmodifiable(roster),
+      activeReaperId: selected,
       anima: json['anima'] as int,
       lamports: json['lamports'] as int,
-      weapons: {
-        for (final id in json['weapons'] as List) Weapon.parse(id as String),
-      },
-      outfits: {
-        for (final name in json['outfits'] as List)
-          Outfit.values.byName(name as String),
-      },
-      weapon: weapon == null ? null : Weapon.parse(weapon),
-      outfit: Outfit.values.byName(json['outfit'] as String),
       vault: [for (final id in json['vault'] as List) Nft.parse(id as String)],
       sightings: [
-        for (final sighting in json['sightings'] as List)
-          Sighting.fromJson((sighting as Map).cast<String, dynamic>()),
+        for (final entry in json['sightings'] as List)
+          Sighting.fromJson((entry as Map).cast<String, dynamic>()),
       ],
-      codex: [
-        for (final entry in json['codex'] as List)
-          Absorption.fromJson((entry as Map).cast<String, dynamic>()),
-      ],
-      huntsLost: json['huntsLost'] as int,
-      riftsSealed: json['riftsSealed'] as int,
       nextSightingId: json['nextSightingId'] as int,
     );
   }
@@ -329,64 +336,91 @@ final class PlayerState {
   /// Husks that may be loose at once.
   static const maxSightings = 3;
 
+  /// Keeps one ownership read bounded; the oathbound starter is additional.
+  static const maxNftReapers = 32;
+
   /// The shortest and longest wait, in seconds, before a released husk
   /// surfaces.
   static const surfaceMinSeconds = 6;
   static const surfaceMaxSeconds = 14;
 
-  static const _schema = 2;
+  static const _schema = 3;
 
-  /// The bound reaper's genome, or null before the oath.
-  final String? genomeCode;
-
-  final int xp;
-
-  /// What a reaper spends in the armory. Earned by absorbing, never bought
-  /// and never tradeable.
+  /// Each reaper owns its growth, codex and equipment. Anima and the vault
+  /// belong to the player; switching never copies experience between reapers.
+  final List<ReaperState> reapers;
+  final String? activeReaperId;
   final int anima;
 
-  /// The stand-in wallet balance.
+  /// Offline simulation balance; a linked Solana balance is read separately.
   final int lamports;
-
-  /// Weapons bought so far.
-  final Set<Weapon> weapons;
-
-  /// Outfits bought so far.
-  final Set<Outfit> outfits;
-
-  /// The weapon in hand, or null before the oath.
-  final Weapon? weapon;
-
-  /// The outfit being worn.
-  final Outfit outfit;
-
-  /// NFTs held and not yet released.
   final List<Nft> vault;
-
-  /// Husks loose in the veil.
   final List<Sighting> sightings;
-
-  /// Every NFT absorbed, oldest first.
-  final List<Absorption> codex;
-
-  /// Hunts that ended with the husk escaping.
-  final int huntsLost;
-
-  /// Rifts this reaper helped seal.
-  final int riftsSealed;
-
   final int nextSightingId;
 
-  bool get oathTaken => genomeCode != null;
+  ReaperState? get activeReaper =>
+      reapers.where((reaper) => reaper.id == activeReaperId).firstOrNull;
+  String? get genomeCode => activeReaper?.genomeCode;
+  int get xp => activeReaper?.xp ?? 0;
+  Set<Weapon> get weapons => activeReaper?.weapons ?? const {};
+  Set<Outfit> get outfits => activeReaper?.outfits ?? const {Outfit.shrouded};
+  Weapon? get weapon => activeReaper?.weapon;
+  Outfit get outfit => activeReaper?.outfit ?? Outfit.shrouded;
+  List<Absorption> get codex => activeReaper?.codex ?? const [];
+  int get huntsLost => activeReaper?.huntsLost ?? 0;
+  int get riftsSealed => activeReaper?.riftsSealed ?? 0;
+  bool get oathTaken => activeReaper != null;
+  ReaperGenome get genome => activeReaper?.genome ?? ReaperGenome.borrowed;
+  int get level => activeReaper?.level ?? 1;
 
-  /// The bound reaper, or the borrowed one before the oath.
-  ReaperGenome get genome {
-    final code = genomeCode;
-
-    return code == null ? ReaperGenome.borrowed : ReaperGenome.parse(code);
+  /// Registers a reaper whose NFT ownership has already been verified by
+  /// the caller. There is deliberately no simulated SOL purchase here.
+  PlayerState bindReaper(ReaperState reaper) {
+    if (reapers.any((owned) => owned.id == reaper.id)) {
+      throw const RuleBreach(Refusal.alreadyOwned);
+    }
+    if (reaper.isNft &&
+        reapers.where((owned) => owned.isNft).length >= maxNftReapers) {
+      throw const RuleBreach(Refusal.rosterFull);
+    }
+    return _copy(reapers: [...reapers, reaper]);
   }
 
-  int get level => Progression.levelForXp(xp);
+  /// Loose husks belong to the current reaper until their hunts are finished.
+  PlayerState selectReaper(String id) {
+    if (!reapers.any((reaper) => reaper.id == id)) {
+      throw const RuleBreach(Refusal.notOwned);
+    }
+    if (id != activeReaperId && sightings.isNotEmpty) {
+      throw const RuleBreach(Refusal.reaperBusy);
+    }
+    return _copy(activeReaperId: id);
+  }
+
+  /// Refreshes NFT-backed seats from the authoritative asset ledger while
+  /// retaining the non-tradable oathbound starter. A transferred seat leaves
+  /// this roster; its progression stays in the server's asset ledger.
+  PlayerState reconcileReapers(List<ReaperState> owned) {
+    final roster = [
+      for (final reaper in reapers)
+        if (!reaper.isNft) reaper,
+      ...owned,
+    ];
+    if (roster.map((reaper) => reaper.id).toSet().length != roster.length) {
+      throw const RuleBreach(Refusal.alreadyOwned);
+    }
+
+    // A transferred reaper cannot keep hunting under another reaper's stats.
+    // Return its unfinished husks to this player's vault without rewarding it.
+    final lostActive = !roster.any((reaper) => reaper.id == activeReaperId);
+    return _copy(
+      reapers: roster,
+      vault: lostActive
+          ? [...vault, for (final sighting in sightings) sighting.nft]
+          : vault,
+      sightings: lostActive ? [] : sightings,
+    );
+  }
 
   /// Collections with a full set absorbed.
   int get completedSets => NftCollection.values
@@ -417,7 +451,7 @@ final class PlayerState {
   bool holds(Nft nft) =>
       vault.contains(nft) ||
       sightings.any((sighting) => sighting.nft == nft) ||
-      codex.any((entry) => entry.nft == nft);
+      reapers.any((reaper) => reaper.codex.any((entry) => entry.nft == nft));
 
   /// Binds a reaper drawn from [seed].
   ///
@@ -429,9 +463,9 @@ final class PlayerState {
     }
 
     final genome = ReaperGenome.shuffle(seed);
-    final weapon = Weapon(genome.reaperClass.weapon, Temper.shrouded);
-
-    return _copy(genomeCode: genome.code, weapons: {weapon}, weapon: weapon);
+    return _copy(
+      reapers: [ReaperState.bound(id: ReaperState.oathId, genome: genome)],
+    );
   }
 
   /// Buys [nft] from the stand-in market into the vault.
@@ -629,6 +663,10 @@ final class PlayerState {
   RiftEntrant entrantFor(RiftSite site) {
     _requireOath();
 
+    if (activeReaper!.isNft) {
+      throw const RuleBreach(Refusal.riftUnproven);
+    }
+
     if (!attunedTo(site)) {
       throw const RuleBreach(Refusal.notAttuned);
     }
@@ -637,13 +675,27 @@ final class PlayerState {
   }
 
   /// Pays a reaper for helping to seal a rift.
-  PlayerState settleRift({required int xp, required int anima}) {
+  PlayerState settleRift({
+    required int xp,
+    required int anima,
+    String? reaperId,
+  }) {
     _requireOath();
-
+    final id = reaperId ?? activeReaperId;
+    if (!reapers.any((reaper) => reaper.id == id)) {
+      throw const RuleBreach(Refusal.notOwned);
+    }
     return _copy(
-      xp: this.xp + xp,
+      reapers: [
+        for (final reaper in reapers)
+          reaper.id == id
+              ? reaper.copyWith(
+                  xp: reaper.xp + xp,
+                  riftsSealed: reaper.riftsSealed + 1,
+                )
+              : reaper,
+      ],
       anima: this.anima + anima,
-      riftsSealed: riftsSealed + 1,
     );
   }
 
@@ -701,19 +753,12 @@ final class PlayerState {
 
   Map<String, dynamic> toJson() => {
     'schema': _schema,
-    'genome': genomeCode,
-    'xp': xp,
+    'reapers': [for (final reaper in reapers) reaper.toJson()],
+    'activeReaperId': activeReaperId,
     'anima': anima,
     'lamports': lamports,
-    'weapons': [for (final weapon in weapons) weapon.id],
-    'outfits': [for (final outfit in outfits) outfit.name],
-    'weapon': weapon?.id,
-    'outfit': outfit.name,
     'vault': [for (final nft in vault) nft.id],
     'sightings': [for (final sighting in sightings) sighting.toJson()],
-    'codex': [for (final entry in codex) entry.toJson()],
-    'huntsLost': huntsLost,
-    'riftsSealed': riftsSealed,
     'nextSightingId': nextSightingId,
   };
 
@@ -736,7 +781,8 @@ final class PlayerState {
   }
 
   PlayerState _copy({
-    String? genomeCode,
+    List<ReaperState>? reapers,
+    String? activeReaperId,
     int? xp,
     int? anima,
     int? lamports,
@@ -750,20 +796,36 @@ final class PlayerState {
     int? huntsLost,
     int? riftsSealed,
     int? nextSightingId,
-  }) => PlayerState(
-    genomeCode: genomeCode ?? this.genomeCode,
-    xp: xp ?? this.xp,
-    anima: anima ?? this.anima,
-    lamports: lamports ?? this.lamports,
-    weapons: weapons ?? this.weapons,
-    outfits: outfits ?? this.outfits,
-    weapon: weapon ?? this.weapon,
-    outfit: outfit ?? this.outfit,
-    vault: vault ?? this.vault,
-    sightings: sightings ?? this.sightings,
-    codex: codex ?? this.codex,
-    huntsLost: huntsLost ?? this.huntsLost,
-    riftsSealed: riftsSealed ?? this.riftsSealed,
-    nextSightingId: nextSightingId ?? this.nextSightingId,
-  );
+  }) {
+    final roster =
+        reapers ??
+        [
+          for (final reaper in this.reapers)
+            reaper.id == this.activeReaperId
+                ? reaper.copyWith(
+                    xp: xp,
+                    weapons: weapons,
+                    outfits: outfits,
+                    weapon: weapon,
+                    outfit: outfit,
+                    codex: codex,
+                    huntsLost: huntsLost,
+                    riftsSealed: riftsSealed,
+                  )
+                : reaper,
+        ];
+    final preferred = activeReaperId ?? this.activeReaperId;
+    final selected = roster.any((reaper) => reaper.id == preferred)
+        ? preferred
+        : roster.firstOrNull?.id;
+    return PlayerState(
+      reapers: List.unmodifiable(roster),
+      activeReaperId: selected,
+      anima: anima ?? this.anima,
+      lamports: lamports ?? this.lamports,
+      vault: vault ?? this.vault,
+      sightings: sightings ?? this.sightings,
+      nextSightingId: nextSightingId ?? this.nextSightingId,
+    );
+  }
 }

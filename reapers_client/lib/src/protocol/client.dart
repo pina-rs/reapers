@@ -13,6 +13,10 @@
 import 'dart:async' as _ida;
 import 'dart:typed_data' as _idt;
 import 'package:http/http.dart' as _i85jenna;
+import 'package:reapers_client/src/protocol/solana/chain_status.dart'
+    as _iau95ea3;
+import 'package:reapers_client/src/protocol/solana/wallet_challenge.dart'
+    as _iloowbzh;
 import 'package:reapers_shared/src/geo.dart' as _i3e1ekpd;
 import 'package:reapers_shared/src/player_state.dart' as _ildkp1az;
 import 'package:reapers_shared/src/rift/rift_frame.dart' as _ivi8svxc;
@@ -135,6 +139,13 @@ class EndpointPlayer extends _isc.EndpointRef {
         {},
       );
 
+  _ida.Future<_ildkp1az.PlayerState> selectReaper(String id) =>
+      caller.callServerEndpoint<_ildkp1az.PlayerState>(
+        'player',
+        'selectReaper',
+        {'id': id},
+      );
+
   /// Buys the NFT [nftId] names into the vault.
   _ida.Future<_ildkp1az.PlayerState> acquire(String nftId) =>
       caller.callServerEndpoint<_ildkp1az.PlayerState>(
@@ -245,6 +256,51 @@ class EndpointRift extends _isc.EndpointRef {
       );
 }
 
+/// Wallet proof, balance and verified collection imports. Payment and NFT
+/// exchange happen in the configured marketplace, signed by the user's wallet.
+/// {@category Endpoint}
+class EndpointSolana extends _isc.EndpointRef {
+  EndpointSolana(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'solana';
+
+  _ida.Future<_iau95ea3.ChainStatus> status() =>
+      caller.callServerEndpoint<_iau95ea3.ChainStatus>(
+        'solana',
+        'status',
+        {},
+      );
+
+  _ida.Future<_iloowbzh.WalletChallenge> challenge(String address) =>
+      caller.callServerEndpoint<_iloowbzh.WalletChallenge>(
+        'solana',
+        'challenge',
+        {'address': address},
+      );
+
+  /// First proof links this guest; later proofs restore that wallet's account.
+  /// Accounts are switched rather than silently merging two players' saves.
+  _ida.Future<_iacc.AuthSuccess> login(
+    _isc.UuidValue challengeId,
+    String signature,
+  ) => caller.callServerEndpoint<_iacc.AuthSuccess>(
+    'solana',
+    'login',
+    {
+      'challengeId': challengeId,
+      'signature': signature,
+    },
+  );
+
+  _ida.Future<_ildkp1az.PlayerState> importReaper(String asset) =>
+      caller.callServerEndpoint<_ildkp1az.PlayerState>(
+        'solana',
+        'importReaper',
+        {'asset': asset},
+      );
+}
+
 class Modules {
   Modules(Client client) {
     serverpod_auth_idp = _iaic.Caller(client);
@@ -287,6 +343,7 @@ class Client extends _isc.ServerpodClientShared {
     jwtRefresh = EndpointJwtRefresh(this);
     player = EndpointPlayer(this);
     rift = EndpointRift(this);
+    solana = EndpointSolana(this);
     modules = Modules(this);
   }
 
@@ -298,6 +355,8 @@ class Client extends _isc.ServerpodClientShared {
 
   late final EndpointRift rift;
 
+  late final EndpointSolana solana;
+
   late final Modules modules;
 
   @override
@@ -306,6 +365,7 @@ class Client extends _isc.ServerpodClientShared {
     'jwtRefresh': jwtRefresh,
     'player': player,
     'rift': rift,
+    'solana': solana,
   };
 
   @override

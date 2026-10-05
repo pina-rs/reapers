@@ -50,6 +50,10 @@ final class LocalBackend implements GameBackend {
       _change((state) => state.takeOath(seed: _seed()));
 
   @override
+  Future<PlayerState> selectReaper(String id) =>
+      _change((state) => state.selectReaper(id));
+
+  @override
   Future<PlayerState> acquire(Nft nft) =>
       _change((state) => state.acquire(nft));
 
@@ -89,7 +93,8 @@ final class LocalBackend implements GameBackend {
 
   @override
   Future<RiftSession> enterRift(RiftSite site) async {
-    final entrant = (await load()).entrantFor(site);
+    final player = await load();
+    final entrant = player.entrantFor(site);
     final room = RiftRoom(site: site, seed: _seed());
     final opened = _clock();
 
@@ -98,7 +103,11 @@ final class LocalBackend implements GameBackend {
       seat: room.join(entrant),
       microseconds: () => _clock().difference(opened).inMicroseconds,
       onSealed: (reward) => _change(
-        (state) => state.settleRift(xp: reward.xp, anima: reward.anima),
+        (state) => state.settleRift(
+          xp: reward.xp,
+          anima: reward.anima,
+          reaperId: player.activeReaperId,
+        ),
       ),
     );
   }

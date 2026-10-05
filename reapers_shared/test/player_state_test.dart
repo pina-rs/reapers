@@ -464,7 +464,11 @@ void main() {
     PlayerState rich({int level = 30}) => PlayerState.fromJson({
       ...oathbound().toJson(),
       'anima': 100000,
-      'xp': Progression.xpForLevel(level),
+      'reapers': [
+        oathbound().activeReaper!
+            .copyWith(xp: Progression.xpForLevel(level))
+            .toJson(),
+      ],
     });
 
     test('a better temper costs anima and can be wielded', () {
@@ -498,7 +502,13 @@ void main() {
       expect(
         () => PlayerState.fromJson({
           ...poor.toJson(),
-          'xp': Progression.xpForLevel(Temper.sworn.levelRequired),
+          'reapers': [
+            poor.activeReaper!
+                .copyWith(
+                  xp: Progression.xpForLevel(Temper.sworn.levelRequired),
+                )
+                .toJson(),
+          ],
         }).buyWeapon(sworn),
         refuses(Refusal.insufficientAnima),
       );

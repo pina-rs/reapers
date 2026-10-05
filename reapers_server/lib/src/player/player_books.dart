@@ -5,6 +5,8 @@ import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_auth_idp_server/core.dart';
 
 import '../generated/protocol.dart';
+import '../solana/reaper_ledger.dart';
+import '../solana/solana_endpoint.dart';
 
 /// The one way a signed-in player's stored state is read or changed.
 abstract final class PlayerBooks {
@@ -16,13 +18,23 @@ abstract final class PlayerBooks {
   /// rules refuse reaches the game as a [Refused] naming the refusal.
   static Future<PlayerState> change(
     Session session,
-    FutureOr<PlayerState> Function(PlayerState state) rule,
-  ) => session.db.transaction((transaction) async {
-    final record = await _record(session, transaction);
+    FutureOr<PlayerState> Function(PlayerState state) rule, {
+    String? importAsset,
+  }) => session.db.transaction((transaction) async {
+    final record = await lockedRecord(session, transaction);
     final PlayerState next;
 
     try {
-      next = await rule(record.state);
+      final verified = await chainRequest(
+        () => ReaperLedger.refresh(
+          session,
+          transaction,
+          record,
+          SolanaEndpoint.gateway,
+          importAsset: importAsset,
+        ),
+      );
+      next = await rule(verified);
     } on RuleBreach catch (breach) {
       throw Refused(refusal: breach.refusal.name);
     }
@@ -30,6 +42,8 @@ abstract final class PlayerBooks {
     if (identical(next, record.state)) {
       return next;
     }
+
+    await ReaperLedger.save(session, transaction, next, SolanaEndpoint.gateway);
 
     await PlayerRecord.db.updateRow(
       session,
@@ -48,7 +62,7 @@ abstract final class PlayerBooks {
     }
 
     await session.db.transaction((transaction) async {
-      final record = await _record(session, transaction);
+      final record = await lockedRecord(session, transaction);
       final before = record.location;
 
       // Delayed requests must not move a player back to an older reading.
@@ -76,7 +90,7 @@ abstract final class PlayerBooks {
     return fix != null && fix.isUsableAt(DateTime.now().toUtc()) ? fix : null;
   }
 
-  static Future<PlayerRecord> _record(
+  static Future<PlayerRecord> lockedRecord(
     Session session,
     Transaction transaction,
   ) async {

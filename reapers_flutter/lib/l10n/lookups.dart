@@ -114,9 +114,22 @@ String refusalMessage(AppLocalizations l10n, Refusal refusal) =>
       Refusal.unknownSighting => l10n.refusalUnknownSighting,
       Refusal.notSurfaced => l10n.refusalNotSurfaced,
       Refusal.huntUnproven => l10n.refusalHuntUnproven,
+      Refusal.riftUnproven => l10n.refusalRiftUnproven,
       Refusal.notAttuned => l10n.refusalNotAttuned,
       Refusal.locationUnusable => l10n.locationInaccurate,
+      Refusal.reaperBusy => l10n.refusalReaperBusy,
+      Refusal.walletUnproven => l10n.refusalWalletUnproven,
+      Refusal.chainUnconfigured => l10n.refusalChainUnconfigured,
+      Refusal.chainUnavailable => l10n.commonUnreachable,
+      Refusal.rosterFull => l10n.refusalRosterFull,
     };
+
+String auraName(AppLocalizations l10n, Aura aura) => switch (aura) {
+  Aura.motes => l10n.studioAuraMotes,
+  Aura.embers => l10n.studioAuraEmbers,
+  Aura.mist => l10n.studioAuraMist,
+  Aura.wisps => l10n.studioAuraWisps,
+};
 
 /// A balance in lamports as SOL, to two or three places.
 String solAmount(int lamports) {

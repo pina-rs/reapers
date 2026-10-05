@@ -203,6 +203,14 @@ What the ratings do:
 
 A reaper also has a look the shuffle draws: three heads, three mantles, four robes and three colourways per class, plus stature, gauntness, gaze and tatter, an aura, a name, and an omen (none 80%, ashen 12%, gilded 6%, eclipsed 2%). Omens change colour only.
 
+### Owning several reapers
+
+The oathbound starter stays with its player. Online players may also import up to 32 verified reaper NFTs from the configured Metaplex Core collection. This bounds the ownership check; it is not a mint supply. Each reaper has its own experience, weapons, outfits, codex and hunt records. Anima, the simulated husk wallet and the vault belong to the account. Switching does not duplicate an absorbed husk or let it be bought again by the same account.
+
+Finish loose hunts before selecting another reaper. Ownership is checked before online mutations. Selling a selected NFT returns its unfinished husks to the account's vault without rewards and selects the starter. Its earned progression remains attached to that NFT's server record for the next owner. Offline growth cannot be imported into that record.
+
+Birth traits are immutable for owned reapers. The studio freely changes an unsaved specimen to demonstrate the possibilities; it does not change the player or mint an NFT. NFT reapers earn growth through replayed solo hunts. Rifts remain available only to the non-tradable starter until their results can be replayed.
+
 ### Levels
 
 Level cap 30. Going from level `n` to the next costs `90 + 55(n − 1) + 6(n − 1)²` experience. Each level adds 7% of a level-one strike. Each completed set adds 3%.

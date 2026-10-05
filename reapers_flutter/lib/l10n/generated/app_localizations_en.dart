@@ -1017,4 +1017,261 @@ class AppLocalizationsEn extends AppLocalizations {
   String huntFailedBody(String reason) {
     return 'The hunt could not be started: $reason';
   }
+
+  @override
+  String get studioAppTitle => 'Reaper studio';
+
+  @override
+  String get studioTitle => 'A life after death.';
+
+  @override
+  String get studioIntro =>
+      'Shape a specimen. Explore its growth. Everything here is a preview; your bound reaper stays yours.';
+
+  @override
+  String get studioTraits => 'Birth traits';
+
+  @override
+  String get studioGrowth => 'Growth';
+
+  @override
+  String get studioClass => 'Calling';
+
+  @override
+  String get studioHead => 'Head';
+
+  @override
+  String get studioMantle => 'Mantle';
+
+  @override
+  String get studioRobe => 'Hem';
+
+  @override
+  String get studioPalette => 'Colourway';
+
+  @override
+  String get studioOmen => 'Omen';
+
+  @override
+  String get studioAura => 'Aura';
+
+  @override
+  String get studioStature => 'Stature';
+
+  @override
+  String get studioGauntness => 'Gauntness';
+
+  @override
+  String get studioGaze => 'Gaze';
+
+  @override
+  String get studioTatter => 'Tatter';
+
+  @override
+  String get studioDrag => 'Drag to turn your reaper';
+
+  @override
+  String get studioShuffle => 'Draw another specimen';
+
+  @override
+  String get studioBirthTraits =>
+      'Birth traits are fixed when a reaper is minted. Outfits and weapons can change as it grows.';
+
+  @override
+  String get studioCopy => 'Copy genome';
+
+  @override
+  String get studioCopied => 'Genome copied';
+
+  @override
+  String get studioLevel => 'Level';
+
+  @override
+  String get studioStrength => 'Strike growth';
+
+  @override
+  String get studioDamage => 'Strike damage';
+
+  @override
+  String get studioGrowthLine =>
+      'Compared with a new reaper of this calling, carrying its starting weapon. Levels strengthen strikes; they do not widen the capture window.';
+
+  @override
+  String get studioAbsorb => 'Absorb a specimen';
+
+  @override
+  String get studioExample =>
+      'Illustration: a rare husk, a clean cut and fair feeding. Real rewards depend on rarity, cut, ambush and feeding.';
+
+  @override
+  String get studioWeapon => 'Weapon temper';
+
+  @override
+  String get studioOutfit => 'Outfit';
+
+  @override
+  String get studioCosmetic =>
+      'Outfits change the silhouette and light. Weapons change your strikes. In the game, both cost earned anima after reaching their required level.';
+
+  @override
+  String get studioPotential => 'See full potential';
+
+  @override
+  String get studioMultiple =>
+      'Each owned reaper grows separately. Anima belongs to you; an NFT reaper’s experience, codex and equipment follow that asset when traded.';
+
+  @override
+  String get studioAuraMotes => 'Motes';
+
+  @override
+  String get studioAuraEmbers => 'Embers';
+
+  @override
+  String get studioAuraMist => 'Mist';
+
+  @override
+  String get studioAuraWisps => 'Wisps';
+
+  @override
+  String studioLevelValue(int level) {
+    return 'Level $level';
+  }
+
+  @override
+  String studioVariant(int number) {
+    return '$number';
+  }
+
+  @override
+  String studioStronger(int percent) {
+    return '+$percent%';
+  }
+
+  @override
+  String studioCaptures(int count) {
+    return '$count absorbed';
+  }
+
+  @override
+  String studioReward(int xp) {
+    return '+$xp XP in this preview';
+  }
+
+  @override
+  String studioUnlock(int level, int anima) {
+    return 'Level $level · $anima anima';
+  }
+
+  @override
+  String get refusalReaperBusy =>
+      'Finish your loose hunts before switching reapers.';
+
+  @override
+  String get refusalWalletUnproven =>
+      'The wallet proof could not be verified. Connect your wallet again.';
+
+  @override
+  String get refusalChainUnconfigured =>
+      'Reaper NFT trading is waiting for the collection to open.';
+
+  @override
+  String get sanctumRoster => 'Your reapers';
+
+  @override
+  String get sanctumStudio => 'Reaper studio';
+
+  @override
+  String get sanctumStudioDetail => 'Explore traits and growth';
+
+  @override
+  String get rosterTitle => 'Your reapers';
+
+  @override
+  String get rosterIntro =>
+      'Choose who hunts tonight. Every reaper carries its own growth.';
+
+  @override
+  String get rosterStarter => 'Oathbound · not tradable';
+
+  @override
+  String get rosterNft => 'Solana NFT';
+
+  @override
+  String get rosterActive => 'Hunting tonight';
+
+  @override
+  String get rosterConnect => 'Connect Solana wallet';
+
+  @override
+  String get rosterRefresh => 'Refresh ownership';
+
+  @override
+  String get rosterImport => 'Import owned reaper';
+
+  @override
+  String get rosterAsset => 'Reaper NFT address';
+
+  @override
+  String get rosterImportHelp =>
+      'Paste the address of a Reapers NFT already owned by your linked wallet.';
+
+  @override
+  String get rosterBuy => 'Find another reaper';
+
+  @override
+  String get rosterBuyHelp =>
+      'Buy from the collection’s marketplace, then import your NFT here. Your wallet handles payment.';
+
+  @override
+  String get rosterOffline =>
+      'NFT ownership needs the online keeper. You can explore specimens in the studio while playing offline.';
+
+  @override
+  String get rosterWalletUnsupported =>
+      'Connect on an Android phone with a Solana wallet installed.';
+
+  @override
+  String get rosterLinkHelp =>
+      'Connecting proves control of your wallet. It does not spend SOL or transfer an NFT.';
+
+  @override
+  String get rosterLinked => 'Linked wallet';
+
+  @override
+  String get rosterBalance => 'Wallet SOL';
+
+  @override
+  String get rosterNetwork => 'Network';
+
+  @override
+  String get rosterUnconfigured =>
+      'NFT imports are unavailable until a reaper collection is configured. Your starter remains yours.';
+
+  @override
+  String rosterCount(int count) {
+    return '$count reapers';
+  }
+
+  @override
+  String get studioModelFailed => 'This specimen could not be drawn.';
+
+  @override
+  String get studioXp => 'XP';
+
+  @override
+  String get studioCapped => 'Max';
+
+  @override
+  String get studioPause => 'Pause rotation';
+
+  @override
+  String get studioRotate => 'Rotate specimen';
+
+  @override
+  String get refusalRosterFull =>
+      'Your reaper roster is full. Transfer an NFT before importing another.';
+
+  @override
+  String get refusalRiftUnproven =>
+      'NFT reapers can hunt solo. Rifts will open once their results can be verified.';
 }

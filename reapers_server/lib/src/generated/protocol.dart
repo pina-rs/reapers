@@ -20,8 +20,16 @@ import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
 import 'player/player_record.dart' as _iyg31bwx;
 import 'player/refused.dart' as _i5uoxhqi;
+import 'solana/chain_status.dart' as _inp1sctw;
+import 'solana/reaper_record.dart' as _iaom966a;
+import 'solana/wallet_challenge.dart' as _ijudxz9j;
+import 'solana/wallet_identity.dart' as _ine9ltfv;
 export 'player/player_record.dart';
 export 'player/refused.dart';
+export 'solana/chain_status.dart';
+export 'solana/reaper_record.dart';
+export 'solana/wallet_challenge.dart';
+export 'solana/wallet_identity.dart';
 
 class Protocol extends _is.DatabaseSerializationManager {
   Protocol._();
@@ -95,6 +103,195 @@ class Protocol extends _is.DatabaseSerializationManager {
       ],
       managed: true,
     ),
+    _isp.TableDefinition(
+      name: 'reaper_record',
+      dartName: 'ReaperRecord',
+      schema: 'public',
+      module: 'reapers',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isp.ColumnDefinition(
+          name: 'assetKey',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'collection',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'state',
+          columnType: _isp.ColumnType.json,
+          isNullable: false,
+          dartType: 'package:reapers_shared/reapers_shared.dart:ReaperState',
+        ),
+      ],
+      foreignKeys: [],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'reaper_record__assetKey__unique_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'assetKey',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isp.TableDefinition(
+      name: 'wallet_challenge',
+      dartName: 'WalletChallenge',
+      schema: 'public',
+      module: 'reapers',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isp.ColumnDefinition(
+          name: 'challengeId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
+          name: 'authUserId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
+          name: 'address',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'message',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'expiresAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+        ),
+        _isp.ColumnDefinition(
+          name: 'consumed',
+          columnType: _isp.ColumnType.boolean,
+          isNullable: false,
+          dartType: 'bool',
+          columnDefault: 'false',
+        ),
+      ],
+      foreignKeys: [],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'wallet_challenge__challengeId__unique_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'challengeId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+        _isp.IndexDefinition(
+          indexName: 'wallet_challenge__authUserId__unique_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'authUserId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isp.TableDefinition(
+      name: 'wallet_identity',
+      dartName: 'WalletIdentity',
+      schema: 'public',
+      module: 'reapers',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isp.ColumnDefinition(
+          name: 'address',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'authUserId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+      ],
+      foreignKeys: [],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'wallet_identity__address__unique_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'address',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+        _isp.IndexDefinition(
+          indexName: 'wallet_identity__authUserId__unique_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'authUserId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
     ..._iais.Protocol.targetTableDefinitions,
     ..._iacs.Protocol.targetTableDefinitions,
     ..._isp.Protocol.targetTableDefinitions,
@@ -133,17 +330,46 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _i5uoxhqi.Refused) {
       return _i5uoxhqi.Refused.fromJson(data) as T;
     }
+    if (t == _inp1sctw.ChainStatus) {
+      return _inp1sctw.ChainStatus.fromJson(data) as T;
+    }
+    if (t == _iaom966a.ReaperRecord) {
+      return _iaom966a.ReaperRecord.fromJson(data) as T;
+    }
+    if (t == _ijudxz9j.WalletChallenge) {
+      return _ijudxz9j.WalletChallenge.fromJson(data) as T;
+    }
+    if (t == _ine9ltfv.WalletIdentity) {
+      return _ine9ltfv.WalletIdentity.fromJson(data) as T;
+    }
     if (t == _is.getType<_iyg31bwx.PlayerRecord?>()) {
       return (data != null ? _iyg31bwx.PlayerRecord.fromJson(data) : null) as T;
     }
     if (t == _is.getType<_i5uoxhqi.Refused?>()) {
       return (data != null ? _i5uoxhqi.Refused.fromJson(data) : null) as T;
     }
+    if (t == _is.getType<_inp1sctw.ChainStatus?>()) {
+      return (data != null ? _inp1sctw.ChainStatus.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_iaom966a.ReaperRecord?>()) {
+      return (data != null ? _iaom966a.ReaperRecord.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_ijudxz9j.WalletChallenge?>()) {
+      return (data != null ? _ijudxz9j.WalletChallenge.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_ine9ltfv.WalletIdentity?>()) {
+      return (data != null ? _ine9ltfv.WalletIdentity.fromJson(data) : null)
+          as T;
+    }
     if (t == _izkb583i.PlayerState) {
       return _izkb583i.PlayerState.fromJson(data) as T;
     }
     if (t == _is.getType<_izkb583i.GeoFix?>()) {
       return (data != null ? _izkb583i.GeoFix.fromJson(data) : null) as T;
+    }
+    if (t == _izkb583i.ReaperState) {
+      return _izkb583i.ReaperState.fromJson(data) as T;
     }
     if (t == _izkb583i.GeoFix) {
       return _izkb583i.GeoFix.fromJson(data) as T;
@@ -162,6 +388,9 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (t == _is.getType<_izkb583i.PlayerState?>()) {
       return (data != null ? _izkb583i.PlayerState.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_izkb583i.ReaperState?>()) {
+      return (data != null ? _izkb583i.ReaperState.fromJson(data) : null) as T;
     }
     if (t == _is.getType<_izkb583i.HuntSettlement?>()) {
       return (data != null ? _izkb583i.HuntSettlement.fromJson(data) : null)
@@ -189,11 +418,16 @@ class Protocol extends _is.DatabaseSerializationManager {
     return switch (type) {
       _izkb583i.GeoFix => 'GeoFix',
       _izkb583i.PlayerState => 'PlayerState',
+      _izkb583i.ReaperState => 'ReaperState',
       _izkb583i.HuntSettlement => 'HuntSettlement',
       _izkb583i.RiftFrame => 'RiftFrame',
       _izkb583i.RiftReport => 'RiftReport',
       _iyg31bwx.PlayerRecord => 'PlayerRecord',
       _i5uoxhqi.Refused => 'Refused',
+      _inp1sctw.ChainStatus => 'ChainStatus',
+      _iaom966a.ReaperRecord => 'ReaperRecord',
+      _ijudxz9j.WalletChallenge => 'WalletChallenge',
+      _ine9ltfv.WalletIdentity => 'WalletIdentity',
       _ => null,
     };
   }
@@ -212,6 +446,8 @@ class Protocol extends _is.DatabaseSerializationManager {
         return 'GeoFix';
       case _izkb583i.PlayerState():
         return 'PlayerState';
+      case _izkb583i.ReaperState():
+        return 'ReaperState';
       case _izkb583i.HuntSettlement():
         return 'HuntSettlement';
       case _izkb583i.RiftFrame():
@@ -222,6 +458,14 @@ class Protocol extends _is.DatabaseSerializationManager {
         return 'PlayerRecord';
       case _i5uoxhqi.Refused():
         return 'Refused';
+      case _inp1sctw.ChainStatus():
+        return 'ChainStatus';
+      case _iaom966a.ReaperRecord():
+        return 'ReaperRecord';
+      case _ijudxz9j.WalletChallenge():
+        return 'WalletChallenge';
+      case _ine9ltfv.WalletIdentity():
+        return 'WalletIdentity';
     }
     className = _iais.Protocol().getClassNameForObject(data);
     if (className != null) {
@@ -254,6 +498,9 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (dataClassName == 'PlayerState') {
       return deserialize<_izkb583i.PlayerState>(data['data']);
     }
+    if (dataClassName == 'ReaperState') {
+      return deserialize<_izkb583i.ReaperState>(data['data']);
+    }
     if (dataClassName == 'HuntSettlement') {
       return deserialize<_izkb583i.HuntSettlement>(data['data']);
     }
@@ -268,6 +515,18 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (dataClassName == 'Refused') {
       return deserialize<_i5uoxhqi.Refused>(data['data']);
+    }
+    if (dataClassName == 'ChainStatus') {
+      return deserialize<_inp1sctw.ChainStatus>(data['data']);
+    }
+    if (dataClassName == 'ReaperRecord') {
+      return deserialize<_iaom966a.ReaperRecord>(data['data']);
+    }
+    if (dataClassName == 'WalletChallenge') {
+      return deserialize<_ijudxz9j.WalletChallenge>(data['data']);
+    }
+    if (dataClassName == 'WalletIdentity') {
+      return deserialize<_ine9ltfv.WalletIdentity>(data['data']);
     }
     if (dataClassName.startsWith('serverpod_auth_idp.')) {
       data['className'] = dataClassName.substring(19);
@@ -312,6 +571,12 @@ class Protocol extends _is.DatabaseSerializationManager {
     switch (t) {
       case _iyg31bwx.PlayerRecord:
         return _iyg31bwx.PlayerRecord.t;
+      case _iaom966a.ReaperRecord:
+        return _iaom966a.ReaperRecord.t;
+      case _ijudxz9j.WalletChallenge:
+        return _ijudxz9j.WalletChallenge.t;
+      case _ine9ltfv.WalletIdentity:
+        return _ine9ltfv.WalletIdentity.t;
     }
     return null;
   }

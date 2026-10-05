@@ -1,6 +1,8 @@
 # NFTs: what is simulated today, and where the real thing goes
 
-Nothing in this version touches a chain, a wallet or a marketplace. That was the brief: get the hunt feeling right first. This page lists every stand-in and the seam it sits behind, so wiring Solana in later is a matter of replacing these pieces rather than finding them.
+Reaper ownership now connects to Solana through Solana Kit: Android wallet proof, real balances and verified Metaplex Core imports. Each NFT reaper has canonical off-chain progression that follows its asset when traded. Buying happens in a configured external marketplace and is followed by an ownership check; the game does not invent listings or hold keys. See [solana.md](solana.md).
+
+The hunted husks are still stand-ins. Their collections, prices, releases, receipts and burns below remain the prototype simulation; no escrow or burn program is deployed.
 
 ## The collections are real. Everything else about them is simulated.
 
@@ -50,7 +52,7 @@ These are the decisions the simulation already bakes in. They are worth agreeing
 3. **Releasing is the point of no return.** Once released, the NFT can only be hunted. In the real version this is where it should move into escrow, so a player cannot release an NFT, start the hunt and sell it meanwhile.
 4. **A supported collection has a creature of its own.** Supporting a collection means modelling its animal, so it is a deliberate act and not something any collection gets for free.
 5. **Luck is decided off-chain and signed.** How well a reaper feeds is rolled by our server, because randomness on a chain is slow and costly. The server signs what it rolled so that a chain can trust it. See the next section.
-6. **Anima and experience stay off-chain.** They are earned by play and cannot be bought or traded. Putting them on-chain would turn the game into a farm.
+6. **Anima and experience stay off-chain.** Anima belongs to the account and cannot be traded. Experience is earned by play and cannot be purchased directly; an NFT reaper's earned growth, codex and equipment follow the asset when its ownership changes. This changes the earlier single-reaper design to support trading grown reapers.
 7. **Rifts drive demand.** A collection's rift only opens to someone who has absorbed one of that collection, so a rift is a reason to buy the floor.
 
 If any of these is wrong, the change is in `PlayerState`, not in the chain code.
@@ -81,11 +83,11 @@ The game talks to one interface, `GameBackend` (`reapers_flutter/lib/src/backend
 
 The server already replays every lone hunt from its recorded inputs before it pays (`PlayerState.judgeHunt`), which is the property a burn needs: the chain acts on the server's verdict, never on the phone's claim.
 
-On the Dart side the realistic choices are the `solana` package for transactions and the Mobile Wallet Adapter client for signing. Neither is a dependency yet: adding them before there is a program to call would be dead weight.
+The implemented Dart stack uses `solana_kit`, its typed RPC API and Metaplex Core codecs, plus its Mobile Wallet Adapter packages. The wallet and reaper-ownership seams above are implemented; real husk acquisition, escrow and burning remain work for the future. Wallet connection on iOS requires a separate adapter before it is offered there.
 
 ## What has to be true before real money
 
-- Rift results are trusted, not replayed. Fix that before a rift pays anything of value.
+- Rift results are trusted, not replayed. NFT reapers are refused entry until verification is built; the non-tradable starter can still enter.
 - Rifts are free to enter and have no cooldown.
 - The simulated prices are invented. Real floors move.
 - Supported collections need the consent of whoever holds their rights. Burning someone's art for sport is a decision to make with them, and so is using their name.
