@@ -3303,6 +3303,318 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'A bell cannot call a name only once. Each refrain gives the departing soul longer to answer.'**
   String get giftRefrainLore;
+
+  /// No description provided for @motionIdle.
+  ///
+  /// In en, this message translates to:
+  /// **'Idle hover'**
+  String get motionIdle;
+
+  /// No description provided for @motionCreep.
+  ///
+  /// In en, this message translates to:
+  /// **'Walk very slowly'**
+  String get motionCreep;
+
+  /// No description provided for @motionWalk.
+  ///
+  /// In en, this message translates to:
+  /// **'Walk'**
+  String get motionWalk;
+
+  /// No description provided for @motionRun.
+  ///
+  /// In en, this message translates to:
+  /// **'Run'**
+  String get motionRun;
+
+  /// No description provided for @motionSprint.
+  ///
+  /// In en, this message translates to:
+  /// **'Sprint'**
+  String get motionSprint;
+
+  /// No description provided for @motionJump.
+  ///
+  /// In en, this message translates to:
+  /// **'Jump'**
+  String get motionJump;
+
+  /// No description provided for @motionLand.
+  ///
+  /// In en, this message translates to:
+  /// **'Land'**
+  String get motionLand;
+
+  /// No description provided for @motionDodgeLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'Dodge left'**
+  String get motionDodgeLeft;
+
+  /// No description provided for @motionDodgeRight.
+  ///
+  /// In en, this message translates to:
+  /// **'Dodge right'**
+  String get motionDodgeRight;
+
+  /// No description provided for @motionDash.
+  ///
+  /// In en, this message translates to:
+  /// **'Phantom dash'**
+  String get motionDash;
+
+  /// No description provided for @motionLaugh.
+  ///
+  /// In en, this message translates to:
+  /// **'Laugh'**
+  String get motionLaugh;
+
+  /// No description provided for @motionCry.
+  ///
+  /// In en, this message translates to:
+  /// **'Cry'**
+  String get motionCry;
+
+  /// No description provided for @motionRage.
+  ///
+  /// In en, this message translates to:
+  /// **'Angry pose'**
+  String get motionRage;
+
+  /// No description provided for @motionFear.
+  ///
+  /// In en, this message translates to:
+  /// **'Recoil in fear'**
+  String get motionFear;
+
+  /// No description provided for @motionBow.
+  ///
+  /// In en, this message translates to:
+  /// **'Bow'**
+  String get motionBow;
+
+  /// No description provided for @motionVictory.
+  ///
+  /// In en, this message translates to:
+  /// **'Victory'**
+  String get motionVictory;
+
+  /// No description provided for @motionGigachad.
+  ///
+  /// In en, this message translates to:
+  /// **'GigaChad stance'**
+  String get motionGigachad;
+
+  /// No description provided for @motionSigma.
+  ///
+  /// In en, this message translates to:
+  /// **'Sigma chin lift'**
+  String get motionSigma;
+
+  /// No description provided for @motionShrug.
+  ///
+  /// In en, this message translates to:
+  /// **'Unbothered shrug'**
+  String get motionShrug;
+
+  /// No description provided for @motionAbsoluteCinema.
+  ///
+  /// In en, this message translates to:
+  /// **'Absolute cinema'**
+  String get motionAbsoluteCinema;
+
+  /// No description provided for @motionTPose.
+  ///
+  /// In en, this message translates to:
+  /// **'T-pose dominance'**
+  String get motionTPose;
+
+  /// No description provided for @motionAnimeCharge.
+  ///
+  /// In en, this message translates to:
+  /// **'Anime power charge'**
+  String get motionAnimeCharge;
+
+  /// No description provided for @motionSlash.
+  ///
+  /// In en, this message translates to:
+  /// **'Weapon slash'**
+  String get motionSlash;
+
+  /// No description provided for @motionThrust.
+  ///
+  /// In en, this message translates to:
+  /// **'Weapon thrust'**
+  String get motionThrust;
+
+  /// No description provided for @motionParry.
+  ///
+  /// In en, this message translates to:
+  /// **'Parry'**
+  String get motionParry;
+
+  /// No description provided for @motionFinisherReap.
+  ///
+  /// In en, this message translates to:
+  /// **'Finisher · Reaping arc'**
+  String get motionFinisherReap;
+
+  /// No description provided for @motionFinisherImpale.
+  ///
+  /// In en, this message translates to:
+  /// **'Finisher · Impale'**
+  String get motionFinisherImpale;
+
+  /// No description provided for @motionFinisherSoulCrush.
+  ///
+  /// In en, this message translates to:
+  /// **'Finisher · Soul crush'**
+  String get motionFinisherSoulCrush;
+
+  /// No description provided for @motionFinisherPalm.
+  ///
+  /// In en, this message translates to:
+  /// **'Finisher · Palm burst'**
+  String get motionFinisherPalm;
+
+  /// No description provided for @motionFinisherUppercut.
+  ///
+  /// In en, this message translates to:
+  /// **'Finisher · Rising uppercut'**
+  String get motionFinisherUppercut;
+
+  /// No description provided for @motionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Animations · 30 states'**
+  String get motionTitle;
+
+  /// No description provided for @motionIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore floating gaits, reactions, memes and finishers. These are performance previews; they do not change combat or your save.'**
+  String get motionIntro;
+
+  /// No description provided for @motionMovement.
+  ///
+  /// In en, this message translates to:
+  /// **'Movement'**
+  String get motionMovement;
+
+  /// No description provided for @motionReaction.
+  ///
+  /// In en, this message translates to:
+  /// **'Reactions'**
+  String get motionReaction;
+
+  /// No description provided for @motionMeme.
+  ///
+  /// In en, this message translates to:
+  /// **'Memes'**
+  String get motionMeme;
+
+  /// No description provided for @motionCombat.
+  ///
+  /// In en, this message translates to:
+  /// **'Combat'**
+  String get motionCombat;
+
+  /// No description provided for @motionFinisher.
+  ///
+  /// In en, this message translates to:
+  /// **'Finishers'**
+  String get motionFinisher;
+
+  /// No description provided for @motionSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Animation'**
+  String get motionSelect;
+
+  /// No description provided for @motionPlay.
+  ///
+  /// In en, this message translates to:
+  /// **'Play animation'**
+  String get motionPlay;
+
+  /// No description provided for @motionPause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause animation'**
+  String get motionPause;
+
+  /// No description provided for @motionReplay.
+  ///
+  /// In en, this message translates to:
+  /// **'Replay'**
+  String get motionReplay;
+
+  /// No description provided for @motionSpeed.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback speed'**
+  String get motionSpeed;
+
+  /// No description provided for @motionLoop.
+  ///
+  /// In en, this message translates to:
+  /// **'Looping'**
+  String get motionLoop;
+
+  /// No description provided for @motionOnce.
+  ///
+  /// In en, this message translates to:
+  /// **'Plays once'**
+  String get motionOnce;
+
+  /// No description provided for @motionWeaponHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Impale needs a spear. Reaping arc needs a scythe or chain whip. Change calling in Birth traits to try those weapons.'**
+  String get motionWeaponHint;
+
+  /// No description provided for @motionUnarmed.
+  ///
+  /// In en, this message translates to:
+  /// **'Weapon stowed for this performance'**
+  String get motionUnarmed;
+
+  /// No description provided for @motionReduced.
+  ///
+  /// In en, this message translates to:
+  /// **'Reduced motion is enabled. Scrub the timeline to inspect each pose.'**
+  String get motionReduced;
+
+  /// No description provided for @motionImpact.
+  ///
+  /// In en, this message translates to:
+  /// **'Inspect contact pose'**
+  String get motionImpact;
+
+  /// No description provided for @motionTiming.
+  ///
+  /// In en, this message translates to:
+  /// **'{seconds} s · {mode}'**
+  String motionTiming(String seconds, String mode);
+
+  /// No description provided for @motionPosition.
+  ///
+  /// In en, this message translates to:
+  /// **'{seconds} seconds'**
+  String motionPosition(String seconds);
+
+  /// No description provided for @motionProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Animation timeline {percent}%'**
+  String motionProgress(int percent);
+
+  /// No description provided for @motionRate.
+  ///
+  /// In en, this message translates to:
+  /// **'{speed}×'**
+  String motionRate(String speed);
 }
 
 class _AppLocalizationsDelegate

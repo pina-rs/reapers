@@ -23,6 +23,7 @@ export 'src/player_state.dart';
 export 'src/progression.dart';
 export 'src/reaper_class.dart';
 export 'src/reaper_genome.dart';
+export 'src/reaper_motion.dart';
 export 'src/reaper_names.dart';
 export 'src/reaper_soul.dart';
 export 'src/reaper_state.dart';

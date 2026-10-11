@@ -451,7 +451,11 @@ def _arms(root):
     reach = Vector((-0.45, -0.08, 1.06))
     shoulder = Vector((-0.17, 0.0, SHOULDER[0]))
     pivot = core.empty("arm_r", root, location=shoulder)
-    socket = core.empty("socket_weapon", pivot, location=reach - shoulder)
+    elbow_at = Vector((-0.12, 0.03, 1.13))
+    elbow = core.empty("elbow_r", pivot, location=elbow_at - shoulder)
+    finish(anatomy.forearm("arm_r_upper", pivot, elbow_at - shoulder, Vector()), wear_boost=1.6)
+    wrist_pivot = core.empty("wrist_r", elbow, location=reach - elbow_at)
+    socket = core.empty("socket_weapon", wrist_pivot)
     turn = math.pi / 2 + 0.2
 
     # Thumb up and the wrist turned in toward the body, so the bell hangs
@@ -462,10 +466,20 @@ def _arms(root):
 
     # The forearm is hidden until the veil swings away from it.
     wrist = reach + Vector((math.sin(turn), -math.cos(turn), 0)) * 0.18
-    elbow = Vector((-0.12, 0.03, 1.13))
-    finish(anatomy.forearm("arm_r_forearm", pivot, wrist - shoulder, elbow - shoulder), wear_boost=1.6)
+    finish(anatomy.forearm("arm_r_forearm", elbow, wrist - elbow_at, Vector()), wear_boost=1.6)
 
-    core.empty("arm_l", root, location=(-shoulder.x, shoulder.y, shoulder.z))
+    # The second hand rests inside the veil and emerges for two-handed poses.
+    left_shoulder = Vector((0.17, 0, SHOULDER[0]))
+    left_elbow = Vector((0.14, 0.03, 1.25))
+    left_grip = Vector((0.18, -0.08, 1.08))
+    left = core.empty("arm_l", root, location=left_shoulder)
+    left_joint = core.empty("elbow_l", left, location=left_elbow - left_shoulder)
+    finish(anatomy.forearm("arm_l_upper", left, left_elbow - left_shoulder, Vector()), wear_boost=1.6)
+    left_wrist = core.empty("wrist_l", left_joint, location=left_grip - left_elbow)
+    finish(anatomy.forearm("arm_l_forearm", left_joint, left_grip - left_elbow, Vector()), wear_boost=1.6)
+    hand = anatomy.hand("arm_l_hand", left_wrist, curl=0.25, side=-1, scale=1.45)
+    hand.rotation_euler = (math.radians(100), 0, math.radians(-18))
+    finish(hand, wear_boost=1.6)
 
 
 def _mantles(root, alt):

@@ -17,6 +17,8 @@ Blender's authoring API is Python, so these scripts are Python. They only ever r
 | `lib/cloth.py` | `robe`, `sleeve` and `drape`: cloth that is drawn, not simulated. |
 | `lib/anatomy.py` | Skeletal hands and forearms. |
 | `lib/figure.py` | What every reaper shares: landmarks, the hidden face, both arms. |
+| `lib/motion.py` | The 30 shared performances, class adaptations and NLA baking. |
+| `review_motions.py` | Renders poses from the exported clips for visual review. |
 | `lib/armoury.py` | Parts every weapon is assembled from. |
 | `lib/preview.py` | Review sheets: front, three-quarter, back and silhouette. |
 | `lib/creature.py` | What every husk creature shares: pivots, seals, the shadow, and the checks a creature must pass. |
@@ -61,9 +63,17 @@ reaper                      the root; an empty named "reaper"
   head                      an empty at the neck, so the game can turn the head
     head_0 .. head_2        three heads; one is shown. Each is an empty holding its parts
   arm_r                     an empty at the weapon-side shoulder (-X)
-    socket_weapon           an empty where the weapon's grip sits, haft along Z
+    elbow_r                 the elbow, carrying the lower sleeve
+      wrist_r               hand pivot
+        socket_weapon       an empty where the weapon's grip sits, haft along Z
   arm_l                     an empty at the other shoulder (+X)
+    elbow_l
+      wrist_l
 ```
+
+Before export, `lib/motion.py` inserts a `motion` pivot at waist height between `reaper` and these children, preserving their rest positions. All 30 clips key this pivot and the seven joints. The exported model uses rigid parts, with overlapping sleeve sections at the elbows. The Hollow's head lantern follows its left wrist. The Mourner's concealed second arm emerges for gestures. See [the animation guide](../../docs/animations.md) for clip names, class differences and review commands.
+
+The reaper driver reads `art/build/motions.json`, written by `fvm dart tool/build_art.dart --specs-only`. Rebuild that spec before invoking Blender directly after changing the shared animation catalogue.
 
 Inside a head, name the parts that should disappear when an outfit hollows the reaper out `void_<n>` (the darkness where a face would be) and `wrap_<n>` (whatever covers the lower face). Name the eyes `eyes_<n>`; the game scales them by the genome's gaze.
 

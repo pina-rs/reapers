@@ -1930,4 +1930,171 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get giftRefrainLore =>
       'A bell cannot call a name only once. Each refrain gives the departing soul longer to answer.';
+
+  @override
+  String get motionIdle => 'Idle hover';
+
+  @override
+  String get motionCreep => 'Walk very slowly';
+
+  @override
+  String get motionWalk => 'Walk';
+
+  @override
+  String get motionRun => 'Run';
+
+  @override
+  String get motionSprint => 'Sprint';
+
+  @override
+  String get motionJump => 'Jump';
+
+  @override
+  String get motionLand => 'Land';
+
+  @override
+  String get motionDodgeLeft => 'Dodge left';
+
+  @override
+  String get motionDodgeRight => 'Dodge right';
+
+  @override
+  String get motionDash => 'Phantom dash';
+
+  @override
+  String get motionLaugh => 'Laugh';
+
+  @override
+  String get motionCry => 'Cry';
+
+  @override
+  String get motionRage => 'Angry pose';
+
+  @override
+  String get motionFear => 'Recoil in fear';
+
+  @override
+  String get motionBow => 'Bow';
+
+  @override
+  String get motionVictory => 'Victory';
+
+  @override
+  String get motionGigachad => 'GigaChad stance';
+
+  @override
+  String get motionSigma => 'Sigma chin lift';
+
+  @override
+  String get motionShrug => 'Unbothered shrug';
+
+  @override
+  String get motionAbsoluteCinema => 'Absolute cinema';
+
+  @override
+  String get motionTPose => 'T-pose dominance';
+
+  @override
+  String get motionAnimeCharge => 'Anime power charge';
+
+  @override
+  String get motionSlash => 'Weapon slash';
+
+  @override
+  String get motionThrust => 'Weapon thrust';
+
+  @override
+  String get motionParry => 'Parry';
+
+  @override
+  String get motionFinisherReap => 'Finisher · Reaping arc';
+
+  @override
+  String get motionFinisherImpale => 'Finisher · Impale';
+
+  @override
+  String get motionFinisherSoulCrush => 'Finisher · Soul crush';
+
+  @override
+  String get motionFinisherPalm => 'Finisher · Palm burst';
+
+  @override
+  String get motionFinisherUppercut => 'Finisher · Rising uppercut';
+
+  @override
+  String get motionTitle => 'Animations · 30 states';
+
+  @override
+  String get motionIntro =>
+      'Explore floating gaits, reactions, memes and finishers. These are performance previews; they do not change combat or your save.';
+
+  @override
+  String get motionMovement => 'Movement';
+
+  @override
+  String get motionReaction => 'Reactions';
+
+  @override
+  String get motionMeme => 'Memes';
+
+  @override
+  String get motionCombat => 'Combat';
+
+  @override
+  String get motionFinisher => 'Finishers';
+
+  @override
+  String get motionSelect => 'Animation';
+
+  @override
+  String get motionPlay => 'Play animation';
+
+  @override
+  String get motionPause => 'Pause animation';
+
+  @override
+  String get motionReplay => 'Replay';
+
+  @override
+  String get motionSpeed => 'Playback speed';
+
+  @override
+  String get motionLoop => 'Looping';
+
+  @override
+  String get motionOnce => 'Plays once';
+
+  @override
+  String get motionWeaponHint =>
+      'Impale needs a spear. Reaping arc needs a scythe or chain whip. Change calling in Birth traits to try those weapons.';
+
+  @override
+  String get motionUnarmed => 'Weapon stowed for this performance';
+
+  @override
+  String get motionReduced =>
+      'Reduced motion is enabled. Scrub the timeline to inspect each pose.';
+
+  @override
+  String get motionImpact => 'Inspect contact pose';
+
+  @override
+  String motionTiming(String seconds, String mode) {
+    return '$seconds s · $mode';
+  }
+
+  @override
+  String motionPosition(String seconds) {
+    return '$seconds seconds';
+  }
+
+  @override
+  String motionProgress(int percent) {
+    return 'Animation timeline $percent%';
+  }
+
+  @override
+  String motionRate(String speed) {
+    return '$speed×';
+  }
 }

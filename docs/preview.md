@@ -19,6 +19,10 @@ fvm flutter build web -t lib/main_preview.dart
 
 Publish the complete `build/web` directory, including its local WebGL bindings. The browser needs WebGL 2. Mobile uses Flutter GPU; web uses a separate WebGL renderer so native GPU code does not enter the browser build. Both load the same GLBs and `reaper.fmat` surface arithmetic. Lighting differs between renderers; web does not promise identical pixels or the mobile camera hunt.
 
+For a predictable local address, run `fvm flutter run -d web-server --web-hostname=127.0.0.1 --web-port=8088 -t lib/main_preview.dart` inside `reapers_flutter`, then open [the studio](http://127.0.0.1:8088). Asking the agent to “run the reaper studio” refers to this preview.
+
+**Animations · 30 states** opens movement, reaction, meme, combat and finisher previews on the current specimen. Select a clip, play or pause, replay, scrub the timeline, or change speed. Attacks have an **Inspect contact pose** shortcut. Weapon-specific finishers explain which calling can use them. With reduced motion enabled, scrub manually. The full [animation catalogue and rig guide](animations.md) covers the 30 states, class adaptations and current limits.
+
 **Birth traits** lets you try all six callings, head and mantle variants, hems, colourways, omens and auras. Sliders change stature, gauntness, gaze and tatter. Drag the model to turn it or pause its automatic rotation, which makes one slow revolution and then holds. Copy genome preserves a specimen's reproducible code. Owned reapers cannot edit these traits: mint metadata determines their birth.
 
 **Growth** demonstrates the shared level-one-to-thirty progression. Absorb a specimen adds the actual reward for an illustrative clean rare hunt with fair feeding. Scrubbing the level shows strike growth relative to a new reaper of the same calling and temperament. Weapon and outfit entries show their level gates and anima prices; select them once unlocked. **See full potential** shows level thirty, hollowed equipment and all three gift awakenings. Outfits affect appearance; levels and weapon temper affect strikes. Some birth gifts and temperaments also change the capture window.

@@ -44,6 +44,19 @@ Future<void> main(List<String> arguments) async {
   }
 
   final specs = File('art/build/vessels.json');
+  File('art/build/motions.json')
+    ..createSync(recursive: true)
+    ..writeAsStringSync(
+      jsonEncode([
+        for (final motion in ReaperMotion.values)
+          {
+            'name': motion.name,
+            'seconds': motion.seconds,
+            'loops': motion.loops,
+            'unarmed': motion.unarmed,
+          },
+      ]),
+    );
 
   specs
     ..createSync(recursive: true)
@@ -82,6 +95,7 @@ Future<void> main(List<String> arguments) async {
       specs.path,
       if (preview) ...['--preview', _previews],
       if (script == 'husks') ...['--portraits', _portraits],
+      if (script == 'reapers') ...['--motions', 'art/build/motions.json'],
     ]);
 
     if (exitCode != 0) {

@@ -19,10 +19,12 @@ import '../l10n/lookups.dart';
 import '../l10n/soul_lookups.dart';
 import '../render/reaper_look.dart';
 import '../render/reaper_stage.dart';
+import '../render/reaper_playback.dart';
 import '../theme/veil.dart';
 import '../widgets/ledger.dart';
 import '../widgets/soul_ledger.dart';
 import 'decision_ledger.dart';
+import 'motion_controls.dart';
 
 typedef StudioStageBuilder = Widget Function(ReaperGenome, Weapon, Outfit);
 
@@ -57,6 +59,17 @@ class ReaperStudio extends HookWidget {
     }, [spinning.value]);
     final level = Progression.levelForXp(xp.value);
     final weapon = Weapon(genome.value.reaperClass.weapon, temper.value);
+    final playback = useMemoized(ReaperPlayback.new);
+    useEffect(() => playback.dispose, [playback]);
+    useEffect(() {
+      // A calling change can make a weapon-specific finisher unavailable.
+      if (!playback.motion.supports(weapon.kind)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) playback.select(ReaperMotion.idle);
+        });
+      }
+      return null;
+    }, [weapon.kind]);
     final soul = ReaperSoul.fromGenome(genome.value);
     final soulRank = SoulRules.rank(
       level: level,
@@ -126,6 +139,7 @@ class ReaperStudio extends HookWidget {
               weapon: weapon,
               outfit: outfit.value,
               turnsOnItsOwn: spinning.value,
+              playback: playback,
             ),
         Positioned(
           left: 24,
@@ -177,6 +191,7 @@ class ReaperStudio extends HookWidget {
           Text(l10n.studioTitle, style: Veil.display(38)),
           const SizedBox(height: 12),
           Text(l10n.studioIntro, style: Veil.body(color: Veil.ash)),
+          MotionControls(playback: playback, weapon: weapon.kind),
           const SizedBox(height: 20),
           SegmentedButton<int>(
             direction: MediaQuery.textScalerOf(context).scale(14) > 20

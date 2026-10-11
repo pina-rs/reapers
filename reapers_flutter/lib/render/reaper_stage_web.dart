@@ -10,7 +10,9 @@ import 'package:web/web.dart' as web;
 
 import '../l10n/l10n.dart';
 import '../widgets/ledger.dart';
+import 'reaper_cloth.dart';
 import 'reaper_look.dart';
+import 'reaper_playback.dart';
 import 'reaper_web_material.dart';
 
 /// Browser portrait using the game's GLBs and look, without Flutter GPU.
@@ -21,16 +23,20 @@ class ReaperStage extends HookWidget {
     required this.weapon,
     required this.outfit,
     this.turnsOnItsOwn = false,
+    this.playback,
   });
 
   final ReaperGenome genome;
   final Weapon weapon;
   final Outfit outfit;
   final bool turnsOnItsOwn;
+  final ReaperPlayback? playback;
 
   @override
   Widget build(BuildContext context) {
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
+    final clock = useMemoized(() => playback ?? ReaperPlayback(), [playback]);
+    useEffect(() => playback == null ? clock.dispose : null, [clock]);
     final retry = useState(0);
     final supported = useMemoized(_supportsWebGL, [retry.value]);
 
@@ -63,6 +69,9 @@ class ReaperStage extends HookWidget {
             return null;
           }, [stage, genome.code, weapon, outfit]);
           stage.turns = turnsOnItsOwn && !reducedMotion;
+          stage.playback = clock;
+          stage.reducedMotion = reducedMotion;
+          stage.animationPreview = playback != null;
 
           if (stage.failed) {
             return LedgerNotice(
@@ -175,6 +184,13 @@ final class _WebStage {
   double turn = 0;
   double _seconds = 0;
   String? _materialSource;
+  ReaperPlayback? playback;
+  bool reducedMotion = false;
+  bool animationPreview = false;
+  three.AnimationMixer? _mixer;
+  List<three.AnimationClip> _clips = [];
+  three.AnimationAction? _action;
+  ReaperMotion? _motion;
 
   void startDrag(int pointer) {
     _pointer ??= pointer;
@@ -217,9 +233,27 @@ final class _WebStage {
           data.scene.dispose();
           return;
         }
+        final animations = data.animations;
+        if (animations == null ||
+            animations.length != ReaperMotion.values.length ||
+            animations.any((Object? clip) => clip is! three.AnimationClip) ||
+            !ReaperMotion.values.every(
+              (motion) => animations.any(
+                (Object? clip) =>
+                    clip is three.AnimationClip && clip.name == motion.name,
+              ),
+            )) {
+          data.scene.dispose();
+          throw StateError('Incomplete reaper animation library');
+        }
         _model?.removeFromParent();
+        _mixer?.stopAllAction();
         _model?.dispose();
         _model = data.scene;
+        _mixer = three.AnimationMixer(data.scene);
+        _clips = animations.cast<three.AnimationClip>();
+        _action = null;
+        _motion = null;
         _calling = genome.reaperClass;
         _held = null;
         _weaponKind = null;
@@ -330,7 +364,23 @@ final class _WebStage {
 
   void _tick(double delta) {
     if (_disposed) return;
-    _seconds += math.min(delta, 0.1);
+    final clock = playback;
+    if (clock != null && _model != null) {
+      if (!reducedMotion) clock.advance(math.min(delta, 0.1));
+      _seconds = clock.seconds;
+      if (_motion != clock.motion) {
+        _action?.stop();
+        final clip = _clips.singleWhere(
+          (clip) => clip.name == clock.motion.name,
+        );
+        _action = _mixer!.clipAction(clip)!..play();
+        _action!.paused = true;
+        _motion = clock.motion;
+      }
+      _action!.time = clock.seconds;
+      _mixer!.update(0);
+      _held?.visible = !clock.motion.unarmed;
+    }
     if (turns && !dragging) turn += math.min(delta, 0.1) * 0.25;
     _stirCloth();
     _model?.traverse((node) {
@@ -343,14 +393,15 @@ final class _WebStage {
   void _stirCloth() {
     final genome = _genome;
     if (genome == null) return;
+    final cloth = reaperClothAt(_motion ?? ReaperMotion.idle, _seconds);
     _model?.traverse((node) {
       if (!node.name.startsWith('robe_')) return;
       final weights = {
         'gaunt': ReaperGenome.fraction(genome.gauntness),
         'long_hem': ReaperGenome.fraction(genome.tatter),
-        'sway_x': 0.55 * math.sin(_seconds * 0.83),
-        'sway_y': 0.45 * math.sin(_seconds * 0.61 + 1.3),
-        'billow': 0.3 + 0.3 * math.sin(_seconds * 0.47 + 0.4),
+        'sway_x': cloth.swayX,
+        'sway_y': cloth.swayY,
+        'billow': cloth.billow,
       };
       for (final entry in weights.entries) {
         final index = node.morphTargetDictionary?[entry.key];
@@ -360,10 +411,11 @@ final class _WebStage {
   }
 
   void _positionCamera() {
+    final distance = animationPreview ? 10.5 : 8.4;
     viewer.camera.position.setValues(
-      math.sin(turn) * 8.4,
+      math.sin(turn) * distance,
       0.67,
-      math.cos(turn) * 8.4,
+      math.cos(turn) * distance,
     );
     viewer.camera.lookAt(three.Vector3(0, 1.42, 0));
   }
@@ -372,6 +424,7 @@ final class _WebStage {
     _disposed = true;
     _generation++;
     _loader.dispose();
+    _mixer?.stopAllAction();
     _weapons?.dispose();
     // ThreeJS finishes asynchronous context creation before its cleanup is
     // safe. A pending context is released by onSetupComplete instead.

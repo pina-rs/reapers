@@ -292,20 +292,38 @@ def _arms(root):
         local = [Vector(point) - shoulder for point in core.bezier(path, samples=8)]
         direction = (local[-1] - local[-4]).normalized()
         grip = local[-1] + direction * 0.1 * HAND_SCALE
+        middle = len(local) // 2
+        elbow_at = local[middle]
+        elbow = core.empty(label.replace("arm", "elbow"), pivot, location=elbow_at)
+        wrist = core.empty(label.replace("arm", "wrist"), elbow, location=grip - elbow_at)
 
         # A coat's sleeve: close to the arm, ending in a deep turned-back
         # cuff instead of a robe's hanging one.
         finish(
-            cloth.sleeve(f"{label}_sleeve", core.material("cloth"), pivot, local, 0.088, 0.066, droop=0.03, tatter=0.2, seed=4 + side),
+            cloth.sleeve(f"{label}_upper_sleeve", core.material("cloth"), pivot, local[: middle + 2], 0.088, 0.08, droop=0, tatter=0, seed=4 + side),
+            hollow=_whole,
+        )
+        finish(
+            cloth.sleeve(
+                f"{label}_lower_sleeve",
+                core.material("cloth"),
+                elbow,
+                [point - elbow_at for point in local[middle - 1 :]],
+                0.08,
+                0.066,
+                droop=0.03,
+                tatter=0.2,
+                seed=4 + side,
+            ),
             hollow=_whole,
         )
         finish(
             core.tube(
                 f"{label}_cuff",
-                local[-5:],
+                [point - elbow_at for point in local[-5:]],
                 lambda t: 0.092 - 0.012 * t,
                 core.material("cloth_alt"),
-                pivot,
+                elbow,
                 sides=20,
                 cap=False,
             ),
@@ -323,17 +341,14 @@ def _arms(root):
         finish(spaulder, hollow=_whole, wear_boost=1.6)
 
         if label == "arm_r":
-            socket = core.empty("socket_weapon", pivot, location=grip)
+            socket = core.empty("socket_weapon", wrist)
             hand = anatomy.hand(f"{label}_hand", socket, curl=1.0, side=1, scale=HAND_SCALE)
         else:
             # Knuckles forward and the wrist tipped back toward the forearm,
             # with the fingers hooked under the lantern's handle.
-            hand = anatomy.hand(f"{label}_hand", pivot, grip_radius=0.012, curl=1.0, side=1, scale=HAND_SCALE)
-            hand.location = grip
-            hand.rotation_euler = (
-                Matrix.Rotation(math.radians(-28), 3, "X") @ Euler((math.radians(90), 0, math.radians(90))).to_matrix()
-            ).to_euler()
-            _lantern(pivot, grip)
+            hand = anatomy.hand(f"{label}_hand", wrist, grip_radius=0.012, curl=1.0, side=1, scale=HAND_SCALE)
+            hand.rotation_euler = (Matrix.Rotation(math.radians(-28), 3, "X") @ Euler((math.radians(90), 0, math.radians(90))).to_matrix()).to_euler()
+            _lantern(wrist, Vector())
 
         finish(hand, wear_boost=1.6)
 

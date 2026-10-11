@@ -1,9 +1,8 @@
-import 'dart:math' as math;
-
 import 'package:flutter_scene/scene.dart';
 import 'package:reapers_shared/reapers_shared.dart';
 import 'package:vector_math/vector_math.dart' as vm;
 
+import 'reaper_cloth.dart';
 import 'reaper_look.dart';
 
 /// The shader every reaper surface is drawn with.
@@ -44,7 +43,8 @@ final class ReaperRig {
     await rig._showGenomeParts();
     await rig.wield(weapon);
     rig.wear(outfit);
-    root.addComponent(_ReaperIdle(rig));
+    root.addComponent(_ReaperCloth(rig));
+    rig.sample(ReaperMotion.idle, 0);
 
     return rig;
   }
@@ -65,6 +65,26 @@ final class ReaperRig {
   final Node _model;
   Node? _held;
   WeaponKind? _heldKind;
+  AnimationClip? _clip;
+  ReaperMotion? _motion;
+  double _seconds = 0;
+
+  /// Samples an authored clip without changing placement or game state.
+  void sample(ReaperMotion motion, double seconds) {
+    if (_motion != motion) {
+      final animation = _model.findAnimationByName(motion.name);
+      if (animation == null) {
+        throw StateError('Missing reaper clip: ${motion.name}');
+      }
+      final previous = _clip;
+      if (previous != null) _model.removeAnimationClip(previous);
+      _clip = _model.createAnimationClip(animation);
+      _motion = motion;
+    }
+    _seconds = seconds;
+    _clip!.seek(seconds);
+    _held?.visible = !motion.unarmed;
+  }
 
   /// Shortest and tallest a reaper stands, as a scale on the model.
   static const _minStature = 0.95;
@@ -243,19 +263,14 @@ final class ReaperRig {
   }
 }
 
-/// Keeps a waiting reaper alive: it hovers, its cloth stirs, its head turns
-/// a little and its arms settle.
-///
-/// This is decoration. Nothing here is read by the rules.
-final class _ReaperIdle extends Component {
-  _ReaperIdle(this._rig);
+/// Adds secondary cloth motion without overriding authored joint animation.
+final class _ReaperCloth extends Component {
+  _ReaperCloth(this._rig);
 
   final ReaperRig _rig;
 
-  double _seconds = 0;
   Node? _robe;
   Map<String, int> _morphs = const {};
-  final _rest = <Node, vm.Matrix4>{};
 
   @override
   void onMount() {
@@ -270,45 +285,12 @@ final class _ReaperIdle extends Component {
             name: index,
         };
       }
-
-      if (const {'head', 'arm_r', 'arm_l'}.contains(node.name)) {
-        _rest[node] = node.localTransform.clone();
-      }
     });
   }
 
   @override
   void update(double deltaSeconds) {
-    _seconds += deltaSeconds;
-
-    final t = _seconds;
-
-    _rig.root.position = vm.Vector3(0, 0.04 * math.sin(t * 1.1), 0);
-    _stirCloth(t);
-
-    for (final MapEntry(key: node, value: rest) in _rest.entries) {
-      final turn = switch (node.name) {
-        'head' => vm.Quaternion.euler(
-          0.16 * math.sin(t * 0.37),
-          0.05 * math.sin(t * 0.61 + 1),
-          0,
-        ),
-        'arm_r' => vm.Quaternion.euler(0, 0.03 * math.sin(t * 0.9), 0),
-        _ => vm.Quaternion.euler(
-          0,
-          0.05 * math.sin(t * 0.8 + 2),
-          0.04 * math.sin(t * 0.55),
-        ),
-      };
-
-      node.localTransform =
-          rest *
-          vm.Matrix4.compose(
-            vm.Vector3.zero(),
-            turn,
-            vm.Vector3.all(1),
-          );
-    }
+    _stirCloth(_rig._seconds);
   }
 
   void _stirCloth(double t) {
@@ -318,10 +300,11 @@ final class _ReaperIdle extends Component {
       return;
     }
 
+    final cloth = reaperClothAt(_rig._motion ?? ReaperMotion.idle, t);
     final weights = {
-      'sway_x': 0.55 * math.sin(t * 0.83),
-      'sway_y': 0.45 * math.sin(t * 0.61 + 1.3),
-      'billow': 0.3 + 0.3 * math.sin(t * 0.47 + 0.4),
+      'sway_x': cloth.swayX,
+      'sway_y': cloth.swayY,
+      'billow': cloth.billow,
       'gaunt': ReaperGenome.fraction(_rig.genome.gauntness),
       'long_hem': ReaperGenome.fraction(_rig.genome.tatter),
     };

@@ -81,6 +81,8 @@ Anything that learns more about the room (ARKit, ARCore, a server that names wha
 
 **Creatures.** A husk's creature is not skinned. It is built from rigid parts on named pivots, and `HuskRig` moves the pivots from what the rules say the husk is doing: legs swing as fast as it is going, wings beat, the jaw drops as it draws breath, the head turns to watch the player.
 
+**Reaper animation.** All six reaper GLBs contain the same 30 named Blender clips on a waist pivot, neck, shoulders, elbows and wrists. `ReaperMotion` is the shared presentation catalogue; `ReaperPlayback` drives the same elapsed time into Flutter Scene and the browser mixer. The studio exposes selection, scrubbing and contact poses. Cloth motion follows that clock while preserving genome morphs. This is an articulated rigid-part rig, with class-specific gesture sizes and hand adaptations. It changes no combat outcomes. See [animations.md](animations.md).
+
 Models and materials are compiled by the build hook in `hook/build.dart`, so changing one needs a full `flutter run`, not a hot restart.
 
 **Browser studio.** Supported targets are web, Android and iOS. `main_preview.dart` opens the isolated studio on each; the camera game targets Android and iOS. `ReaperStage` conditionally exports the mobile Flutter GPU portrait or a WebGL 2 portrait. The web portrait loads the same models and adapts the authored `reaper.fmat` fragment to a lit material, including its vertex masks, burn front and hollowing. Colour uniforms convert from sRGB to linear light, as the native material's `source_color` hint does. Calling changes release the previous model; cached trait changes update uniforms and morph weights. Web does not import the native GPU scene, read preferences, or open a wallet.

@@ -122,26 +122,42 @@ def arms(
         wrist = local[-1]
         direction = (local[-1] - local[-4]).normalized()
         grip = wrist + direction * 0.1 * hand_scale
+        middle = len(local) // 2
+        elbow_at = local[middle]
+        elbow = core.empty(label.replace("arm", "elbow"), pivot, location=elbow_at)
+        hand_pivot = core.empty(label.replace("arm", "wrist"), elbow, location=grip - elbow_at)
 
         sleeve = cloth.sleeve(
-            f"{label}_sleeve",
+            f"{label}_upper_sleeve",
             mat,
             pivot,
-            local,
+            local[: middle + 2],
             sleeve_shoulder,
-            sleeve_cuff,
-            droop=droop,
-            tatter=tatter,
+            sleeve_shoulder * 1.12,
+            droop=0.015,
+            tatter=0,
             seed=seed + side,
         )
         finish(sleeve)
+        finish(
+            cloth.sleeve(
+                f"{label}_lower_sleeve",
+                mat,
+                elbow,
+                [point - elbow_at for point in local[middle - 1 :]],
+                sleeve_shoulder * 1.08,
+                sleeve_cuff,
+                droop=droop,
+                tatter=tatter,
+                seed=seed + side,
+            )
+        )
 
         if label == "arm_r":
-            socket = core.empty("socket_weapon", pivot, location=grip)
+            socket = core.empty("socket_weapon", hand_pivot)
             hand = anatomy.hand(f"{label}_hand", socket, curl=1.0, side=1, scale=hand_scale)
         else:
-            hand = anatomy.hand(f"{label}_hand", pivot, curl=off_curl, side=-1, scale=hand_scale)
-            hand.location = grip
+            hand = anatomy.hand(f"{label}_hand", hand_pivot, curl=off_curl, side=-1, scale=hand_scale)
             # Wrist up, fingers hanging.
             hand.rotation_euler = (math.radians(100), 0, math.radians(-18))
 
@@ -149,5 +165,3 @@ def arms(
         pivots.append(pivot)
 
     return pivots
-
-

@@ -66,7 +66,7 @@ def build():
 
     # Rolling the wrist is what leans the spear: its point away from the
     # wing, its butt across the body.
-    socket = next(child for child in weapon_arm.children if child.name == "socket_weapon")
+    socket = next(child for child in weapon_arm.children_recursive if child.name == "socket_weapon")
     socket.rotation_euler = (0, -SPEAR_LEAN, 0)
 
     head = core.empty("head", root, location=(0, 0, NECK_HEIGHT))

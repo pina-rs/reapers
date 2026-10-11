@@ -8,6 +8,7 @@ import 'package:reapers_shared/reapers_shared.dart';
 import 'package:vector_math/vector_math.dart' as vm;
 
 import 'reaper_rig.dart';
+import 'reaper_playback.dart';
 import 'veil_look.dart';
 import '../l10n/l10n.dart';
 import '../widgets/ledger.dart';
@@ -23,6 +24,7 @@ class ReaperStage extends HookWidget {
     required this.weapon,
     required this.outfit,
     this.turnsOnItsOwn = false,
+    this.playback,
   });
 
   final ReaperGenome genome;
@@ -33,6 +35,7 @@ class ReaperStage extends HookWidget {
 
   /// Whether the reaper slowly turns when nobody is dragging it.
   final bool turnsOnItsOwn;
+  final ReaperPlayback? playback;
 
   /// Where the camera looks: about chest height on a reaper.
   static final _target = vm.Vector3(0, 1.42, 0);
@@ -49,6 +52,9 @@ class ReaperStage extends HookWidget {
     final dragging = useRef(false);
     final retry = useState(0);
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
+    final distance = playback == null ? _distance : 10.5;
+    final clock = useMemoized(() => playback ?? ReaperPlayback(), [playback]);
+    useEffect(() => playback == null ? clock.dispose : null, [clock]);
 
     useEffect(() => stage.dispose, [stage]);
 
@@ -121,15 +127,17 @@ class ReaperStage extends HookWidget {
       child: SceneView(
         stage.scene,
         onTick: (elapsed, deltaSeconds) {
+          if (!reducedMotion) clock.advance(math.min(deltaSeconds, 0.1));
+          rig.value?.sample(clock.motion, clock.seconds);
           if (turnsOnItsOwn && !reducedMotion && !dragging.value) {
             turn.value += deltaSeconds * 0.25;
           }
         },
         cameraBuilder: (_) => PerspectiveCamera(
           position: vm.Vector3(
-            math.sin(turn.value) * _distance,
+            math.sin(turn.value) * distance,
             _target.y - 0.75,
-            -math.cos(turn.value) * _distance,
+            -math.cos(turn.value) * distance,
           ),
           target: _target,
           fovRadiansY: _fieldOfView,

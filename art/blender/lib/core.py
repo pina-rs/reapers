@@ -563,7 +563,7 @@ def add_shape_key(obj, name, move):
 # Export ----------------------------------------------------------------
 
 
-def export_glb(path, root):
+def export_glb(path, root, animations=False):
     """Exports `root` and everything under it as one binary glTF file."""
 
     for obj in bpy.context.scene.objects:
@@ -589,7 +589,13 @@ def export_glb(path, root):
         export_vertex_color="ACTIVE",
         export_all_vertex_colors=False,
         export_active_vertex_color_when_no_material=True,
-        export_animations=False,
+        export_animations=animations,
+        export_animation_mode="NLA_TRACKS",
+        export_nla_strips=True,
+        export_anim_slide_to_zero=True,
+        export_force_sampling=True,
+        export_optimize_animation_size=False,
+        export_optimize_animation_keep_anim_object=True,
         export_materials="EXPORT",
     )
 
