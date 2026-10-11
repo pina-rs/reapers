@@ -75,6 +75,10 @@ Large hats can obscure a hand near the face in a front view. The three-quarter a
 
 The browser review checked humanoid and spirit switching while paused, the unrobed anatomy, movement/reaction/meme selection, and finisher contact poses. Laugh and cry exposed an obstructed Harvester close-up, corrected by lowering the camera below the brim. Final close-ups show the eyes and mouth, and the uppercut and reaping contact poses fit the full-figure view. The fresh studio reported no browser console errors during this pass.
 
+The subsequent clothing pass corrected the narrow spirit robe intersecting the humanoid pelvis. Humanoid robes and tunics now have separate fitted targets, leaving clearance around the hips and walking legs. The pelvis belongs to the humanoid group. Spirit travel holds the arms steady and uses restrained hover and forward lean; humanoid travel retains arm opposition. Rear walk renders checked the Harvester's torn second robe, the Hollow's trailing fourth coat and the Mourner's burned second veil at maximum gauntness. The hems retain their authored tears and openings, so feet and portions of the lower legs can remain visible through damaged cloth.
+
+To inspect that specific clothing case, add `--clothing robe --rear --variant 1 --gaunt 1 --only walk,run` to the catalogue command. `--variant` is zero-based. The exported-asset tests check pelvis clearance across every robe cut and class, along with the absence of a cyclic arm swing in spirit travel.
+
 ## Limits
 
 Foot IK is solved in Blender and baked into clips. Support-foot travel is calibrated for an in-place preview. A game controller must supply matching forward speed, terrain adaptation and transitions. These clips do not implement enemy reactions, collisions or motion matching. Lateral dashes remain stylized bounded excursions and recover to the preview origin. Rigid limb sections overlap around joints; there is no skin deformation, muscle simulation or cloth collision.

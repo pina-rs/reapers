@@ -152,15 +152,15 @@ def sample(name, phase):
     """Samples a clip in place. Translation is a bounded dramatic excursion."""
     wave = math.sin(phase * math.tau)
     if name in ("idle", "creep", "walk", "run", "sprint"):
-        lean, swing, lift = {"idle": (0, 3, 0.025), "creep": (10, 5, 0.018), "walk": (5, 14, 0.04), "run": (18, 27, 0.07), "sprint": (32, 12, 0.10)}[name]
+        lean, trail, lift = {"idle": (0, 0, 0.012), "creep": (4, 2, 0.010), "walk": (7, 5, 0.016), "run": (16, 12, 0.022), "sprint": (27, 22, 0.028)}[name]
         return pose(
             move=(0.012 * wave, 0, lift * (1 - math.cos(phase * math.tau))),
-            motion=(lean, 2 * wave, 3 * wave),
-            head=(-lean * 0.5, 0, 5 * wave),
-            arm_r=(swing * wave, 8, 0),
-            arm_l=(-swing * wave, -8, 0),
-            elbow_r=(-12, 0, 0),
-            elbow_l=(-20 - 8 * wave, 0, 0),
+            motion=(lean, 0.6 * wave, 0),
+            head=(-lean * 0.5, 0, 0.7 * wave),
+            arm_r=(trail * 0.3, 8, 0),
+            arm_l=(trail, -8, 0),
+            elbow_r=(-24, 0, 0),
+            elbow_l=(-16, 0, 0),
         )
     if name in ("dodgeLeft", "dodgeRight"):
         side = 1 if name == "dodgeLeft" else -1

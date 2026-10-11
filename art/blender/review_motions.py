@@ -40,7 +40,9 @@ def main():
                 child.hide_render = hidden
         if obj.name == "robe_0":
             obj.hide_render = options.clothing == "none"
-            if options.clothing == "tunic":
+            if options.humanoid and options.clothing != "none":
+                obj.data.shape_keys.key_blocks["humanoid_" + options.clothing].value = 1
+            elif options.clothing == "tunic":
                 obj.data.shape_keys.key_blocks["short_robe"].value = 1
         if options.clothing == "none" and ("_sleeve" in obj.name or obj.name.endswith("_cuff")):
             obj.hide_render = True

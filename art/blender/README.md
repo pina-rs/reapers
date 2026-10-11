@@ -44,7 +44,7 @@ A class's review sheets are `art/build/previews/reaper_<class>_0.png` to `_2.png
 ## Conventions
 
 - **Units and axes.** Metres, Z up. A reaper faces -Y, so its right hand (the weapon hand) is at -X. The exporter converts to glTF's Y up.
-- **A reaper floats.** The hem ends a little above the ground, around z = 0.06 to 0.3. Nothing has legs or feet.
+- **Two forms share one character.** Spirits float with quiet arms and trailing cloth. Humanoids have articulated legs and planted walking steps; their long robes hang outside the hips and stride, while short tunics expose the knees.
 - **Landmarks.** `lib/figure.py` holds the shared heights: shoulders 1.64, neck 1.73, head centre 1.88. A class that hunches carries all of them forward (toward -Y) by the same amount.
 - **Masks, not colours.** Every mesh that should react to an outfit must be passed through `finish()`. It paints the four mask channels the game's shader reads (grime, char, wear, hollow) and stores each vertex's rest position in the two UV channels. Parts that are pure light (`accent`) or pure dark (`void`) are not finished.
 - **Materials are names.** The game throws the Blender material away and keeps its name, which picks a surface in `reapers_flutter/lib/render/reaper_look.dart`. Use only these: `cloth`, `cloth_alt`, `bone`, `metal`, `wood`, `rope`, `feather`, `gold`, `paper`, `accent`, `void`.
@@ -75,7 +75,7 @@ Before export, `lib/motion.py` inserts a `motion` pivot at waist height and a se
 
 The reaper driver reads `art/build/motions.json`, written by `fvm dart tool/build_art.dart --specs-only`. Rebuild that spec before invoking Blender directly after changing the shared animation catalogue.
 
-`lib/body.py` adds a spectral torso and arms, mutually exclusive `spirit_form` and `humanoid_form` groups, and shaped thighs, kneecaps, calves and feet. `lib/locomotion.py` solves the humanoid hip/knee/ankle chain from world-space foot targets before baking. The spirit keeps its floating gaits. The `short_robe` morph exposes the knees while preserving the upper tailoring. Clothing visibility and this morph are presentation controls, independent of the genome.
+`lib/body.py` adds a spectral torso and arms, mutually exclusive `spirit_form` and `humanoid_form` groups, and shaped thighs, kneecaps, calves and feet. `lib/locomotion.py` solves the humanoid hip/knee/ankle chain from world-space foot targets before baking. Spirit travel keeps the arms steady, with speed expressed through lean and hover. Garment targets `short_robe`, `humanoid_robe` and `humanoid_tunic` are mutually exclusive: humanoid fits add clearance around the pelvis and legs without pulling the cloth into the hip joints. Both renderers select these targets through `reaperClothWeights`. Clothing controls are independent of the genome; the original spirit tailoring remains the basis shape.
 
 `lib/face.py` creates one `face_<variant>` mesh per head, or one on the Hollow's carried skull. Its six expression morphs are baked into the same named NLA tracks as the body, including neutral reset tracks. Keep eyes and mouths in the head's local frame, with readable glyphs in front of face coverings. The browser and native renderer play the exported weight tracks without reimplementing expressions.
 

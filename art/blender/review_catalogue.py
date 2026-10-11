@@ -37,20 +37,29 @@ def main():
     parser.add_argument("--form", choices=("spirit", "humanoid"), default="humanoid")
     parser.add_argument("--out", required=True)
     parser.add_argument("--only", help="Comma-separated clip names")
+    parser.add_argument("--clothing", choices=("robe", "tunic"), default="tunic")
+    parser.add_argument("--rear", action="store_true")
+    parser.add_argument("--variant", type=int, choices=range(4), default=0)
+    parser.add_argument("--gaunt", type=float, default=0)
     options = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
     os.makedirs(options.out, exist_ok=True)
     core.reset_scene()
     bpy.ops.import_scene.gltf(filepath=f"reapers_flutter/assets/models/reaper_{options.calling}.glb")
     root = bpy.data.objects["reaper"]
-    show_variant(root, 0, 0, 0)
+    show_variant(root, 0, 0, options.variant)
     for obj in root.children_recursive:
         if obj.name in ("humanoid_form", "spirit_form"):
             hidden = obj.name != options.form + "_form"
             obj.hide_render = hidden
             for child in obj.children_recursive:
                 child.hide_render = hidden
-        if obj.name.startswith("robe_") and obj.type == "MESH" and options.form == "humanoid":
-            obj.data.shape_keys.key_blocks["short_robe"].value = 1
+        if obj.name.startswith("robe_") and obj.type == "MESH":
+            keys = obj.data.shape_keys.key_blocks
+            if options.form == "humanoid":
+                keys["humanoid_" + options.clothing].value = 1
+            elif options.clothing == "tunic":
+                keys["short_robe"].value = 1
+            keys["gaunt"].value = options.gaunt
     weapons = {kind: hold_weapon(root, kind) for kind in {CLASSES[options.calling], "spear", "scythe"}}
     scene = bpy.context.scene
     scene.render.engine = "BLENDER_WORKBENCH"
@@ -69,7 +78,7 @@ def main():
     floor = bpy.context.object
     floor.name = "review_floor"
     floor.data.materials.append(core.material("floor", color=(0.12, 0.15, 0.18)))
-    camera = preview._camera((3.8, -6.5, 2.4), (0, 0, 1.15), lens=58)
+    camera = preview._camera((3.8, 6.5 if options.rear else -6.5, 2.4), (0, 0, 1.15), lens=58)
     label_data = bpy.data.curves.new("review_label", "FONT")
     label_data.size = 0.1
     label = bpy.data.objects.new("review_label", label_data)

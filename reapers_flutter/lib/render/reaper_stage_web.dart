@@ -417,17 +417,14 @@ final class _WebStage {
   void _stirCloth() {
     final genome = _genome;
     if (genome == null) return;
-    final cloth = reaperClothAt(_motion ?? ReaperMotion.idle, _seconds);
+    final weights = reaperClothWeights(
+      genome,
+      _appearance,
+      _motion ?? ReaperMotion.idle,
+      _seconds,
+    );
     _model?.traverse((node) {
       if (!node.name.startsWith('robe_')) return;
-      final weights = {
-        'gaunt': ReaperGenome.fraction(genome.gauntness),
-        'long_hem': ReaperGenome.fraction(genome.tatter),
-        'sway_x': cloth.swayX,
-        'sway_y': cloth.swayY,
-        'billow': cloth.billow,
-        'short_robe': _appearance.clothing == ReaperClothing.tunic ? 1.0 : 0.0,
-      };
       for (final entry in weights.entries) {
         final index = node.morphTargetDictionary?[entry.key];
         if (index != null) node.morphTargetInfluences[index] = entry.value;

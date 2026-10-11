@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:reapers_shared/reapers_shared.dart';
 import 'package:reapers_flutter/render/reaper_appearance.dart';
+import 'package:reapers_flutter/render/reaper_cloth.dart';
 import 'package:vector_math/vector_math.dart' as vm;
 
 Map<String, Object?> _object(Object? value) => value as Map<String, Object?>;
@@ -26,24 +27,48 @@ final class _Glb {
   List<double> floats(int index) {
     final accessor = _object(_list(json['accessors'])[index]);
     expect(accessor['componentType'], 5126);
-    final view = _object(
-      _list(json['bufferViews'])[accessor['bufferView'] as int],
-    );
-    final offset =
-        (view['byteOffset'] as int? ?? 0) +
-        (accessor['byteOffset'] as int? ?? 0);
     final size = switch (accessor['type']) {
       'SCALAR' => 1,
       'VEC3' => 3,
       'VEC4' => 4,
       _ => throw StateError('Unexpected track type'),
     };
-    final stride = view['byteStride'] as int? ?? size * 4;
-    return [
-      for (var i = 0; i < (accessor['count'] as int); i++)
-        for (var component = 0; component < size; component++)
-          binary.getFloat32(offset + i * stride + component * 4, Endian.little),
-    ];
+    Map<String, Object?> view(Map<String, Object?> entry) =>
+        _object(_list(json['bufferViews'])[entry['bufferView'] as int]);
+    int offset(Map<String, Object?> entry) =>
+        (view(entry)['byteOffset'] as int? ?? 0) +
+        (entry['byteOffset'] as int? ?? 0);
+    final result = List<double>.filled((accessor['count'] as int) * size, 0);
+    if (accessor['bufferView'] != null) {
+      final start = offset(accessor);
+      final stride = view(accessor)['byteStride'] as int? ?? size * 4;
+      for (var i = 0; i < result.length; i++) {
+        result[i] = binary.getFloat32(
+          start + (i ~/ size) * stride + (i % size) * 4,
+          Endian.little,
+        );
+      }
+    }
+    if (accessor['sparse'] case final Map<String, Object?> sparse) {
+      final indices = _object(sparse['indices']);
+      final indicesStart = offset(indices);
+      final valuesStart = offset(_object(sparse['values']));
+      for (var i = 0; i < (sparse['count'] as int); i++) {
+        final index = switch (indices['componentType']) {
+          5121 => binary.getUint8(indicesStart + i),
+          5123 => binary.getUint16(indicesStart + i * 2, Endian.little),
+          5125 => binary.getUint32(indicesStart + i * 4, Endian.little),
+          _ => throw StateError('Unexpected sparse index type'),
+        };
+        for (var c = 0; c < size; c++) {
+          result[index * size + c] = binary.getFloat32(
+            valuesStart + (i * size + c) * 4,
+            Endian.little,
+          );
+        }
+      }
+    }
+    return result;
   }
 
   /// Evaluate the exported hierarchy, including animated parents, at one sample.
@@ -99,6 +124,69 @@ final class _Glb {
 
 void main() {
   for (final calling in ReaperClass.values) {
+    test(
+      '${calling.name} fitted robes clear the pelvis at maximum gauntness',
+      () {
+        final glb = _Glb('assets/models/reaper_${calling.name}.glb');
+        final meshes = _list(glb.json['meshes']).map(_object).toList();
+        final robes = _list(glb.json['nodes'])
+            .map(_object)
+            .where(
+              (node) =>
+                  RegExp(r'^robe_[0-3]$')
+                      .hasMatch(node['name'] as String? ?? ''),
+            );
+        expect(robes.length, 4);
+        for (final node in robes) {
+          final mesh = meshes[node['mesh'] as int];
+          final names = _list(_object(mesh['extras'])['targetNames']);
+          expect(names, containsAll(['humanoid_robe', 'humanoid_tunic']));
+          for (final primitive in _list(mesh['primitives']).map(_object)) {
+            final base = glb.floats(
+              _object(primitive['attributes'])['POSITION'] as int,
+            );
+            final targets = _list(primitive['targets']).map(_object).toList();
+            final deltas = {
+              for (var i = 0; i < names.length; i++)
+                names[i] as String: glb.floats(targets[i]['POSITION'] as int),
+            };
+            for (final seconds in [0.0, .3, .6, .9]) {
+              final weights = reaperClothWeights(
+                ReaperGenome.shuffle(11)
+                    .copyWith(gauntness: ReaperGenome.traitScale),
+                const ReaperAppearance(form: ReaperForm.humanoid),
+                ReaperMotion.walk,
+                seconds,
+              );
+              var checked = 0;
+              var clearance = double.infinity;
+              for (var i = 0; i < base.length; i += 3) {
+                if (base[i + 1] < .93 || base[i + 1] > 1.08) continue;
+                double coordinate(int axis) =>
+                    base[i + axis] +
+                    weights.entries.fold(
+                      0.0,
+                      (sum, entry) =>
+                          sum + deltas[entry.key]![i + axis] * entry.value,
+                    );
+                final x = coordinate(0) / .235;
+                final z = coordinate(2) / .19;
+                final radius = x * x + z * z;
+                if (radius < clearance) clearance = radius;
+                checked++;
+              }
+              expect(checked, greaterThan(100));
+              expect(
+                clearance,
+                greaterThan(1),
+                reason:
+                    '${node['name']} must hang outside the pelvis at $seconds s',
+              );
+            }
+          }
+        }
+      },
+    );
     test(
       '${calling.name} exports the complete playable rig and finite clips',
       () {
@@ -169,6 +257,34 @@ void main() {
             }
             expect(values.every((v) => v.isFinite), isTrue);
             final width = values.length ~/ times.length;
+            if (const {
+                  'creep',
+                  'walk',
+                  'run',
+                  'sprint',
+                }.contains(motion.name) &&
+                target['path'] == 'rotation' &&
+                const {'arm_l', 'arm_r', 'elbow_l', 'elbow_r'}.contains(
+                  nodes[target['node'] as int]['name'],
+                )) {
+              final changes = [
+                for (var i = width; i < values.length; i++)
+                  (values[i] - values[i % width]).abs(),
+              ];
+              if (!clipName.startsWith('humanoid_')) {
+                expect(
+                  changes,
+                  everyElement(lessThan(1e-5)),
+                  reason: '$clipName floats without a walking arm cycle',
+                );
+              } else if (nodes[target['node'] as int]['name'] == 'arm_l') {
+                expect(
+                  changes.any((change) => change > .03),
+                  isTrue,
+                  reason: '$clipName retains counter-swing',
+                );
+              }
+            }
             if (target['path'] == 'weights' &&
                 faces.contains(nodes[target['node'] as int]['name'])) {
               animatedFaces.add(nodes[target['node'] as int]['name'] as String);

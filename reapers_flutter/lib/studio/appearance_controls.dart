@@ -41,16 +41,7 @@ class AppearanceControls extends HookWidget {
                       : l10n.studioHumanoid,
                 ),
                 selected: appearance.form == value,
-                onSelected: (_) => onChanged(
-                  appearance.copyWith(
-                    form: value,
-                    clothing:
-                        value == ReaperForm.humanoid &&
-                            appearance.clothing == ReaperClothing.robe
-                        ? ReaperClothing.tunic
-                        : appearance.clothing,
-                  ),
-                ),
+                onSelected: (_) => onChanged(appearance.copyWith(form: value)),
               ),
           ],
         ),

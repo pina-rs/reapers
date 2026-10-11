@@ -10,6 +10,27 @@ from .locomotion import HIP_X, HIP_Z, LENGTH
 LEG_JOINTS = ("leg_l", "leg_r", "knee_l", "knee_r", "foot_l", "foot_r")
 
 
+def robe_fit(co):
+    """Leave room for the pelvis and a walking stride beneath hanging cloth.
+
+    This is a garment allowance, not skinning: the skirt stays suspended
+    around both legs instead of being pulled into either hip joint.
+    """
+    blend = max(0, min(1, (1.38 - co.z) / 0.27))
+    blend = blend * blend * (3 - 2 * blend)
+    drop = max(0, min(1, (1.05 - co.z) / 1.0))
+    width, depth = 0.30 + 0.10 * drop, 0.27 + 0.32 * drop
+    angle = math.atan2(co.y / depth, co.x / width)
+    # Retain small hanging folds even where a narrow spirit robe needs room.
+    fold = 1 + 0.025 * math.sin(9 * angle + co.z)
+    radius = math.hypot(co.x / width, co.y / depth)
+    if radius > 1e-6:
+        scale = 1 + blend * max(0, fold / radius - 1)
+        co.x *= scale
+        co.y *= scale
+    return co
+
+
 def limb(name, parent, material, rings):
     """Elliptical cross-sections preserve thigh, patella, calf and ankle shapes."""
     vertices, faces = [], []
@@ -70,6 +91,7 @@ def build(root, calling):
             core.finish(core.tube(f"spirit_arm_{side}_{name}", [Vector(), end], lambda t: 0.058 - 0.024 * t, material, parent, sides=16))
 
     legs = core.empty("humanoid_form", root)
+    pelvis.parent = legs
     for side, sign in (("l", 1), ("r", -1)):
         hip = core.empty(f"leg_{side}", legs, location=(sign * HIP_X, 0, HIP_Z))
         knee = core.empty(f"knee_{side}", hip, location=(0, 0, -LENGTH))
@@ -148,3 +170,8 @@ def build(root, calling):
             if vertex.co.z < 1.18:
                 vertex.co.z = 1.18 + (vertex.co.z - 1.18) * 0.28
         short.value = 0
+        for name, source in (("humanoid_robe", node.data.shape_keys.key_blocks["Basis"]), ("humanoid_tunic", short)):
+            fitted = node.shape_key_add(name=name)
+            for vertex, original in zip(fitted.data, source.data):
+                vertex.co = robe_fit(original.co.copy())
+            fitted.value = 0

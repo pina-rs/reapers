@@ -310,17 +310,12 @@ final class _ReaperCloth extends Component {
       return;
     }
 
-    final cloth = reaperClothAt(_rig._motion ?? ReaperMotion.idle, t);
-    final weights = {
-      'sway_x': cloth.swayX,
-      'sway_y': cloth.swayY,
-      'billow': cloth.billow,
-      'gaunt': ReaperGenome.fraction(_rig.genome.gauntness),
-      'long_hem': ReaperGenome.fraction(_rig.genome.tatter),
-      'short_robe': _rig._appearance.clothing == ReaperClothing.tunic
-          ? 1.0
-          : 0.0,
-    };
+    final weights = reaperClothWeights(
+      _rig.genome,
+      _rig._appearance,
+      _rig._motion ?? ReaperMotion.idle,
+      t,
+    );
 
     for (final MapEntry(key: name, value: weight) in weights.entries) {
       final index = _morphs[name];

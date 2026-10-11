@@ -80,7 +80,7 @@ void main() {
         await tester.tap(find.text('Humanoid'));
         await tester.pumpAndSettle();
         expect(presentation!.form, ReaperForm.humanoid);
-        expect(presentation!.clothing, ReaperClothing.tunic);
+        expect(presentation!.clothing, ReaperClothing.robe);
         await tester.ensureVisible(find.text('No robe'));
         await tester.tap(find.text('No robe'));
         await tester.pumpAndSettle();
