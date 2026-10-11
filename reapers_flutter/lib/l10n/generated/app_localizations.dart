@@ -2335,8 +2335,104 @@ abstract class AppLocalizations {
   /// No description provided for @studioTraits.
   ///
   /// In en, this message translates to:
-  /// **'Birth traits'**
+  /// **'Appearance'**
   String get studioTraits;
+
+  /// No description provided for @studioAppearanceHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a calling, then try its form, clothing and held object. The numbered head, shoulder and robe buttons swap actual model variations.'**
+  String get studioAppearanceHelp;
+
+  /// No description provided for @studioForm.
+  ///
+  /// In en, this message translates to:
+  /// **'Form'**
+  String get studioForm;
+
+  /// No description provided for @studioSpirit.
+  ///
+  /// In en, this message translates to:
+  /// **'Spirit'**
+  String get studioSpirit;
+
+  /// No description provided for @studioHumanoid.
+  ///
+  /// In en, this message translates to:
+  /// **'Humanoid'**
+  String get studioHumanoid;
+
+  /// No description provided for @studioFormHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Spirit form floats. Humanoid form has articulated legs. These choices are for this preview.'**
+  String get studioFormHelp;
+
+  /// No description provided for @studioClothing.
+  ///
+  /// In en, this message translates to:
+  /// **'Clothing'**
+  String get studioClothing;
+
+  /// No description provided for @studioLongRobe.
+  ///
+  /// In en, this message translates to:
+  /// **'Long robe'**
+  String get studioLongRobe;
+
+  /// No description provided for @studioTunic.
+  ///
+  /// In en, this message translates to:
+  /// **'Short tunic'**
+  String get studioTunic;
+
+  /// No description provided for @studioNoRobe.
+  ///
+  /// In en, this message translates to:
+  /// **'No robe'**
+  String get studioNoRobe;
+
+  /// No description provided for @studioShowMantle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show shoulder piece'**
+  String get studioShowMantle;
+
+  /// No description provided for @studioHoldObject.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold an object'**
+  String get studioHoldObject;
+
+  /// No description provided for @studioHoldHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Try any object or empty hands. Unarmed reactions temporarily hide it; the Hollow keeps its own skull.'**
+  String get studioHoldHelp;
+
+  /// No description provided for @studioHeldObject.
+  ///
+  /// In en, this message translates to:
+  /// **'Held object'**
+  String get studioHeldObject;
+
+  /// No description provided for @studioFaceCloseup.
+  ///
+  /// In en, this message translates to:
+  /// **'Face close-up'**
+  String get studioFaceCloseup;
+
+  /// No description provided for @studioFullFigure.
+  ///
+  /// In en, this message translates to:
+  /// **'Full figure'**
+  String get studioFullFigure;
+
+  /// No description provided for @studioInspectExpression.
+  ///
+  /// In en, this message translates to:
+  /// **'Inspect expression'**
+  String get studioInspectExpression;
 
   /// No description provided for @studioGrowth.
   ///
@@ -2353,19 +2449,19 @@ abstract class AppLocalizations {
   /// No description provided for @studioHead.
   ///
   /// In en, this message translates to:
-  /// **'Head'**
+  /// **'Head / face covering'**
   String get studioHead;
 
   /// No description provided for @studioMantle.
   ///
   /// In en, this message translates to:
-  /// **'Mantle'**
+  /// **'Shoulder piece'**
   String get studioMantle;
 
   /// No description provided for @studioRobe.
   ///
   /// In en, this message translates to:
-  /// **'Hem'**
+  /// **'Robe cut'**
   String get studioRobe;
 
   /// No description provided for @studioPalette.
@@ -2425,7 +2521,7 @@ abstract class AppLocalizations {
   /// No description provided for @studioBirthTraits.
   ///
   /// In en, this message translates to:
-  /// **'Birth traits are fixed when a reaper is minted. Outfits and weapons can change as it grows.'**
+  /// **'Minted birth traits stay fixed. Form, clothing and held-object choices here are unsaved previews. Copy genome includes birth traits only.'**
   String get studioBirthTraits;
 
   /// No description provided for @studioCopy.
@@ -3583,7 +3679,7 @@ abstract class AppLocalizations {
   /// No description provided for @motionWeaponHint.
   ///
   /// In en, this message translates to:
-  /// **'Impale needs a spear. Reaping arc needs a scythe or chain whip. Change calling in Birth traits to try those weapons.'**
+  /// **'Impale needs a spear. Reaping arc needs a scythe or chain whip. Choose a held object in Appearance to try those weapons.'**
   String get motionWeaponHint;
 
   /// No description provided for @motionUnarmed.

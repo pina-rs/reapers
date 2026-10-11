@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:reapers_flutter/l10n/l10n.dart';
 import 'package:reapers_flutter/l10n/soul_lookups.dart';
+import 'package:reapers_flutter/render/reaper_appearance.dart';
 import 'package:reapers_flutter/solana/reaper_wallet.dart';
 import 'package:reapers_flutter/studio/reaper_studio.dart';
 import 'package:reapers_flutter/theme/veil.dart';
@@ -54,6 +55,7 @@ void main() {
         final before = jsonEncode(saved.toJson());
         ReaperGenome? specimen;
         Weapon? equipment;
+        ReaperAppearance? presentation;
         await tester.pumpWidget(
           MaterialApp(
             theme: Veil.theme(Veil.unbound),
@@ -61,9 +63,10 @@ void main() {
             supportedLocales: AppLocalizations.supportedLocales,
             home: ReaperStudio(
               initialGenome: saved.genome,
-              stageBuilder: (genome, weapon, outfit) {
+              stageBuilder: (genome, weapon, outfit, appearance) {
                 specimen = genome;
                 equipment = weapon;
+                presentation = appearance;
                 return const SizedBox.expand();
               },
             ),
@@ -73,6 +76,33 @@ void main() {
         await tester.tap(find.text('Chooser'));
         await tester.pumpAndSettle();
         expect(specimen!.reaperClass, ReaperClass.chooser);
+        await tester.ensureVisible(find.text('Humanoid'));
+        await tester.tap(find.text('Humanoid'));
+        await tester.pumpAndSettle();
+        expect(presentation!.form, ReaperForm.humanoid);
+        expect(presentation!.clothing, ReaperClothing.tunic);
+        await tester.ensureVisible(find.text('No robe'));
+        await tester.tap(find.text('No robe'));
+        await tester.pumpAndSettle();
+        expect(presentation!.clothing, ReaperClothing.unrobed);
+        final held = find.byType(DropdownButtonFormField<WeaponKind>);
+        await tester.ensureVisible(held);
+        await tester.tap(held);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Scythe').last);
+        await tester.tap(find.text('Scythe').last);
+        await tester.pumpAndSettle();
+        expect(equipment!.kind, WeaponKind.scythe);
+        await tester.ensureVisible(find.text('Hold an object'));
+        await tester.tap(find.text('Hold an object'));
+        await tester.pumpAndSettle();
+        expect(presentation!.holding, isFalse);
+        await tester.ensureVisible(
+          find.bySemanticsLabel('Head / face covering 2'),
+        );
+        await tester.tap(find.bySemanticsLabel('Head / face covering 2'));
+        await tester.pumpAndSettle();
+        expect(specimen!.head, 1);
         await tester.ensureVisible(find.text('Growth'));
         await tester.tap(find.text('Growth'));
         await tester.pumpAndSettle();
@@ -134,7 +164,9 @@ void main() {
               .copyWith(textScaler: const TextScaler.linear(2)),
           child: child!,
         ),
-        home: ReaperStudio(stageBuilder: (_, _, _) => const SizedBox.expand()),
+        home: ReaperStudio(
+          stageBuilder: (_, _, _, _) => const SizedBox.expand(),
+        ),
       ),
     );
     final soulTab = find.descendant(
@@ -145,6 +177,38 @@ void main() {
     await tester.tap(soulTab);
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Clear specimen memories'));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('inspect expression pauses a reaction and frames the face', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: Veil.theme(Veil.unbound),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: ReaperStudio(
+          stageBuilder: (_, _, _, _) => const SizedBox.expand(),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Animations · 32 states'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Reactions'));
+    await tester.tap(find.text('Reactions'));
+    await tester.pumpAndSettle();
+    final selector = find.byType(DropdownButtonFormField<ReaperMotion>);
+    await tester.ensureVisible(selector);
+    await tester.tap(selector);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Laugh').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Inspect expression'));
+    await tester.tap(find.text('Inspect expression'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Full figure'), findsOneWidget);
+    expect(find.byTooltip('Play animation'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

@@ -21,7 +21,7 @@ HEAD_RADIUS = 0.105
 
 
 def eyes(parent, forward=0.0, spacing=0.04, height=HEAD_HEIGHT + 0.012, size=0.012, name="eyes"):
-    """Two points of light. A reaper's face is never more than this."""
+    """Authoring lights, replaced by the expression rig before export."""
 
     accent = core.material("accent")
     parts = []

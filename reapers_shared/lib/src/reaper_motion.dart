@@ -52,10 +52,12 @@ enum ReaperMotion {
   /// Normalized contact point for a future synchronized enemy reaction.
   final double? impact;
 
-  bool supports(WeaponKind weapon) => switch (this) {
+  /// Null means empty hands, so weapon attacks cannot be previewed.
+  bool supports(WeaponKind? weapon) => switch (this) {
     finisherImpale => weapon == WeaponKind.spear,
     finisherReap =>
       weapon == WeaponKind.scythe || weapon == WeaponKind.chainWhip,
+    slash || thrust || parry => weapon != null,
     _ => true,
   };
 }

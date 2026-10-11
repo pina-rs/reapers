@@ -10,9 +10,9 @@ import math
 import bpy
 from mathutils import Vector
 
-from . import core
+from . import body, core
 
-JOINTS = ("motion", "head", "arm_r", "arm_l", "elbow_r", "elbow_l", "wrist_r", "wrist_l")
+JOINTS = ("motion", "head", "arm_r", "arm_l", "elbow_r", "elbow_l", "wrist_r", "wrist_l") + body.LEG_JOINTS
 
 # Subtle timing/size accents preserve silhouettes without losing shared clips.
 AMPLITUDE = {"harvester": 1.0, "ferryman": 0.85, "weigher": 0.8, "chooser": 1.05, "hollow": 1.12, "mourner": 0.75}
@@ -282,6 +282,7 @@ def build(root, calling, specs):
             node.animation_data.action = None
             for frame in range(frames + 1):
                 value = sample(name, frame / frames)
+                value.update(body.sample(name, frame / frames))
                 # The hollow keeps its own head in its left hand. Reach and
                 # crush with the free right hand instead of punching with it.
                 source = joint

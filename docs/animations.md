@@ -2,7 +2,17 @@
 
 Open **Animations · 32 states** in the [Reaper studio](preview.md). Choose a group and a clip, pause it, scrub any pose, replay it, or slow it to quarter speed. **Inspect contact pose** goes straight to an attack's contact frame. Change calling, birth traits and equipment in the same studio. Everything is an unsaved specimen.
 
-The six reapers keep their floating silhouettes. Walk, run and sprint are distinct in-place gliding cycles. Jump, dodge and dash have bounded local movement and return to their starting position. A future third-person controller must own world movement separately.
+The six reapers have spirit and humanoid forms. Spirit form keeps the floating silhouette. Humanoid form adds articulated hips, knees and feet, with distinct stepping cycles for creep, walk, run and sprint. Jump, dodge and dash have bounded local movement and return to their starting position. These are presentation clips without foot IK or ground collision; a future third-person controller must own world movement separately.
+
+## Faces and appearance
+
+Open **Appearance** to choose a calling and change the actual model variants with **Head / face covering**, **Shoulder piece** and **Robe cut**. **Clothing** switches between the class's long robe, a shortened tunic and no outer robe. A spectral torso and arms remain when clothing is removed. The shoulder piece has its own visibility switch.
+
+**Held object** can preview any of the six weapon models on any calling, or turn off **Hold an object** for empty hands. This does not change class equipment rules or saved equipment. The Hollow still carries its own skull in the other hand.
+
+All reactions and meme animations have synchronized eye and mouth morphs. Laugh opens the mouth and narrows the eyes; cry adds a downturned mouth and tear trails; rage tightens the eyes; fear opens them; sigma and GigaChad use an asymmetric smirk; absolute cinema uses an awed expression. Bow uses a restrained sorrowful expression, victory uses joy, and shrug and T-pose use a smirk. All clips return the face to neutral, including when switching to movement.
+
+Choose a reaction or meme and press **Inspect expression** to pause halfway through and focus the camera on its face. The portrait's **Face close-up** and **Full figure** buttons switch framing. The camera follows the animated face, including the Hollow's carried skull. Masks, hats, hoods and the Mourner's veil remain; the features are spectral light rather than human skin.
 
 ## The 32 clips
 
@@ -20,7 +30,7 @@ These are authored character performances, not new combat rules. Contact markers
 
 ## Rig and class differences
 
-Every GLB contains 32 named animations and eight shared pivots: `motion`, `head`, `arm_r`, `arm_l`, `elbow_r`, `elbow_l`, `wrist_r`, `wrist_l`. The weapon socket follows the right wrist. `motion` sits at waist height below the stationary `reaper` placement root. The rig uses articulated rigid parts, not a deforming skeletal skin. Overlapping sleeve sections cover the elbows; finger shapes are fixed.
+Every GLB contains 32 named animations and fourteen shared pivots: `motion`, `head`, shoulders, elbows, wrists, hips, knees and feet. The weapon socket follows the right wrist. `motion` sits at waist height below the stationary `reaper` placement root. The rig uses articulated rigid parts, not a deforming skeletal skin. Overlapping sleeve sections cover the elbows; finger shapes are fixed. Each head variant has six facial morphs, baked into the same clips. The Hollow has one animated face on its skull.
 
 The same local rotations fit all head, mantle and hem variants. The heavier Ferryman, Weigher and Mourner use restrained arm gestures; the Chooser and Hollow use broader ones. The Hollow keeps the skull lantern attached to its left wrist and uses its free right hand for soul crush and palm burst. The Mourner has a second skeletal arm concealed under its veil at rest; its head movement is reduced because the head variants include hanging veils.
 

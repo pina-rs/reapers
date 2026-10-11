@@ -13,10 +13,12 @@ class MotionControls extends HookWidget {
     super.key,
     required this.playback,
     required this.weapon,
+    this.onInspectFace,
   });
 
   final ReaperPlayback playback;
-  final WeaponKind weapon;
+  final WeaponKind? weapon;
+  final VoidCallback? onInspectFace;
 
   @override
   Widget build(BuildContext context) {
@@ -119,6 +121,16 @@ class MotionControls extends HookWidget {
               TextButton(
                 onPressed: () => playback.seek(impact),
                 child: Text(l10n.motionImpact),
+              ),
+            if (onInspectFace != null &&
+                (motion.group == MotionGroup.reaction ||
+                    motion.group == MotionGroup.meme))
+              TextButton(
+                onPressed: () {
+                  playback.seek(0.5);
+                  onInspectFace!();
+                },
+                child: Text(l10n.studioInspectExpression),
               ),
             Tooltip(
               message: l10n.motionSpeed,

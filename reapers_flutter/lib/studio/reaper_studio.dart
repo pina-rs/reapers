@@ -18,6 +18,7 @@ import '../l10n/l10n.dart';
 import '../l10n/lookups.dart';
 import '../l10n/soul_lookups.dart';
 import '../render/reaper_look.dart';
+import '../render/reaper_appearance.dart';
 import '../render/reaper_stage.dart';
 import '../render/reaper_playback.dart';
 import '../theme/veil.dart';
@@ -25,8 +26,14 @@ import '../widgets/ledger.dart';
 import '../widgets/soul_ledger.dart';
 import 'decision_ledger.dart';
 import 'motion_controls.dart';
+import 'appearance_controls.dart';
 
-typedef StudioStageBuilder = Widget Function(ReaperGenome, Weapon, Outfit);
+typedef StudioStageBuilder = Widget Function(
+  ReaperGenome,
+  Weapon,
+  Outfit,
+  ReaperAppearance,
+);
 
 /// An unsaved specimen using the game's models and shared progression rules.
 class ReaperStudio extends HookWidget {
@@ -47,7 +54,10 @@ class ReaperStudio extends HookWidget {
     final seed = useRef(11);
     final captures = useState(0);
     final reward = useState<int?>(null);
-    final spinning = useState(true);
+    final spinning = useState(false);
+    final focusFace = useState(false);
+    final appearance = useState(const ReaperAppearance());
+    final heldObject = useState<WeaponKind?>(null);
     useEffect(() {
       if (!spinning.value) return null;
       // One slow revolution, then hold the specimen. The player can replay it.
@@ -58,18 +68,22 @@ class ReaperStudio extends HookWidget {
       return stop.cancel;
     }, [spinning.value]);
     final level = Progression.levelForXp(xp.value);
-    final weapon = Weapon(genome.value.reaperClass.weapon, temper.value);
+    final weapon = Weapon(
+      heldObject.value ?? genome.value.reaperClass.weapon,
+      temper.value,
+    );
+    final visibleWeapon = appearance.value.holding ? weapon.kind : null;
     final playback = useMemoized(ReaperPlayback.new);
     useEffect(() => playback.dispose, [playback]);
     useEffect(() {
       // A calling change can make a weapon-specific finisher unavailable.
-      if (!playback.motion.supports(weapon.kind)) {
+      if (!playback.motion.supports(visibleWeapon)) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (context.mounted) playback.select(ReaperMotion.idle);
         });
       }
       return null;
-    }, [weapon.kind]);
+    }, [visibleWeapon]);
     final soul = ReaperSoul.fromGenome(genome.value);
     final soulRank = SoulRules.rank(
       level: level,
@@ -133,13 +147,20 @@ class ReaperStudio extends HookWidget {
     final portrait = Stack(
       fit: StackFit.expand,
       children: [
-        stageBuilder?.call(genome.value, weapon, outfit.value) ??
+        stageBuilder?.call(
+              genome.value,
+              weapon,
+              outfit.value,
+              appearance.value,
+            ) ??
             ReaperStage(
               genome: genome.value,
               weapon: weapon,
               outfit: outfit.value,
               turnsOnItsOwn: spinning.value,
               playback: playback,
+              appearance: appearance.value,
+              focusFace: focusFace.value,
             ),
         Positioned(
           left: 24,
@@ -152,14 +173,32 @@ class ReaperStudio extends HookWidget {
         Positioned(
           right: 16,
           top: 12,
-          child: IconButton(
-            tooltip: spinning.value ? l10n.studioPause : l10n.studioRotate,
-            onPressed: () => spinning.value = !spinning.value,
-            icon: Icon(
-              spinning.value
-                  ? Icons.pause_outlined
-                  : Icons.rotate_right_outlined,
-            ),
+          child: Column(
+            children: [
+              IconButton(
+                tooltip: spinning.value ? l10n.studioPause : l10n.studioRotate,
+                onPressed: () => spinning.value = !spinning.value,
+                icon: Icon(
+                  spinning.value
+                      ? Icons.pause_outlined
+                      : Icons.rotate_right_outlined,
+                ),
+              ),
+              IconButton(
+                tooltip: focusFace.value
+                    ? l10n.studioFullFigure
+                    : l10n.studioFaceCloseup,
+                icon: Icon(
+                  focusFace.value
+                      ? Icons.accessibility_new
+                      : Icons.face_outlined,
+                ),
+                onPressed: () {
+                  focusFace.value = !focusFace.value;
+                  spinning.value = false;
+                },
+              ),
+            ],
           ),
         ),
         Positioned(
@@ -191,9 +230,20 @@ class ReaperStudio extends HookWidget {
           Text(l10n.studioTitle, style: Veil.display(38)),
           const SizedBox(height: 12),
           Text(l10n.studioIntro, style: Veil.body(color: Veil.ash)),
-          MotionControls(playback: playback, weapon: weapon.kind),
+          MotionControls(
+            playback: playback,
+            weapon: visibleWeapon,
+            onInspectFace: () {
+              focusFace.value = true;
+              spinning.value = false;
+            },
+          ),
           const SizedBox(height: 20),
           SegmentedButton<int>(
+            showSelectedIcon: false,
+            style: ButtonStyle(
+              textStyle: WidgetStatePropertyAll(Veil.body(size: 13)),
+            ),
             direction: MediaQuery.textScalerOf(context).scale(14) > 20
                 ? Axis.vertical
                 : Axis.horizontal,
@@ -206,6 +256,10 @@ class ReaperStudio extends HookWidget {
             onSelectionChanged: (values) => tab.value = values.single,
           ),
           if (tab.value == 0) ...[
+            Text(
+              l10n.studioAppearanceHelp,
+              style: Veil.body(color: Veil.ash, size: 13),
+            ),
             LedgerHeading(l10n.studioClass),
             Wrap(
               spacing: 6,
@@ -220,6 +274,12 @@ class ReaperStudio extends HookWidget {
                     ),
                   ),
               ],
+            ),
+            AppearanceControls(
+              appearance: appearance.value,
+              weapon: weapon.kind,
+              onChanged: (value) => appearance.value = value,
+              onWeaponChanged: (value) => heldObject.value = value,
             ),
             const SizedBox(height: 14),
             LedgerButton(

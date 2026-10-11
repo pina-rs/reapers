@@ -20,7 +20,7 @@ layout, which is what lets the game assemble any genome from it:
           wrist_l
 
 The animation build inserts a shared waist pivot above these parts and
-exports thirty named clips, described in docs/animations.md.
+exports the named clips, described in docs/animations.md.
 
 The classes follow docs/research/dark-games-and-ar-hunting.md: each is told
 apart by its head, its shoulder line and its weapon, as a black shape.
@@ -35,7 +35,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(HERE)
 
-from lib import core, motion, preview  # noqa: E402
+from lib import body, core, face, motion, preview  # noqa: E402
 
 # Each class and the weapon kind it is shown holding in a review sheet.
 CLASSES = {
@@ -71,7 +71,10 @@ def main():
 
         core.reset_scene()
         root = importlib.import_module(f"reaper_classes.{name}").build()
+        body.build(root, name)
+        faces = face.build(root, name)
         motion.build(root, name, motions)
+        face.bake(faces, motions)
         path = os.path.join(options.out, f"reaper_{name}.glb")
         core.export_glb(path, root, animations=True)
         print(f"BUILT {path} triangles={core.triangle_count(root)}")
@@ -113,6 +116,8 @@ def show_variant(root, head, mantle, robe):
     """Hides every variant but the chosen ones, as the game would."""
 
     def visit(node):
+        if node.name == "humanoid_form":
+            hide_tree(node, True)
         for prefix, chosen in (("head_", head), ("mantle_", mantle), ("robe_", robe)):
             if node.name.startswith(prefix) and node.name[len(prefix) :].isdigit():
                 hide_tree(node, int(node.name[len(prefix) :]) != chosen)

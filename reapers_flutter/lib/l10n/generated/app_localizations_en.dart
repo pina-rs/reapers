@@ -1327,7 +1327,58 @@ class AppLocalizationsEn extends AppLocalizations {
       'Shape a specimen. Explore its growth. Everything here is a preview; your bound reaper stays yours.';
 
   @override
-  String get studioTraits => 'Birth traits';
+  String get studioTraits => 'Appearance';
+
+  @override
+  String get studioAppearanceHelp =>
+      'Choose a calling, then try its form, clothing and held object. The numbered head, shoulder and robe buttons swap actual model variations.';
+
+  @override
+  String get studioForm => 'Form';
+
+  @override
+  String get studioSpirit => 'Spirit';
+
+  @override
+  String get studioHumanoid => 'Humanoid';
+
+  @override
+  String get studioFormHelp =>
+      'Spirit form floats. Humanoid form has articulated legs. These choices are for this preview.';
+
+  @override
+  String get studioClothing => 'Clothing';
+
+  @override
+  String get studioLongRobe => 'Long robe';
+
+  @override
+  String get studioTunic => 'Short tunic';
+
+  @override
+  String get studioNoRobe => 'No robe';
+
+  @override
+  String get studioShowMantle => 'Show shoulder piece';
+
+  @override
+  String get studioHoldObject => 'Hold an object';
+
+  @override
+  String get studioHoldHelp =>
+      'Try any object or empty hands. Unarmed reactions temporarily hide it; the Hollow keeps its own skull.';
+
+  @override
+  String get studioHeldObject => 'Held object';
+
+  @override
+  String get studioFaceCloseup => 'Face close-up';
+
+  @override
+  String get studioFullFigure => 'Full figure';
+
+  @override
+  String get studioInspectExpression => 'Inspect expression';
 
   @override
   String get studioGrowth => 'Growth';
@@ -1336,13 +1387,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get studioClass => 'Calling';
 
   @override
-  String get studioHead => 'Head';
+  String get studioHead => 'Head / face covering';
 
   @override
-  String get studioMantle => 'Mantle';
+  String get studioMantle => 'Shoulder piece';
 
   @override
-  String get studioRobe => 'Hem';
+  String get studioRobe => 'Robe cut';
 
   @override
   String get studioPalette => 'Colourway';
@@ -1373,7 +1424,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get studioBirthTraits =>
-      'Birth traits are fixed when a reaper is minted. Outfits and weapons can change as it grows.';
+      'Minted birth traits stay fixed. Form, clothing and held-object choices here are unsaved previews. Copy genome includes birth traits only.';
 
   @override
   String get studioCopy => 'Copy genome';
@@ -2072,7 +2123,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get motionWeaponHint =>
-      'Impale needs a spear. Reaping arc needs a scythe or chain whip. Change calling in Birth traits to try those weapons.';
+      'Impale needs a spear. Reaping arc needs a scythe or chain whip. Choose a held object in Appearance to try those weapons.';
 
   @override
   String get motionUnarmed => 'Weapon stowed for this performance';

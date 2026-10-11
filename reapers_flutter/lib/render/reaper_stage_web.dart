@@ -11,6 +11,7 @@ import 'package:web/web.dart' as web;
 import '../l10n/l10n.dart';
 import '../widgets/ledger.dart';
 import 'reaper_cloth.dart';
+import 'reaper_appearance.dart';
 import 'reaper_look.dart';
 import 'reaper_playback.dart';
 import 'reaper_web_material.dart';
@@ -24,6 +25,8 @@ class ReaperStage extends HookWidget {
     required this.outfit,
     this.turnsOnItsOwn = false,
     this.playback,
+    this.appearance = const ReaperAppearance(),
+    this.focusFace = false,
   });
 
   final ReaperGenome genome;
@@ -31,6 +34,8 @@ class ReaperStage extends HookWidget {
   final Outfit outfit;
   final bool turnsOnItsOwn;
   final ReaperPlayback? playback;
+  final ReaperAppearance appearance;
+  final bool focusFace;
 
   @override
   Widget build(BuildContext context) {
@@ -65,9 +70,14 @@ class ReaperStage extends HookWidget {
 
           useEffect(() => stage.dispose, [stage]);
           useEffect(() {
-            unawaited(stage.show(genome, weapon, outfit));
+            unawaited(stage.show(genome, weapon, outfit, appearance));
             return null;
-          }, [stage, genome.code, weapon, outfit]);
+          }, [stage, genome.code, weapon, outfit, appearance]);
+          useEffect(() {
+            if (focusFace) stage.turn = 0;
+            stage.focusFace = focusFace;
+            return null;
+          }, [stage, focusFace]);
           stage.turns = turnsOnItsOwn && !reducedMotion;
           stage.playback = clock;
           stage.reducedMotion = reducedMotion;
@@ -187,6 +197,8 @@ final class _WebStage {
   ReaperPlayback? playback;
   bool reducedMotion = false;
   bool animationPreview = false;
+  bool focusFace = false;
+  ReaperAppearance _appearance = const ReaperAppearance();
   three.AnimationMixer? _mixer;
   List<three.AnimationClip> _clips = [];
   three.AnimationAction? _action;
@@ -209,7 +221,12 @@ final class _WebStage {
     dragging = false;
   }
 
-  Future<void> show(ReaperGenome genome, Weapon weapon, Outfit outfit) async {
+  Future<void> show(
+    ReaperGenome genome,
+    Weapon weapon,
+    Outfit outfit,
+    ReaperAppearance appearance,
+  ) async {
     final generation = ++_generation;
     final previous = _loading;
     final done = Completer<void>();
@@ -271,22 +288,20 @@ final class _WebStage {
       }
       final model = _model!;
       _genome = genome;
-      final variants = {
-        'head_': genome.head,
-        'mantle_': genome.mantle,
-        'robe_': genome.robe,
-      };
+      _appearance = appearance;
       model.traverse((node) {
-        for (final entry in variants.entries) {
-          if (!node.name.startsWith(entry.key)) continue;
-          final index = int.tryParse(node.name.substring(entry.key.length));
-          if (index != null) node.visible = index == entry.value;
+        final visible = reaperPartVisible(
+          node.name,
+          genome,
+          outfit,
+          appearance,
+        );
+        if (visible != null) node.visible = visible;
+        if (node.name.startsWith('face_')) {
+          node.scale.x = 0.8 + 0.4 * ReaperGenome.fraction(genome.gaze);
         }
         if (node.name.startsWith('eyes')) {
           node.scale.setScalar(0.8 + 0.7 * ReaperGenome.fraction(genome.gaze));
-        }
-        if (node.name.startsWith('void_') || node.name.startsWith('wrap_')) {
-          node.visible = outfit != Outfit.hollowed;
         }
       });
       model.scale.setScalar(
@@ -379,7 +394,7 @@ final class _WebStage {
       }
       _action!.time = clock.seconds;
       _mixer!.update(0);
-      _held?.visible = !clock.motion.unarmed;
+      _held?.visible = _appearance.holding && !clock.motion.unarmed;
     }
     if (turns && !dragging) turn += math.min(delta, 0.1) * 0.25;
     _stirCloth();
@@ -402,6 +417,7 @@ final class _WebStage {
         'sway_x': cloth.swayX,
         'sway_y': cloth.swayY,
         'billow': cloth.billow,
+        'short_robe': _appearance.clothing == ReaperClothing.tunic ? 1.0 : 0.0,
       };
       for (final entry in weights.entries) {
         final index = node.morphTargetDictionary?[entry.key];
@@ -411,13 +427,33 @@ final class _WebStage {
   }
 
   void _positionCamera() {
-    final distance = animationPreview ? 10.5 : 8.4;
-    viewer.camera.position.setValues(
+    final distance = focusFace
+        ? 1.25
+        : animationPreview
+        ? 10.5
+        : 8.4;
+    final target = three.Vector3(0, 1.42, 0);
+    final offset = three.Vector3(
       math.sin(turn) * distance,
-      0.67,
+      focusFace ? 0.04 : -0.75,
       math.cos(turn) * distance,
     );
-    viewer.camera.lookAt(three.Vector3(0, 1.42, 0));
+    three.Object3D? face;
+    if (focusFace && _model != null && _genome != null) {
+      _model!.updateMatrixWorld(true);
+      face = _model!.getObjectByName(
+        'face_${_genome!.reaperClass == ReaperClass.hollow ? 0 : _genome!.head}',
+      );
+      face?.getWorldPosition(target);
+    }
+    viewer.camera.position.setFrom(
+      face?.localToWorld(offset) ?? offset.add(target),
+    );
+    viewer.camera.up.setFrom(
+      face?.localToWorld(three.Vector3(0, 1, 0)).sub(target) ??
+          three.Vector3(0, 1, 0),
+    );
+    viewer.camera.lookAt(target);
   }
 
   void dispose() {

@@ -85,6 +85,8 @@ Anything that learns more about the room (ARKit, ARCore, a server that names wha
 
 Models and materials are compiled by the build hook in `hook/build.dart`, so changing one needs a full `flutter run`, not a hot restart.
 
+**Forms and expressions.** Reaper models include a spectral body, optional articulated legs and six facial expression morphs per head. Blender bakes face weights and leg poses into the body clips. `ReaperAppearance` and `reaperPartVisible` share the wardrobe and form visibility contract between native and web; robe shortening remains separate from clip playback. The studio exposes all held objects independently of class progression, with empty hands disabling weapon attacks. These controls are unsaved previews and do not alter NFT genomes, equipment permissions or combat rules.
+
 **Browser studio.** Supported targets are web, Android and iOS. `main_preview.dart` opens the isolated studio on each; the camera game targets Android and iOS. `ReaperStage` conditionally exports the mobile Flutter GPU portrait or a WebGL 2 portrait. The web portrait loads the same models and adapts the authored `reaper.fmat` fragment to a lit material, including its vertex masks, burn front and hollowing. Colour uniforms convert from sRGB to linear light, as the native material's `source_color` hint does. Calling changes release the previous model; cached trait changes update uniforms and morph weights. Web does not import the native GPU scene, read preferences, or open a wallet.
 
 **Autoplay.** `--dart-define=REAPERS_AUTOPLAY=true` has a simulated player fight every hunt and rift. It is how the game can be watched on a simulator, which has no gyroscope.

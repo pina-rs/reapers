@@ -161,6 +161,15 @@ final class ReaperLook {
           burns: false,
           glowStrength: glow,
         ),
+        'spirit': SurfaceLook(
+          tint: _lerp(const Color(0xFF111B24), colourway.accent, 0.15),
+          roughness: 0.65,
+          grime: 0,
+          wear: 0,
+          weave: 0,
+          burns: false,
+          glowStrength: glow * 0.08,
+        ),
         'void': const SurfaceLook(
           tint: Color(0xFF010102),
           roughness: 1,

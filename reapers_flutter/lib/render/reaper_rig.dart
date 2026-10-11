@@ -3,6 +3,7 @@ import 'package:reapers_shared/reapers_shared.dart';
 import 'package:vector_math/vector_math.dart' as vm;
 
 import 'reaper_cloth.dart';
+import 'reaper_appearance.dart';
 import 'reaper_look.dart';
 
 /// The shader every reaper surface is drawn with.
@@ -40,7 +41,7 @@ final class ReaperRig {
     final root = Node(name: 'reaper_rig')..add(model);
     final rig = ReaperRig._(root: root, genome: genome, model: model);
 
-    await rig._showGenomeParts();
+    await rig._setGenomeTraits();
     await rig.wield(weapon);
     rig.wear(outfit);
     root.addComponent(_ReaperCloth(rig));
@@ -65,9 +66,26 @@ final class ReaperRig {
   final Node _model;
   Node? _held;
   WeaponKind? _heldKind;
+  int _weaponGeneration = 0;
   AnimationClip? _clip;
   ReaperMotion? _motion;
   double _seconds = 0;
+  ReaperAppearance _appearance = const ReaperAppearance();
+  Outfit _outfit = Outfit.shrouded;
+
+  /// Follow the animated face, including the Hollow's carried skull.
+  vm.Matrix4 get faceTransform => _find(
+    _model,
+    'face_${genome.reaperClass == ReaperClass.hollow ? 0 : genome.head}',
+  )!.globalTransform;
+
+  void dress(ReaperAppearance appearance) {
+    _appearance = appearance;
+    _visit(_model, (node) {
+      final visible = reaperPartVisible(node.name, genome, _outfit, appearance);
+      if (visible != null) node.visible = visible;
+    });
+  }
 
   /// Samples an authored clip without changing placement or game state.
   void sample(ReaperMotion motion, double seconds) {
@@ -83,7 +101,7 @@ final class ReaperRig {
     }
     _seconds = seconds;
     _clip!.seek(seconds);
-    _held?.visible = !motion.unarmed;
+    _held?.visible = _appearance.holding && !motion.unarmed;
   }
 
   /// Shortest and tallest a reaper stands, as a scale on the model.
@@ -95,9 +113,11 @@ final class ReaperRig {
   /// A weapon's temper is drawn the way the outfit of the same name is: the
   /// same model, more burned and more hollow.
   Future<void> wield(Weapon weapon) async {
+    final generation = ++_weaponGeneration;
     if (_heldKind != weapon.kind) {
-      await _hold(weapon.kind);
+      await _hold(weapon.kind, generation);
     }
+    if (generation != _weaponGeneration) return;
 
     final look = ReaperLook.of(genome, Outfit.values[weapon.temper.index]);
 
@@ -107,7 +127,7 @@ final class ReaperRig {
     }
   }
 
-  Future<void> _hold(WeaponKind kind) async {
+  Future<void> _hold(WeaponKind kind, int generation) async {
     final socket = _find(_model, 'socket_weapon');
 
     if (socket == null) {
@@ -121,14 +141,18 @@ final class ReaperRig {
       throw StateError('weapons.glb has no weapon_${kind.name} node');
     }
 
+    final materials = <String, PreprocessedMaterial>{};
+    await _adoptMaterials(held, materials);
+    if (generation != _weaponGeneration) return;
+
     _held?.detach();
     held.detach();
     socket.add(held);
     _held = held;
     _heldKind = kind;
-    _weaponMaterials.clear();
-
-    await _adoptMaterials(held, _weaponMaterials);
+    _weaponMaterials
+      ..clear()
+      ..addAll(materials);
   }
 
   /// Dresses the reaper in [outfit].
@@ -136,39 +160,22 @@ final class ReaperRig {
   /// An outfit is the same model drawn with different numbers, so this is
   /// cheap and can be called as the player browses the armory.
   void wear(Outfit outfit) {
+    _outfit = outfit;
     final look = ReaperLook.of(genome, outfit);
 
     for (final MapEntry(key: name, value: material) in _materials.entries) {
       _applyLook(material.parameters, look, look.surfaceFor(name));
     }
 
-    _visit(_model, (node) {
-      if (node.name.startsWith('void_') || node.name.startsWith('wrap_')) {
-        node.visible = !look.headless;
-      }
-    });
+    dress(_appearance);
   }
 
-  /// Shows the head, mantle and robe the genome names and sets its
-  /// continuous traits.
-  Future<void> _showGenomeParts() async {
-    final chosen = {
-      'head_': genome.head,
-      'mantle_': genome.mantle,
-      'robe_': genome.robe,
-    };
-
+  /// Sets continuous traits; [dress] owns all part visibility.
+  Future<void> _setGenomeTraits() async {
     _visit(_model, (node) {
-      for (final MapEntry(key: prefix, value: index) in chosen.entries) {
-        final suffix = node.name.startsWith(prefix)
-            ? int.tryParse(node.name.substring(prefix.length))
-            : null;
-
-        if (suffix != null) {
-          node.visible = suffix == index;
-        }
+      if (node.name.startsWith('face_')) {
+        node.scale.x = 0.8 + 0.4 * ReaperGenome.fraction(genome.gaze);
       }
-
       if (node.name.startsWith('eyes')) {
         node.scale = vm.Vector3.all(
           0.8 + 0.7 * ReaperGenome.fraction(genome.gaze),
@@ -307,6 +314,9 @@ final class _ReaperCloth extends Component {
       'billow': cloth.billow,
       'gaunt': ReaperGenome.fraction(_rig.genome.gauntness),
       'long_hem': ReaperGenome.fraction(_rig.genome.tatter),
+      'short_robe': _rig._appearance.clothing == ReaperClothing.tunic
+          ? 1.0
+          : 0.0,
     };
 
     for (final MapEntry(key: name, value: weight) in weights.entries) {

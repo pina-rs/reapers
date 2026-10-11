@@ -27,6 +27,7 @@ PREVIEW_COLORS = {
     "frame": (0.2, 0.14, 0.08),
     "core": (0.01, 0.01, 0.015),
     "shroud": (0.2, 0.26, 0.3),
+    "spirit": (0.025, 0.055, 0.07),
     "body": (0.2, 0.14, 0.1),
     "trim": (0.55, 0.42, 0.3),
     "detail": (0.7, 0.66, 0.58),
@@ -175,7 +176,7 @@ def _camera(location, target, lens=70):
     return camera
 
 
-def render_sheet(path, centre=(0, 0, 1.4), distance=7.4, width=560, height=840, views=("front", "threequarter", "back", "silhouette"), look=None):
+def render_sheet(path, centre=(0, 0, 1.4), distance=7.4, width=560, height=840, views=("front", "threequarter", "back", "silhouette"), look=None, eye_height=-0.25, view_rotation=None):
     """Renders the scene from several angles into one side-by-side image.
 
     `look` dresses a creature in one NFT's colours and trait, so the sheet
@@ -217,9 +218,14 @@ def render_sheet(path, centre=(0, 0, 1.4), distance=7.4, width=560, height=840, 
         eye = (
             centre[0] + math.sin(angle) * distance,
             centre[1] - math.cos(angle) * distance,
-            centre[2] - 0.25,
+            centre[2] + eye_height,
         )
+        if view_rotation is not None:
+            eye = Vector(centre) + view_rotation @ (Vector(eye) - Vector(centre))
         camera = _camera(eye, centre)
+        if view_rotation is not None:
+            local_direction = view_rotation.inverted() @ (Vector(centre) - Vector(eye))
+            camera.rotation_euler = (view_rotation @ local_direction.to_track_quat("-Z", "Y")).to_euler()
         tile = f"{path}.{view}.png"
         scene.render.filepath = tile
         bpy.ops.render.render(write_still=True)

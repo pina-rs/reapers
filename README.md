@@ -50,6 +50,8 @@ The studio runs in a browser or on Android and iOS. It shows the actual 3D model
 
 Open **Animations · 32 states** to try gliding gaits, reactions, meme poses, weapon attacks and finishers. Play, pause, slow down or scrub every clip on the customized character. See [the animation catalogue](docs/animations.md) for rig details and weapon restrictions.
 
+Use **Appearance** to swap head and shoulder variations, robe cuts and held objects. Try **Humanoid** for articulated legs, or **Spirit** for floating wisps. Clothing can be a long robe, short tunic or no outer robe. Reactions and memes have expressive eyes and spectral mouths; **Inspect expression** pauses a clip and focuses on the face.
+
 **Your reapers** holds the starter and verified NFT reapers, each with its own experience, equipment and codex. Online Android builds can prove wallet ownership through Mobile Wallet Adapter. Solana Kit verifies assets from a configured Metaplex Core collection; buying happens in the configured marketplace, then the game imports the asset. No collection or marketplace is invented by default. The hunt's five husk collections, prices and burns remain simulated. See [docs/solana.md](docs/solana.md) for setup and the remaining chain work.
 
 To watch it play itself, which is the only way to see a full hunt on a simulator:

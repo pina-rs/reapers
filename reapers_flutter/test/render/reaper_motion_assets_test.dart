@@ -62,8 +62,23 @@ void main() {
           'elbow_l',
           'wrist_r',
           'wrist_l',
+          'leg_l',
+          'leg_r',
+          'knee_l',
+          'knee_r',
+          'foot_l',
+          'foot_r',
         };
         expect(names, containsAll({...joints, 'socket_weapon'}));
+        expect(
+          names,
+          containsAll({'spirit_body', 'spirit_form', 'humanoid_form'}),
+        );
+        final faces = {
+          for (var i = 0; i < (calling == ReaperClass.hollow ? 1 : 3); i++)
+            'face_$i',
+        };
+        expect(names, containsAll(faces));
         final animations = _list(glb.json['animations']).map(_object).toList();
         expect(
           animations.map((clip) => clip['name']),
@@ -74,6 +89,8 @@ void main() {
           final samplers = _list(clip['samplers']).map(_object).toList();
           final channels = _list(clip['channels']).map(_object);
           final animated = <String>{};
+          final animatedFaces = <String>{};
+          var expressionMoves = false;
           var moves = false;
           for (final channel in channels) {
             final target = _object(channel['target']);
@@ -92,6 +109,17 @@ void main() {
             }
             expect(values.every((v) => v.isFinite), isTrue);
             final width = values.length ~/ times.length;
+            if (target['path'] == 'weights' &&
+                faces.contains(nodes[target['node'] as int]['name'])) {
+              animatedFaces.add(nodes[target['node'] as int]['name'] as String);
+              expressionMoves =
+                  expressionMoves || values.any((value) => value > 0.2);
+              expect(values, everyElement(inInclusiveRange(0, 1)));
+              for (var i = 0; i < width; i++) {
+                expect(values[i], closeTo(0, 1e-5));
+                expect(values[values.length - width + i], closeTo(0, 1e-5));
+              }
+            }
             if ((motion == ReaperMotion.dashLeft ||
                     motion == ReaperMotion.dashRight) &&
                 nodes[target['node'] as int]['name'] == 'motion' &&
@@ -131,6 +159,19 @@ void main() {
             reason: '${motion.name} must reset every joint',
           );
           expect(moves, isTrue, reason: '${motion.name} must move');
+          expect(
+            animatedFaces,
+            faces,
+            reason: '${motion.name} resets every face',
+          );
+          if (motion.group == MotionGroup.reaction ||
+              motion.group == MotionGroup.meme) {
+            expect(
+              expressionMoves,
+              isTrue,
+              reason: '${motion.name} has an expression',
+            );
+          }
         }
       },
     );

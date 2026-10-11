@@ -22,17 +22,37 @@ def main():
     parser.add_argument("--clip", required=True)
     parser.add_argument("--phase", type=float, default=0.5)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--face", action="store_true")
+    parser.add_argument("--humanoid", action="store_true")
+    parser.add_argument("--clothing", choices=("robe", "tunic", "none"), default="robe")
     options = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
     core.reset_scene()
     bpy.ops.import_scene.gltf(filepath=f"reapers_flutter/assets/models/reaper_{options.calling}.glb")
     root = bpy.data.objects["reaper"]
     show_variant(root, 0, 0, 0)
+    for obj in root.children_recursive:
+        if obj.name in ("humanoid_form", "spirit_form"):
+            hidden = (obj.name == "humanoid_form") != options.humanoid
+            obj.hide_render = hidden
+            for child in obj.children_recursive:
+                child.hide_render = hidden
+        if obj.name == "robe_0":
+            obj.hide_render = options.clothing == "none"
+            if options.clothing == "tunic":
+                obj.data.shape_keys.key_blocks["short_robe"].value = 1
+        if options.clothing == "none" and ("_sleeve" in obj.name or obj.name.endswith("_cuff")):
+            obj.hide_render = True
     with open("art/build/motions.json") as source:
         spec = next(item for item in json.load(source) if item["name"] == options.clip)
     for obj in bpy.data.objects:
         if obj.animation_data:
             obj.animation_data.action = None
             for track in obj.animation_data.nla_tracks:
+                track.mute = track.name != options.clip
+        if obj.type == "MESH" and obj.data.shape_keys and obj.data.shape_keys.animation_data:
+            animation = obj.data.shape_keys.animation_data
+            animation.action = None
+            for track in animation.nla_tracks:
                 track.mute = track.name != options.clip
     # glTF import uses the current scene FPS and puts the first sample at 1.
     frame = 1 + options.phase * spec["seconds"] * bpy.context.scene.render.fps
@@ -41,7 +61,17 @@ def main():
         hold_weapon(root, CLASSES[options.calling])
     # GLB import changes Blender material names; the preview restores its light.
     os.makedirs(os.path.dirname(options.out), exist_ok=True)
-    preview.render_sheet(options.out, centre=(0, 0, 1.35), distance=8.5, width=420, height=560, views=("front", "threequarter", "side"))
+    centre = bpy.data.objects["face_0"].matrix_world.translation if options.face else (0, 0, 1.35)
+    preview.render_sheet(
+        options.out,
+        centre=centre,
+        distance=1.5 if options.face else 8.5,
+        width=420,
+        height=560,
+        views=("front", "threequarter", "side"),
+        eye_height=0.04 if options.face else -0.25,
+        view_rotation=bpy.data.objects["face_0"].matrix_world.to_quaternion() if options.face else None,
+    )
     print(f"BUILT {options.out}")
 
 
