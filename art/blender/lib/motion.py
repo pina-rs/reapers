@@ -1,4 +1,4 @@
-"""Thirty reusable floating-reaper performances, baked to named glTF clips.
+"""Reusable floating-reaper performances, baked to named glTF clips.
 
 Pose angles are local XYZ degrees in Blender's Z-up frame. Each clip keys
 all joints, including resting joints, so switching never inherits a stale pose.
@@ -231,6 +231,17 @@ def sample(name, phase):
             (0.18, GUARD),
             (0.48, pose(move=(side * 0.6, 0, 0.08), motion=(10, side * -22, 0), arm_r=(-25, 20, 0), arm_l=(-40, -20, 0))),
             (0.7, pose(move=(side * 0.6, 0, 0))),
+            (1, REST),
+        ]
+    elif name in ("dashLeft", "dashRight"):
+        # +X is the reaper's left. Bank into a fast lateral burst, with
+        # trailing arms and a longer excursion than the guarded dodge.
+        side = 1 if name == "dashLeft" else -1
+        keys = [
+            (0, REST),
+            (0.16, pose(move=(-side * 0.1, 0, -0.025), motion=(0, -side * 8, 0))),
+            (0.4, pose(move=(side * 0.95, 0, 0.1), motion=(12, side * 30, 0), head=(-6, -side * 12, 0), arm_r=(22, side * 18, 0), arm_l=(35, side * 18, 0))),
+            (0.65, pose(move=(side * 1.05, 0, 0.05), motion=(5, side * 12, 0), arm_r=(10, side * 8, 0), arm_l=(18, side * 8, 0))),
             (1, REST),
         ]
     else:

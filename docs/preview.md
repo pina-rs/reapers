@@ -21,7 +21,7 @@ Publish the complete `build/web` directory, including its local WebGL bindings. 
 
 For a predictable local address, run `fvm flutter run -d web-server --web-hostname=127.0.0.1 --web-port=8088 -t lib/main_preview.dart` inside `reapers_flutter`, then open [the studio](http://127.0.0.1:8088). Asking the agent to “run the reaper studio” refers to this preview.
 
-**Animations · 30 states** opens movement, reaction, meme, combat and finisher previews on the current specimen. Select a clip, play or pause, replay, scrub the timeline, or change speed. Attacks have an **Inspect contact pose** shortcut. Weapon-specific finishers explain which calling can use them. With reduced motion enabled, scrub manually. The full [animation catalogue and rig guide](animations.md) covers the 30 states, class adaptations and current limits.
+**Animations · 32 states** opens movement, reaction, meme, combat and finisher previews on the current specimen. Select a clip, play or pause, replay, scrub the timeline, or change speed. Attacks have an **Inspect contact pose** shortcut. Weapon-specific finishers explain which calling can use them. With reduced motion enabled, scrub manually. The full [animation catalogue and rig guide](animations.md) covers the 32 states, class adaptations and current limits.
 
 **Birth traits** lets you try all six callings, head and mantle variants, hems, colourways, omens and auras. Sliders change stature, gauntness, gaze and tatter. Drag the model to turn it or pause its automatic rotation, which makes one slow revolution and then holds. Copy genome preserves a specimen's reproducible code. Owned reapers cannot edit these traits: mint metadata determines their birth.
 

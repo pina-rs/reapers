@@ -3364,6 +3364,18 @@ abstract class AppLocalizations {
   /// **'Phantom dash'**
   String get motionDash;
 
+  /// No description provided for @motionDashLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'Dash left'**
+  String get motionDashLeft;
+
+  /// No description provided for @motionDashRight.
+  ///
+  /// In en, this message translates to:
+  /// **'Dash right'**
+  String get motionDashRight;
+
   /// No description provided for @motionLaugh.
   ///
   /// In en, this message translates to:
@@ -3487,7 +3499,7 @@ abstract class AppLocalizations {
   /// No description provided for @motionTitle.
   ///
   /// In en, this message translates to:
-  /// **'Animations · 30 states'**
+  /// **'Animations · 32 states'**
   String get motionTitle;
 
   /// No description provided for @motionIntro.

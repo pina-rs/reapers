@@ -71,7 +71,7 @@ reaper                      the root; an empty named "reaper"
       wrist_l
 ```
 
-Before export, `lib/motion.py` inserts a `motion` pivot at waist height between `reaper` and these children, preserving their rest positions. All 30 clips key this pivot and the seven joints. The exported model uses rigid parts, with overlapping sleeve sections at the elbows. The Hollow's head lantern follows its left wrist. The Mourner's concealed second arm emerges for gestures. See [the animation guide](../../docs/animations.md) for clip names, class differences and review commands.
+Before export, `lib/motion.py` inserts a `motion` pivot at waist height between `reaper` and these children, preserving their rest positions. All 32 clips key this pivot and the seven joints. The exported model uses rigid parts, with overlapping sleeve sections at the elbows. The Hollow's head lantern follows its left wrist. The Mourner's concealed second arm emerges for gestures. See [the animation guide](../../docs/animations.md) for clip names, class differences and review commands.
 
 The reaper driver reads `art/build/motions.json`, written by `fvm dart tool/build_art.dart --specs-only`. Rebuild that spec before invoking Blender directly after changing the shared animation catalogue.
 

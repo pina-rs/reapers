@@ -48,7 +48,7 @@ fvm flutter run -d chrome -t lib/main_preview.dart
 
 The studio runs in a browser or on Android and iOS. It shows the actual 3D models: change birth traits, absorb illustrative husks, scrub levels and try unlocked weapons and outfits. It never reads or writes a player save. The camera hunt runs on Android and iOS; desktop apps are not supported targets. See [docs/preview.md](docs/preview.md).
 
-Open **Animations · 30 states** to try gliding gaits, reactions, meme poses, weapon attacks and finishers. Play, pause, slow down or scrub every clip on the customized character. See [the animation catalogue](docs/animations.md) for rig details and weapon restrictions.
+Open **Animations · 32 states** to try gliding gaits, reactions, meme poses, weapon attacks and finishers. Play, pause, slow down or scrub every clip on the customized character. See [the animation catalogue](docs/animations.md) for rig details and weapon restrictions.
 
 **Your reapers** holds the starter and verified NFT reapers, each with its own experience, equipment and codex. Online Android builds can prove wallet ownership through Mobile Wallet Adapter. Solana Kit verifies assets from a configured Metaplex Core collection; buying happens in the configured marketplace, then the game imports the asset. No collection or marketplace is invented by default. The hunt's five husk collections, prices and burns remain simulated. See [docs/solana.md](docs/solana.md) for setup and the remaining chain work.
 

@@ -35,8 +35,20 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.text('Animations · 30 states'));
+      await tester.tap(find.text('Animations · 32 states'));
       await tester.pumpAndSettle();
+      for (final (label, motion) in [
+        ('Dash left', ReaperMotion.dashLeft),
+        ('Dash right', ReaperMotion.dashRight),
+      ]) {
+        await tester.tap(find.byType(DropdownButtonFormField<ReaperMotion>));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text(label).last);
+        await tester.tap(find.text(label).last);
+        await tester.pumpAndSettle();
+        expect(clock.motion, motion);
+        expect(clock.playing, !reduced);
+      }
       await tester.tap(find.text('Finishers'));
       await tester.pumpAndSettle();
       await tester.tap(find.byType(DropdownButtonFormField<ReaperMotion>));

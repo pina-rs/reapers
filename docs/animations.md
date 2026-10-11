@@ -1,14 +1,14 @@
 # Reaper animations
 
-Open **Animations · 30 states** in the [Reaper studio](preview.md). Choose a group and a clip, pause it, scrub any pose, replay it, or slow it to quarter speed. **Inspect contact pose** goes straight to an attack's contact frame. Change calling, birth traits and equipment in the same studio. Everything is an unsaved specimen.
+Open **Animations · 32 states** in the [Reaper studio](preview.md). Choose a group and a clip, pause it, scrub any pose, replay it, or slow it to quarter speed. **Inspect contact pose** goes straight to an attack's contact frame. Change calling, birth traits and equipment in the same studio. Everything is an unsaved specimen.
 
 The six reapers keep their floating silhouettes. Walk, run and sprint are distinct in-place gliding cycles. Jump, dodge and dash have bounded local movement and return to their starting position. A future third-person controller must own world movement separately.
 
-## The 30 clips
+## The 32 clips
 
 | Group | Clips |
 | --- | --- |
-| Movement | Idle hover, walk very slowly, walk, run, sprint, jump, land, dodge left, dodge right, phantom dash |
+| Movement | Idle hover, walk very slowly, walk, run, sprint, jump, land, dodge left, dodge right, phantom dash, dash left, dash right |
 | Reactions | Laugh, cry, angry pose, recoil in fear, bow, victory |
 | Memes | GigaChad stance, sigma chin lift, unbothered shrug, absolute cinema, T-pose dominance |
 | Combat | Anime power charge, weapon slash, weapon thrust, parry |
@@ -20,7 +20,7 @@ These are authored character performances, not new combat rules. Contact markers
 
 ## Rig and class differences
 
-Every GLB contains 30 named animations and eight shared pivots: `motion`, `head`, `arm_r`, `arm_l`, `elbow_r`, `elbow_l`, `wrist_r`, `wrist_l`. The weapon socket follows the right wrist. `motion` sits at waist height below the stationary `reaper` placement root. The rig uses articulated rigid parts, not a deforming skeletal skin. Overlapping sleeve sections cover the elbows; finger shapes are fixed.
+Every GLB contains 32 named animations and eight shared pivots: `motion`, `head`, `arm_r`, `arm_l`, `elbow_r`, `elbow_l`, `wrist_r`, `wrist_l`. The weapon socket follows the right wrist. `motion` sits at waist height below the stationary `reaper` placement root. The rig uses articulated rigid parts, not a deforming skeletal skin. Overlapping sleeve sections cover the elbows; finger shapes are fixed.
 
 The same local rotations fit all head, mantle and hem variants. The heavier Ferryman, Weigher and Mourner use restrained arm gestures; the Chooser and Hollow use broader ones. The Hollow keeps the skull lantern attached to its left wrist and uses its free right hand for soul crush and palm burst. The Mourner has a second skeletal arm concealed under its veil at rest; its head movement is reduced because the head variants include hanging veils.
 

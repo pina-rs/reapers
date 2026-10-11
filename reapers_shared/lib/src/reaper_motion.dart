@@ -13,6 +13,8 @@ enum ReaperMotion {
   dodgeLeft(0.8, MotionGroup.movement),
   dodgeRight(0.8, MotionGroup.movement),
   dash(0.8, MotionGroup.movement),
+  dashLeft(0.8, MotionGroup.movement),
+  dashRight(0.8, MotionGroup.movement),
   laugh(2.4, MotionGroup.reaction, unarmed: true),
   cry(3.2, MotionGroup.reaction, unarmed: true),
   rage(2, MotionGroup.reaction, unarmed: true),

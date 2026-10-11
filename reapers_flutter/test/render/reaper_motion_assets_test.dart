@@ -48,7 +48,7 @@ final class _Glb {
 void main() {
   for (final calling in ReaperClass.values) {
     test(
-      '${calling.name} exports the complete playable rig and 30 finite clips',
+      '${calling.name} exports the complete playable rig and finite clips',
       () {
         final glb = _Glb('assets/models/reaper_${calling.name}.glb');
         final nodes = _list(glb.json['nodes']).map(_object).toList();
@@ -92,6 +92,26 @@ void main() {
             }
             expect(values.every((v) => v.isFinite), isTrue);
             final width = values.length ~/ times.length;
+            if ((motion == ReaperMotion.dashLeft ||
+                    motion == ReaperMotion.dashRight) &&
+                nodes[target['node'] as int]['name'] == 'motion' &&
+                target['path'] == 'translation') {
+              // glTF preserves X: positive is the reaper's left, viewed
+              // from behind. The studio excursion must also return to rest.
+              final side = motion == ReaperMotion.dashLeft ? 1 : -1;
+              final lateral = [
+                for (var i = 0; i < values.length; i += width)
+                  (values[i] - values.first) * side,
+              ];
+              expect(lateral.any((x) => x > .9), isTrue);
+              expect(lateral.any((x) => x < -.05), isTrue);
+              for (var i = 0; i < width; i++) {
+                expect(
+                  values[values.length - width + i],
+                  closeTo(values[i], 1e-5),
+                );
+              }
+            }
             for (var i = width; i < values.length; i++) {
               if ((values[i] - values[i % width]).abs() > .001) moves = true;
             }

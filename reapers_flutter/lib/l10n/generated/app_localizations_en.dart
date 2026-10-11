@@ -1962,6 +1962,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get motionDash => 'Phantom dash';
 
   @override
+  String get motionDashLeft => 'Dash left';
+
+  @override
+  String get motionDashRight => 'Dash right';
+
+  @override
   String get motionLaugh => 'Laugh';
 
   @override
@@ -2022,7 +2028,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get motionFinisherUppercut => 'Finisher · Rising uppercut';
 
   @override
-  String get motionTitle => 'Animations · 30 states';
+  String get motionTitle => 'Animations · 32 states';
 
   @override
   String get motionIntro =>

@@ -45,7 +45,7 @@ void main() {
   test(
     'weapon finishers have explicit capabilities, hand moves work for all',
     () {
-      expect(ReaperMotion.values, hasLength(30));
+      expect(ReaperMotion.values, hasLength(32));
       expect(ReaperMotion.finisherImpale.supports(WeaponKind.spear), isTrue);
       expect(ReaperMotion.finisherImpale.supports(WeaponKind.bell), isFalse);
       for (final weapon in WeaponKind.values) {
