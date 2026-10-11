@@ -68,6 +68,7 @@ final class ReaperRig {
   WeaponKind? _heldKind;
   int _weaponGeneration = 0;
   AnimationClip? _clip;
+  String? _clipName;
   ReaperMotion? _motion;
   double _seconds = 0;
   ReaperAppearance _appearance = const ReaperAppearance();
@@ -89,15 +90,17 @@ final class ReaperRig {
 
   /// Samples an authored clip without changing placement or game state.
   void sample(ReaperMotion motion, double seconds) {
-    if (_motion != motion) {
-      final animation = _model.findAnimationByName(motion.name);
+    final name = _appearance.clipName(motion);
+    if (_clipName != name) {
+      final animation = _model.findAnimationByName(name);
       if (animation == null) {
-        throw StateError('Missing reaper clip: ${motion.name}');
+        throw StateError('Missing reaper clip: $name');
       }
       final previous = _clip;
       if (previous != null) _model.removeAnimationClip(previous);
       _clip = _model.createAnimationClip(animation);
       _motion = motion;
+      _clipName = name;
     }
     _seconds = seconds;
     _clip!.seek(seconds);

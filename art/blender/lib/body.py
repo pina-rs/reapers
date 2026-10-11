@@ -1,47 +1,132 @@
-"""A shared spectral body, articulated legs and removable outer clothing."""
+"""Shared anatomy with shaped legs and overlapping anatomical joints."""
 
 import math
-
 import bpy
+import bmesh
 from mathutils import Vector
-
 from . import core
+from .locomotion import HIP_X, HIP_Z, LENGTH
 
 LEG_JOINTS = ("leg_l", "leg_r", "knee_l", "knee_r", "foot_l", "foot_r")
 
 
+def limb(name, parent, material, rings):
+    """Elliptical cross-sections preserve thigh, patella, calf and ankle shapes."""
+    vertices, faces = [], []
+    sides = 24
+    for z, y, rx, ry in rings:
+        for i in range(sides):
+            a = math.tau * i / sides
+            vertices.append((math.cos(a) * rx, y + math.sin(a) * ry, z))
+    for row in range(len(rings) - 1):
+        for i in range(sides):
+            a = row * sides + i
+            b = row * sides + (i + 1) % sides
+            faces.append((a, a + sides, b + sides, b))
+    faces.append(tuple(reversed(range(sides))))
+    faces.append(tuple((len(rings) - 1) * sides + i for i in range(sides)))
+    mesh = bmesh.new()
+    points = [mesh.verts.new(point) for point in vertices]
+    for face in faces:
+        mesh.faces.new([points[index] for index in face])
+    obj = core.object_from_bmesh(name, mesh, material, parent)
+    core.shade_smooth(obj)
+    core.finish(obj)
+    return obj
+
+
 def build(root, calling):
-    """Keep the class's head, shoulders and hands around a complete body."""
+    """Fit anatomical mass around the existing class shoulders and garments."""
     nodes = {node.name: node for node in root.children_recursive}
     shoulder = nodes["arm_l"].location
-    width = {"ferryman": 0.24, "hollow": 0.19, "mourner": 0.13}.get(calling, 0.16)
+    width = {"ferryman": 0.235, "hollow": 0.19, "mourner": 0.15}.get(calling, 0.185)
     material = core.material("spirit", color=(0.08, 0.12, 0.15))
     torso = core.sculpt(
         "spirit_body",
         [
-            ("sphere", (0, shoulder.y * 0.7, 1.42), (width, 0.10, 0.24)),
-            ("sphere", (0, shoulder.y * 0.3, 1.18), (width * 0.66, 0.085, 0.20)),
-            ("sphere", (0, 0, 1.01), (width * 0.85, 0.10, 0.12)),
+            ("sphere", (0, shoulder.y * 0.7, 1.44), (width, 0.12, 0.22)),
+            ("sphere", (0, shoulder.y * 0.35, 1.24), (width * 0.68, 0.105, 0.22)),
         ],
         material,
         root,
-        voxel=0.018,
+        voxel=0.014,
     )
     core.finish(torso)
-    # Sleeves can be removed without leaving hands suspended in space.
+    pelvis = core.sculpt(
+        "pelvis_body",
+        [
+            ("sphere", (0, 0.015, 1.04), (0.19, 0.125, 0.15)),
+            ("sphere", (-0.09, 0.04, 1.01), (0.10, 0.115, 0.115)),
+            ("sphere", (0.09, 0.04, 1.01), (0.10, 0.115, 0.115)),
+        ],
+        material,
+        root,
+        voxel=0.015,
+    )
+    core.finish(pelvis)
     for side in ("l", "r"):
         arm, elbow, wrist = (nodes[f"{joint}_{side}"] for joint in ("arm", "elbow", "wrist"))
         for parent, end, name in ((arm, elbow.location, "upper"), (elbow, wrist.location, "lower")):
-            core.finish(core.tube(f"spirit_arm_{side}_{name}", [Vector(), end], lambda t: 0.046 - 0.013 * t, material, parent, sides=10))
+            core.finish(core.tube(f"spirit_arm_{side}_{name}", [Vector(), end], lambda t: 0.058 - 0.024 * t, material, parent, sides=16))
 
     legs = core.empty("humanoid_form", root)
     for side, sign in (("l", 1), ("r", -1)):
-        hip = core.empty(f"leg_{side}", legs, location=(sign * 0.10, 0, 1.01))
-        knee = core.empty(f"knee_{side}", hip, location=(0, -0.015, -0.44))
-        ankle = core.empty(f"foot_{side}", knee, location=(0, 0.015, -0.44))
-        core.finish(core.tube(f"thigh_{side}", [(0, 0, 0), (0, -0.015, -0.46)], lambda t: 0.068 - 0.026 * t, material, hip, sides=12))
-        core.finish(core.tube(f"shin_{side}", [(0, 0, 0.025), (0, 0.015, -0.46)], lambda t: 0.048 - 0.021 * t, material, knee, sides=12))
-        core.finish(core.sculpt(f"boot_{side}", [("sphere", (0, -0.055, -0.075), (0.053, 0.11, 0.052))], core.material("cloth_alt"), ankle, voxel=0.012))
+        hip = core.empty(f"leg_{side}", legs, location=(sign * HIP_X, 0, HIP_Z))
+        knee = core.empty(f"knee_{side}", hip, location=(0, 0, -LENGTH))
+        ankle = core.empty(f"foot_{side}", knee, location=(0, 0, -LENGTH))
+        limb(
+            f"thigh_{side}",
+            hip,
+            material,
+            [
+                (0.055, 0.01, 0.048, 0.07),
+                (0.0, 0.015, 0.094, 0.115),
+                (-0.09, 0.005, 0.102, 0.119),
+                (-0.20, -0.005, 0.094, 0.106),
+                (-0.31, -0.015, 0.074, 0.080),
+                (-0.40, -0.018, 0.060, 0.064),
+                (-0.465, 0, 0.048, 0.050),
+            ],
+        )
+        limb(
+            f"shin_{side}",
+            knee,
+            material,
+            [
+                (0.04, 0, 0.048, 0.052),
+                (0.0, -0.014, 0.064, 0.066),
+                (-0.055, -0.005, 0.066, 0.067),
+                (-0.14, 0.027, 0.075, 0.090),
+                (-0.24, 0.02, 0.063, 0.073),
+                (-0.34, 0.007, 0.044, 0.047),
+                (-0.43, 0, 0.040, 0.041),
+                (-0.465, 0, 0.033, 0.037),
+            ],
+        )
+        core.finish(
+            core.sculpt(
+                f"patella_{side}",
+                [
+                    ("sphere", (0, -0.056, -0.004), (0.052, 0.022, 0.056)),
+                ],
+                material,
+                knee,
+                voxel=0.009,
+            )
+        )
+        core.finish(
+            core.sculpt(
+                f"boot_{side}",
+                [
+                    ("sphere", (0, 0, -0.025), (0.055, 0.065, 0.09)),
+                    ("sphere", (0, 0.018, -0.087), (0.066, 0.064, 0.043)),
+                    ("sphere", (0, -0.10, -0.085), (0.073, 0.12, 0.045)),
+                ],
+                core.material("cloth"),
+                ankle,
+                voxel=0.008,
+            )
+        )
 
     tail = core.empty("spirit_form", root)
     for strand in range(3):
@@ -59,26 +144,7 @@ def build(root, calling):
         if node.data.shape_keys is None:
             node.shape_key_add(name="Basis")
         short = node.shape_key_add(name="short_robe")
-        # A knee-length tunic retains each class's authored upper tailoring.
         for vertex in short.data:
             if vertex.co.z < 1.18:
-                vertex.co.z = 1.18 + (vertex.co.z - 1.18) * 0.36
+                vertex.co.z = 1.18 + (vertex.co.z - 1.18) * 0.28
         short.value = 0
-
-
-def sample(name, phase):
-    """Leg performances share clip timing with the floating upper body."""
-    result = {}
-    for side, offset in (("l", 0), ("r", math.pi)):
-        cycle = phase * math.tau + offset
-        if name in ("creep", "walk", "run", "sprint"):
-            stride = {"creep": 10, "walk": 22, "run": 38, "sprint": 50}[name]
-            result[f"leg_{side}"] = (stride * math.sin(cycle), 0, 0)
-            result[f"knee_{side}"] = (-max(0, math.sin(cycle)) * stride * 1.4, 0, 0)
-            result[f"foot_{side}"] = (max(0, math.sin(cycle)) * stride * 0.45, 0, 0)
-        else:
-            tuck = math.sin(phase * math.pi) ** 2
-            bend = 35 if name in ("jump", "land", "finisherUppercut") else 8
-            result[f"leg_{side}"] = (bend * tuck, 0, 0)
-            result[f"knee_{side}"] = (-bend * 1.5 * tuck, 0, 0)
-    return result

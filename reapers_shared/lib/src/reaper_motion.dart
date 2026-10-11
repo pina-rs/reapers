@@ -4,10 +4,10 @@ import 'reaper_class.dart';
 /// These are presentation timings; they never award damage or settle a hunt.
 enum ReaperMotion {
   idle(4, MotionGroup.movement, loops: true),
-  creep(3.2, MotionGroup.movement, loops: true),
-  walk(2, MotionGroup.movement, loops: true),
-  run(1, MotionGroup.movement, loops: true),
-  sprint(0.7, MotionGroup.movement, loops: true),
+  creep(2.4, MotionGroup.movement, loops: true),
+  walk(1.2, MotionGroup.movement, loops: true),
+  run(0.8, MotionGroup.movement, loops: true),
+  sprint(0.6, MotionGroup.movement, loops: true),
   jump(1.4, MotionGroup.movement),
   land(0.7, MotionGroup.movement),
   dodgeLeft(0.8, MotionGroup.movement),

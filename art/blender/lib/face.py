@@ -169,7 +169,7 @@ def bake(faces, specs):
             for frame in range(frames + 1):
                 for expression in EXPRESSIONS:
                     shape = data.key_blocks[expression]
-                    shape.value = weight(spec["name"], expression, frame / frames)
+                    shape.value = weight(spec["motion"], expression, frame / frames)
                     shape.keyframe_insert(data_path="value", frame=frame)
             action = data.animation_data.action
             action.name = f'{spec["name"]}_{obj.name}'

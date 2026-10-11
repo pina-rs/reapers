@@ -2365,7 +2365,7 @@ abstract class AppLocalizations {
   /// No description provided for @studioFormHelp.
   ///
   /// In en, this message translates to:
-  /// **'Spirit form floats. Humanoid form has articulated legs. These choices are for this preview.'**
+  /// **'Spirit form floats. Humanoid form walks on grounded legs. These choices are for this preview.'**
   String get studioFormHelp;
 
   /// No description provided for @studioClothing.
@@ -3403,7 +3403,7 @@ abstract class AppLocalizations {
   /// No description provided for @motionIdle.
   ///
   /// In en, this message translates to:
-  /// **'Idle hover'**
+  /// **'Idle'**
   String get motionIdle;
 
   /// No description provided for @motionCreep.
@@ -3601,7 +3601,7 @@ abstract class AppLocalizations {
   /// No description provided for @motionIntro.
   ///
   /// In en, this message translates to:
-  /// **'Explore floating gaits, reactions, memes and finishers. These are performance previews; they do not change combat or your save.'**
+  /// **'Explore walks, glides, reactions, memes and finishers. These are performance previews; they do not change combat or your save.'**
   String get motionIntro;
 
   /// No description provided for @motionMovement.

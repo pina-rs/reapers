@@ -1,4 +1,4 @@
-"""Reusable floating-reaper performances, baked to named glTF clips.
+"""Shared spirit and humanoid performances, baked to named glTF clips.
 
 Pose angles are local XYZ degrees in Blender's Z-up frame. Each clip keys
 all joints, including resting joints, so switching never inherits a stale pose.
@@ -8,11 +8,11 @@ The rig is articulated rigid cloth, matching the existing node-based renderer.
 import math
 
 import bpy
-from mathutils import Vector
+from mathutils import Euler, Quaternion, Vector
 
-from . import body, core
+from . import body, combat, core, curves, locomotion
 
-JOINTS = ("motion", "head", "arm_r", "arm_l", "elbow_r", "elbow_l", "wrist_r", "wrist_l") + body.LEG_JOINTS
+JOINTS = ("motion", "spine", "head", "arm_r", "arm_l", "elbow_r", "elbow_l", "wrist_r", "wrist_l") + body.LEG_JOINTS
 
 # Subtle timing/size accents preserve silhouettes without losing shared clips.
 AMPLITUDE = {"harvester": 1.0, "ferryman": 0.85, "weigher": 0.8, "chooser": 1.05, "hollow": 1.12, "mourner": 0.75}
@@ -57,8 +57,8 @@ KEYS = {
     ],
     "cry": [
         (0, REST),
-        (0.25, pose(head=(32, 0, 0), motion=(15, 0, 0), arm_l=(-100, -10, -15), elbow_l=(-60, 0, 0))),
-        (0.8, pose(head=(38, 0, -8), motion=(18, 0, 0), arm_l=(-100, -10, -15), elbow_l=(-60, 0, 0))),
+        (0.25, pose(head=(20, 0, 0), motion=(10, 0, 0), arm_l=(-35, -10, -15), elbow_l=(-100, 0, 0))),
+        (0.8, pose(head=(24, 0, -8), motion=(12, 0, 0), arm_l=(-40, -10, -15), elbow_l=(-105, 0, 0))),
         (1, REST),
     ],
     "rage": [
@@ -139,82 +139,20 @@ KEYS = {
         (0.2, GUARD),
         (
             0.72,
-            pose(
-                move=(0, 0, 0.16), motion=(12, 0, 0), head=(15, 0, 0), arm_r=(0, 40, 0), arm_l=(0, -40, 0), elbow_r=(-80, 0, 0), elbow_l=(-80, 0, 0)
-            ),
+            pose(move=(0, 0, 0.16), motion=(12, 0, 0), head=(15, 0, 0), arm_r=(0, 40, 0), arm_l=(0, -40, 0), elbow_r=(-80, 0, 0), elbow_l=(-80, 0, 0)),
         ),
         (0.86, pose(move=(0, 0, 0.3), motion=(-8, 0, 0), head=(-25, 0, 0), arm_r=(0, 75, 0), arm_l=(0, -75, 0))),
         (1, REST),
     ],
-    "slash": [
-        (0, REST),
-        (0.3, pose(motion=(0, 0, -35), arm_r=(-50, 30, -45), wrist_r=(0, 40, 0))),
-        (0.45, pose(motion=(8, 0, 30), arm_r=(-25, 0, 45), wrist_r=(0, -45, 0), arm_l=(10, -35, 0))),
-        (0.62, pose(motion=(5, 0, 40), arm_r=(-20, -15, 55))),
-        (1, REST),
-    ],
-    "thrust": [
-        (0, REST),
-        (0.27, pose(motion=(-5, 0, -20), arm_r=(20, 0, -10), wrist_r=(80, 0, 0))),
-        (0.45, pose(move=(0, -0.3, 0.04), motion=(12, 0, 15), arm_r=(-65, 0, 10), wrist_r=(143, 0, 0))),
-        (0.62, pose(move=(0, -0.3, 0.04), motion=(12, 0, 15), arm_r=(-65, 0, 10), wrist_r=(143, 0, 0))),
-        (1, REST),
-    ],
-    "parry": [
-        (0, REST),
-        (0.22, pose(arm_r=(-55, 20, -30), wrist_r=(0, 0, 55), motion=(0, 0, -15))),
-        (0.45, pose(move=(0, 0.1, 0), arm_r=(-50, 15, -25), wrist_r=(0, 0, 55), motion=(-8, 0, -20))),
-        (0.65, GUARD),
-        (1, REST),
-    ],
-    "finisherReap": [
-        (0, REST),
-        (0.25, pose(motion=(0, 0, -55), arm_r=(-40, 40, -30), wrist_r=(10, 65, 0), head=(5, 0, 30))),
-        (0.45, pose(motion=(12, 0, -20), arm_r=(-15, 20, 0), wrist_r=(10, 65, 0))),
-        (0.52, pose(move=(0, -0.25, 0.06), motion=(14, 0, 70), arm_r=(-10, -10, 60), wrist_r=(0, -55, 0), arm_l=(20, -45, 0))),
-        (0.7, pose(motion=(0, 0, 140), arm_r=(-10, 15, 30), head=(0, 0, -35))),
-        (1, REST),
-    ],
-    "finisherImpale": [
-        (0, REST),
-        (0.3, pose(motion=(-8, 0, -30), arm_r=(15, 0, -20), wrist_r=(85, 0, 0))),
-        (0.46, pose(move=(0, -0.55, 0.08), motion=(20, 0, 20), arm_r=(-70, 0, 15), wrist_r=(140, 0, 0))),
-        (0.68, pose(move=(0, -0.55, 0.15), motion=(0, 0, 15), arm_r=(-105, 0, 15), wrist_r=(160, 0, 0))),
-        (0.85, GUARD),
-        (1, REST),
-    ],
-    "finisherSoulCrush": [
-        (0, REST),
-        (0.3, pose(arm_l=(-85, -15, 0), elbow_l=(-15, 0, 0), head=(5, 0, 12))),
-        (0.48, pose(arm_l=(-125, -10, 0), elbow_l=(-35, 0, 0), head=(-20, 0, 10), move=(0, 0, 0.1))),
-        (0.6, pose(arm_l=(-115, -10, 0), elbow_l=(-65, 0, 0), wrist_l=(0, 0, 80), head=(15, 0, 10))),
-        (0.78, pose(arm_l=(-40, -40, 0), motion=(0, 0, -15), head=(-10, 0, 20))),
-        (1, REST),
-    ],
-    "finisherPalm": [
-        (0, REST),
-        (0.32, pose(motion=(0, 0, -35), arm_l=(0, -15, -25), elbow_l=(-90, 0, 0), arm_r=(-35, 20, 0))),
-        (0.5, pose(move=(0, -0.4, 0.08), motion=(12, 0, 25), arm_l=(-95, -5, 15), wrist_l=(-20, 0, 0), arm_r=(20, 25, 0))),
-        (0.72, pose(move=(0, -0.4, 0.08), motion=(12, 0, 25), arm_l=(-95, -5, 15), wrist_l=(-20, 0, 0))),
-        (1, REST),
-    ],
-    "finisherUppercut": [
-        (0, REST),
-        (0.3, pose(move=(0, 0, -0.04), motion=(22, 0, -25), arm_r=(25, 15, 0), elbow_r=(-70, 0, 0))),
-        (0.48, pose(move=(0, -0.2, 0.55), motion=(-15, 0, 35), arm_r=(-135, 10, 0), elbow_r=(-35, 0, 0), arm_l=(25, -25, 0))),
-        (0.66, pose(move=(0, -0.2, 0.4), motion=(-5, 0, 40), arm_r=(-140, 10, 0), elbow_r=(-30, 0, 0))),
-        (1, REST),
-    ],
 }
+KEYS.update(combat.KEYS)
 
 
 def sample(name, phase):
     """Samples a clip in place. Translation is a bounded dramatic excursion."""
     wave = math.sin(phase * math.tau)
     if name in ("idle", "creep", "walk", "run", "sprint"):
-        lean, swing, lift = {"idle": (0, 3, 0.025), "creep": (10, 5, 0.018), "walk": (5, 14, 0.04), "run": (18, 27, 0.07), "sprint": (32, 12, 0.10)}[
-            name
-        ]
+        lean, swing, lift = {"idle": (0, 3, 0.025), "creep": (10, 5, 0.018), "walk": (5, 14, 0.04), "run": (18, 27, 0.07), "sprint": (32, 12, 0.10)}[name]
         return pose(
             move=(0.012 * wave, 0, lift * (1 - math.cos(phase * math.tau))),
             motion=(lean, 2 * wave, 3 * wave),
@@ -246,70 +184,138 @@ def sample(name, phase):
         ]
     else:
         keys = KEYS[name]
-    for (start, a), (end, b) in zip(keys, keys[1:]):
-        if phase <= end:
-            t = (phase - start) / (end - start)
-            t = t * t * (3 - 2 * t)
-            result = {
-                joint: tuple(x + (y - x) * t for x, y in zip(a.get(joint, (0, 0, 0)), b.get(joint, (0, 0, 0)))) for joint in a.keys() | b.keys()
-            }
-            if name in ("laugh", "cry", "animeCharge"):
-                tremble = math.sin(phase * math.tau * (7 if name == "animeCharge" else 5)) * math.sin(phase * math.pi) ** 2
-                rotation = result.get("motion", (0, 0, 0))
-                result["motion"] = (rotation[0] + 2.5 * tremble, rotation[1], rotation[2])
-            return result
-    return REST
+    result = curves.sample(keys, phase)
+    if name in ("laugh", "cry", "animeCharge"):
+        tremble = math.sin(phase * math.tau * (7 if name == "animeCharge" else 5)) * math.sin(phase * math.pi) ** 2
+        rotation = result.get("motion", (0, 0, 0))
+        result["motion"] = (rotation[0] + 1.5 * tremble, rotation[1], rotation[2])
+    return result
+
+
+def variants(specs):
+    """Keep 32 studio states while exporting distinct performances per form."""
+    return [dict(spec, motion=spec["name"], humanoid=human, name=("humanoid_" if human else "") + spec["name"]) for human in (False, True) for spec in specs]
+
+
+def performance(name, phase, humanoid, calling):
+    """Sample the whole body once, including overlapping chest and head timing."""
+    value = sample(name, phase)
+    wave = math.cos(math.tau * phase)
+    if humanoid and name in locomotion.GAITS:
+        swing = {"creep": 9, "walk": 22, "run": 38, "sprint": 48}[name]
+        lean = {"creep": 9, "walk": 3, "run": 12, "sprint": 19}[name]
+        value.update(
+            motion=(lean, -2 * wave, -7 * wave),
+            head=(-lean * 0.6, 0, 3 * wave),
+            # The object-carrying arm stays close; the free arm drives the run.
+            arm_r=(-swing * 0.35 * wave, 10, 0),
+            arm_l=(swing * wave, -10, 0),
+            elbow_r=(-32, 0, 0),
+            elbow_l=((-24 if name in ("creep", "walk") else -80) - 8 * math.sin(math.tau * phase), 0, 0),
+        )
+    # Hips lead the strike; the head settles last. Endpoints remain exact.
+    overlap = math.sin(math.pi * phase) ** 2
+    lead = sample(name, min(1, phase + 0.024 * overlap)) if name in combat.KEYS else value
+    delayed = sample(name, max(0, phase - 0.025 * overlap))
+    angles = value.get("motion", (0, 0, 0))
+    positions = {joint: Vector() for joint in JOINTS}
+    rotations = {joint: Quaternion() for joint in JOINTS}
+    if humanoid:
+        move, yaw, feet = locomotion.grounded(name, phase, lead)
+        # Lower the pelvis when a long stride needs more reach. Preserve bone
+        # lengths and planted ankles instead of stretching or clipping a leg.
+        yaw_rotation = Euler((0, 0, math.radians(yaw))).to_quaternion()
+        for side, sign in (("l", 1), ("r", -1)):
+            hip_offset = yaw_rotation @ Vector((sign * locomotion.HIP_X, 0, 0))
+            ankle = feet[side][0]
+            horizontal = Vector((move.x + hip_offset.x - ankle.x, move.y + hip_offset.y - ankle.y))
+            vertical = math.sqrt((2 * locomotion.LENGTH - 0.012) ** 2 - horizontal.length_squared)
+            move.z = min(move.z, ankle.z + vertical - locomotion.HIP_Z)
+        root_angles = (0, 0, yaw)
+        spine_angles = (angles[0], angles[1], angles[2] - yaw)
+    else:
+        move = Vector(value.get("move", (0, 0, 0)))
+        root_angles = (angles[0] * 0.18, angles[1] * 0.4, angles[2] * 0.45)
+        spine_angles = (angles[0] * 0.82, angles[1] * 0.6, angles[2] * 0.55)
+    rotations["motion"] = Euler(tuple(math.radians(v) for v in root_angles)).to_quaternion()
+    rotations["spine"] = Euler(tuple(math.radians(v) for v in spine_angles)).to_quaternion()
+    positions["motion"] = move
+    for joint in JOINTS:
+        if joint in ("motion", "spine") or joint in body.LEG_JOINTS:
+            continue
+        source = joint
+        mirror = calling == "hollow" and name in ("finisherPalm", "finisherSoulCrush")
+        if mirror and joint.endswith(("_l", "_r")):
+            source = joint[:-1] + ("l" if joint.endswith("_r") else "r")
+        pose_source = delayed if joint.startswith(("head", "wrist")) and not (humanoid and name in locomotion.GAITS) else value
+        a = pose_source.get(source, (0, 0, 0))
+        if mirror and source != joint:
+            a = (a[0], -a[1], -a[2])
+        gain = AMPLITUDE[calling]
+        if calling == "mourner" and joint == "head":
+            gain *= 0.25
+        rotations[joint] = Euler(tuple(math.radians(v * gain) for v in a)).to_quaternion()
+    if humanoid:
+        root_rotation = rotations["motion"]
+        root_position = Vector((0, 0, 1.05)) + move
+        for side, sign in (("l", 1), ("r", -1)):
+            hip = root_position + root_rotation @ Vector((sign * locomotion.HIP_X, 0, locomotion.HIP_Z - 1.05))
+            ankle, foot_rotation = feet[side]
+            try:
+                thigh, knee, shin = locomotion.solve(hip, ankle, root_rotation @ Vector((0, -1, 0)))
+            except ValueError as error:
+                raise ValueError(f"{name} phase={phase:.3f} {side}: {error}") from error
+            rotations[f"leg_{side}"] = root_rotation.inverted() @ thigh
+            rotations[f"knee_{side}"] = knee
+            rotations[f"foot_{side}"] = shin.inverted() @ foot_rotation
+    return positions, rotations
 
 
 def build(root, calling, specs):
-    """Adds the common pivot and bakes matching NLA tracks on every joint."""
+    """Bake form-specific clips onto one hierarchy with a chest and pelvis."""
     children = list(root.children)
     pivot = core.empty("motion", root, location=(0, 0, 1.05))
     for child in children:
         child.parent = pivot
         child.location.z -= 1.05
+    spine = core.empty("spine", pivot, location=(0, 0, 0.13))
+    for child in list(pivot.children):
+        if child.name in ("head", "arm_l", "arm_r", "spirit_body") or child.name.startswith("mantle_"):
+            child.parent = spine
+            child.location.z -= 0.13
     nodes = {node.name: node for node in root.children_recursive}
     joints = {name: nodes[name] for name in JOINTS}
     rest = {name: node.location.copy() for name, node in joints.items()}
-    scene = bpy.context.scene
-    scene.render.fps = 30
+    bpy.context.scene.render.fps = 30
     offset = 1
     for spec in specs:
-        name = spec["name"]
         frames = round(spec["seconds"] * 30)
+        samples = [performance(spec["motion"], frame / frames, spec["humanoid"], calling) for frame in range(frames + 1)]
         for joint, node in joints.items():
             node.animation_data_create()
             node.animation_data.action = None
-            for frame in range(frames + 1):
-                value = sample(name, frame / frames)
-                value.update(body.sample(name, frame / frames))
-                # The hollow keeps its own head in its left hand. Reach and
-                # crush with the free right hand instead of punching with it.
-                source = joint
-                mirror = calling == "hollow" and name in ("finisherPalm", "finisherSoulCrush")
-                if mirror and joint.endswith(("_l", "_r")):
-                    source = joint[:-1] + ("l" if joint.endswith("_r") else "r")
-                angles = value.get(source, (0, 0, 0))
-                if mirror and source != joint:
-                    angles = (angles[0], -angles[1], -angles[2])
-                gain = AMPLITUDE[calling] if joint != "motion" else 1
-                if calling == "mourner" and joint == "head":
-                    gain *= 0.25  # Its head mesh includes a floor-length veil.
-                node.rotation_euler = tuple(math.radians(angle * gain) for angle in angles)
-                node.location = rest[joint] + (Vector(value.get("move", (0, 0, 0))) if joint == "motion" else Vector())
-                node.keyframe_insert(data_path="rotation_euler", frame=frame)
+            node.rotation_mode = "QUATERNION"
+            previous = None
+            for frame, (positions, rotations) in enumerate(samples):
+                rotation = rotations[joint]
+                if previous is not None and previous.dot(rotation) < 0:
+                    rotation = -rotation
+                previous = rotation
+                node.rotation_quaternion = rotation
+                node.location = rest[joint] + positions[joint]
+                node.keyframe_insert(data_path="rotation_quaternion", frame=frame)
                 node.keyframe_insert(data_path="location", frame=frame)
             action = node.animation_data.action
-            action.name = f"{name}_{joint}"
+            action.name = f'{spec["name"]}_{joint}'
             slot = node.animation_data.action_slot
             track = node.animation_data.nla_tracks.new()
-            track.name = name
-            strip = track.strips.new(name, offset, action)
+            track.name = spec["name"]
+            strip = track.strips.new(spec["name"], offset, action)
             strip.action_slot = slot
             strip.extrapolation = "NOTHING"
             node.animation_data.action = None
             node.location = rest[joint]
-            node.rotation_euler = (0, 0, 0)
+            node.rotation_quaternion = Quaternion()
         offset += frames + 5
-    scene.frame_set(0)
+    bpy.context.scene.frame_set(0)
     return joints

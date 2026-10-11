@@ -58,7 +58,7 @@ def main():
     parser.add_argument("--motions", default="art/build/motions.json")
     options = parser.parse_args(arguments)
     with open(options.motions) as source:
-        motions = json.load(source)
+        motions = motion.variants(json.load(source))
 
     os.makedirs(options.out, exist_ok=True)
 
@@ -97,6 +97,7 @@ def hold_weapon(root, kind):
     socket = find(root, "socket_weapon")
     weapon = importlib.import_module(f"weapon_kinds.{kind}").build()
     weapon.parent = socket
+    return weapon
 
 
 def find(node, name):

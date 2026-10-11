@@ -71,11 +71,11 @@ reaper                      the root; an empty named "reaper"
       wrist_l
 ```
 
-Before export, `lib/motion.py` inserts a `motion` pivot at waist height between `reaper` and these children, preserving their rest positions. All 32 clips key this pivot and the thirteen joints. The exported model uses rigid parts, with overlapping sleeve sections at the elbows. The Hollow's head lantern follows its left wrist. The Mourner's concealed second arm emerges for gestures. See [the animation guide](../../docs/animations.md) for clip names, class differences and review commands.
+Before export, `lib/motion.py` inserts a `motion` pivot at waist height and a separate `spine` pivot for the chest, preserving rest positions. Each of the 32 states has a spirit clip and a `humanoid_` clip, for 64 clips on fifteen pivots. The exported model uses rigid parts, with overlapping sleeve sections at the elbows. The Hollow's head lantern follows its left wrist. The Mourner's concealed second arm emerges for gestures. See [the animation guide](../../docs/animations.md) for clip names, class differences and review commands.
 
 The reaper driver reads `art/build/motions.json`, written by `fvm dart tool/build_art.dart --specs-only`. Rebuild that spec before invoking Blender directly after changing the shared animation catalogue.
 
-`lib/body.py` adds a spectral torso and arms, mutually exclusive `spirit_form` and `humanoid_form` groups, and hip/knee/foot pivots. The `short_robe` morph makes a tunic while preserving the upper tailoring. Clothing visibility and this morph are presentation controls, independent of the genome.
+`lib/body.py` adds a spectral torso and arms, mutually exclusive `spirit_form` and `humanoid_form` groups, and shaped thighs, kneecaps, calves and feet. `lib/locomotion.py` solves the humanoid hip/knee/ankle chain from world-space foot targets before baking. The spirit keeps its floating gaits. The `short_robe` morph exposes the knees while preserving the upper tailoring. Clothing visibility and this morph are presentation controls, independent of the genome.
 
 `lib/face.py` creates one `face_<variant>` mesh per head, or one on the Hollow's carried skull. Its six expression morphs are baked into the same named NLA tracks as the body, including neutral reset tracks. Keep eyes and mouths in the head's local frame, with readable glyphs in front of face coverings. The browser and native renderer play the exported weight tracks without reimplementing expressions.
 

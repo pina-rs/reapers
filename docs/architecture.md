@@ -81,7 +81,7 @@ Anything that learns more about the room (ARKit, ARCore, a server that names wha
 
 **Creatures.** A husk's creature is not skinned. It is built from rigid parts on named pivots, and `HuskRig` moves the pivots from what the rules say the husk is doing: legs swing as fast as it is going, wings beat, the jaw drops as it draws breath, the head turns to watch the player.
 
-**Reaper animation.** All six reaper GLBs contain the same 32 named Blender clips on a waist pivot, neck, shoulders, elbows and wrists. `ReaperMotion` is the shared presentation catalogue; `ReaperPlayback` drives the same elapsed time into Flutter Scene and the browser mixer. The studio exposes selection, scrubbing and contact poses. Cloth motion follows that clock while preserving genome morphs. This is an articulated rigid-part rig, with class-specific gesture sizes and hand adaptations. It changes no combat outcomes. See [animations.md](animations.md).
+**Reaper animation.** All six reaper GLBs contain 64 named Blender clips: spirit and humanoid performances for 32 states. The rig separates chest and pelvis, with neck, arm and leg joints. `ReaperMotion` is the shared presentation catalogue; `ReaperAppearance.clipName` selects the form's performance and `ReaperPlayback` drives the same elapsed time into Flutter Scene and the browser mixer. The studio exposes selection, scrubbing and contact poses. Cloth motion follows that clock while preserving genome morphs. This is an articulated rigid-part rig, with class-specific gesture sizes and hand adaptations. It changes no combat outcomes. See [animations.md](animations.md).
 
 Models and materials are compiled by the build hook in `hook/build.dart`, so changing one needs a full `flutter run`, not a hot restart.
 

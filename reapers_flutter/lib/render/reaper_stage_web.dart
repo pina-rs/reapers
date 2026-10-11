@@ -12,6 +12,7 @@ import '../l10n/l10n.dart';
 import '../widgets/ledger.dart';
 import 'reaper_cloth.dart';
 import 'reaper_appearance.dart';
+import 'reaper_camera.dart';
 import 'reaper_look.dart';
 import 'reaper_playback.dart';
 import 'reaper_web_material.dart';
@@ -202,6 +203,7 @@ final class _WebStage {
   three.AnimationMixer? _mixer;
   List<three.AnimationClip> _clips = [];
   three.AnimationAction? _action;
+  String? _clipName;
   ReaperMotion? _motion;
 
   void startDrag(int pointer) {
@@ -251,13 +253,18 @@ final class _WebStage {
           return;
         }
         final animations = data.animations;
+        final expectedClips = [
+          for (final form in ReaperForm.values)
+            for (final motion in ReaperMotion.values)
+              ReaperAppearance(form: form).clipName(motion),
+        ];
         if (animations == null ||
-            animations.length != ReaperMotion.values.length ||
+            animations.length != expectedClips.length ||
             animations.any((Object? clip) => clip is! three.AnimationClip) ||
-            !ReaperMotion.values.every(
-              (motion) => animations.any(
+            !expectedClips.every(
+              (name) => animations.any(
                 (Object? clip) =>
-                    clip is three.AnimationClip && clip.name == motion.name,
+                    clip is three.AnimationClip && clip.name == name,
               ),
             )) {
           data.scene.dispose();
@@ -383,14 +390,16 @@ final class _WebStage {
     if (clock != null && _model != null) {
       if (!reducedMotion) clock.advance(math.min(delta, 0.1));
       _seconds = clock.seconds;
-      if (_motion != clock.motion) {
+      final name = _appearance.clipName(clock.motion);
+      if (_motion != clock.motion || _clipName != name) {
         _action?.stop();
         final clip = _clips.singleWhere(
-          (clip) => clip.name == clock.motion.name,
+          (clip) => clip.name == name,
         );
         _action = _mixer!.clipAction(clip)!..play();
         _action!.paused = true;
         _motion = clock.motion;
+        _clipName = name;
       }
       _action!.time = clock.seconds;
       _mixer!.update(0);
@@ -427,15 +436,11 @@ final class _WebStage {
   }
 
   void _positionCamera() {
-    final distance = focusFace
-        ? 1.25
-        : animationPreview
-        ? 10.5
-        : 8.4;
+    final distance = animationPreview ? 7.6 : 8.4;
     final target = three.Vector3(0, 1.42, 0);
     final offset = three.Vector3(
       math.sin(turn) * distance,
-      focusFace ? 0.04 : -0.75,
+      -0.75,
       math.cos(turn) * distance,
     );
     three.Object3D? face;
@@ -446,13 +451,28 @@ final class _WebStage {
       );
       face?.getWorldPosition(target);
     }
-    viewer.camera.position.setFrom(
-      face?.localToWorld(offset) ?? offset.add(target),
-    );
-    viewer.camera.up.setFrom(
-      face?.localToWorld(three.Vector3(0, 1, 0)).sub(target) ??
-          three.Vector3(0, 1, 0),
-    );
+    if (face != null) {
+      final orbit = reaperFaceOrbit(
+        turn,
+        calling: _genome!.reaperClass,
+        native: false,
+      );
+      viewer.camera.position.setFrom(
+        face.localToWorld(
+          three.Vector3(orbit.offset.x, orbit.offset.y, orbit.offset.z),
+        ),
+      );
+      viewer.camera.up.setFrom(
+        face
+            .localToWorld(
+              three.Vector3(orbit.up.x, orbit.up.y, orbit.up.z),
+            )
+            .sub(target),
+      );
+    } else {
+      viewer.camera.position.setFrom(offset.add(target));
+      viewer.camera.up.setValues(0, 1, 0);
+    }
     viewer.camera.lookAt(target);
   }
 

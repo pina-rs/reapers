@@ -18,6 +18,10 @@ final class ReaperAppearance {
   final bool mantle;
   final bool holding;
 
+  /// Each state has a floating performance and a grounded humanoid performance.
+  String clipName(ReaperMotion motion) =>
+      form == ReaperForm.humanoid ? 'humanoid_${motion.name}' : motion.name;
+
   ReaperAppearance copyWith({
     ReaperForm? form,
     ReaperClothing? clothing,

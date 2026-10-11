@@ -4,6 +4,8 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:reapers_shared/reapers_shared.dart';
+import 'package:reapers_flutter/render/reaper_appearance.dart';
+import 'package:vector_math/vector_math.dart' as vm;
 
 Map<String, Object?> _object(Object? value) => value as Map<String, Object?>;
 List<Object?> _list(Object? value) => value as List<Object?>;
@@ -43,6 +45,56 @@ final class _Glb {
           binary.getFloat32(offset + i * stride + component * 4, Endian.little),
     ];
   }
+
+  /// Evaluate the exported hierarchy, including animated parents, at one sample.
+  vm.Matrix4 world(String nodeName, String clipName, double phase) {
+    final nodes = _list(json['nodes']).map(_object).toList();
+    final clip = _list(json['animations'])
+        .map(_object)
+        .singleWhere(
+          (clip) => clip['name'] == clipName,
+        );
+    final samplers = _list(clip['samplers']).map(_object).toList();
+    final poses = <int, Map<String, List<double>>>{};
+    for (final raw in _list(clip['channels'])) {
+      final channel = _object(raw);
+      final target = _object(channel['target']);
+      final path = target['path'] as String;
+      if (path == 'weights') continue;
+      final sampler = samplers[channel['sampler'] as int];
+      final times = floats(sampler['input'] as int);
+      final values = floats(sampler['output'] as int);
+      final width = values.length ~/ times.length;
+      final index = (phase * (times.length - 1)).round();
+      (poses[target['node'] as int] ??= {})[path] = values.sublist(
+        index * width,
+        (index + 1) * width,
+      );
+    }
+    vm.Matrix4 transform(int index) {
+      final node = nodes[index];
+      List<double> values(String name, List<double> fallback) =>
+          poses[index]?[name] ??
+          (node[name] as List<Object?>?)
+              ?.map((v) => (v as num).toDouble())
+              .toList() ??
+          fallback;
+      final t = values('translation', [0, 0, 0]);
+      final r = values('rotation', [0, 0, 0, 1]);
+      final s = values('scale', [1, 1, 1]);
+      final local = vm.Matrix4.compose(
+        vm.Vector3.array(t),
+        vm.Quaternion(r[0], r[1], r[2], r[3]),
+        vm.Vector3.array(s),
+      );
+      final parent = nodes.indexWhere(
+        (node) => (node['children'] as List<Object?>? ?? []).contains(index),
+      );
+      return parent < 0 ? local : transform(parent) * local;
+    }
+
+    return transform(nodes.indexWhere((node) => node['name'] == nodeName));
+  }
 }
 
 void main() {
@@ -55,6 +107,7 @@ void main() {
         final names = nodes.map((node) => node['name']).toSet();
         const joints = {
           'motion',
+          'spine',
           'head',
           'arm_r',
           'arm_l',
@@ -82,10 +135,17 @@ void main() {
         final animations = _list(glb.json['animations']).map(_object).toList();
         expect(
           animations.map((clip) => clip['name']),
-          unorderedEquals(ReaperMotion.values.map((motion) => motion.name)),
+          unorderedEquals([
+            for (final form in ReaperForm.values)
+              for (final motion in ReaperMotion.values)
+                ReaperAppearance(form: form).clipName(motion),
+          ]),
         );
         for (final clip in animations) {
-          final motion = ReaperMotion.values.byName(clip['name'] as String);
+          final clipName = clip['name'] as String;
+          final motion = ReaperMotion.values.byName(
+            clipName.replaceFirst('humanoid_', ''),
+          );
           final samplers = _list(clip['samplers']).map(_object).toList();
           final channels = _list(clip['channels']).map(_object);
           final animated = <String>{};
@@ -173,6 +233,36 @@ void main() {
             );
           }
         }
+      },
+    );
+    test(
+      '${calling.name} humanoid walks with grounded support and forward knees',
+      () {
+        final glb = _Glb('assets/models/reaper_${calling.name}.glb');
+        vm.Vector3 at(String node, double phase) =>
+            glb.world(node, 'humanoid_walk', phase).getTranslation();
+        for (final phase in [.2, .3, .4]) {
+          final hip = at('leg_l', phase);
+          final knee = at('knee_l', phase);
+          final ankle = at('foot_l', phase);
+          expect((hip - knee).length, closeTo(.44, .002));
+          expect((knee - ankle).length, closeTo(.44, .002));
+          expect(
+            ankle.y,
+            closeTo(.13, .012),
+            reason: 'support foot stays on the ground',
+          );
+          expect(
+            knee.z,
+            greaterThan((hip.z + ankle.z) / 2),
+            reason: 'knees bend forward',
+          );
+        }
+        expect(
+          at('foot_r', .3).y,
+          greaterThan(.18),
+          reason: 'swing foot clears the floor',
+        );
       },
     );
   }

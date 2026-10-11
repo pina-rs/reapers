@@ -54,6 +54,7 @@ Future<void> main(List<String> arguments) async {
             'seconds': motion.seconds,
             'loops': motion.loops,
             'unarmed': motion.unarmed,
+            'impact': motion.impact,
           },
       ]),
     );

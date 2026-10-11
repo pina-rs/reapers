@@ -28,11 +28,11 @@ void main() {
     final clock = ReaperPlayback();
     addTearDown(clock.dispose);
     clock.select(ReaperMotion.walk);
-    clock.advance(4.5);
-    expect(clock.seconds, .5);
+    clock.advance(2 * ReaperMotion.walk.seconds + .5);
+    expect(clock.seconds, closeTo(.5, 1e-10));
     clock.advance(double.nan);
     clock.advance(-1);
-    expect(clock.seconds, .5);
+    expect(clock.seconds, closeTo(.5, 1e-10));
     expect(() => clock.seek(double.nan), throwsArgumentError);
     expect(() => clock.setSpeed(0), throwsArgumentError);
     expect(() => clock.setSpeed(double.infinity), throwsArgumentError);

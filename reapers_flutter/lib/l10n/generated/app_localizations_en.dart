@@ -1344,7 +1344,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get studioFormHelp =>
-      'Spirit form floats. Humanoid form has articulated legs. These choices are for this preview.';
+      'Spirit form floats. Humanoid form walks on grounded legs. These choices are for this preview.';
 
   @override
   String get studioClothing => 'Clothing';
@@ -1983,7 +1983,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'A bell cannot call a name only once. Each refrain gives the departing soul longer to answer.';
 
   @override
-  String get motionIdle => 'Idle hover';
+  String get motionIdle => 'Idle';
 
   @override
   String get motionCreep => 'Walk very slowly';
@@ -2083,7 +2083,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get motionIntro =>
-      'Explore floating gaits, reactions, memes and finishers. These are performance previews; they do not change combat or your save.';
+      'Explore walks, glides, reactions, memes and finishers. These are performance previews; they do not change combat or your save.';
 
   @override
   String get motionMovement => 'Movement';

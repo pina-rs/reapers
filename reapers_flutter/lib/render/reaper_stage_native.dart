@@ -9,6 +9,7 @@ import 'package:vector_math/vector_math.dart' as vm;
 
 import 'reaper_rig.dart';
 import 'reaper_appearance.dart';
+import 'reaper_camera.dart';
 import 'reaper_playback.dart';
 import 'veil_look.dart';
 import '../l10n/l10n.dart';
@@ -57,11 +58,7 @@ class ReaperStage extends HookWidget {
     final dragging = useRef(false);
     final retry = useState(0);
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
-    final distance = focusFace
-        ? 1.25
-        : playback == null
-        ? _distance
-        : 10.5;
+    final distance = playback == null ? _distance : 7.6;
     final clock = useMemoized(() => playback ?? ReaperPlayback(), [playback]);
     useEffect(() => playback == null ? clock.dispose : null, [clock]);
 
@@ -153,15 +150,22 @@ class ReaperStage extends HookWidget {
         cameraBuilder: (_) {
           final face = focusFace ? rig.value!.faceTransform : null;
           final target = face?.getTranslation() ?? _target;
-          final offset = vm.Vector3(
-            math.sin(turn.value) * distance,
-            focusFace ? 0.04 : -0.75,
-            -math.cos(turn.value) * distance,
+          final orbit = reaperFaceOrbit(
+            turn.value,
+            calling: genome.reaperClass,
+            native: true,
           );
+          final offset = face != null
+              ? orbit.offset
+              : vm.Vector3(
+                  math.sin(turn.value) * distance,
+                  -0.75,
+                  -math.cos(turn.value) * distance,
+                );
           return PerspectiveCamera(
             position: face?.transformed3(offset) ?? target + offset,
             target: target,
-            up: face?.rotate3(vm.Vector3(0, 1, 0)),
+            up: face?.rotate3(orbit.up),
             fovRadiansY: _fieldOfView,
           );
         },

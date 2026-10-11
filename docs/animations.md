@@ -2,7 +2,7 @@
 
 Open **Animations · 32 states** in the [Reaper studio](preview.md). Choose a group and a clip, pause it, scrub any pose, replay it, or slow it to quarter speed. **Inspect contact pose** goes straight to an attack's contact frame. Change calling, birth traits and equipment in the same studio. Everything is an unsaved specimen.
 
-The six reapers have spirit and humanoid forms. Spirit form keeps the floating silhouette. Humanoid form adds articulated hips, knees and feet, with distinct stepping cycles for creep, walk, run and sprint. Jump, dodge and dash have bounded local movement and return to their starting position. These are presentation clips without foot IK or ground collision; a future third-person controller must own world movement separately.
+The six reapers have separate spirit and humanoid performances. Spirit form keeps the floating silhouette. Humanoid form has shaped thighs, kneecaps, calves and feet, with foot targets and two-bone IK solved in Blender. Walking has heel contact, grounded support, toe-off and swing clearance. Running adds flight. Jump, dodge and dash have bounded local movement and return to their starting position. A future third-person controller must supply matching world speed and terrain adaptation.
 
 ## Faces and appearance
 
@@ -18,7 +18,7 @@ Choose a reaction or meme and press **Inspect expression** to pause halfway thro
 
 | Group | Clips |
 | --- | --- |
-| Movement | Idle hover, walk very slowly, walk, run, sprint, jump, land, dodge left, dodge right, phantom dash, dash left, dash right |
+| Movement | Idle, walk very slowly, walk, run, sprint, jump, land, dodge left, dodge right, phantom dash, dash left, dash right |
 | Reactions | Laugh, cry, angry pose, recoil in fear, bow, victory |
 | Memes | GigaChad stance, sigma chin lift, unbothered shrug, absolute cinema, T-pose dominance |
 | Combat | Anime power charge, weapon slash, weapon thrust, parry |
@@ -30,7 +30,9 @@ These are authored character performances, not new combat rules. Contact markers
 
 ## Rig and class differences
 
-Every GLB contains 32 named animations and fourteen shared pivots: `motion`, `head`, shoulders, elbows, wrists, hips, knees and feet. The weapon socket follows the right wrist. `motion` sits at waist height below the stationary `reaper` placement root. The rig uses articulated rigid parts, not a deforming skeletal skin. Overlapping sleeve sections cover the elbows; finger shapes are fixed. Each head variant has six facial morphs, baked into the same clips. The Hollow has one animated face on its skull.
+Every GLB contains 64 clips for the 32 studio states. A state such as `walk` uses `walk` in spirit form and `humanoid_walk` in humanoid form. Fifteen shared pivots include `motion`, `spine`, `head`, shoulders, elbows, wrists, hips, knees and feet. The weapon socket follows the right wrist. The chest moves separately from the waist so the pelvis can lead a strike while the head settles later. Shape-preserving cubic curves carry velocity through breakdown poses and contact instead of braking at every key. The rig uses overlapping rigid anatomical parts, not deforming skin; fingers remain fixed. Facial morphs are baked into both performances.
+
+The [motion review](research/motion-review.md) records references, a visual target for every state, reproducible contact sheets and current limits. Presentation cycle times are 2.4 seconds for creep, 1.2 for walk, 0.8 for run and 0.6 for sprint.
 
 The same local rotations fit all head, mantle and hem variants. The heavier Ferryman, Weigher and Mourner use restrained arm gestures; the Chooser and Hollow use broader ones. The Hollow keeps the skull lantern attached to its left wrist and uses its free right hand for soul crush and palm burst. The Mourner has a second skeletal arm concealed under its veil at rest; its head movement is reduced because the head variants include hanging veils.
 
