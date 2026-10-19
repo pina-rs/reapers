@@ -177,7 +177,9 @@ final class ReaperRig {
   Future<void> _setGenomeTraits() async {
     _visit(_model, (node) {
       if (node.name.startsWith('face_')) {
-        node.scale.x = 0.8 + 0.4 * ReaperGenome.fraction(genome.gaze);
+        // A node hands out a copy of its scale: set it whole.
+        node.scale = node.scale
+          ..x = 0.8 + 0.4 * ReaperGenome.fraction(genome.gaze);
       }
       if (node.name.startsWith('eyes')) {
         node.scale = vm.Vector3.all(
