@@ -64,6 +64,8 @@ class Player extends _$Player {
 
   Future<void> wear(Outfit outfit) => _apply(() => _backend.wear(outfit));
 
+  Future<void> attune(Art art) => _apply(() => _backend.attune(art));
+
   /// Hands a finished hunt to the keeper and returns its verdict.
   Future<HuntSettlement> settleHunt(int sightingId, HuntLog log) async {
     final settlement = await _backend.settleHunt(sightingId, log);

@@ -86,6 +86,10 @@ final class ServerBackend implements GameBackend {
       _ask(() => _client.player.wear(outfit.name));
 
   @override
+  Future<PlayerState> attune(Art art) =>
+      _ask(() => _client.player.attune(art.name));
+
+  @override
   Future<RiftSession> enterRift(RiftSite site) async {
     // Signing in is a request of its own, so a refusal to sign in is told
     // apart from a refusal to enter.

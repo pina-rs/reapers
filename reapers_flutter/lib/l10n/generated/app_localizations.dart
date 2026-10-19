@@ -964,41 +964,41 @@ abstract class AppLocalizations {
   /// **'In a rift'**
   String get colophonRift;
 
-  /// No description provided for @colophonBachPiece.
+  /// No description provided for @colophonSanctumPiece.
   ///
   /// In en, this message translates to:
-  /// **'J.S. Bach, Prelude No. 8 in E-flat minor, BWV 853'**
-  String get colophonBachPiece;
+  /// **'Ossuary 1 - A Beginning'**
+  String get colophonSanctumPiece;
 
-  /// No description provided for @colophonBachCredit.
+  /// No description provided for @colophonSanctumCredit.
   ///
   /// In en, this message translates to:
-  /// **'Kimiko Ishizaka, piano. From the Open Well-Tempered Clavier, released into the public domain. welltemperedclavier.org'**
-  String get colophonBachCredit;
+  /// **'\"Ossuary 1 - A Beginning\" Kevin MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 4.0 License. http://creativecommons.org/licenses/by/4.0/'**
+  String get colophonSanctumCredit;
 
-  /// No description provided for @colophonAnabasisPiece.
+  /// No description provided for @colophonHuntPiece.
   ///
   /// In en, this message translates to:
-  /// **'Anabasis I'**
-  String get colophonAnabasisPiece;
+  /// **'Penumbra'**
+  String get colophonHuntPiece;
 
-  /// No description provided for @colophonAnabasisCredit.
+  /// No description provided for @colophonHuntCredit.
   ///
   /// In en, this message translates to:
-  /// **'\'Anabasis I\' by Scott Buckley - released under CC-BY 4.0. www.scottbuckley.com.au'**
-  String get colophonAnabasisCredit;
+  /// **'\"Penumbra\" Kevin MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 4.0 License. http://creativecommons.org/licenses/by/4.0/'**
+  String get colophonHuntCredit;
 
-  /// No description provided for @colophonKatabasisPiece.
+  /// No description provided for @colophonRiftPiece.
   ///
   /// In en, this message translates to:
-  /// **'Katabasis I'**
-  String get colophonKatabasisPiece;
+  /// **'Oppressive Gloom'**
+  String get colophonRiftPiece;
 
-  /// No description provided for @colophonKatabasisCredit.
+  /// No description provided for @colophonRiftCredit.
   ///
   /// In en, this message translates to:
-  /// **'\'Katabasis I\' by Scott Buckley - released under CC-BY 4.0. www.scottbuckley.com.au'**
-  String get colophonKatabasisCredit;
+  /// **'\"Oppressive Gloom\" Kevin MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 4.0 License. http://creativecommons.org/licenses/by/4.0/'**
+  String get colophonRiftCredit;
 
   /// No description provided for @colophonSightHeading.
   ///
@@ -1239,6 +1239,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'An outfit changes how your reaper looks, never how it hunts.'**
   String get armoryOutfitNote;
+
+  /// No description provided for @armoryArts.
+  ///
+  /// In en, this message translates to:
+  /// **'Arts'**
+  String get armoryArts;
+
+  /// No description provided for @armoryArtNote.
+  ///
+  /// In en, this message translates to:
+  /// **'An art is never bought. Your reaper learns it by absorbing the creatures that carry it, and each one it absorbs takes it deeper. In a hunt, hold it, steady the phone on the husk, then flick.'**
+  String get armoryArtNote;
+
+  /// No description provided for @armoryArtReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready'**
+  String get armoryArtReady;
+
+  /// No description provided for @armoryArtTake.
+  ///
+  /// In en, this message translates to:
+  /// **'Make ready'**
+  String get armoryArtTake;
+
+  /// No description provided for @armoryArtUnlearned.
+  ///
+  /// In en, this message translates to:
+  /// **'Not learned'**
+  String get armoryArtUnlearned;
+
+  /// No description provided for @armoryArtRank.
+  ///
+  /// In en, this message translates to:
+  /// **'Rank {rank} of 3'**
+  String armoryArtRank(int rank);
+
+  /// No description provided for @armoryArtSource.
+  ///
+  /// In en, this message translates to:
+  /// **'Carried by {creatures}'**
+  String armoryArtSource(String creatures);
+
+  /// No description provided for @armoryArtNext.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{One more to go deeper} other{{count} more to go deeper}}'**
+  String armoryArtNext(int count);
 
   /// No description provided for @codexOverline.
   ///
@@ -1708,6 +1756,66 @@ abstract class AppLocalizations {
   /// **'Bell'**
   String get weaponBell;
 
+  /// No description provided for @weaponGreatsword.
+  ///
+  /// In en, this message translates to:
+  /// **'Greatsword'**
+  String get weaponGreatsword;
+
+  /// No description provided for @weaponAxe.
+  ///
+  /// In en, this message translates to:
+  /// **'Axe'**
+  String get weaponAxe;
+
+  /// No description provided for @weaponGreatswordTrait.
+  ///
+  /// In en, this message translates to:
+  /// **'Heavy. A blow to a seal stops the husk in its tracks.'**
+  String get weaponGreatswordTrait;
+
+  /// No description provided for @weaponAxeTrait.
+  ///
+  /// In en, this message translates to:
+  /// **'Heavy. Bites the body wherever it lands, seal or not.'**
+  String get weaponAxeTrait;
+
+  /// No description provided for @artCinder.
+  ///
+  /// In en, this message translates to:
+  /// **'Cinder'**
+  String get artCinder;
+
+  /// No description provided for @artRime.
+  ///
+  /// In en, this message translates to:
+  /// **'Rime'**
+  String get artRime;
+
+  /// No description provided for @artGale.
+  ///
+  /// In en, this message translates to:
+  /// **'Gale'**
+  String get artGale;
+
+  /// No description provided for @artCinderLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Fire, lobbed. It arcs over whatever a husk hides behind, bursts, and sets it burning. A burning husk runs into the open.'**
+  String get artCinderLine;
+
+  /// No description provided for @artRimeLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Ice, thrown straight. It freezes a husk where it stands with every seal in view open, and your next blow shatters it. It breaks on anything in the way.'**
+  String get artRimeLine;
+
+  /// No description provided for @artGaleLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Wind. A wide gust that knocks a husk off its ledge or out from behind its cover, turns a charge aside, and stuns it.'**
+  String get artGaleLine;
+
   /// No description provided for @temperShrouded.
   ///
   /// In en, this message translates to:
@@ -2157,6 +2265,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'It is coming. Swing across it.'**
   String get huntPromptCharge;
+
+  /// No description provided for @huntPromptHidden.
+  ///
+  /// In en, this message translates to:
+  /// **'It is behind something. Wait for it, or throw.'**
+  String get huntPromptHidden;
+
+  /// No description provided for @huntPromptPerched.
+  ///
+  /// In en, this message translates to:
+  /// **'It is up out of reach. Strike what shows.'**
+  String get huntPromptPerched;
+
+  /// No description provided for @huntArtHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold, then flick'**
+  String get huntArtHint;
+
+  /// No description provided for @huntArtFlick.
+  ///
+  /// In en, this message translates to:
+  /// **'Flick'**
+  String get huntArtFlick;
+
+  /// No description provided for @huntArtSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'{art}: hold, steady the phone on the husk, then flick the phone to throw'**
+  String huntArtSemantics(String art);
+
+  /// No description provided for @huntBurning.
+  ///
+  /// In en, this message translates to:
+  /// **'It burns'**
+  String get huntBurning;
+
+  /// No description provided for @huntFrozen.
+  ///
+  /// In en, this message translates to:
+  /// **'Frozen'**
+  String get huntFrozen;
+
+  /// No description provided for @huntGusted.
+  ///
+  /// In en, this message translates to:
+  /// **'Blown into the open'**
+  String get huntGusted;
+
+  /// No description provided for @huntArtMissed.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed'**
+  String get huntArtMissed;
+
+  /// No description provided for @huntShattered.
+  ///
+  /// In en, this message translates to:
+  /// **'Shattered'**
+  String get huntShattered;
+
+  /// No description provided for @huntArtLearned.
+  ///
+  /// In en, this message translates to:
+  /// **'Your reaper has learned {art}. Hold it in a hunt, steady the phone, then flick.'**
+  String huntArtLearned(String art);
+
+  /// No description provided for @huntArtDeepened.
+  ///
+  /// In en, this message translates to:
+  /// **'{art} runs deeper: rank {rank} of 3.'**
+  String huntArtDeepened(String art, int rank);
 
   /// No description provided for @huntParried.
   ///

@@ -9,6 +9,7 @@ import '../../pose/ar_pose.dart';
 import '../room_survey.dart';
 import 'camera_picture.dart';
 import 'depth_model.dart';
+import 'occlusion_map.dart';
 import 'room_map.dart';
 
 /// Reads the room by looking at it: camera frames go through the depth
@@ -40,6 +41,10 @@ final class DepthSurvey implements RoomSurvey {
   static const steadyTurnSpeed = 0.7;
 
   final RoomMap _map;
+
+  @override
+  final OcclusionMap occlusion = OcclusionMap();
+
   bool _busy = false;
   bool _disposed = false;
 
@@ -154,16 +159,23 @@ final class DepthSurvey implements RoomSurvey {
         depths[index] /= long;
       }
 
-      final learnt = _map.add(
-        DepthFrame(
-          width: DepthModel.width,
-          height: DepthModel.height,
-          depths: depths,
-          pose: taken,
-          tanHalfWidth: tanHalfWidth,
-          tanHalfHeight: tanHalfHeight,
-        ),
+      final frame = DepthFrame(
+        width: DepthModel.width,
+        height: DepthModel.height,
+        depths: depths,
+        pose: taken,
+        tanHalfWidth: tanHalfWidth,
+        tanHalfHeight: tanHalfHeight,
       );
+      final learnt = _map.add(frame);
+      final pictureFloor = _map.lastPictureFloor;
+      final floor = _map.floorDepth;
+
+      // Each picture is scaled to the floor the hunt will stand on, as the
+      // map of the room is.
+      if (learnt && pictureFloor != null && floor != null) {
+        occlusion.add(frame, floor: pictureFloor, scale: floor / pictureFloor);
+      }
 
       // A line for each picture, for whoever is working out why a room
       // reads the way it does. Never in a release build.

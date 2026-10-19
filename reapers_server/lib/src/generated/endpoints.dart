@@ -332,6 +332,25 @@ class Endpoints extends _is.EndpointDispatch {
                 params['outfit'],
               ),
         ),
+        'attune': _is.MethodConnector(
+          name: 'attune',
+          params: {
+            'art': _is.ParameterDescription(
+              name: 'art',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['player'] as _ikcol2tc.PlayerEndpoint).attune(
+                    session,
+                    params['art'],
+                  ),
+        ),
       },
     );
     connectors['rift'] = _is.EndpointConnector(

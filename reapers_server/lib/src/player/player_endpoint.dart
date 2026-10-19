@@ -162,6 +162,11 @@ class PlayerEndpoint extends Endpoint {
   Future<PlayerState> wear(Session session, String outfit) =>
       PlayerBooks.change(session, (state) => state.wear(_outfit(outfit)));
 
+  /// Makes the art [art] names the one the reaper throws. Only an art the
+  /// reaper has learned can be.
+  Future<PlayerState> attune(Session session, String art) =>
+      PlayerBooks.change(session, (state) => state.attune(_art(art)));
+
   static DateTime _now() => DateTime.now().toUtc();
 
   static int _seed() => _random.nextInt(1 << 32);
@@ -175,6 +180,9 @@ class PlayerEndpoint extends Endpoint {
 
   static Outfit _outfit(String name) =>
       _parsed(() => Outfit.values.byName(name), Refusal.notOwned);
+
+  static Art _art(String name) =>
+      _parsed(() => Art.values.byName(name), Refusal.notOwned);
 
   /// A deployed keeper cannot turn prototype balances and invented mints
   /// into tradable NFT progression. There is deliberately no bypass flag.

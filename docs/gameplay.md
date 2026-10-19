@@ -82,7 +82,7 @@ Either way the result is the hunt's plan:
 - **The height of your eye above the floor**, measured, or 1.45 m when it could not be.
 - **How far the way is clear along each slice**, when the phone could see.
 
-The plan is about 80 bytes. It is recorded with the hunt, and the server replays the hunt inside the same plan. The sigil itself is not recorded: it decides when the hunt starts and where, and nothing about what it pays.
+The plan is about 80 bytes, or 230 when it also says what stands in the room. It is recorded with the hunt, and the server replays the hunt inside the same plan. The sigil itself is not recorded: it decides when the hunt starts and where, and nothing about what it pays.
 
 ### Where a husk is
 
@@ -93,6 +93,20 @@ A husk has a real place around you, in metres, and it moves through it.
 - It turns its body to face the way it is going, a little at a time, and its head turns to watch you.
 - It stays between its nearest and farthest distance from you (see the table of husks), and never goes past what stands in its way. Where the room gives it less than its nearest distance it comes closer, down to 0.8 m and no nearer.
 - It keeps half its own width clear of whatever is in the way, and it starts drawing in before it gets there: the room it has opens out by 2 m for every radian to the side of an obstacle. So it runs round the front of a sofa in a curve instead of into it.
+- It does not have to stay in front of things. Where the room has a ledge or something to hide behind, it leaps: see the next section.
+
+### The room it lives in
+
+A husk treats your furniture the way a cat does. On a phone that read the room, the plan says, for every direction, what stands at the end of the clear floor: how tall it is, whether its top is level enough to stand on, and whether there is room to hide behind it (floor or a wall seen beyond it, with space for the husk between).
+
+- **Ledges.** A husk that walks leaps up onto a level top no lower than 0.3 m and no higher than it can jump: an ape 1.2 m, a llama 1.0 m, a robot 0.8 m, a penguin 0.55 m (so a penguin cannot get onto a counter). A bird comes down to perch on any ledge in reach. It lands 0.6 of its half width in from the front edge.
+- **Cover.** A husk that walks hides behind anything at least half as tall as it is, as far behind it as the room allows and no more than 1.5 m past its farthest distance. Only what rises above the cover can be seen.
+- **When.** When an ambling husk is ready to move it makes for a ledge or cover within 50° 35% of the time, when there is one. A bolting husk does so 45% of the time. Up on a ledge or behind cover, it stays put 40% of the time it is ready to move, and otherwise leaps down into the open in front.
+- **Leaps** go at three quarters of its bolting speed and take at least 34 ticks. A leap rises high enough for the husk's feet to clear the front edge of what it leaps onto, off or over by 12 cm, where it passes it. It cannot be stopped in the air: a husk that is stunned, frozen or broken in mid-leap lands first.
+- **Behind cover, out of reach.** A seal the cover hides cannot open and cannot be struck. A blow at the part of the body below the top of the cover hits the cover and is a miss.
+- **It comes out to fight.** A husk draws breath only once it has landed, and one in cover leaps out as it does, so it never shrieks from hiding. It never charges from a ledge or from cover either: it comes down first.
+
+The husk is also drawn as hidden. The phone keeps a picture of how far away the nearest thing is in every direction it looked while the sigil was traced, and a husk behind the counter is cut away wherever the counter is in front of it, so the camera's own picture of the counter shows instead. The phone only turns where the player stands, so that picture still lines up with the room during the fight, whichever way the phone points.
 
 ### Stalk
 
@@ -134,6 +148,40 @@ A husk fights back. Every 8 to 14 seconds of the fight it turns on you and comes
 - You can keep striking its seals while it comes.
 
 A shriek asks you to freeze and a charge asks you to swing, so the two are never close together: there are always at least 90 ticks between one ending and the other beginning. A husk in a rift does not charge.
+
+### Arts
+
+A reaper that has absorbed a husk carries something of it: an art, thrown rather than struck. Three are known, and each is carried by particular creatures.
+
+| Art | What it is | Carried by |
+| --- | --- | --- |
+| Cinder | Fire, lobbed | Degenerate Ape Academy, Solarians |
+| Rime | Ice, thrown straight | Pesky Penguins, Sollamas |
+| Gale | Wind | Thugbirdz |
+
+**Learning.** The first husk absorbed that carries an art teaches it, at rank one. Four of them make rank two, ten rank three. Nothing buys an art: what a reaper can throw is a record of what it has hunted, read from its codex, so it travels with an NFT reaper. The first art a reaper learns is made ready at once. In the armory a reaper may make any art it knows the one it throws.
+
+**Throwing.** The art sits under the thumb in the corner of the screen.
+
+1. Hold it. While the phone turns slower than 0.6 rad/s the art gathers, for 24 ticks (0.4 s), and it will go wherever the phone was last steady on.
+2. Flick the phone, faster than 1.5 rad/s. The art leaves your hand.
+3. Let go before the flick and nothing is lost.
+
+That flick is slower than the 2.0 rad/s swing that turns a charge aside, so a hard flick at a charging husk does both. A flick in a shriek is a flinch, and throws nothing. Taps still strike while the art is held, so one thumb holds and the other hand strikes.
+
+A reaper starts the fight with one throw ready and holds at most two (three at rank three). Another is readied every 9 seconds (8 at rank two, 7 at rank three), and an unflinching hold readies one at once. An art thrown at a husk that has not noticed you goes unseen until it lands; then the fight begins, without the ambush.
+
+| | Cinder | Rime | Gale |
+| --- | --- | --- | --- |
+| Flies at | 6 m/s, lobbed, to where it was thrown | 14 m/s, straight, following the husk | 12 m/s, following the husk |
+| Catches the husk when | it bursts within 0.8 m of the husk's body | thrown at the husk, and nothing stands between | thrown within 22° of the husk |
+| Cover | arcs over it | breaks on it | goes round it |
+| On landing | ×2.0 / 2.5 / 3.0 of a strike | ×1.5 of a strike | ×0.8 / 1.0 / 1.2 of a strike |
+| Then | it burns for 150 ticks, taking another ×1.5 / 2.0 / 2.5 of a strike, and bolts 20 ticks later, into the open | it is frozen for 150 / 190 / 230 ticks, every seal in view open; a charge stops dead; the next seal struck shatters the ice for ×2.0 / 2.25 / 2.5 | it is knocked off its ledge or out from behind its cover, a charge is turned aside, and it stands stunned 90 / 110 / 130 ticks with every seal in view open |
+
+A husk that is burning, or that the wind has shaken (for 4 seconds after it comes round), will not run for cover.
+
+A simulated careful reaper at level six takes a rare ape about 22% sooner with Cinder at rank one, 18% sooner with Rime and 8% sooner with Gale. Gale's worth is in what it undoes: a husk in cover, and a charge.
 
 ### Reap
 
@@ -281,7 +329,7 @@ skips or second spell bar. The studio's Soul view shows their exact current
 and future effects, temperament costs, marks and original lore. Studio memory
 buttons are explicitly illustrative and never write the saved player.
 
-Combat log version **5** identifies these rules. Older logs are refused with
+Combat log version **6** identifies these rules: it carries the room's cover in the plan and whether the art was held on each tick. Older logs are refused with
 an update message, never silently reinterpreted. Staging and production refuse
 the simulated acquire, release, settlement and rift endpoints until real husk
 acquisition, escrow and confirmed burning replace them. Practice remains
@@ -299,6 +347,15 @@ Any class can buy any weapon. Each kind has its own feel:
 | Spear | ×1.45 | +0° | 32 |
 | Chain whip | ×0.8 | +0.6° | 16 |
 | Bell | ×1.3 | +2.4° | 28 |
+| Greatsword | ×1.85 | +1.2° | 40 |
+| Axe | ×1.5 | +0.2° | 32 |
+
+The greatsword and the axe are heavy, and no class starts with them. Each has one thing of its own:
+
+- **Greatsword.** A seal struck with it stops the husk in its tracks for 28 ticks.
+- **Axe.** A blow on the body away from any seal does 70% of a strike, not 25%.
+
+The first temper of a heavy weapon costs 320 anima and needs level 3, for any class.
 
 Each weapon has four tempers, and each outfit is one of the same four states. A temper changes the strike. An outfit changes only how the reaper looks.
 
@@ -375,9 +432,11 @@ Three recordings, each made by someone else and released for anyone to use. Noth
 
 | Where | Piece | By |
 | --- | --- | --- |
-| The sanctum and every page of the ledger | J.S. Bach, Prelude No. 8 in E-flat minor, BWV 853 | Kimiko Ishizaka, on a concert grand. Public domain. |
-| A hunt | Anabasis I | Scott Buckley. CC BY 4.0. |
-| A rift | Katabasis I | Scott Buckley. CC BY 4.0. |
+| The sanctum and every page of the ledger | Ossuary 1 - A Beginning | Kevin MacLeod. CC BY 4.0. |
+| A hunt | Penumbra | Kevin MacLeod. CC BY 4.0. |
+| A rift | Oppressive Gloom | Kevin MacLeod. CC BY 4.0. |
+
+Horror, not concert music: the sanctum is a slow drone with a pale melody over it, the hunt something in the shadows that cannot quite be heard, and a rift a dark march. Chosen on 19 October 2026 by the composer's own descriptions and their measured loudness; nobody has listened to them in the game yet.
 
 A hunt never switches tune. It has one piece, and the hunt changes how that piece is heard: how loud, and how muffled, as if through the veil.
 
@@ -414,7 +473,8 @@ What the game does, on a phone that can see:
 
 - It shows the real camera feed, drawn through the camera's own lens so that husks hold their place as you turn.
 - It measures how far down the floor is, and husks that walk stand on it with a soft shadow under them.
-- It finds what stands on the floor and how far away, and husks go round it.
+- It finds what stands on the floor and how far away, how tall it is and whether its top is level, and husks go round it, leap onto it and hide behind it.
+- It hides whatever part of a husk is behind something, so the counter in front of it covers it.
 - It only puts a husk where you traced its sigil.
 
 On a phone that cannot see, the floor is taken to be 1.45 m down and nothing is known about the furniture.
@@ -422,10 +482,10 @@ On a phone that cannot see, the floor is taken to be 1.45 m down and nothing is 
 What it still does not know anywhere:
 
 - **Where you walk.** The game follows the phone turning, not moving. Step sideways and the husks come with you.
-- **What is in front of what.** A husk is drawn over the camera feed and is never hidden behind a chair.
-- **Anything it has not been shown.** The room is read once, before the hunt. Move a chair during it and the husk walks through the chair.
+- **Anything it has not been shown.** The room is read once, before the hunt. Move a chair during it and the husk walks through the chair, and the chair's old place still hides it.
+- **Behind what it could not see.** A husk hides behind something only where the camera saw floor or a wall beyond it. Behind a cupboard taller than your eye, nothing is known, so nothing hides there.
 - **The ceiling.** A husk that flies keeps clear of walls and cupboards, but its band of air tops out 0.85 m above your eye whatever the ceiling's height.
-- **What things are.** It knows something is in the way. It does not know a sofa from a wall, so nothing hides behind one or jumps up on one.
+- **What things are.** It knows how tall something is and whether its top is level. It does not know a sofa from a counter.
 
 [environment.md](environment.md) says how the seeing works, how far it can be trusted, and what would come next.
 

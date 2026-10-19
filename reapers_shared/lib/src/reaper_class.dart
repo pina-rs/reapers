@@ -126,6 +126,19 @@ enum ReaperClass {
   );
 }
 
-/// The six weapon shapes. Each class starts with one, and any reaper may buy
-/// any of them.
-enum WeaponKind { scythe, lanternPole, balanceFlail, spear, chainWhip, bell }
+/// The weapon shapes. Each class starts with one of the first six, and any
+/// reaper may buy any of them. The greatsword and the axe are no class's
+/// own: they are heavy, and every reaper comes to them from something else.
+enum WeaponKind {
+  scythe,
+  lanternPole,
+  balanceFlail,
+  spear,
+  chainWhip,
+  bell,
+  greatsword,
+  axe;
+
+  /// Whether this is one of the heavy weapons, which no class starts with.
+  bool get isHeavy => this == greatsword || this == axe;
+}

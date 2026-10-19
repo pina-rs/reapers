@@ -13,6 +13,7 @@ On a phone with a camera and motion sensors, the hunt now sees the room:
 3. From those pictures it finds the floor, measures how far below the phone it is, and maps how far the floor is clear in each direction. A small dial takes the shape of the room as it goes.
 4. When the last light catches, the husk gathers into view inside the sigil's arc. No room is too small: where the floor is tight the husk stands closer, down to 0.8 m.
 5. A walker stands on the measured floor and runs round whatever is in the way. A flier keeps clear of walls and cupboards.
+6. A husk uses the furniture: it leaps onto a counter or a table, and ducks behind one where the camera saw room beyond it. Whatever stands in front of it hides it on screen.
 
 Nothing leaves the phone. What the hunt keeps of your room is about 80 bytes: the height of your eye and one distance for each of 72 directions.
 
@@ -59,6 +60,28 @@ Around you is a map of 72 slices by 90 rings. A point on the floor marks its cel
 A husk keeps half its own width back from that, and the room it has opens out gradually to either side of an obstacle, so that it curves round the front of a sofa instead of swerving at its corner.
 
 For a husk that flies, what matters is whatever stands up into its band of air. Floors and ceilings are left out of that: they are not walls.
+
+### What it is, and what is behind it
+
+Every picture that has a floor in it is also charted for furniture, whatever the husk: in each cell of the same map, how many points stand above the floor (no higher than the eye: anything taller is a wall), how high they are, in bins of 4% of the floor depth, and which of them lie on a level surface. For each slice the map then finds:
+
+- **Its front**, where the way stops.
+- **How far back it runs**, for as long as there is something there, over a gap of one ring at most.
+- **Its top**: the highest bin with three points in it. That is the cover.
+- **Whether the top is a ledge**: at least 12 level points around the top, and at least 35% of the points there.
+- **Room behind it**: the next thing standing beyond it, or floor seen beyond it. A husk hides there only where the gap is wider than the husk. Where nothing was seen behind (a cupboard taller than the eye), nothing hides there.
+
+For a husk that flies, only a ledge matters, and its reach is brought in to the ledge's front, so that it can come down on it.
+
+The plan carries all of this as three more numbers a slice: the cover's height in centimetres, where to hide behind it in decimetres, and one bit for a ledge. It is 225 bytes, up from 72.
+
+### Hiding the husk
+
+The same pictures also make an `OcclusionMap`: for every quarter-degree of direction all the way round, from 72° below the horizon to 48° above, how far away the nearest thing standing in the room is. The floor is left out, so it never hides a husk standing on it. Each picture is scaled to the floor the hunt stands on, as the map is.
+
+The phone only ever turns where the player stands, so a picture taken while the sigil was traced still lines up with the view during the fight. Nothing is read again. The map becomes an image, and a fragment shader (`assets/shaders/occlusion.frag`) masks the 3D scene with it: for each pixel it finds where the ray enters the husk's body (taken as an ellipsoid), and cuts the husk away where the room's nearest thing along that ray is nearer, fading over 12 cm either side. The camera's own picture of the counter shows through.
+
+Tested against drawn rooms in `reapers_flutter/test/hunt/depth/room_cover_test.dart` and `occlusion_map_test.dart`, including a model that reads everything 25% long. A room drawn by hand can also be played in on a simulator: `--dart-define=REAPERS_DRAWN_ROOM=true` reads a kitchen counter as if a camera saw it and draws it where the camera's picture would be.
 
 ## How far to trust it
 
@@ -112,10 +135,10 @@ On 3 October 2026 the scan was reported to work, with a request for something cl
 ## What it cannot do
 
 - **Follow you walking.** It knows which way the phone points, not where it is. Take a step and the husks come with you, and the map of the room is now a step out.
-- **Hide a husk behind anything.** The depth pictures could do this, at the cost of running the model during the fight.
-- **Notice a change.** The room is read once, before the hunt.
+- **Notice a change.** The room is read once, before the hunt. Move a chair and the husk walks through it, and the chair's old place still hides it.
+- **Hide a husk exactly.** The cut follows the room as the depth model saw it, a quarter-degree at a time, and the husk as an ellipsoid. Expect its edge to be soft and a few centimetres out, more so far away.
 - **Know the ceiling.** A flier's air is capped by its own rules, not by the room.
-- **Tell a sofa from a wall.** It knows something is there. Nothing can duck behind it or jump onto it.
+- **Tell a sofa from a counter.** It knows how tall something is and whether its top is level, not what it is.
 - **See in the dark, or through glass and mirrors.** No depth model does.
 - **Run on an iPhone yet.** Everything is written to, but the lens is not read there and none of it has been tried.
 
@@ -124,8 +147,8 @@ On 3 October 2026 the scan was reported to work, with a request for something cl
 In the order I would do them:
 
 1. **Try it in real rooms and tune it.** Everything above was tuned on nine photographs and rooms I drew.
-2. **Let a walker use a table.** The map already finds level surfaces above the floor. A husk that jumps onto the coffee table is a rule and an animation away, and it is the thing here most worth seeing.
-3. **Hide husks behind furniture.** Run the model a few times a second during the fight and draw its depth into the scene.
+2. **Try cover and ledges in real rooms.** Built on 19 October 2026 and tried only in rooms drawn by hand: whether real counters read as ledges, and whether the cut lines up with the real edge, needs the Seeker in a kitchen.
+3. **Read the room again during the fight**, a picture every few seconds, so a chair that moves stops hiding the husk.
 4. **The same on iPhone**, through ARKit where there is a depth sensor: real surfaces, and husks that stay put when you walk.
 5. **Naming things, on the server.** You said frames may be sent if it makes things better, and asked that descriptions be sent in place of pictures. The plan is already that description, and already travels with every hunt. What a server could add is meaning: which obstacle is a sofa to hide behind, which is a table to stand on. That needs a few small pictures (three at 320 pixels is about 40 KB), a vision model, and a key for it. Nothing here sends a picture anywhere, and I would want a consent screen and a rule about not keeping them before anything did.
 

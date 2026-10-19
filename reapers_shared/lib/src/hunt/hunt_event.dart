@@ -1,7 +1,10 @@
+import '../arts.dart';
 import '../feeding.dart';
 import '../nft_catalogue.dart';
 import '../reaper_soul.dart';
+import '../vec3.dart';
 import 'hunt_stats.dart';
+import 'husk_pose.dart';
 
 /// Where an encounter is.
 enum HuntPhase {
@@ -173,6 +176,48 @@ final class Struck extends HuntEvent {
 /// The husk is darting to a new place.
 final class Relocating extends HuntEvent {
   const Relocating();
+}
+
+/// The husk has sprung into the air: up onto a ledge, down from one, over
+/// whatever it hid behind or behind it.
+final class Leapt extends HuntEvent {
+  const Leapt(this.toward);
+
+  /// Where it will land.
+  final Footing toward;
+}
+
+/// The reaper flicked the phone and their art is in the air.
+final class ArtThrown extends HuntEvent {
+  const ArtThrown(this.art);
+
+  final Art art;
+}
+
+/// A thrown art came down.
+final class ArtLanded extends HuntEvent {
+  const ArtLanded({
+    required this.art,
+    required this.at,
+    required this.hit,
+    this.damage = 0,
+  });
+
+  final Art art;
+
+  /// Where it came down, in metres from the player's eye.
+  final Vec3 at;
+
+  /// Whether it caught the husk.
+  final bool hit;
+
+  /// Ward it removed as it landed. Burning takes more after.
+  final double damage;
+}
+
+/// The blow that broke a frozen husk's ice.
+final class IceShattered extends HuntEvent {
+  const IceShattered();
 }
 
 /// The ward broke. The reap arc is showing.

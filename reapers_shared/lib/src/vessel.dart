@@ -40,6 +40,7 @@ enum Vessel {
     farMetres: 4.6,
     walkSpeed: 0.7,
     boltSpeed: 2.6,
+    leapMetres: 1.2,
     seals: [
       SealSpec(Vec3(0, 0.38, 0.30)),
       SealSpec(Vec3(0, 0.02, 0.36)),
@@ -60,6 +61,7 @@ enum Vessel {
     highMetres: 0.85,
     walkSpeed: 0.5,
     boltSpeed: 3.2,
+    leapMetres: 2.2,
     seals: [
       SealSpec(Vec3(0, 0.22, 0.08)),
       SealSpec(Vec3(0, -0.04, 0.2)),
@@ -78,6 +80,7 @@ enum Vessel {
     farMetres: 4.2,
     walkSpeed: 0.45,
     boltSpeed: 1.8,
+    leapMetres: 0.55,
     seals: [
       SealSpec(Vec3(0, 0.3, 0.2)),
       SealSpec(Vec3(0, -0.04, 0.27)),
@@ -96,6 +99,7 @@ enum Vessel {
     farMetres: 4.8,
     walkSpeed: 0.6,
     boltSpeed: 2.8,
+    leapMetres: 1.0,
     seals: [
       SealSpec(Vec3(0, 0.6, 0.3)),
       SealSpec(Vec3(0, 0.22, 0.32)),
@@ -115,6 +119,7 @@ enum Vessel {
     farMetres: 4.4,
     walkSpeed: 0.5,
     boltSpeed: 2.0,
+    leapMetres: 0.8,
     seals: [
       SealSpec(Vec3(0, 0.42, 0.17)),
       SealSpec(Vec3(0, 0.08, 0.2)),
@@ -155,6 +160,7 @@ enum Vessel {
     required this.seals,
     this.lowMetres = 0,
     this.highMetres = 0,
+    this.leapMetres = 0,
   });
 
   final Gait gait;
@@ -184,6 +190,11 @@ enum Vessel {
 
   /// How fast it flees.
   final double boltSpeed;
+
+  /// The highest ledge it will jump up onto, in metres above the floor: an
+  /// ape takes a kitchen counter in one bound, a penguin only a low step.
+  /// For a flier, the highest it will come down to perch.
+  final double leapMetres;
 
   final List<SealSpec> seals;
 

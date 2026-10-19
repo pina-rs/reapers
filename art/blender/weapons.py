@@ -1,4 +1,4 @@
-"""Builds the six weapon kinds into one GLB.
+"""Builds every weapon kind into one GLB.
 
     dart tool/build_art.dart weapons --preview
 
@@ -24,7 +24,7 @@ sys.path.append(HERE)
 
 from lib import core, preview  # noqa: E402
 
-KINDS = ["scythe", "lantern_pole", "balance_flail", "spear", "chain_whip", "bell"]
+KINDS = ["scythe", "lantern_pole", "balance_flail", "spear", "chain_whip", "bell", "greatsword", "axe"]
 
 
 def main():

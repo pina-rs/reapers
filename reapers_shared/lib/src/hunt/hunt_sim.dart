@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import '../arts.dart';
 import '../reaper_class.dart';
 import '../reaper_soul.dart';
 import '../rift/rift_room.dart';
@@ -7,6 +8,7 @@ import '../rift/rift_rules.dart';
 import '../seeded_random.dart';
 import '../vec3.dart';
 import '../vessel.dart';
+import 'art_flight.dart';
 import 'difficulty.dart';
 import 'hunt_event.dart';
 import 'hunt_input.dart';
@@ -90,6 +92,8 @@ final class HuntSim {
        _shrieks = SeededRandom(mixSeed([seed, 0x5C81])),
        _path = SeededRandom(mixSeed([seed, 0x9A7B])),
        _charges = SeededRandom(mixSeed([seed, 0xC4A6])),
+       _cover = SeededRandom(mixSeed([seed, 0xC07E])),
+       artCharges = stats.art == null ? 0 : ArtRules.startingCharges,
        _openUntil = List.filled(vessel.seals.length, 0),
        _shutUntil = List.filled(vessel.seals.length, 0),
        _openedOrder = List.filled(vessel.seals.length, 0) {
@@ -105,6 +109,8 @@ final class HuntSim {
     final outward = _path.nextRange(0, 1);
 
     _height = _restingHeight();
+    _fromGround = _floor;
+    _toGround = _floor;
     _nextAmbleTick = _restTicks();
 
     if (inRift) {
@@ -194,6 +200,11 @@ final class HuntSim {
   /// Decides when the husk charges, and nothing else.
   final SeededRandom _charges;
 
+  /// Decides when the husk makes for cover or a ledge, and which. Kept
+  /// apart from [_path] so that a room with nothing in it plays exactly as
+  /// one did before the room's furniture was known.
+  final SeededRandom _cover;
+
   // Movement -----------------------------------------------------------
 
   /// Where the husk is: its bearing round the player, how far away it is
@@ -221,6 +232,34 @@ final class HuntSim {
 
   int _nextAmbleTick = 0;
   int _nextBoltTick = -1;
+
+  /// What the husk stands on or behind, and, while [_leaping], what it is
+  /// leaping to and how high the leap carries it above the straight line.
+  Footing _footing = Footing.open;
+  Footing _toFooting = Footing.open;
+  bool _leaping = false;
+  double _arc = 0;
+
+  /// The surface under the husk, in metres from the eye, where it set off
+  /// from and where it is going: for the view to put its shadow on.
+  double _fromGround = 0;
+  double _toGround = 0;
+
+  // Arts ---------------------------------------------------------------
+
+  /// Throws the reaper has ready.
+  int artCharges;
+
+  int _rechargeTicks = 0;
+  int _gatherTicks = 0;
+  Aim? _castAim;
+  final _flights = <ArtFlight>[];
+  int _burnUntil = 0;
+  double _burnPerTick = 0;
+  int _frozenUntil = 0;
+
+  /// Until when the husk keeps to the open: burning, or shaken by wind.
+  int _exposedUntil = 0;
 
   // Seals --------------------------------------------------------------
 
@@ -365,8 +404,9 @@ final class HuntSim {
 
   /// Where the husk is right now.
   HuskPose get pose {
-    // A husk in the air never hangs quite still.
-    final bob = vessel.gait == Gait.air
+    // A husk in the air never hangs quite still. One perched on a ledge
+    // does.
+    final bob = vessel.gait == Gait.air && _footing == Footing.open && !_leaping
         ? 0.05 * math.sin(0.9 * tick / HuntRules.tickRate + _bobPhase)
         : 0.0;
 
@@ -378,8 +418,57 @@ final class HuntSim {
         math.cos(_bearing) * _range,
       ),
       heading: _heading,
+      footing: _leaping ? _toFooting : _footing,
+      leaping: _leaping,
+      ground: _ground,
     );
   }
+
+  /// What the husk stands on or behind.
+  Footing get footing => _footing;
+
+  /// Whether the husk is in the air between one footing and the next.
+  bool get leaping => _leaping;
+
+  /// The floor, in metres from the eye.
+  double get _floor => -plan.eyeHeight;
+
+  double? get _ground {
+    final aloft = vessel.gait != Gait.ground;
+
+    if (!_leaping) {
+      return aloft && _footing == Footing.open ? null : _fromGround;
+    }
+
+    if (aloft) {
+      return null;
+    }
+
+    final along = smoothstep((tick - _moveStart) / _moveTicks);
+
+    return _fromGround + (_toGround - _fromGround) * along;
+  }
+
+  /// Arts in the air.
+  List<ArtFlight> get flights => List.unmodifiable(_flights);
+
+  /// How far the art in hand is gathered, from 0 to 1. At 1 a flick throws
+  /// it.
+  double get artGathered =>
+      stats.art == null ? 0 : _gatherTicks / ArtRules.gatherTicks;
+
+  /// Ticks until the next throw is ready, as a share of the wait.
+  double get artRecharge => switch (stats.art) {
+    final art? when artCharges < art.maxCharges =>
+      _rechargeTicks / art.rechargeTicks,
+    _ => 0,
+  };
+
+  /// Whether the husk is burning.
+  bool get burning => _fighting && tick < _burnUntil;
+
+  /// Whether the husk is frozen where it stands.
+  bool get frozen => _fighting && tick < _frozenUntil;
 
   /// How fast the husk is covering ground right now, in metres a second.
   /// Zero while it rests.
@@ -399,8 +488,20 @@ final class HuntSim {
   }
 
   /// Whether seal [index] can be struck right now.
-  bool sealOpen(int index) =>
-      _fighting && tick < _openUntil[index] && pose.sealFacesPlayer(index);
+  bool sealOpen(int index) {
+    if (!_fighting || tick >= _openUntil[index]) {
+      return false;
+    }
+
+    final current = pose;
+
+    return current.sealFacesPlayer(index) && !_behindCover(current, index);
+  }
+
+  /// Whether seal [index] of a husk at [current] is behind something in the
+  /// room, out of sight and out of reach.
+  bool _behindCover(HuskPose current, int index) =>
+      plan.hides(current.sealPosition(index));
 
   /// The order seal [index] opened in among the seals open now, starting at
   /// 0 for the oldest, or null when it is shut.
@@ -461,6 +562,16 @@ final class HuntSim {
 
   void _stepStalk(HuntInput input, List<HuntEvent> events) {
     _move(events);
+
+    // An art thrown at a husk that has not noticed the reaper goes unseen
+    // until it lands. Then the husk knows, and the ambush is given up.
+    _stepFlights(events);
+
+    if (phase != HuntPhase.stalk) {
+      return;
+    }
+
+    _stepArt(input, events);
 
     final current = pose;
     final speed = input.turnRadiansPerSecond;
@@ -544,8 +655,10 @@ final class HuntSim {
       return;
     }
 
-    // It has seen the reaper, and it runs.
-    _bolt(events);
+    // It has seen the reaper, and it runs, unless it is in no state to.
+    if (!_leaping && tick >= _frozenUntil && tick >= _staggeredUntil) {
+      _bolt(events);
+    }
   }
 
   // Fight --------------------------------------------------------------
@@ -570,9 +683,18 @@ final class HuntSim {
       _hitStreak = 0;
     }
 
+    _stepBurn();
+    _stepFlights(events);
+
+    if (ward <= 0) {
+      _break(events);
+      return;
+    }
+
     _stepShriek(input, events);
 
     if (isOver || phase == HuntPhase.shriek) {
+      _stepArt(input, events);
       return;
     }
 
@@ -582,6 +704,7 @@ final class HuntSim {
       return;
     }
 
+    _stepArt(input, events);
     _stepSeals(events);
     _stepStrikes(input, events);
 
@@ -591,15 +714,23 @@ final class HuntSim {
   }
 
   void _stepShriek(HuntInput input, List<HuntEvent> events) {
-    if (phase == HuntPhase.fight && tick >= _nextShriekTick) {
+    // A husk in mid-leap lands before it draws breath.
+    if (phase == HuntPhase.fight && tick >= _nextShriekTick && !_leaping) {
       _echoCadence = cadence;
       phase = HuntPhase.windup;
       _phaseEndTick = tick + HuntRules.windupTicks;
       events.add(const ShriekWindup());
+
+      // A husk shrieks at the reaper's face, not from behind the sofa: it
+      // comes out over the top as it draws breath.
+      if (_footing == Footing.hidden && !_leaping) {
+        _leaveCover(events, mayStay: false);
+      }
+
       return;
     }
 
-    if (phase == HuntPhase.windup && tick >= _phaseEndTick) {
+    if (phase == HuntPhase.windup && tick >= _phaseEndTick && !_leaping) {
       phase = HuntPhase.shriek;
       _shriekStartTick = tick;
       _phaseEndTick = tick + HuntRules.shriekTicks;
@@ -650,6 +781,11 @@ final class HuntSim {
     events.add(const HeldFirm());
     _holds++;
     _exposeAllSeals(events);
+
+    // Stillness steadies the hand: an unflinching hold readies a throw.
+    if (stats.art case final art? when artCharges < art.maxCharges) {
+      artCharges++;
+    }
 
     if (stats.perk == ClassPerk.chosenBlow) {
       _chosenBlowReady = true;
@@ -759,9 +895,17 @@ final class HuntSim {
         phase == HuntPhase.fight &&
         _nextChargeTick >= 0 &&
         tick >= _nextChargeTick &&
-        tick >= _staggeredUntil;
+        tick >= _staggeredUntil &&
+        tick >= _frozenUntil;
 
-    if (!due) {
+    if (!due || _leaping) {
+      return;
+    }
+
+    // It has to be out in the open to run at anyone: it comes down or out
+    // first, and the charge waits for it to land.
+    if (_footing != Footing.open) {
+      _leaveCover(events, mayStay: false);
       return;
     }
 
@@ -863,7 +1007,8 @@ final class HuntSim {
         for (var index = 0; index < vessel.seals.length; index++)
           if (tick >= _openUntil[index] &&
               tick >= _shutUntil[index] &&
-              current.sealFacesPlayer(index))
+              current.sealFacesPlayer(index) &&
+              !_behindCover(current, index))
             index,
       ];
 
@@ -995,6 +1140,13 @@ final class HuntSim {
       events.add(const GiftStirred(ReaperGift.aftermath));
     }
 
+    if (frozen) {
+      scale *= stats.art?.shatter ?? 1;
+      empowered = true;
+      _frozenUntil = tick;
+      events.add(const IceShattered());
+    }
+
     var damage = stats.strikeDamage * scale;
     final cleaved = <int>[];
 
@@ -1038,6 +1190,7 @@ final class HuntSim {
     }
 
     ward = math.max(0, ward - damage);
+    _knock();
     cadence++;
     _hitStreak++;
     _maxHitStreak = math.max(_maxHitStreak, _hitStreak);
@@ -1112,8 +1265,22 @@ final class HuntSim {
     }
   }
 
+  /// A heavy blade stops the husk in its tracks.
+  void _knock() {
+    if (stats.knockTicks == 0 || phase != HuntPhase.fight || _leaping) {
+      return;
+    }
+
+    _staggeredUntil = math.max(_staggeredUntil, tick + stats.knockTicks);
+    _halt();
+  }
+
   void _resolveMiss(Vec3 ray, HuskPose current, List<HuntEvent> events) {
-    if (!current.covers(ray, pad: stats.reachRadians * 0.5)) {
+    // A blow at the part of a husk that is behind the counter hits the
+    // counter.
+    final blocked = plan.hides(ray * current.distance);
+
+    if (blocked || !current.covers(ray, pad: stats.reachRadians * 0.5)) {
       _hitStreak = 0;
       if (stats.gift == ReaperGift.unbroken &&
           cadence > 0 &&
@@ -1127,7 +1294,7 @@ final class HuntSim {
       return;
     }
 
-    final damage = stats.strikeDamage * HuntRules.glanceShare;
+    final damage = stats.strikeDamage * stats.glanceShare;
 
     ward = math.max(0, ward - damage);
     events.add(StrikeGlanced(damage: damage));
@@ -1161,14 +1328,18 @@ final class HuntSim {
   // Break and reap -----------------------------------------------------
 
   void _break(List<HuntEvent> events) {
-    final current = pose;
+    // A husk broken in mid-leap still lands, and hangs open where it does.
+    final landing = _leaping ? _destination : pose.position;
 
     phase = HuntPhase.broken;
     ward = 0;
     _halt();
     _bufferedTap = null;
-    _arcYaw = current.yaw;
-    _arcPitch = current.pitch;
+    _flights.clear();
+    _burnUntil = tick;
+    _frozenUntil = tick;
+    _arcYaw = landing.yaw;
+    _arcPitch = landing.pitch;
     _captureEndTick = tick + captureTicks;
     reapBegun = false;
     reapProgress = 0;
@@ -1180,6 +1351,10 @@ final class HuntSim {
 
   void _stepReap(HuntInput input, List<HuntEvent> events) {
     final aim = input.aim.direction;
+
+    if (_leaping) {
+      _continueMove();
+    }
 
     if (!reapBegun && aim.angleTo(reapArcPoint(0)) <= HuntRules.reapStartAim) {
       reapBegun = true;
@@ -1271,12 +1446,247 @@ final class HuntSim {
     events.add(HuskEscaped(cause));
   }
 
+  // Arts ---------------------------------------------------------------
+
+  /// Gathers, throws and readies the reaper's art.
+  ///
+  /// A thumb held on the art gathers it while the phone is steady, and the
+  /// art goes wherever the phone was last steady on. Once it is gathered, a
+  /// flick of the phone throws it. Letting go before that loses nothing.
+  void _stepArt(HuntInput input, List<HuntEvent> events) {
+    final art = stats.art;
+
+    if (art == null) {
+      return;
+    }
+
+    if (artCharges < art.maxCharges) {
+      _rechargeTicks++;
+
+      if (_rechargeTicks >= art.rechargeTicks) {
+        artCharges++;
+        _rechargeTicks = 0;
+      }
+    } else {
+      _rechargeTicks = 0;
+    }
+
+    if (!input.focus || artCharges == 0) {
+      _gatherTicks = 0;
+      _castAim = null;
+      return;
+    }
+
+    final speed = input.turnRadiansPerSecond;
+    final aim = _castAim;
+    final gathered = _gatherTicks >= ArtRules.gatherTicks;
+
+    // Nothing is thrown into a shriek: the flick is a flinch, and the art
+    // stays gathered in the hand.
+    if (gathered && aim != null && speed >= ArtRules.throwSpeed) {
+      if (phase == HuntPhase.shriek) {
+        return;
+      }
+
+      _throw(art, aim, events);
+      return;
+    }
+
+    if (speed <= HuntRules.steadySpeed) {
+      _gatherTicks = math.min(ArtRules.gatherTicks, _gatherTicks + 1);
+      _castAim = input.aim;
+    }
+  }
+
+  void _throw(ArtSkill art, Aim aim, List<HuntEvent> events) {
+    final ray = aim.direction;
+    final current = pose;
+    final atHusk = switch (art.art) {
+      Art.gale => ray.angleTo(current.direction) <= ArtRules.gustAngle,
+      Art.cinder || Art.rime => current.covers(ray, pad: stats.reachRadians),
+    };
+    const from = Vec3(0, -ArtRules.handDrop, 0);
+    final target = atHusk ? current.position : _landingAlong(ray);
+
+    artCharges--;
+    _gatherTicks = 0;
+    _castAim = null;
+    _flights.add(
+      ArtFlight(
+        art: art.art,
+        from: from,
+        target: target,
+        homing: atHusk && art.art.homing,
+        thrownAt: tick,
+        ticks: math.max(
+          ArtRules.shortestFlightTicks,
+          ((target - from).length / art.art.speed * HuntRules.tickRate).round(),
+        ),
+      ),
+    );
+    events.add(ArtThrown(art.art));
+  }
+
+  /// Where an art thrown along [ray] at nothing comes down: on the floor, or
+  /// against the front of whatever stands in the way, or at the end of its
+  /// throw. Thrown over the top of something, it comes down behind it.
+  Vec3 _landingAlong(Vec3 ray) {
+    var metres = ArtRules.farthestMetres;
+
+    if (ray.y < 0) {
+      metres = math.min(metres, -plan.eyeHeight / ray.y);
+    }
+
+    final across = math.sqrt(ray.x * ray.x + ray.z * ray.z);
+    final cover = plan.coverAt(ray.yaw);
+
+    if (cover > 0 && across > 0) {
+      final front =
+          plan.reachDecimetres[HuntPlan.sliceOf(ray.yaw)] / 10 / across;
+
+      if (front < metres && ray.y * front < cover - plan.eyeHeight) {
+        metres = front;
+      }
+    }
+
+    return ray * metres;
+  }
+
+  void _stepFlights(List<HuntEvent> events) {
+    if (_flights.isEmpty) {
+      return;
+    }
+
+    final landing = [
+      for (final flight in _flights)
+        if (tick >= flight.landsAt) flight,
+    ];
+
+    _flights.removeWhere((flight) => tick >= flight.landsAt);
+
+    for (final flight in landing) {
+      _artLands(flight, events);
+    }
+  }
+
+  void _artLands(ArtFlight flight, List<HuntEvent> events) {
+    final art = stats.art!;
+    final current = pose;
+    final at = flight.homing ? current.position : flight.target;
+    final hit = switch (flight.art) {
+      // Fire bursts where it comes down, whatever is in front of it: it was
+      // lobbed over the top.
+      Art.cinder =>
+        (current.position - at).length <=
+            vessel.halfWidth + ArtRules.burstMetres,
+      // Ice flies straight, and breaks on whatever the husk is behind.
+      Art.rime => flight.homing && !plan.hides(current.position),
+      // Wind goes round things.
+      Art.gale => flight.homing,
+    };
+
+    if (!hit) {
+      events.add(ArtLanded(art: flight.art, at: at, hit: false));
+
+      if (phase == HuntPhase.stalk) {
+        _beginFight(events, ambush: false);
+      }
+
+      return;
+    }
+
+    final damage = stats.strikeDamage * art.strike;
+
+    ward = math.max(0, ward - damage);
+    events.add(ArtLanded(art: flight.art, at: at, hit: true, damage: damage));
+
+    switch (flight.art) {
+      case Art.cinder:
+        _burnUntil = tick + art.burnTicks;
+        _burnPerTick = stats.strikeDamage * art.burnStrike / art.burnTicks;
+        _frozenUntil = tick;
+        _exposedUntil = math.max(_exposedUntil, _burnUntil);
+
+        // It runs, burning, and not into cover.
+        if (phase == HuntPhase.fight && tick >= _staggeredUntil) {
+          _nextBoltTick = tick + ArtRules.burnBoltTicks;
+        }
+      case Art.rime:
+        _freeze(art, events);
+      case Art.gale:
+        _gust(art, events);
+    }
+
+    if (phase == HuntPhase.stalk) {
+      _beginFight(events, ambush: false);
+    }
+  }
+
+  void _stepBurn() {
+    if (tick < _burnUntil) {
+      ward = math.max(0, ward - _burnPerTick);
+    }
+  }
+
+  /// Ice holds the husk where it stands, every seal in view open. A charge
+  /// stops dead.
+  void _freeze(ArtSkill art, List<HuntEvent> events) {
+    if (phase == HuntPhase.charge) {
+      _endCharge();
+      _moveStart = -1;
+    }
+
+    _frozenUntil = tick + art.freezeTicks;
+    _burnUntil = tick;
+    _halt();
+
+    for (var index = 0; index < vessel.seals.length; index++) {
+      _openSeal(index, ticks: art.freezeTicks, events: events);
+    }
+  }
+
+  /// Wind knocks the husk off its ledge or out from behind its cover, turns
+  /// a charge aside, and leaves it stunned, every seal in view open.
+  void _gust(ArtSkill art, List<HuntEvent> events) {
+    if (phase == HuntPhase.charge) {
+      _endCharge();
+      _moveStart = -1;
+      _staggeredUntil = tick + art.gustStunTicks;
+    } else if (_leaping) {
+      _staggeredUntil = _moveStart + _moveTicks + art.gustStunTicks;
+    } else if (_footing != Footing.open) {
+      _leaveCover(events, mayStay: false);
+      _staggeredUntil = tick + _moveTicks + art.gustStunTicks;
+    } else {
+      _halt();
+      _staggeredUntil = tick + art.gustStunTicks;
+    }
+
+    _nextBoltTick = _staggeredUntil;
+    _exposedUntil = _staggeredUntil + ArtRules.shakenTicks;
+    _exposeAllSeals(events);
+  }
+
   // Movement -----------------------------------------------------------
 
   /// Moves the husk on by one tick: along the move it is making, or into a
   /// new one when it is time to amble or to bolt.
   void _move(List<HuntEvent> events) {
     if (vessel.gait == Gait.still) {
+      return;
+    }
+
+    // A leap, once begun, comes down, whatever else is happening.
+    if (_leaping) {
+      _continueMove();
+
+      return;
+    }
+
+    // Frozen, it does not even turn.
+    if (tick < _frozenUntil) {
+      _halt();
+
       return;
     }
 
@@ -1314,7 +1724,7 @@ final class HuntSim {
     if (bolting) {
       _bolt(events);
     } else if (tick >= _nextAmbleTick) {
-      _amble();
+      _amble(events);
     }
   }
 
@@ -1323,22 +1733,30 @@ final class HuntSim {
 
     if (progress >= 1) {
       _bearing = wrapAngle(_fromBearing + _byBearing);
-      _range = math.min(_fromRange + _byRange, _farAt(_bearing));
+      _range = _leaping
+          ? _fromRange + _byRange
+          : math.min(_fromRange + _byRange, _farAt(_bearing));
       _height = _fromHeight + _byHeight;
       _moveStart = -1;
+
+      if (_leaping) {
+        _land();
+      }
+
       _nextAmbleTick = tick + _restTicks();
 
       return;
     }
 
     final eased = smoothstep(progress);
+    final along = _fromRange + _byRange * eased;
 
     _bearing = wrapAngle(_fromBearing + _byBearing * eased);
     // Whatever stands between where it set off and where it is going, it
     // keeps to this side of: it goes round the front of the sofa, not
-    // through it.
-    _range = math.min(_fromRange + _byRange * eased, _farAt(_bearing));
-    _height = _fromHeight + _byHeight * eased;
+    // through it. A leap goes over the top instead.
+    _range = _leaping ? along : math.min(along, _farAt(_bearing));
+    _height = _fromHeight + _byHeight * eased + _arc * 4 * eased * (1 - eased);
 
     // The body faces the way it is going: along the floor, the sum of going
     // round the player and going toward or away from them.
@@ -1352,8 +1770,27 @@ final class HuntSim {
     );
   }
 
-  /// A short, unhurried move to somewhere nearby.
-  void _amble() {
+  /// A short, unhurried move to somewhere nearby. Now and then, where the
+  /// room has somewhere better to be, it leaps up onto a ledge or behind
+  /// something instead, the way a cat would.
+  void _amble(List<HuntEvent> events) {
+    if (_footing != Footing.open) {
+      _leaveCover(events, mayStay: true);
+      return;
+    }
+
+    final spots = _spots(
+      around: _bearing,
+      within: radians(HuntRules.coverSearchDegrees),
+    );
+
+    if (spots.isNotEmpty &&
+        tick >= _exposedUntil &&
+        _cover.nextChance(HuntRules.ambleCoverChance)) {
+      _leapTo(_cover.pick(spots), events);
+      return;
+    }
+
     final by = radians(
       _path.nextRange(-HuntRules.ambleDegrees, HuntRules.ambleDegrees),
     );
@@ -1364,15 +1801,32 @@ final class HuntSim {
       toBearing: toBearing,
       toRange: _rangeAt(toBearing, _path.nextRange(0, 1)),
       speed: vessel.walkSpeed,
+      events: events,
     );
   }
 
-  /// A dash to somewhere well away from where the reaper is aiming.
+  /// A dash to somewhere well away from where the reaper is aiming: into
+  /// cover or up out of reach when the room offers it, unless it is burning
+  /// or the wind has shaken it, when it wants nothing but open floor.
   void _bolt(List<HuntEvent> events) {
     _nextBoltTick = -1;
 
     if (vessel.gait == Gait.still) {
       return;
+    }
+
+    if (tick >= _exposedUntil) {
+      final spots = _spots(
+        around: _bearing,
+        within: radians(HuntRules.boltMaxDegrees),
+        beyond: radians(HuntRules.boltMinDegrees / 2),
+      );
+
+      if (spots.isNotEmpty && _cover.nextChance(HuntRules.boltCoverChance)) {
+        _leapTo(_cover.pick(spots), events);
+        events.add(const Relocating());
+        return;
+      }
     }
 
     final side = _path.nextChance(0.5) ? 1 : -1;
@@ -1393,21 +1847,59 @@ final class HuntSim {
       // It runs for the far half of the room it has there.
       toRange: _rangeAt(toBearing, _path.nextRange(0.5, 1)),
       speed: vessel.boltSpeed,
+      events: events,
     );
     events.add(const Relocating());
   }
 
+  /// Leaps down from a ledge, or out from behind cover, onto the open floor
+  /// in front of it. A husk that [mayStay] is only ready to move, and may
+  /// settle down where it is a while longer.
+  void _leaveCover(List<HuntEvent> events, {required bool mayStay}) {
+    if (mayStay && _cover.nextChance(HuntRules.stayCoverChance)) {
+      _nextAmbleTick = tick + _restTicks();
+      return;
+    }
+
+    final toBearing = plan.clamp(_bearing + radians(_cover.nextRange(-20, 20)));
+
+    _setOff(
+      toBearing: toBearing,
+      toRange: _rangeAt(toBearing, _cover.nextRange(0.2, 0.8)),
+      speed: vessel.boltSpeed * HuntRules.leapPace,
+      toHeight: vessel.gait == Gait.ground
+          ? null
+          : _cover.nextRange(vessel.lowMetres, vessel.highMetres),
+      events: events,
+    );
+  }
+
+  void _leapTo(_Spot spot, List<HuntEvent> events) => _setOff(
+    toBearing: spot.bearing,
+    toRange: spot.range,
+    speed: vessel.boltSpeed * HuntRules.leapPace,
+    toward: spot.footing,
+    toHeight: spot.height,
+    events: events,
+  );
+
+  /// Sets off for [toBearing] and [toRange] at [speed] metres a second,
+  /// ending at [toHeight], or at the height it rests at when that is not
+  /// given. A move onto, off or over anything in the room is a leap.
   void _setOff({
     required double toBearing,
     required double toRange,
     required double speed,
+    required List<HuntEvent> events,
+    Footing toward = Footing.open,
+    double? toHeight,
   }) {
     _fromBearing = _bearing;
     _fromRange = _range;
     _fromHeight = _height;
     _byBearing = wrapAngle(toBearing - _bearing);
     _byRange = toRange - _range;
-    _byHeight = _restingHeight() - _height;
+    _byHeight = (toHeight ?? _restingHeight()) - _height;
 
     final meanRange = _range + _byRange / 2;
     final length = math.sqrt(
@@ -1421,11 +1913,70 @@ final class HuntSim {
       (length / (speed * difficulty.pace) * HuntRules.tickRate).round(),
     );
     _moveStart = tick;
+
+    if (_footing == Footing.open && toward == Footing.open) {
+      return;
+    }
+
+    _leaping = true;
+    _toFooting = toward;
+    _toGround = toward == Footing.ledge
+        ? _height + _byHeight - vessel.halfHeight
+        : _floor;
+    _arc = _leapArc(toward: toward, toBearing: toBearing);
+    _moveTicks = math.max(HuntRules.leapMinTicks, _moveTicks);
+    events.add(Leapt(toward));
   }
 
-  /// Stops the husk where it stands.
+  /// How far above the straight line a leap rises at its height: a hop,
+  /// and enough more that its feet clear the front edge of the counter or
+  /// the table it leaps onto, off or over, where it passes it.
+  double _leapArc({required Footing toward, required double toBearing}) {
+    final arc = HuntRules.hopMetres + 0.45 * _byHeight.abs();
+    final edge = _footing == Footing.open ? toBearing : _bearing;
+    final front = plan.reachDecimetres[HuntPlan.sliceOf(edge)] / 10;
+    final from = _range;
+    final to = _range + _byRange;
+
+    if ((from - front) * (to - front) >= 0) {
+      return arc;
+    }
+
+    // How far through the leap it passes the edge, kept off the very ends,
+    // where no arc could lift it in time.
+    final passing = ((front - from) / (to - from)).clamp(0.2, 0.8);
+    final line = _height + _byHeight * passing;
+    final clear =
+        _floor +
+        plan.coverAt(edge) +
+        HuntRules.leapClearance +
+        vessel.halfHeight;
+
+    return math.max(arc, (clear - line) / (4 * passing * (1 - passing)));
+  }
+
+  void _land() {
+    _leaping = false;
+    _footing = _toFooting;
+    _fromGround = _toGround;
+    _arc = 0;
+  }
+
+  /// Where the move under way ends.
+  Vec3 get _destination {
+    final bearing = _fromBearing + _byBearing;
+    final range = _fromRange + _byRange;
+
+    return Vec3(
+      math.sin(bearing) * range,
+      _fromHeight + _byHeight,
+      math.cos(bearing) * range,
+    );
+  }
+
+  /// Stops the husk where it stands. A leap cannot be stopped in the air.
   void _halt() {
-    if (_moveStart < 0) {
+    if (_moveStart < 0 || _leaping) {
       return;
     }
 
@@ -1444,6 +1995,103 @@ final class HuntSim {
   int _restTicks() =>
       HuntRules.restMinTicks +
       _path.nextInt(HuntRules.restMaxTicks - HuntRules.restMinTicks + 1);
+
+  /// Places within [within] radians of the bearing [around], and no nearer
+  /// to it than [beyond], where the room lets the husk leap up onto a ledge
+  /// or hide behind something. A place counts only where the ledge or the
+  /// cover is as wide as the husk.
+  List<_Spot> _spots({
+    required double around,
+    required double within,
+    double beyond = 0,
+  }) {
+    if (!plan.knowsCover || vessel.gait == Gait.still) {
+      return const [];
+    }
+
+    final spots = <_Spot>[];
+    final farthest = vessel.farMetres + HuntRules.hideBeyond;
+
+    for (var slice = 0; slice < HuntPlan.slices; slice++) {
+      final bearing = HuntPlan.bearingOf(slice);
+      final away = wrapAngle(bearing - around).abs();
+
+      if (away > within || away < beyond || !plan.contains(bearing)) {
+        continue;
+      }
+
+      final front = plan.reachDecimetres[slice] / 10;
+      final hide = plan.hideAt(slice);
+
+      if (vessel.gait == Gait.ground &&
+          hide != null &&
+          hide >= HuntRules.closestMetres &&
+          hide <= farthest &&
+          _spans(slice, hide, (other) => _hidesBody(other, hide))) {
+        spots.add(
+          _Spot(
+            bearing: bearing,
+            range: hide,
+            footing: Footing.hidden,
+            height: _floor + vessel.halfHeight,
+          ),
+        );
+      }
+
+      final ledge = plan.ledgeAt(slice);
+      final onLedge = front + vessel.halfWidth * HuntRules.ledgeInset;
+
+      if (ledge != null &&
+          ledge >= HuntRules.lowestLedge &&
+          ledge <= vessel.leapMetres &&
+          front >= HuntRules.closestMetres &&
+          onLedge <= farthest &&
+          _spans(slice, onLedge, (other) => _sameLedge(other, slice))) {
+        spots.add(
+          _Spot(
+            bearing: bearing,
+            range: onLedge,
+            footing: Footing.ledge,
+            height: _floor + ledge + vessel.halfHeight,
+          ),
+        );
+      }
+    }
+
+    return spots;
+  }
+
+  /// Whether every slice a husk [range] metres out along slice [slice] would
+  /// stand across passes [test].
+  bool _spans(int slice, double range, bool Function(int other) test) {
+    final half = math.atan2(vessel.halfWidth, range);
+    final reach = (half / HuntPlan.sliceWidth).ceil();
+
+    for (var step = -reach; step <= reach; step++) {
+      if (!test((slice + step) % HuntPlan.slices)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /// Whether the cover along slice [other] stands in front of a husk hiding
+  /// [range] metres out, and is tall enough to hide at least half of it.
+  bool _hidesBody(int other, double range) =>
+      plan.coverCentimetres[other] / 100 >= vessel.halfHeight &&
+      plan.reachDecimetres[other] / 10 < range - vessel.halfWidth / 2;
+
+  /// Whether slice [other] has the same ledge as slice [slice]: as high, to
+  /// within a hand, and as far away, to within a stride.
+  bool _sameLedge(int other, int slice) {
+    final ledge = plan.ledgeAt(other);
+    final height = plan.ledgeAt(slice)!;
+
+    return ledge != null &&
+        (ledge - height).abs() <= 0.1 &&
+        (plan.reachDecimetres[other] - plan.reachDecimetres[slice]).abs() <= 4;
+  }
 
   /// The farthest the husk may be along [bearing]: as far as it likes to
   /// keep, or, where something stands in the way, just this side of it. In
@@ -1473,4 +2121,21 @@ final class HuntSim {
     Gait.air ||
     Gait.still => _path.nextRange(vessel.lowMetres, vessel.highMetres),
   };
+}
+
+/// Somewhere the room lets a husk be that it has to leap to.
+final class _Spot {
+  const _Spot({
+    required this.bearing,
+    required this.range,
+    required this.footing,
+    required this.height,
+  });
+
+  final double bearing;
+  final double range;
+  final Footing footing;
+
+  /// The height of the middle of the husk's body there, from the eye.
+  final double height;
 }

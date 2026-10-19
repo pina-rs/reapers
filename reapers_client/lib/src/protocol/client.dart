@@ -220,6 +220,15 @@ class EndpointPlayer extends _isc.EndpointRef {
         'wear',
         {'outfit': outfit},
       );
+
+  /// Makes the art [art] names the one the reaper throws. Only an art the
+  /// reaper has learned can be.
+  _ida.Future<_ildkp1az.PlayerState> attune(String art) =>
+      caller.callServerEndpoint<_ildkp1az.PlayerState>(
+        'player',
+        'attune',
+        {'art': art},
+      );
 }
 
 /// Rifts: husks too strong for one reaper, fought by a circle of them.

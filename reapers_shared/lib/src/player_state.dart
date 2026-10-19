@@ -1,4 +1,5 @@
 import 'armory.dart';
+import 'arts.dart';
 import 'feeding.dart';
 import 'hunt/difficulty.dart';
 import 'hunt/hunt_event.dart';
@@ -453,6 +454,7 @@ final class PlayerState {
       completedSets: completedSets,
       soul: activeReaper?.soul,
       soulRank: activeReaper?.soulRank ?? 0,
+      art: activeReaper?.artSkill,
     );
   }
 
@@ -581,6 +583,10 @@ final class PlayerState {
       at: now,
     );
 
+    // The first art a reaper learns is made ready at once: absorbing the
+    // husk is how it learns, and throwing it is how it finds out.
+    final learnt = Art.carriedBy(sighting.nft.collection.vessel);
+
     return _copy(
       xp: xp + absorption.xp,
       anima: anima + absorption.anima,
@@ -590,6 +596,7 @@ final class PlayerState {
       ],
       codex: [...codex, absorption],
       memory: activeReaper!.memory.remember(outcome),
+      art: activeReaper!.art ?? learnt,
     );
   }
 
@@ -719,7 +726,7 @@ final class PlayerState {
 
     final price = weapon.priceFor(genome.reaperClass);
 
-    _requireLevel(weapon.temper.levelRequired);
+    _requireLevel(weapon.levelRequired);
     _requireAnima(price);
 
     return _copy(anima: anima - price, weapons: {...weapons, weapon});
@@ -732,6 +739,18 @@ final class PlayerState {
     }
 
     return _copy(weapon: weapon);
+  }
+
+  /// Makes [art] the one the reaper throws. Only an art it has learned, by
+  /// absorbing a husk that carries it, can be made ready.
+  PlayerState attune(Art art) {
+    _requireOath();
+
+    if (activeReaper!.artRank(art) == 0) {
+      throw const RuleBreach(Refusal.notOwned);
+    }
+
+    return _copy(art: art);
   }
 
   /// Buys [outfit] with anima.
@@ -807,6 +826,7 @@ final class PlayerState {
     int? riftsSealed,
     int? nextSightingId,
     SoulMemory? memory,
+    Art? art,
   }) {
     final roster =
         reapers ??
@@ -823,6 +843,7 @@ final class PlayerState {
                     huntsLost: huntsLost,
                     riftsSealed: riftsSealed,
                     memory: memory,
+                    art: art,
                   )
                 : reaper,
         ];

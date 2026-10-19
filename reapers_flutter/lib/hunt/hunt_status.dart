@@ -55,6 +55,10 @@ class HuntStatus extends HookWidget {
       HuntPhase.stalk when sim.steadiness > 0.05 => l10n.huntPromptSteady,
       HuntPhase.stalk =>
         followsDevice ? l10n.huntPromptStalk : l10n.huntPromptStalkDrag,
+      HuntPhase.fight when sim.footing == Footing.hidden && !sim.leaping =>
+        l10n.huntPromptHidden,
+      HuntPhase.fight when sim.footing == Footing.ledge && !sim.leaping =>
+        l10n.huntPromptPerched,
       HuntPhase.fight => l10n.huntPromptStrike,
       HuntPhase.windup => l10n.huntPromptWindup,
       HuntPhase.shriek => l10n.huntPromptHold,
@@ -161,6 +165,13 @@ String? huntBannerFor(AppLocalizations l10n, HuntEvent event) =>
       Struck() => l10n.huntStruck,
       Broken() => l10n.huntBroken,
       ReapRecovered() => l10n.huntRecovered,
+      ArtLanded(hit: false) => l10n.huntArtMissed,
+      ArtLanded(art: Art.cinder) => l10n.huntBurning,
+      ArtLanded(art: Art.rime) => l10n.huntFrozen,
+      ArtLanded(art: Art.gale) => l10n.huntGusted,
+      IceShattered() => l10n.huntShattered,
+      ArtThrown() ||
+      Leapt() ||
       StrikeLanded() ||
       StrikeGlanced() ||
       StrikeWhiffed() ||
@@ -183,12 +194,19 @@ void knockFor(HuntEvent event) {
     Parried() ||
     Broken() ||
     HuskAbsorbed() ||
-    HuskEscaped() => HapticFeedback.heavyImpact,
-    StalkEnded() || HeldFirm() || ChargeBegan() => HapticFeedback.mediumImpact,
+    HuskEscaped() ||
+    ArtLanded(hit: true) ||
+    IceShattered() => HapticFeedback.heavyImpact,
+    StalkEnded() ||
+    HeldFirm() ||
+    ChargeBegan() ||
+    ArtThrown() => HapticFeedback.mediumImpact,
     StrikeLanded() => HapticFeedback.lightImpact,
     StrikeGlanced() => HapticFeedback.selectionClick,
     Flinched() || Struck() => HapticFeedback.vibrate,
     GiftStirred() ||
+    ArtLanded() ||
+    Leapt() ||
     StrikeWhiffed() ||
     SealOpened() ||
     ShriekWindup() ||

@@ -7,6 +7,10 @@
 // that picture light itself.
 //
 // The vertex colour's red channel is ambient occlusion, as on a reaper.
+//
+// An art leaves its mark here too. `frost` glazes the husk in ice, pale and
+// glassy. `burn` lights it from inside along the same
+// ragged grain it comes apart along, and `burn_flicker` moves the embers.
 material {
   name: "Husk",
   shading_model: lit,
@@ -23,6 +27,9 @@ material {
     { type: float, name: rim_strength, default: 0.6 },
     { type: float, name: flash, hint: range(0, 1, 0.01), default: 0 },
     { type: float, name: dissolve, hint: range(0, 1, 0.01), default: 0 },
+    { type: float, name: frost, hint: range(0, 1, 0.01), default: 0 },
+    { type: float, name: burn, hint: range(0, 1, 0.01), default: 0 },
+    { type: float, name: burn_flicker, default: 0 },
     { type: sampler2d, name: image, hint: default_white },
   ],
 }
@@ -67,10 +74,25 @@ fragment {
 
     float rim_amount = pow(1.0 - clamp(dot(normal, view), 0.0, 1.0), 2.4);
 
+    // Ice spreads over the body along the grain, ragged at its edges.
+    float frost =
+        smoothstep(0.0, 0.25, material_params.frost * 1.3 - grain * 0.35);
+    vec3 ice = vec3(0.62, 0.82, 0.95);
+    color = mix(color, ice * mix(0.7, 1.0, occlusion), frost * 0.85);
+
+    // Burning chars the coat, and embers glow in the deepest cracks of the
+    // grain, and crawl. Kept dim: the bloom does the rest.
+    color *= mix(1.0, 0.4, material_params.burn);
+    float ember = material_params.burn *
+                  smoothstep(0.66, 0.92,
+                             Noise(world * 7.0 +
+                                   vec3(0.0, -material_params.burn_flicker, 0.0)));
+    vec3 fire = vec3(1.0, 0.36, 0.05) * ember * 1.4;
+
     material.base_color = vec4(color, 1.0);
     material.normal = normal;
     material.metallic = material_params.surface_metallic;
-    material.roughness = material_params.surface_roughness;
+    material.roughness = mix(material_params.surface_roughness, 0.18, frost);
     material.occlusion = occlusion;
     material.emissive =
         picture * material_params.image_mix * material_params.image_glow +
@@ -82,7 +104,8 @@ fragment {
              // white that fast is hard on the eyes. A portrait takes far
              // less of it, or a circle of four striking a rift's husk
              // would keep its pictures washed out for the whole fight.
-             material_params.flash * mix(0.5, 0.14, material_params.image_mix));
+             material_params.flash * mix(0.5, 0.14, material_params.image_mix)) +
+        ice * frost * rim_amount * 1.6 + fire;
 
     PrepareMaterial(material);
   }

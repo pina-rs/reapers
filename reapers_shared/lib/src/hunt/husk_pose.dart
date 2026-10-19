@@ -3,6 +3,18 @@ import 'dart:math' as math;
 import '../vec3.dart';
 import '../vessel.dart';
 
+/// What a husk stands on, or behind.
+enum Footing {
+  /// The open floor, or for a husk that flies, its band of air.
+  open,
+
+  /// The level top of something in the room: a table, a counter.
+  ledge,
+
+  /// Behind something in the room, with only what rises above it showing.
+  hidden,
+}
+
 /// Where a husk is and which way it is turned at one instant.
 ///
 /// The rules own this, and the view draws exactly what it says: a model is
@@ -13,6 +25,9 @@ final class HuskPose {
     required this.vessel,
     required this.position,
     required this.heading,
+    this.footing = Footing.open,
+    this.leaping = false,
+    this.ground,
   });
 
   final Vessel vessel;
@@ -23,6 +38,17 @@ final class HuskPose {
   /// The way the husk's body faces, as a bearing in radians: 0 is the way
   /// the player first faced, and it grows to the right.
   final double heading;
+
+  /// What it stands on or behind. While [leaping], what it is leaping to.
+  final Footing footing;
+
+  /// Whether it is in the air between one footing and the next.
+  final bool leaping;
+
+  /// How high the surface under it is, in metres from the player's eye: the
+  /// floor, or the ledge it stands on. Null for a husk in the air with
+  /// nothing under it near enough to matter.
+  final double? ground;
 
   /// The husk's bearing around the player, in radians.
   double get yaw => position.yaw;

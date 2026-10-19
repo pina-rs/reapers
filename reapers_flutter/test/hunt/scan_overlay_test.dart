@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:reapers_flutter/hunt/scan/depth/occlusion_map.dart';
 import 'package:reapers_flutter/hunt/pose/ar_pose.dart';
 import 'package:reapers_flutter/hunt/scan/room_survey.dart';
 import 'package:reapers_flutter/hunt/scan/scan_overlay.dart';
@@ -16,6 +17,9 @@ final class _SeeingSurvey implements RoomSurvey {
 
   @override
   Object? failure;
+
+  @override
+  OcclusionMap? get occlusion => null;
 
   @override
   HuntPlan planWithin(double centre, double halfWidth) {

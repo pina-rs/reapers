@@ -16,6 +16,7 @@ player:
   - wield:
   - buyOutfit:
   - wear:
+  - attune:
 rift:
   - enter:
 solana:

@@ -79,6 +79,9 @@ final class HuntReward {
     this.gift,
     this.soulRankBefore = 0,
     this.soulRankAfter = 0,
+    this.art,
+    this.artRankBefore = 0,
+    this.artRankAfter = 0,
   });
 
   /// A practice hunt: the phone's own verdict, and nothing changes hands.
@@ -91,7 +94,10 @@ final class HuntReward {
       levelAfter = 0,
       gift = null,
       soulRankBefore = 0,
-      soulRankAfter = 0;
+      soulRankAfter = 0,
+      art = null,
+      artRankBefore = 0,
+      artRankAfter = 0;
 
   /// The verdict. For a real hunt this is the keeper's, which is the one
   /// that counts if it ever differs from what the phone saw.
@@ -112,6 +118,12 @@ final class HuntReward {
   final ReaperGift? gift;
   final int soulRankBefore;
   final int soulRankAfter;
+
+  /// The art the husk carried, and how deep the reaper knew it before and
+  /// after: absorbing a husk is how an art is learned.
+  final Art? art;
+  final int artRankBefore;
+  final int artRankAfter;
 
   bool get levelledUp => levelAfter > levelBefore;
 }
@@ -156,11 +168,15 @@ class HuntScreen extends HookConsumerWidget {
     /// Starts the hunt inside [plan].
     void engage(HuntPlan plan) {
       // The sigil is traced and the room read, so the reading stops: no
-      // more pictures are taken once the husk is in view.
+      // more pictures are taken once the husk is in view. What it saw of
+      // the room stays, to hide the husk behind.
+      final occlusion = survey.value?.occlusion;
+
       survey.value?.dispose();
       survey.value = null;
       arena.engage(
         brief.newSim(plan, ref.read(testingDifficultyProvider)),
+        occlusion: occlusion,
       );
       engaged.value = true;
       banner.value = l10n.scanFound;
@@ -438,10 +454,18 @@ class HuntScreen extends HookConsumerWidget {
               onBegin: () {
                 begun.value = true;
 
-                // A hunt that plays itself has no sigil to trace and no
-                // room to read.
+                // A hunt that plays itself has no sigil to trace. It is
+                // played in whatever room is already known, or anywhere.
                 if (HuntArena.autoplay) {
-                  engage(HuntPlan.open);
+                  // A room drawn by hand has its furniture straight
+                  // ahead, so that is where its hunt is.
+                  engage(
+                    survey.value?.planWithin(
+                          arena.drawnRoom == null ? arena.pose.forward.yaw : 0,
+                          radians(80),
+                        ) ??
+                        HuntPlan.open,
+                  );
 
                   return;
                 }
@@ -654,6 +678,25 @@ class _Reckoning extends HookWidget {
                         giftName(l10n, reward.gift!),
                         reward.soulRankAfter,
                       ),
+                      style: Veil.body(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ],
+                if (reward.art case final art?
+                    when reward.artRankAfter > reward.artRankBefore) ...[
+                  const SizedBox(height: 14),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      reward.artRankBefore == 0
+                          ? l10n.huntArtLearned(artName(l10n, art))
+                          : l10n.huntArtDeepened(
+                              artName(l10n, art),
+                              reward.artRankAfter,
+                            ),
+                      key: const Key('hunt-art-learned'),
                       style: Veil.body(
                         color: Theme.of(context).colorScheme.primary,
                       ),

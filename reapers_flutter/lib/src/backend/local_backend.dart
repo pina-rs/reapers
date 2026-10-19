@@ -92,6 +92,9 @@ final class LocalBackend implements GameBackend {
       _change((state) => state.wear(outfit));
 
   @override
+  Future<PlayerState> attune(Art art) => _change((state) => state.attune(art));
+
+  @override
   Future<RiftSession> enterRift(RiftSite site) async {
     final player = await load();
     final entrant = player.entrantFor(site);

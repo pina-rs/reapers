@@ -1,4 +1,5 @@
 import 'armory.dart';
+import 'arts.dart';
 import 'player_state.dart';
 import 'progression.dart';
 import 'reaper_genome.dart';
@@ -19,6 +20,7 @@ final class ReaperState {
     required this.huntsLost,
     required this.riftsSealed,
     this.memory = const SoulMemory(),
+    this.art,
   }) : weapons = Set.unmodifiable(weapons),
        outfits = Set.unmodifiable(outfits),
        codex = List.unmodifiable(codex) {
@@ -28,7 +30,8 @@ final class ReaperState {
         huntsLost < 0 ||
         riftsSealed < 0 ||
         !weapons.contains(weapon) ||
-        !outfits.contains(outfit)) {
+        !outfits.contains(outfit) ||
+        (art != null && artRank(art!) == 0)) {
       throw const FormatException('Invalid reaper record');
     }
   }
@@ -82,6 +85,10 @@ final class ReaperState {
           : SoulMemory.fromJson(
               (json['memory'] as Map).cast<String, dynamic>(),
             ),
+      art: switch (json['art']) {
+        final String name => Art.values.byName(name),
+        _ => null,
+      },
     );
   }
 
@@ -97,12 +104,31 @@ final class ReaperState {
   final int riftsSealed;
   final SoulMemory memory;
 
+  /// The art the reaper has made ready to throw, out of those it knows.
+  final Art? art;
+
   bool get isNft => id != oathId;
   ReaperGenome get genome => ReaperGenome.parse(genomeCode);
   int get level => Progression.levelForXp(xp);
   ReaperSoul get soul => ReaperSoul.fromGenome(genome);
   int get soulRank =>
       SoulRules.rank(level: level, memory: memory, gift: soul.gift);
+
+  /// How deep [art] runs in this reaper: 0 until it has absorbed a husk
+  /// that carries it. It is read from the codex, so it travels with the
+  /// reaper and cannot be bought.
+  int artRank(Art art) => Art.rankFor(
+    codex
+        .where((entry) => art.vessels.contains(entry.nft.collection.vessel))
+        .length,
+  );
+
+  /// The art the reaper throws, at the rank it knows it.
+  ArtSkill? get artSkill {
+    final art = this.art;
+
+    return art == null ? null : ArtSkill(art, artRank(art));
+  }
 
   ReaperState copyWith({
     int? xp,
@@ -114,6 +140,7 @@ final class ReaperState {
     int? huntsLost,
     int? riftsSealed,
     SoulMemory? memory,
+    Art? art,
   }) => ReaperState(
     id: id,
     genomeCode: genomeCode,
@@ -126,6 +153,7 @@ final class ReaperState {
     huntsLost: huntsLost ?? this.huntsLost,
     riftsSealed: riftsSealed ?? this.riftsSealed,
     memory: memory ?? this.memory,
+    art: art ?? this.art,
   );
 
   Map<String, dynamic> toJson() => {
@@ -140,5 +168,6 @@ final class ReaperState {
     'huntsLost': huntsLost,
     'riftsSealed': riftsSealed,
     'memory': memory.toJson(),
+    'art': art?.name,
   };
 }

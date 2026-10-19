@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -6,15 +8,20 @@ import 'package:flutter_scene/scene.dart';
 import 'package:reapers_shared/reapers_shared.dart';
 import 'package:vector_math/vector_math.dart' as vm;
 
+import '../dev/drawn_room.dart';
+import '../dev/drawn_room_painter.dart';
 import '../render/husk_rig.dart';
 import '../render/veil_look.dart';
 import 'camera/camera_optics.dart';
 import 'camera/hunt_camera.dart';
 import 'camera_backdrop.dart';
 import 'hunt_controller.dart';
+import 'art_painter.dart';
+import 'art_trigger.dart';
 import 'hunt_hud.dart';
 import 'pose/adaptive_pose_source.dart';
 import 'pose/ar_pose.dart';
+import 'scan/depth/occlusion_map.dart';
 import 'veil_backdrop.dart';
 
 /// The vertical field of view the hunt is drawn with when there is no camera
@@ -48,6 +55,21 @@ final class HuntArena {
   late final scene = Scene();
 
   final slashes = <Slash>[];
+
+  /// Where thrown arts came down lately, for as long as their mark lasts.
+  final impacts = <ArtImpact>[];
+
+  /// The room as seen from where the player stands, as an image the
+  /// occlusion shader reads, once it is ready. Null where the room was not
+  /// seen: then nothing hides the husk.
+  ui.Image? room;
+
+  /// The shader that hides whatever part of the husk is behind something.
+  ui.FragmentShader? occluder;
+
+  /// The room drawn by hand that the hunt is played in, when it is played
+  /// in one: drawn behind the husk in place of the camera's picture.
+  DrawnRoom? drawnRoom;
 
   /// Where the phone points. Unless another is given, this follows the
   /// phone's own motion and falls back to a dragging finger.
@@ -120,10 +142,18 @@ final class HuntArena {
     );
   }
 
+  /// The shader that hides a husk behind the room, built from
+  /// assets/shaders/occlusion.frag.
+  static const occlusionShaderAsset = 'assets/shaders/occlusion.frag';
+
   /// Loads the husk and stands it in the scene.
   Future<void> load() async {
     await Scene.initializeStaticResources();
     VeilLook.hunt(scene);
+
+    final program = await ui.FragmentProgram.fromAsset(occlusionShaderAsset);
+
+    occluder = program.fragmentShader();
 
     rig = await HuskRig.load(vessel: vessel, relics: relics);
     _loaded = true;
@@ -142,8 +172,9 @@ final class HuntArena {
   /// Hands the arena the fight it is to show.
   ///
   /// A husk that was not in view until now gathers itself out of nothing
-  /// where the fight begins.
-  void engage(HuntSim sim) {
+  /// where the fight begins. Where the room was seen, [occlusion] is how it
+  /// looked, and the husk is hidden by whatever stands in front of it.
+  void engage(HuntSim sim, {OcclusionMap? occlusion}) {
     if (_rest == null) {
       _gathered = 0;
     }
@@ -152,6 +183,32 @@ final class HuntArena {
         ? AutoplayHuntController(sim: sim)
         : HuntController(sim: sim, poseSource: poseSource);
     rest(sim.pose);
+
+    if (occlusion != null && occlusion.pictures > 0) {
+      unawaited(_showRoom(occlusion));
+    }
+  }
+
+  Future<void> _showRoom(OcclusionMap occlusion) async {
+    final ready = Completer<ui.Image>();
+
+    ui.decodeImageFromPixels(
+      occlusion.toPixels(),
+      OcclusionMap.columns,
+      OcclusionMap.rows,
+      ui.PixelFormat.rgba8888,
+      ready.complete,
+    );
+
+    final image = await ready.future;
+
+    if (_disposed) {
+      image.dispose();
+
+      return;
+    }
+
+    room = image;
   }
 
   /// The view through the phone.
@@ -205,6 +262,14 @@ final class HuntArena {
           rig.flash(1);
         case Broken():
           rig.flash(1);
+        case ArtLanded(:final art, :final at, :final hit):
+          impacts.add(ArtImpact(art: art, at: at, hit: hit));
+
+          if (hit) {
+            rig.flash(0.8);
+          }
+        case IceShattered():
+          rig.flash(1);
         default:
           break;
       }
@@ -234,6 +299,8 @@ final class HuntArena {
             HuntPhase.shriek || HuntPhase.charge => 1.0,
             _ => 0.0,
           },
+          frozen: sim.frozen,
+          burning: sim.burning,
         ),
       );
 
@@ -242,6 +309,12 @@ final class HuntArena {
     }
 
     slashes.removeWhere((slash) => slash.spent);
+
+    for (final impact in impacts) {
+      impact.age += deltaSeconds;
+    }
+
+    impacts.removeWhere((impact) => impact.spent);
     frame.value++;
 
     return events;
@@ -281,11 +354,16 @@ final class HuntArena {
   }
 
   void dispose() {
+    _disposed = true;
     feed.dispose();
     poseSource.dispose();
     frame.dispose();
     gone.dispose();
+    room?.dispose();
+    occluder?.dispose();
   }
+
+  bool _disposed = false;
 
   void _placeAtRest() {
     final rest = _rest;
@@ -386,21 +464,51 @@ class HuntArenaView extends HookWidget {
               repaint: arena.frame,
             ),
           ),
+          if (arena.drawnRoom case final room?)
+            IgnorePointer(
+              child: CustomPaint(
+                painter: DrawnRoomPainter(
+                  room: room,
+                  pose: () => arena.pose,
+                  verticalFov: huntFieldOfView,
+                  repaint: arena.frame,
+                ),
+              ),
+            ),
           // A cold wash over the world, so the camera feed reads as the
           // other side of the veil rather than as a photograph.
           const IgnorePointer(child: _VeilWash()),
           if (loaded)
-            SceneView(
-              arena.scene,
-              onTick: (_, deltaSeconds) {
-                if (running) {
-                  onEvents(arena.advance(deltaSeconds));
-                } else {
-                  arena.idle(deltaSeconds);
-                  onIdle?.call(deltaSeconds);
-                }
-              },
-              cameraBuilder: (_) => arena.camera,
+            _Occluded(
+              arena: arena,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  SceneView(
+                    arena.scene,
+                    onTick: (_, deltaSeconds) {
+                      if (running) {
+                        onEvents(arena.advance(deltaSeconds));
+                      } else {
+                        arena.idle(deltaSeconds);
+                        onIdle?.call(deltaSeconds);
+                      }
+                    },
+                    cameraBuilder: (_) => arena.camera,
+                  ),
+                  if (controller != null)
+                    IgnorePointer(
+                      child: CustomPaint(
+                        painter: ArtPainter(
+                          controller: controller,
+                          impacts: arena.impacts,
+                          verticalFov: arena.fieldOfView,
+                          repaint: arena.frame,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           if (loaded && controller != null)
             IgnorePointer(
@@ -419,7 +527,82 @@ class HuntArenaView extends HookWidget {
             ),
           if (loaded && running && !HuntArena.autoplay)
             _Touch(arena: arena, size: size),
+          if (controller?.sim.stats.art case final art? when loaded && running)
+            ArtTrigger(
+              art: art,
+              controller: controller!,
+              light: arena.rig.light,
+              repaint: arena.frame,
+            ),
         ],
+      );
+    },
+  );
+}
+
+/// The husk and everything thrown at it, cut away wherever the room stands
+/// in front of them: the counter it ducked behind hides it, as a real one
+/// would.
+class _Occluded extends HookWidget {
+  const _Occluded({required this.arena, required this.child});
+
+  final HuntArena arena;
+  final Widget child;
+
+  /// How many metres either side of the husk's surface the cut fades over:
+  /// about how far the room's reading can be trusted at this distance.
+  static const _softness = 0.12;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: arena.frame,
+    child: child,
+    builder: (context, child) {
+      final room = arena.room;
+      final shader = arena.occluder;
+      final controller = arena.controller;
+
+      if (room == null || shader == null || controller == null) {
+        return child!;
+      }
+
+      return ShaderMask(
+        blendMode: BlendMode.dstIn,
+        shaderCallback: (bounds) {
+          final pose = arena.pose;
+          final husk = controller.sim.pose;
+          final tanHalfHeight = math.tan(arena.fieldOfView / 2);
+          final values = [
+            bounds.width,
+            bounds.height,
+            pose.forward.x,
+            pose.forward.y,
+            pose.forward.z,
+            pose.right.x,
+            pose.right.y,
+            pose.right.z,
+            pose.up.x,
+            pose.up.y,
+            pose.up.z,
+            tanHalfHeight * bounds.width / bounds.height,
+            tanHalfHeight,
+            husk.position.x,
+            husk.position.y,
+            husk.position.z,
+            husk.vessel.halfWidth,
+            husk.vessel.halfHeight,
+            _softness,
+          ];
+
+          for (var index = 0; index < values.length; index++) {
+            shader.setFloat(index, values[index]);
+          }
+
+          shader.setImageSampler(0, room);
+
+          return shader;
+        },
+        child: child,
       );
     },
   );

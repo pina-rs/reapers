@@ -1,6 +1,7 @@
 import 'package:reapers_shared/reapers_shared.dart';
 
 import '../pose/ar_pose.dart';
+import 'depth/occlusion_map.dart';
 
 /// A reading of the room, made while the player traces the husk's sigil,
 /// that ends in a plan of where the husk may go.
@@ -24,6 +25,10 @@ abstract interface class RoomSurvey {
   /// The plan for a hunt kept to [halfWidth] radians either side of the
   /// bearing [centre], with whatever has been learnt of the room so far.
   HuntPlan planWithin(double centre, double halfWidth);
+
+  /// The room as it looks from where the player stands, for hiding the
+  /// husk behind what stands in it, or null for a survey that cannot tell.
+  OcclusionMap? get occlusion;
 
   /// What went wrong, if the survey has broken down and will read no more.
   Object? get failure;

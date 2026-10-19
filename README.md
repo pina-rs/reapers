@@ -15,7 +15,9 @@ You are bound to a reaper you did not choose, and the phone is its blade. The hu
 - The shuffle: six classes, each with its own silhouette, weapon and perk, and a few hundred looks apiece.
 - Eighteen permanent birth gifts and four temperaments. Each reaper's remembered successful hunts awaken its own power at levels five, twelve and twenty.
 - The full hunt over the camera feed: trace a sigil to draw the husk out (harder for rarer husks) while the phone reads the room, then stalk, strike, shriek, reap.
-- Husks that are creatures with a place in the room: walkers on the floor, fliers in the air.
+- Husks that are creatures with a place in the room: walkers on the floor, fliers in the air. They leap onto counters and tables and hide behind them, and the real counter hides them.
+- Arts, learned by absorbing the creatures that carry them: Cinder (fire, lobbed over cover), Rime (ice that freezes) and Gale (wind that blows a husk out of hiding). Hold, steady the phone, flick to throw.
+- Two heavy weapons for any class: a greatsword that stops a husk in its tracks and an axe that bites the body anywhere.
 - A roll of luck on every absorption, decided and signed by the server.
 - A vault and a market, an armory of weapons and outfits, a codex, levels and collection sets.
 - Rifts: four-reaper raids, with shades filling the seats nobody takes.

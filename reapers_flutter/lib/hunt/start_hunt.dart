@@ -33,6 +33,7 @@ Future<void> startPracticeHunt(BuildContext context, WidgetRef ref) {
 /// Opens the hunt for a loose husk and has the keeper judge how it ends.
 Future<void> startHunt(BuildContext context, WidgetRef ref, Sighting sighting) {
   final player = ref.read(playerProvider).requireValue;
+  final art = Art.carriedBy(sighting.nft.collection.vessel);
   final brief = HuntBrief(
     nft: sighting.nft,
     seed: sighting.seed,
@@ -62,6 +63,13 @@ Future<void> startHunt(BuildContext context, WidgetRef ref, Sighting sighting) {
             gift: player.activeReaper?.soul.gift,
             soulRankBefore: player.activeReaper?.soulRank ?? 0,
             soulRankAfter: settlement.state.activeReaper?.soulRank ?? 0,
+            art: art,
+            artRankBefore: art == null
+                ? 0
+                : player.activeReaper?.artRank(art) ?? 0,
+            artRankAfter: art == null
+                ? 0
+                : settlement.state.activeReaper?.artRank(art) ?? 0,
           );
         },
       ),

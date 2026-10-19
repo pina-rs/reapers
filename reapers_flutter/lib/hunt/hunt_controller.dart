@@ -25,6 +25,9 @@ base class HuntController {
   final _pendingTaps = <Vec3>[];
   double _unspent = 0;
 
+  /// Whether the player's thumb is on their art, gathering it to throw.
+  bool focus = false;
+
   static const _tickSeconds = 1 / HuntRules.tickRate;
 
   /// A stalled frame catches up at most this many ticks, so a hitch never
@@ -86,6 +89,7 @@ base class HuntController {
       aim: current.forward,
       turnRadiansPerSecond: current.turnSpeed,
       taps: List.of(_pendingTaps),
+      focus: focus,
     );
 
     _pendingTaps.clear();

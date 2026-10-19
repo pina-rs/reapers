@@ -727,7 +727,7 @@ void main() {
         reason: 'the plan is cut short',
       );
       expect(
-        () => HuntLog.decode(HuntLog([idle]).encode().sublist(0, 9)),
+        () => HuntLog.decode(HuntLog([idle]).encode().sublist(0, 12)),
         throwsFormatException,
         reason: 'a tick is cut short',
       );

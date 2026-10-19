@@ -1,15 +1,18 @@
+import '../arts.dart';
 import '../vec3.dart';
 import 'hunt_event.dart';
 import 'hunt_input.dart';
 import 'hunt_sim.dart';
 import 'hunt_stats.dart';
+import 'husk_pose.dart';
 
 /// A simulated player: plays a hunt the way a careful person would.
 ///
 /// The bot reads only what a player can see: where the husk is, which seals
 /// are open, and what phase the hunt is in. It turns at a human pace, taps
 /// open seals as fast as the weapon allows, holds still through a shriek and
-/// sweeps the reap arc at a steady speed.
+/// sweeps the reap arc at a steady speed. A bot whose reaper knows an art
+/// throws it when it is what the moment calls for.
 ///
 /// It exists for three jobs: the rules' own tests and pacing checks, the
 /// game's autoplay (which lets a hunt be watched without being played), and
@@ -85,9 +88,11 @@ final class HuntBot {
       case HuntPhase.shriek:
         return _hold();
       case HuntPhase.fight || HuntPhase.windup:
-        return _fight();
+        return _wantsToThrow ? _cast() : _fight();
       case HuntPhase.charge:
-        return _cut();
+        return _wantsToThrow && sim.chargeProgress < chargeNerve
+            ? _cast()
+            : _cut();
       case HuntPhase.broken:
         return _reap();
       case HuntPhase.absorbed || HuntPhase.escaped:
@@ -136,6 +141,58 @@ final class HuntBot {
       aim: input.aim,
       turnSpeed: input.turnSpeed,
       taps: [Aim.fromDirection(target)],
+    );
+  }
+
+  /// Whether to reach for the art: a throw is ready, nothing is in the air,
+  /// and the husk is where this art is for.
+  bool get _wantsToThrow {
+    final art = sim.stats.art;
+    final ready =
+        art != null &&
+        sim.artCharges > 0 &&
+        sim.flights.isEmpty &&
+        !sim.frozen &&
+        !(sim.phase == HuntPhase.windup && sim.shriekProgress > 0.4);
+
+    if (!ready) {
+      return false;
+    }
+
+    final away = sim.footing != Footing.open && !sim.leaping;
+
+    return switch (art.art) {
+      // An ember is lobbed at a place, so it is thrown at a husk at rest.
+      Art.cinder => !sim.burning && sim.speed == 0 && !sim.leaping,
+      Art.rime =>
+        sim.phase == HuntPhase.charge || sim.artCharges == art.maxCharges,
+      Art.gale =>
+        away ||
+            sim.phase == HuntPhase.charge ||
+            sim.artCharges == art.maxCharges,
+    };
+  }
+
+  /// Holds the art with one thumb and steadies on the husk, tapping with
+  /// the other as it would anyway, then flicks.
+  HuntInput _cast() {
+    if (sim.artGathered >= 1 && _aim.angleTo(sim.pose.direction) < radians(4)) {
+      return HuntInput.measured(
+        aim: _aim,
+        turnRadiansPerSecond: ArtRules.throwSpeed * 1.25,
+        focus: true,
+      );
+    }
+
+    final input = sim.phase == HuntPhase.charge
+        ? _turnToward(sim.pose.direction, speed: turnSpeed)
+        : _fight();
+
+    return HuntInput(
+      aim: input.aim,
+      turnSpeed: input.turnSpeed,
+      taps: input.taps,
+      focus: true,
     );
   }
 

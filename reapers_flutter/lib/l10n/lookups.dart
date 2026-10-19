@@ -53,6 +53,27 @@ String weaponName(AppLocalizations l10n, WeaponKind kind) => switch (kind) {
   WeaponKind.spear => l10n.weaponSpear,
   WeaponKind.chainWhip => l10n.weaponChainWhip,
   WeaponKind.bell => l10n.weaponBell,
+  WeaponKind.greatsword => l10n.weaponGreatsword,
+  WeaponKind.axe => l10n.weaponAxe,
+};
+
+/// What sets a heavy weapon apart, or null for any other.
+String? weaponTrait(AppLocalizations l10n, WeaponKind kind) => switch (kind) {
+  WeaponKind.greatsword => l10n.weaponGreatswordTrait,
+  WeaponKind.axe => l10n.weaponAxeTrait,
+  _ => null,
+};
+
+String artName(AppLocalizations l10n, Art art) => switch (art) {
+  Art.cinder => l10n.artCinder,
+  Art.rime => l10n.artRime,
+  Art.gale => l10n.artGale,
+};
+
+String artLine(AppLocalizations l10n, Art art) => switch (art) {
+  Art.cinder => l10n.artCinderLine,
+  Art.rime => l10n.artRimeLine,
+  Art.gale => l10n.artGaleLine,
 };
 
 String temperName(AppLocalizations l10n, Temper temper) => switch (temper) {

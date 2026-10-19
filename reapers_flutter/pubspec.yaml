@@ -78,6 +78,9 @@ flutter:
     - assets/nfts/
     - assets/branding/
     - flutter_scene_generated/
+  # Hides the part of a husk that is behind something in the room.
+  shaders:
+    - assets/shaders/occlusion.frag
   fonts:
     - family: Fraunces
       fonts:

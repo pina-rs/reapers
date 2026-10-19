@@ -37,6 +37,9 @@ abstract interface class GameBackend {
 
   Future<PlayerState> wear(Outfit outfit);
 
+  /// Makes [art] the one the reaper throws.
+  Future<PlayerState> attune(Art art);
+
   /// Takes the player to the rift at [site] and seats them in its circle.
   ///
   /// Throws a [RuleBreach] when the rift does not open for them.

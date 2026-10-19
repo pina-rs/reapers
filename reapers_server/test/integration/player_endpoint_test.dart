@@ -559,6 +559,41 @@ void main() {
     );
 
     test(
+      'when a husk is absorbed then its art is learned and made ready',
+      () async {
+        final before = await withLooseHusk();
+        final sighting = before.sightings.single;
+        final carried = Art.carriedBy(sighting.nft.collection.vessel)!;
+        final other = Art.values.firstWhere((art) => art != carried);
+
+        await expectLater(
+          endpoints.player.attune(player, carried.name),
+          refuses(Refusal.notOwned),
+        );
+
+        final settlement = await endpoints.player.settleHunt(
+          player,
+          sighting.id,
+          packed(play(before, sighting)),
+        );
+
+        expect(settlement.state.activeReaper!.art, carried);
+        expect(
+          (await endpoints.player.attune(player, carried.name)).loadout.art,
+          ArtSkill(carried, 1),
+        );
+        await expectLater(
+          endpoints.player.attune(player, other.name),
+          refuses(Refusal.notOwned),
+        );
+        await expectLater(
+          endpoints.player.attune(player, 'no-such-art'),
+          refuses(Refusal.notOwned),
+        );
+      },
+    );
+
+    test(
       'when the armory is asked for what cannot be had then it refuses',
       () async {
         final state = await endpoints.player.takeOath(player);

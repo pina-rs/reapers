@@ -279,12 +279,12 @@
   "colophonSanctum": "In the sanctum",
   "colophonHunt": "On the hunt",
   "colophonRift": "In a rift",
-  "colophonBachPiece": "J.S. Bach, Prelude No. 8 in E-flat minor, BWV 853",
-  "colophonBachCredit": "Kimiko Ishizaka, piano. From the Open Well-Tempered Clavier, released into the public domain. welltemperedclavier.org",
-  "colophonAnabasisPiece": "Anabasis I",
-  "colophonAnabasisCredit": "'Anabasis I' by Scott Buckley - released under CC-BY 4.0. www.scottbuckley.com.au",
-  "colophonKatabasisPiece": "Katabasis I",
-  "colophonKatabasisCredit": "'Katabasis I' by Scott Buckley - released under CC-BY 4.0. www.scottbuckley.com.au",
+  "colophonSanctumPiece": "Ossuary 1 - A Beginning",
+  "colophonSanctumCredit": "\"Ossuary 1 - A Beginning\" Kevin MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 4.0 License. http://creativecommons.org/licenses/by/4.0/",
+  "colophonHuntPiece": "Penumbra",
+  "colophonHuntCredit": "\"Penumbra\" Kevin MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 4.0 License. http://creativecommons.org/licenses/by/4.0/",
+  "colophonRiftPiece": "Oppressive Gloom",
+  "colophonRiftCredit": "\"Oppressive Gloom\" Kevin MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 4.0 License. http://creativecommons.org/licenses/by/4.0/",
   "colophonSightHeading": "Reading the room",
   "colophonSight": "How far away things are",
   "colophonDepthPiece": "Depth Anything V2, small, metric, indoor",
@@ -342,6 +342,23 @@
     "placeholders": { "value": { "type": "String" } }
   },
   "armoryOutfitNote": "An outfit changes how your reaper looks, never how it hunts.",
+  "armoryArts": "Arts",
+  "armoryArtNote": "An art is never bought. Your reaper learns it by absorbing the creatures that carry it, and each one it absorbs takes it deeper. In a hunt, hold it, steady the phone on the husk, then flick.",
+  "armoryArtReady": "Ready",
+  "armoryArtTake": "Make ready",
+  "armoryArtUnlearned": "Not learned",
+  "armoryArtRank": "Rank {rank} of 3",
+  "@armoryArtRank": {
+    "placeholders": { "rank": { "type": "int" } }
+  },
+  "armoryArtSource": "Carried by {creatures}",
+  "@armoryArtSource": {
+    "placeholders": { "creatures": { "type": "String" } }
+  },
+  "armoryArtNext": "{count, plural, =1{One more to go deeper} other{{count} more to go deeper}}",
+  "@armoryArtNext": {
+    "placeholders": { "count": { "type": "int" } }
+  },
 
   "codexOverline": "Codex",
   "codexTitle": "Everything you have absorbed.",
@@ -466,6 +483,17 @@
   "weaponSpear": "Spear",
   "weaponChainWhip": "Chain whip",
   "weaponBell": "Bell",
+  "weaponGreatsword": "Greatsword",
+  "weaponAxe": "Axe",
+  "weaponGreatswordTrait": "Heavy. A blow to a seal stops the husk in its tracks.",
+  "weaponAxeTrait": "Heavy. Bites the body wherever it lands, seal or not.",
+
+  "artCinder": "Cinder",
+  "artRime": "Rime",
+  "artGale": "Gale",
+  "artCinderLine": "Fire, lobbed. It arcs over whatever a husk hides behind, bursts, and sets it burning. A burning husk runs into the open.",
+  "artRimeLine": "Ice, thrown straight. It freezes a husk where it stands with every seal in view open, and your next blow shatters it. It breaks on anything in the way.",
+  "artGaleLine": "Wind. A wide gust that knocks a husk off its ledge or out from behind its cover, turns a charge aside, and stuns it.",
 
   "temperShrouded": "Shrouded",
   "temperSworn": "Sworn",
@@ -560,6 +588,27 @@
   "huntPromptWindup": "It is drawing breath.",
   "huntPromptHold": "Do not flinch",
   "huntPromptCharge": "It is coming. Swing across it.",
+  "huntPromptHidden": "It is behind something. Wait for it, or throw.",
+  "huntPromptPerched": "It is up out of reach. Strike what shows.",
+  "huntArtHint": "Hold, then flick",
+  "huntArtFlick": "Flick",
+  "huntArtSemantics": "{art}: hold, steady the phone on the husk, then flick the phone to throw",
+  "@huntArtSemantics": {
+    "placeholders": { "art": { "type": "String" } }
+  },
+  "huntBurning": "It burns",
+  "huntFrozen": "Frozen",
+  "huntGusted": "Blown into the open",
+  "huntArtMissed": "Missed",
+  "huntShattered": "Shattered",
+  "huntArtLearned": "Your reaper has learned {art}. Hold it in a hunt, steady the phone, then flick.",
+  "@huntArtLearned": {
+    "placeholders": { "art": { "type": "String" } }
+  },
+  "huntArtDeepened": "{art} runs deeper: rank {rank} of 3.",
+  "@huntArtDeepened": {
+    "placeholders": { "art": { "type": "String" }, "rank": { "type": "int" } }
+  },
   "huntParried": "Turned aside",
   "huntStruck": "It struck you",
   "huntPromptMark": "Bring the blade to the mark.",

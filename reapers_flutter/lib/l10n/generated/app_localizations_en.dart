@@ -547,26 +547,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get colophonRift => 'In a rift';
 
   @override
-  String get colophonBachPiece =>
-      'J.S. Bach, Prelude No. 8 in E-flat minor, BWV 853';
+  String get colophonSanctumPiece => 'Ossuary 1 - A Beginning';
 
   @override
-  String get colophonBachCredit =>
-      'Kimiko Ishizaka, piano. From the Open Well-Tempered Clavier, released into the public domain. welltemperedclavier.org';
+  String get colophonSanctumCredit =>
+      '\"Ossuary 1 - A Beginning\" Kevin MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 4.0 License. http://creativecommons.org/licenses/by/4.0/';
 
   @override
-  String get colophonAnabasisPiece => 'Anabasis I';
+  String get colophonHuntPiece => 'Penumbra';
 
   @override
-  String get colophonAnabasisCredit =>
-      '\'Anabasis I\' by Scott Buckley - released under CC-BY 4.0. www.scottbuckley.com.au';
+  String get colophonHuntCredit =>
+      '\"Penumbra\" Kevin MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 4.0 License. http://creativecommons.org/licenses/by/4.0/';
 
   @override
-  String get colophonKatabasisPiece => 'Katabasis I';
+  String get colophonRiftPiece => 'Oppressive Gloom';
 
   @override
-  String get colophonKatabasisCredit =>
-      '\'Katabasis I\' by Scott Buckley - released under CC-BY 4.0. www.scottbuckley.com.au';
+  String get colophonRiftCredit =>
+      '\"Oppressive Gloom\" Kevin MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 4.0 License. http://creativecommons.org/licenses/by/4.0/';
 
   @override
   String get colophonSightHeading => 'Reading the room';
@@ -702,6 +701,43 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get armoryOutfitNote =>
       'An outfit changes how your reaper looks, never how it hunts.';
+
+  @override
+  String get armoryArts => 'Arts';
+
+  @override
+  String get armoryArtNote =>
+      'An art is never bought. Your reaper learns it by absorbing the creatures that carry it, and each one it absorbs takes it deeper. In a hunt, hold it, steady the phone on the husk, then flick.';
+
+  @override
+  String get armoryArtReady => 'Ready';
+
+  @override
+  String get armoryArtTake => 'Make ready';
+
+  @override
+  String get armoryArtUnlearned => 'Not learned';
+
+  @override
+  String armoryArtRank(int rank) {
+    return 'Rank $rank of 3';
+  }
+
+  @override
+  String armoryArtSource(String creatures) {
+    return 'Carried by $creatures';
+  }
+
+  @override
+  String armoryArtNext(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count more to go deeper',
+      one: 'One more to go deeper',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get codexOverline => 'Codex';
@@ -981,6 +1017,41 @@ class AppLocalizationsEn extends AppLocalizations {
   String get weaponBell => 'Bell';
 
   @override
+  String get weaponGreatsword => 'Greatsword';
+
+  @override
+  String get weaponAxe => 'Axe';
+
+  @override
+  String get weaponGreatswordTrait =>
+      'Heavy. A blow to a seal stops the husk in its tracks.';
+
+  @override
+  String get weaponAxeTrait =>
+      'Heavy. Bites the body wherever it lands, seal or not.';
+
+  @override
+  String get artCinder => 'Cinder';
+
+  @override
+  String get artRime => 'Rime';
+
+  @override
+  String get artGale => 'Gale';
+
+  @override
+  String get artCinderLine =>
+      'Fire, lobbed. It arcs over whatever a husk hides behind, bursts, and sets it burning. A burning husk runs into the open.';
+
+  @override
+  String get artRimeLine =>
+      'Ice, thrown straight. It freezes a husk where it stands with every seal in view open, and your next blow shatters it. It breaks on anything in the way.';
+
+  @override
+  String get artGaleLine =>
+      'Wind. A wide gust that knocks a husk off its ledge or out from behind its cover, turns a charge aside, and stuns it.';
+
+  @override
   String get temperShrouded => 'Shrouded';
 
   @override
@@ -1229,6 +1300,49 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get huntPromptCharge => 'It is coming. Swing across it.';
+
+  @override
+  String get huntPromptHidden =>
+      'It is behind something. Wait for it, or throw.';
+
+  @override
+  String get huntPromptPerched => 'It is up out of reach. Strike what shows.';
+
+  @override
+  String get huntArtHint => 'Hold, then flick';
+
+  @override
+  String get huntArtFlick => 'Flick';
+
+  @override
+  String huntArtSemantics(String art) {
+    return '$art: hold, steady the phone on the husk, then flick the phone to throw';
+  }
+
+  @override
+  String get huntBurning => 'It burns';
+
+  @override
+  String get huntFrozen => 'Frozen';
+
+  @override
+  String get huntGusted => 'Blown into the open';
+
+  @override
+  String get huntArtMissed => 'Missed';
+
+  @override
+  String get huntShattered => 'Shattered';
+
+  @override
+  String huntArtLearned(String art) {
+    return 'Your reaper has learned $art. Hold it in a hunt, steady the phone, then flick.';
+  }
+
+  @override
+  String huntArtDeepened(String art, int rank) {
+    return '$art runs deeper: rank $rank of 3.';
+  }
 
   @override
   String get huntParried => 'Turned aside';

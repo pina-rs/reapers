@@ -12,7 +12,8 @@ import '../widgets/attempt.dart';
 import '../widgets/ledger.dart';
 
 /// Where anima is spent: weapons that change how a hunt plays, and outfits
-/// that only change how the reaper looks.
+/// that only change how the reaper looks. Its arts are kept here too, though
+/// nothing buys one: they are learned by absorbing husks.
 ///
 /// Whatever is tapped is tried on at once, on the reaper standing above the
 /// list, before anything is bought.
@@ -24,7 +25,7 @@ class ArmoryScreen extends HookConsumerWidget {
     final l10n = context.l10n;
     final player = ref.watch(playerProvider).requireValue;
     final genome = player.genome;
-    final showOutfits = useState(false);
+    final tab = useState(_ArmoryTab.weapons);
     final triedWeapon = useState(player.weapon!);
     final triedOutfit = useState(player.outfit);
     final notifier = ref.read(playerProvider.notifier);
@@ -84,15 +85,22 @@ class ArmoryScreen extends HookConsumerWidget {
                           _Tab(
                             key: const Key('armory-tab-weapons'),
                             label: l10n.armoryWeapons,
-                            chosen: !showOutfits.value,
-                            onTap: () => showOutfits.value = false,
+                            chosen: tab.value == _ArmoryTab.weapons,
+                            onTap: () => tab.value = _ArmoryTab.weapons,
+                          ),
+                          const SizedBox(width: 22),
+                          _Tab(
+                            key: const Key('armory-tab-arts'),
+                            label: l10n.armoryArts,
+                            chosen: tab.value == _ArmoryTab.arts,
+                            onTap: () => tab.value = _ArmoryTab.arts,
                           ),
                           const SizedBox(width: 22),
                           _Tab(
                             key: const Key('armory-tab-outfits'),
                             label: l10n.armoryOutfits,
-                            chosen: showOutfits.value,
-                            onTap: () => showOutfits.value = true,
+                            chosen: tab.value == _ArmoryTab.outfits,
+                            onTap: () => tab.value = _ArmoryTab.outfits,
                           ),
                         ],
                       ),
@@ -101,69 +109,100 @@ class ArmoryScreen extends HookConsumerWidget {
                     Expanded(
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(24, 4, 24, 28),
-                        children: showOutfits.value
-                            ? [
+                        children: switch (tab.value) {
+                          _ArmoryTab.arts => [
+                            Padding(
+                              padding: const EdgeInsets.only(top: 14),
+                              child: Text(
+                                l10n.armoryArtNote,
+                                style: Veil.body(color: Veil.ash, size: 13),
+                              ),
+                            ),
+                            for (final art in Art.values)
+                              _ArtRow(
+                                art: art,
+                                reaper: player.activeReaper!,
+                                onReady: () => attempt(
+                                  context,
+                                  () => notifier.attune(art),
+                                ),
+                              ),
+                          ],
+                          _ArmoryTab.outfits => [
+                            Padding(
+                              padding: const EdgeInsets.only(top: 14),
+                              child: Text(
+                                l10n.armoryOutfitNote,
+                                style: Veil.body(color: Veil.ash, size: 13),
+                              ),
+                            ),
+                            for (final outfit in Outfit.values)
+                              _OutfitRow(
+                                outfit: outfit,
+                                player: player,
+                                tried: triedOutfit.value == outfit,
+                                onTry: () => triedOutfit.value = outfit,
+                                onBuy: () => attempt(
+                                  context,
+                                  () => notifier.buyOutfit(outfit),
+                                ),
+                                onWear: () => attempt(
+                                  context,
+                                  () => notifier.wear(outfit),
+                                ),
+                              ),
+                          ],
+                          _ArmoryTab.weapons => [
+                            for (final kind in _weaponOrder(
+                              genome.reaperClass,
+                            )) ...[
+                              LedgerHeading(
+                                weaponName(l10n, kind),
+                                trailing: l10n.armoryTempo(
+                                  (HuntRules.tickRate /
+                                          weaponProfiles[kind]!.swingTicks)
+                                      .toStringAsFixed(1),
+                                ),
+                              ),
+                              if (weaponTrait(l10n, kind) case final trait?)
                                 Padding(
-                                  padding: const EdgeInsets.only(top: 14),
+                                  padding: const EdgeInsets.only(
+                                    bottom: 4,
+                                  ),
                                   child: Text(
-                                    l10n.armoryOutfitNote,
-                                    style: Veil.body(color: Veil.ash, size: 13),
+                                    trait,
+                                    style: Veil.body(
+                                      color: Veil.ash,
+                                      size: 12,
+                                    ),
                                   ),
                                 ),
-                                for (final outfit in Outfit.values)
-                                  _OutfitRow(
-                                    outfit: outfit,
-                                    player: player,
-                                    tried: triedOutfit.value == outfit,
-                                    onTry: () => triedOutfit.value = outfit,
-                                    onBuy: () => attempt(
-                                      context,
-                                      () => notifier.buyOutfit(outfit),
-                                    ),
-                                    onWear: () => attempt(
-                                      context,
-                                      () => notifier.wear(outfit),
+                              for (final temper in Temper.values)
+                                _WeaponRow(
+                                  weapon: Weapon(kind, temper),
+                                  player: player,
+                                  tried:
+                                      triedWeapon.value == Weapon(kind, temper),
+                                  onTry: () => triedWeapon.value = Weapon(
+                                    kind,
+                                    temper,
+                                  ),
+                                  onBuy: () => attempt(
+                                    context,
+                                    () => notifier.buyWeapon(
+                                      Weapon(kind, temper),
                                     ),
                                   ),
-                              ]
-                            : [
-                                for (final kind in _weaponOrder(
-                                  genome.reaperClass,
-                                )) ...[
-                                  LedgerHeading(
-                                    weaponName(l10n, kind),
-                                    trailing: l10n.armoryTempo(
-                                      (HuntRules.tickRate /
-                                              weaponProfiles[kind]!.swingTicks)
-                                          .toStringAsFixed(1),
+                                  onWield: () => attempt(
+                                    context,
+                                    () => notifier.wield(
+                                      Weapon(kind, temper),
                                     ),
                                   ),
-                                  for (final temper in Temper.values)
-                                    _WeaponRow(
-                                      weapon: Weapon(kind, temper),
-                                      player: player,
-                                      tried:
-                                          triedWeapon.value ==
-                                          Weapon(kind, temper),
-                                      onTry: () => triedWeapon.value = Weapon(
-                                        kind,
-                                        temper,
-                                      ),
-                                      onBuy: () => attempt(
-                                        context,
-                                        () => notifier.buyWeapon(
-                                          Weapon(kind, temper),
-                                        ),
-                                      ),
-                                      onWield: () => attempt(
-                                        context,
-                                        () => notifier.wield(
-                                          Weapon(kind, temper),
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ],
+                                ),
+                            ],
+                          ],
+                        },
                       ),
                     ),
                   ],
@@ -176,6 +215,8 @@ class ArmoryScreen extends HookConsumerWidget {
     );
   }
 }
+
+enum _ArmoryTab { weapons, arts, outfits }
 
 /// Every kind of weapon, with the one this class was born holding first.
 List<WeaponKind> _weaponOrder(ReaperClass reaperClass) => [
@@ -335,7 +376,7 @@ class _WeaponRow extends HookWidget {
     final l10n = context.l10n;
     final owned = player.weapons.contains(weapon);
     final price = weapon.priceFor(player.genome.reaperClass);
-    final reachable = player.level >= weapon.temper.levelRequired;
+    final reachable = player.level >= weapon.levelRequired;
     final strike = (weapon.profile.strike * weapon.temper.strike)
         .toStringAsFixed(2);
 
@@ -343,7 +384,7 @@ class _WeaponRow extends HookWidget {
       _ when player.weapon == weapon => (l10n.armoryWielded, null),
       _ when owned => (l10n.armoryWield, onWield),
       _ when !reachable => (
-        l10n.armoryNeedsLevel(romanNumeral(weapon.temper.levelRequired)),
+        l10n.armoryNeedsLevel(romanNumeral(weapon.levelRequired)),
         null,
       ),
       _ => (price == 0 ? l10n.armoryFree : l10n.armoryAnima(price), onBuy),
@@ -406,6 +447,107 @@ class _OutfitRow extends HookWidget {
         onTry: onTry,
         onAction: onAction,
         withinMeans: owned || player.anima >= outfit.price,
+      ),
+    );
+  }
+}
+
+/// One art: what it does, how deep the reaper knows it, and whether it is
+/// the one the reaper throws.
+class _ArtRow extends HookWidget {
+  const _ArtRow({
+    required this.art,
+    required this.reaper,
+    required this.onReady,
+  });
+
+  final Art art;
+  final ReaperState reaper;
+  final VoidCallback onReady;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final light = Theme.of(context).colorScheme.primary;
+    final rank = reaper.artRank(art);
+    final absorbed = reaper.codex
+        .where((entry) => art.vessels.contains(entry.nft.collection.vessel))
+        .length;
+    // How many more it takes to go deeper, once the art is known at all.
+    final next = rank > 0 && rank < ArtRules.maxRank
+        ? ArtRules.absorbedForRank[rank] - absorbed
+        : null;
+    final carriers = [
+      for (final collection in NftCollection.values)
+        if (art.vessels.contains(collection.vessel)) collection.title,
+    ].join(', ');
+
+    final (action, onAction) = switch (null) {
+      _ when reaper.art == art => (l10n.armoryArtReady, null),
+      _ when rank > 0 => (l10n.armoryArtTake, onReady),
+      _ => (l10n.armoryArtUnlearned, null),
+    };
+
+    return Padding(
+      key: Key('armory-art-${art.name}'),
+      padding: const EdgeInsets.only(top: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: LedgerPip(lit: reaper.art == art, colour: light),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  artName(l10n, art),
+                  style: Veil.body(
+                    size: 15,
+                    color: rank > 0 ? Veil.bone : Veil.ash,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  artLine(l10n, art),
+                  style: Veil.body(color: Veil.ash, size: 12),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  [
+                    if (rank > 0) l10n.armoryArtRank(rank),
+                    if (next != null) l10n.armoryArtNext(next),
+                    l10n.armoryArtSource(carriers),
+                  ].join(' · '),
+                  style: Veil.body(color: Veil.ash, size: 11),
+                ),
+              ],
+            ),
+          ),
+          Semantics(
+            button: true,
+            enabled: onAction != null,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onAction,
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 48, minWidth: 96),
+                alignment: Alignment.topRight,
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  action.toUpperCase(),
+                  style: Veil.label(
+                    color: onAction == null ? Veil.ash : light,
+                    size: 12,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -23,7 +23,21 @@ typedef HuskMood = ({
 
   /// How wide its mouth is open, from 0 to 1.
   double gape,
+
+  /// Whether it is frozen in ice.
+  bool frozen,
+
+  /// Whether it is burning.
+  bool burning,
 });
+
+/// A husk doing nothing in particular.
+const HuskMood restingMood = (
+  speed: 0,
+  gape: 0,
+  frozen: false,
+  burning: false,
+);
 
 /// One husk: a collection's creature, dressed as one NFT.
 ///
@@ -46,6 +60,10 @@ final class HuskRig {
     _visit(_model, 0, (node, _) {
       if (_moving.contains(node.name)) {
         _rest[node.name] = (node, node.localTransform.clone());
+      }
+
+      if (node.name == 'shadow') {
+        _shadows.add((node, node.localTransform.clone()));
       }
     });
   }
@@ -155,6 +173,11 @@ final class HuskRig {
   /// Every pivot the game moves, with the transform the model gave it.
   final _rest = <String, (Node, vm.Matrix4)>{};
 
+  /// The soft dark patch under a creature that walks, with the transform
+  /// the model gave it. It stays on whatever the creature stands on, and is
+  /// left behind on it when the creature leaps.
+  final _shadows = <(Node, vm.Matrix4)>[];
+
   double _seconds = 0;
   double _stride = 0;
   double _effort = 0;
@@ -163,6 +186,17 @@ final class HuskRig {
   double _punch = 0;
   double _watchYaw = 0;
   double _watchPitch = 0;
+  double _size = 1;
+
+  /// How far the surface under the husk is below the middle of its body,
+  /// in metres, or null when there is nothing under it to cast a shadow on.
+  double? _drop;
+
+  /// How far through a leap the husk is: 0 standing, 1 tucked in the air.
+  double _tuck = 0;
+  bool _leaping = false;
+  double _frost = 0;
+  double _burn = 0;
 
   /// The pivots a creature may have. See art/blender/README.md.
   static const _moving = {
@@ -201,6 +235,13 @@ final class HuskRig {
     final at = pose.position;
     final size = 1 + _punch * 0.06;
 
+    _size = size;
+    _leaping = pose.leaping;
+    _drop = switch (pose.ground) {
+      final ground? => at.y - ground,
+      null => null,
+    };
+
     // The model faces -z, so a husk whose heading is straight back at the
     // player (pi) needs no turn at all.
     root.localTransform =
@@ -217,7 +258,7 @@ final class HuskRig {
   }
 
   /// Advances everything about the husk that is only for show.
-  void animate(double deltaSeconds, {HuskMood mood = (speed: 0, gape: 0)}) {
+  void animate(double deltaSeconds, {HuskMood mood = restingMood}) {
     _seconds += deltaSeconds;
 
     final fade = math.exp(-_flashDecay * deltaSeconds);
@@ -225,6 +266,20 @@ final class HuskRig {
     _flash *= fade;
     _punch *= fade;
     _setAll('flash', _flash);
+
+    // Ice takes a moment to close over it and to melt; fire catches fast.
+    _frost +=
+        ((mood.frozen ? 1 : 0) - _frost) *
+        (1 - math.exp(-(mood.frozen ? 6 : 2.5) * deltaSeconds));
+    _burn +=
+        ((mood.burning ? 1 : 0) - _burn) *
+        (1 - math.exp(-(mood.burning ? 10 : 3) * deltaSeconds));
+    _setSurfaces('frost', _frost);
+    _setSurfaces('burn', _burn);
+    _setSurfaces('burn_flicker', _seconds * 1.7);
+
+    // In a leap its legs come up under it, and go down again to land.
+    _tuck += ((_leaping ? 1 : 0) - _tuck) * (1 - math.exp(-14 * deltaSeconds));
 
     // How hard it is working, from standing (0) through ambling to flat out
     // (1). It eases, so a creature does not snap between gaits.
@@ -239,17 +294,26 @@ final class HuskRig {
     // creature at rest still shifts its weight.
     _stride += deltaSeconds * (2.2 + 9 * _effort);
 
-    final swing = (0.08 + 0.75 * math.sqrt(_effort)) * math.sin(_stride);
-    final t = _seconds;
+    // Frozen, nothing moves: not a stride, not a breath.
+    final still = 1 - _frost;
+    final swing =
+        (0.08 + 0.75 * math.sqrt(_effort)) *
+        math.sin(_stride) *
+        (1 - _tuck) *
+        still;
+    final tuck = 0.9 * _tuck;
+    final t = _seconds * still;
 
     for (final MapEntry(key: name, value: (node, rest)) in _rest.entries) {
       final turn = switch (name) {
         // A four-legged gait moves diagonal pairs together.
-        'leg_fl' || 'leg_br' || 'leg_l' || 'arm_r' => vm.Matrix4.rotationX(
-          swing,
+        // In a leap the front legs reach forward and the back legs kick
+        // back, the way a cat's do.
+        'leg_fl' || 'leg_fr' || 'arm_l' || 'arm_r' => vm.Matrix4.rotationX(
+          (name == 'leg_fl' || name == 'arm_r' ? swing : -swing) - tuck,
         ),
-        'leg_fr' || 'leg_bl' || 'leg_r' || 'arm_l' => vm.Matrix4.rotationX(
-          -swing,
+        'leg_bl' || 'leg_br' || 'leg_l' || 'leg_r' => vm.Matrix4.rotationX(
+          (name == 'leg_br' || name == 'leg_l' ? swing : -swing) + tuck,
         ),
         // Wings beat all the time, harder when it is fleeing. Left and
         // right mirror each other.
@@ -273,13 +337,40 @@ final class HuskRig {
     }
 
     // A walker rises and falls with each step; a flier with each beat.
-    _lift.localTransform = vm.Matrix4.translationValues(
-      0,
-      vessel.gait == Gait.air
-          ? 0.02 * math.sin(t * 2 * math.pi * _beatsPerSecond)
-          : 0.03 * _effort * math.sin(_stride * 2).abs(),
-      0,
-    );
+    final lift = _tuck > 0.5
+        ? 0.0
+        : vessel.gait == Gait.air
+        ? 0.02 * math.sin(t * 2 * math.pi * _beatsPerSecond)
+        : 0.03 * _effort * math.sin(_stride * 2).abs();
+
+    _lift.localTransform = vm.Matrix4.translationValues(0, lift, 0);
+    _placeShadows(lift);
+  }
+
+  /// Keeps each shadow on the surface under the husk, smaller and fainter
+  /// the higher the husk is above it.
+  void _placeShadows(double lift) {
+    final drop = _drop;
+
+    for (final (node, rest) in _shadows) {
+      if (drop == null) {
+        node.visible = false;
+        continue;
+      }
+
+      node.visible = true;
+
+      // How far above where it stands the husk is, in metres.
+      final height = math.max(0, drop - vessel.halfHeight);
+      final spread = 1 / (1 + 1.4 * height);
+      final restY = rest.getTranslation().y;
+      final down = -drop / _size - lift - restY;
+
+      node.localTransform =
+          vm.Matrix4.translationValues(0, down, 0) *
+          rest *
+          vm.Matrix4.diagonal3Values(spread, 1, spread);
+    }
   }
 
   double get _beatsPerSecond => 2.6 + 2.4 * _effort;
@@ -298,6 +389,16 @@ final class HuskRig {
 
   /// How much of the husk has come apart, from 0 (whole) to 1 (gone).
   set dissolve(double amount) => _setAll('dissolve', amount.clamp(0, 1));
+
+  /// Sets [parameter] on the husk's own surfaces: not on its shadow, which
+  /// is neither frozen nor burned.
+  void _setSurfaces(String parameter, double value) {
+    for (final material in _materials.values) {
+      if (material.name != 'shadow') {
+        material.parameters.setFloat(parameter, value);
+      }
+    }
+  }
 
   void _setAll(String parameter, double value) {
     for (final material in _materials.values) {

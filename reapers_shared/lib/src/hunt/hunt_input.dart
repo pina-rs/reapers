@@ -56,6 +56,7 @@ final class HuntInput {
     required this.aim,
     required this.turnSpeed,
     this.taps = const [],
+    this.focus = false,
   });
 
   /// Rounds what the phone measured this tick onto the grid the rules use.
@@ -63,10 +64,12 @@ final class HuntInput {
     required Vec3 aim,
     required double turnRadiansPerSecond,
     List<Vec3> taps = const [],
+    bool focus = false,
   }) => HuntInput(
     aim: Aim.fromDirection(aim),
     turnSpeed: (turnRadiansPerSecond * 1000).round().clamp(0, maxTurnSpeed),
     taps: [for (final tap in taps) Aim.fromDirection(tap)],
+    focus: focus,
   );
 
   /// The speed, in thousandths of a radian a second, above which a recorded
@@ -81,6 +84,10 @@ final class HuntInput {
 
   /// Where each tap this tick points, as a direction out from the player.
   final List<Aim> taps;
+
+  /// Whether the reaper is holding their art ready: a thumb on the art, to
+  /// gather it and throw it with a flick of the phone.
+  final bool focus;
 
   /// [turnSpeed] in radians a second.
   double get turnRadiansPerSecond => turnSpeed / 1000;
@@ -115,6 +122,7 @@ final class HuntLog {
     final data = ByteData.sublistView(bytes);
     final reachCount = data.getUint8(6);
     final difficulty = data.getUint8(7);
+    final coverCount = data.getUint8(8);
 
     if (difficulty >= Difficulty.values.length) {
       throw const FormatException('Hunt log has no such difficulty');
@@ -124,18 +132,39 @@ final class HuntLog {
       throw const FormatException('Hunt log has a broken plan');
     }
 
-    if (bytes.length < _headerBytes + reachCount) {
+    if (coverCount != 0 && coverCount != HuntPlan.slices) {
+      throw const FormatException('Hunt log has broken cover');
+    }
+
+    final coverBytes = coverCount == 0 ? 0 : 2 * coverCount + _ledgeBytes;
+    final planEnd = _headerBytes + reachCount + coverBytes;
+
+    if (bytes.length < planEnd) {
       throw const FormatException('Hunt log ends mid-plan');
     }
+
+    var offset = _headerBytes + reachCount;
+    final cover = bytes.sublist(offset, offset += coverCount);
+    final hide = bytes.sublist(offset, offset += coverCount);
+    final ledges = coverCount == 0
+        ? const <bool>[]
+        : [
+            for (var slice = 0; slice < HuntPlan.slices; slice++)
+              bytes[offset + slice ~/ 8] & (1 << slice % 8) != 0,
+          ];
+
+    offset = planEnd;
 
     final plan = HuntPlan(
       centreCentidegrees: data.getInt16(1, Endian.little),
       halfWidthCentidegrees: data.getUint16(3, Endian.little),
       eyeCentimetres: data.getUint8(5),
       reachDecimetres: bytes.sublist(_headerBytes, _headerBytes + reachCount),
+      coverCentimetres: cover,
+      hideDecimetres: hide,
+      ledges: ledges,
     );
     final inputs = <HuntInput>[];
-    var offset = _headerBytes + reachCount;
 
     while (offset < bytes.length) {
       if (inputs.length >= maxTicks) {
@@ -150,7 +179,12 @@ final class HuntLog {
         data.getInt16(offset + 2, Endian.little),
       );
       final turnSpeed = data.getUint16(offset + 4, Endian.little);
-      final tapCount = data.getUint8(offset + 6);
+      final flags = data.getUint8(offset + 6);
+      final tapCount = data.getUint8(offset + 7);
+
+      if (flags & ~_focusFlag != 0) {
+        throw const FormatException('Hunt log has unknown input');
+      }
 
       if (!_validAim(aim)) throw const FormatException('Impossible hunt aim');
       offset += _tickBytes;
@@ -172,7 +206,14 @@ final class HuntLog {
       }
       offset += tapCount * _tapBytes;
 
-      inputs.add(HuntInput(aim: aim, turnSpeed: turnSpeed, taps: taps));
+      inputs.add(
+        HuntInput(
+          aim: aim,
+          turnSpeed: turnSpeed,
+          taps: taps,
+          focus: flags & _focusFlag != 0,
+        ),
+      );
     }
 
     return HuntLog(
@@ -186,12 +227,15 @@ final class HuntLog {
   /// room for the stalk, the fight and every reap window.
   static const maxTicks = 300 * 60;
 
-  // The birth-gift rules change replay results. Refuse old clients rather
-  // than silently reinterpret a version-four hunt under the new rules.
-  static const _version = 5;
-  static const _headerBytes = 8;
-  static const _tickBytes = 7;
+  // Cover in the room, arts and the heavy weapons change replay results.
+  // Refuse old clients rather than silently reinterpret a version-five hunt
+  // under the new rules.
+  static const _version = 6;
+  static const _headerBytes = 9;
+  static const _tickBytes = 8;
   static const _tapBytes = 4;
+  static const _ledgeBytes = (HuntPlan.slices + 7) ~/ 8;
+  static const _focusFlag = 1;
 
   static bool _validAim(Aim aim) =>
       aim.yawCentidegrees >= -18000 &&
@@ -209,11 +253,13 @@ final class HuntLog {
   /// How forgiving the hunt was. Part of the record for the same reason.
   final Difficulty difficulty;
 
-  /// Packs the log into bytes: the plan first, then seven for each tick and
+  /// Packs the log into bytes: the plan first, then eight for each tick and
   /// four more for each tap.
   ///
-  /// The plan is its arc, the height of the player's eye, and how far the
-  /// way is clear along each slice of the room when that was measured.
+  /// The plan is its arc, the height of the player's eye, how far the way is
+  /// clear along each slice of the room when that was measured, and what
+  /// stands at the end of each: its height, where to hide behind it, and
+  /// one bit for whether its top is a ledge.
   Uint8List encode() {
     final header = ByteData(_headerBytes)
       ..setUint8(0, _version)
@@ -221,10 +267,25 @@ final class HuntLog {
       ..setUint16(3, plan.halfWidthCentidegrees, Endian.little)
       ..setUint8(5, plan.eyeCentimetres)
       ..setUint8(6, plan.reachDecimetres.length)
-      ..setUint8(7, difficulty.index);
+      ..setUint8(7, difficulty.index)
+      ..setUint8(8, plan.coverCentimetres.length);
     final builder = BytesBuilder(copy: false)
       ..add(header.buffer.asUint8List())
-      ..add(plan.reachDecimetres);
+      ..add(plan.reachDecimetres)
+      ..add(plan.coverCentimetres)
+      ..add(plan.hideDecimetres);
+
+    if (plan.knowsCover) {
+      final ledges = Uint8List(_ledgeBytes);
+
+      for (var slice = 0; slice < HuntPlan.slices; slice++) {
+        if (plan.ledges[slice]) {
+          ledges[slice ~/ 8] |= 1 << slice % 8;
+        }
+      }
+
+      builder.add(ledges);
+    }
 
     for (final input in inputs) {
       final taps = input.taps.length > 255
@@ -238,7 +299,8 @@ final class HuntLog {
           input.turnSpeed.clamp(0, HuntInput.maxTurnSpeed),
           Endian.little,
         )
-        ..setUint8(6, taps.length);
+        ..setUint8(6, input.focus ? _focusFlag : 0)
+        ..setUint8(7, taps.length);
 
       for (var tap = 0; tap < taps.length; tap++) {
         record

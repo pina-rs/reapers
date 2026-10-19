@@ -1,4 +1,5 @@
 import '../armory.dart';
+import '../arts.dart';
 import '../progression.dart';
 import '../reaper_class.dart';
 import '../reaper_soul.dart';
@@ -14,6 +15,7 @@ final class HuntLoadout {
     this.completedSets = 0,
     this.soul,
     this.soulRank = 0,
+    this.art,
   });
 
   /// The fixed-strength reaper lent for a practice hunt.
@@ -33,6 +35,9 @@ final class HuntLoadout {
   final int completedSets;
   final ReaperSoul? soul;
   final int soulRank;
+
+  /// The art the reaper throws, or null for one that has learned none.
+  final ArtSkill? art;
 }
 
 /// The numbers one hunt is played with, derived from a [HuntLoadout].
@@ -52,6 +57,9 @@ final class HuntStats {
     required this.perk,
     this.gift,
     this.soulRank = 0,
+    this.knockTicks = 0,
+    this.glanceShare = HuntRules.glanceShare,
+    this.art,
   });
 
   /// Derives the hunt numbers for [loadout].
@@ -115,6 +123,9 @@ final class HuntStats {
       perk: loadout.reaperClass.perk,
       gift: loadout.soul?.gift,
       soulRank: loadout.soulRank,
+      knockTicks: profile.knockTicks,
+      glanceShare: profile.glanceShare,
+      art: loadout.art,
     );
   }
 
@@ -132,6 +143,9 @@ final class HuntStats {
     perk: perk,
     gift: gift,
     soulRank: soulRank,
+    knockTicks: knockTicks,
+    glanceShare: glanceShare,
+    art: art,
   );
 
   /// Ward removed by one strike on an open seal, before cadence and perks.
@@ -163,6 +177,16 @@ final class HuntStats {
   final ClassPerk perk;
   final ReaperGift? gift;
   final int soulRank;
+
+  /// How long a struck seal stops the husk in its tracks: the weight of a
+  /// heavy blade.
+  final int knockTicks;
+
+  /// The share of a strike a blow on the body away from a seal does.
+  final double glanceShare;
+
+  /// The art the reaper throws, or null.
+  final ArtSkill? art;
 
   /// Every gift works at birth, then deepens through three awakenings.
   int get giftStrength => soulRank + 1;
@@ -359,6 +383,43 @@ abstract final class HuntRules {
 
   /// How fast a husk turns its body, in degrees a tick.
   static const turnDegreesPerTick = 5.0;
+
+  // Cover -------------------------------------------------------------
+
+  /// The chance that a husk ambling about the room makes for cover or a
+  /// ledge nearby instead, when there is one.
+  static const ambleCoverChance = 0.35;
+
+  /// The chance that a bolting husk makes for cover or a ledge.
+  static const boltCoverChance = 0.45;
+
+  /// The chance that a husk in cover or up on a ledge stays put when it is
+  /// next ready to move.
+  static const stayCoverChance = 0.4;
+
+  /// How far round the player, in degrees, an ambling husk looks for cover.
+  static const coverSearchDegrees = 50.0;
+
+  /// The lowest ledge worth jumping onto, in metres: lower is a step.
+  static const lowestLedge = 0.3;
+
+  /// How far onto a ledge a husk lands, as a share of its own half width,
+  /// past the ledge's front edge.
+  static const ledgeInset = 0.6;
+
+  /// The farthest behind its usual range a husk hides, in metres.
+  static const hideBeyond = 1.5;
+
+  /// How much higher than it has to a leaping husk's feet clear what it
+  /// leaps over, in metres, and the hop of a leap with nothing to clear.
+  static const leapClearance = 0.12;
+  static const hopMetres = 0.22;
+
+  /// The shortest a leap takes.
+  static const leapMinTicks = 34;
+
+  /// A leap goes at this share of the husk's bolting speed.
+  static const leapPace = 0.75;
 
   // Break and reap ----------------------------------------------------
 
