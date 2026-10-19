@@ -7,7 +7,7 @@
 /// checked against a known checksum, and re-encoded at a size a phone can
 /// carry. Who made each one, and on what terms, is in
 /// `reapers_flutter/assets/music/CREDITS.md`, and the game's colophon says
-/// the same to the player: two of the three ask for that credit.
+/// the same to the player: all three ask for that credit.
 ///
 /// The originals are kept in `art/build/music`, which is not committed. The
 /// encoded pieces are, so nobody needs to run this to build the game. Run it
@@ -30,30 +30,31 @@ const _encoded = 'reapers_flutter/assets/music';
 
 const _pieces = <_Piece>[
   (
-    // J.S. Bach, Prelude in E-flat minor, BWV 853. Kimiko Ishizaka, piano.
-    // Public domain. Quiet as recorded, so it is brought up to sit with the
-    // others.
+    // Kevin MacLeod, Ossuary 1 - A Beginning. CC BY 4.0. "At the
+    // intersection of relaxation and horror": a slow drone, uneasy but
+    // something to come back to.
     name: 'sanctum',
-    url: 'https://upload.wikimedia.org/wikipedia/commons/8/8a/Kimiko_Ishizaka_-_Bach-_Well-Tempered_Clavier%2C_Book_1_-_15_Prelude_No._8_in_E-flat_minor%2C_BWV_853.flac',
-    original: 'bach_bwv_853_ishizaka.flac',
-    sha256: '464f817f2e536ee2e7f323be27b47add369443a27fa6446e39bbc16ea593458f',
-    gainDecibels: 6,
+    url: 'https://incompetech.com/music/royalty-free/mp3-royaltyfree/Ossuary%201%20-%20A%20Beginning.mp3',
+    original: 'macleod_ossuary_1.mp3',
+    sha256: '2c3140481edd0c6ab5ff21b46198a97755822e74e5fd0c78f2e7b456cece3cf8',
+    gainDecibels: -1,
   ),
   (
-    // Scott Buckley, Anabasis I. CC BY 4.0.
+    // Kevin MacLeod, Penumbra. CC BY 4.0. Something in the shadows that
+    // cannot quite be heard. Brought down to sit with the others.
     name: 'hunt',
-    url: 'https://www.scottbuckley.com.au/library/wp-content/uploads/2026/09/Anabasis_I.mp3',
-    original: 'buckley_anabasis_i.mp3',
-    sha256: '964e693611445d808d4cdb748006ae22c7fa8534b126acdca39bcc74de95d76c',
-    gainDecibels: 0,
+    url: 'https://incompetech.com/music/royalty-free/mp3-royaltyfree/Penumbra.mp3',
+    original: 'macleod_penumbra.mp3',
+    sha256: '55bcea6dbd758694862a8c3de03c4f293cce2c13bd752fa570886d8849f43cfb',
+    gainDecibels: -4,
   ),
   (
-    // Scott Buckley, Katabasis I. CC BY 4.0.
+    // Kevin MacLeod, Oppressive Gloom. CC BY 4.0. Almost a death march.
     name: 'rift',
-    url: 'https://www.scottbuckley.com.au/library/wp-content/uploads/2026/09/Katabasis_I.mp3',
-    original: 'buckley_katabasis_i.mp3',
-    sha256: 'bdce0cfde5f900a60b5c7f769261d0f8438a77e6e6bce351071de0c6d25d0f58',
-    gainDecibels: 0,
+    url: 'https://incompetech.com/music/royalty-free/mp3-royaltyfree/Oppressive%20Gloom.mp3',
+    original: 'macleod_oppressive_gloom.mp3',
+    sha256: 'd630686bde6c92f832fb0cb16f6ce9009bf502c7db701139329af2a7683b1020',
+    gainDecibels: -3,
   ),
 ];
 

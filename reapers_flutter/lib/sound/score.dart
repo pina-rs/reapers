@@ -4,13 +4,14 @@ import 'package:reapers_shared/reapers_shared.dart';
 
 /// A piece of the game's music. Each is one recording, played on a loop.
 enum Score {
-  /// The reaper alone in the dark: a Bach prelude, on a piano.
+  /// The reaper alone in the dark: a slow drone with something thin and
+  /// pale singing over it.
   sanctum('assets/music/sanctum.ogg'),
 
-  /// A hunt: slow, unresolved strings.
+  /// A hunt: something in the shadows that cannot quite be heard.
   hunt('assets/music/hunt.ogg'),
 
-  /// A rift: the same strings, lower and graver.
+  /// A rift: a dark march.
   rift('assets/music/rift.ogg');
 
   const Score(this.asset);

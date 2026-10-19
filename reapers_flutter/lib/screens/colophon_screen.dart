@@ -37,18 +37,18 @@ class ColophonScreen extends HookConsumerWidget {
         LedgerHeading(l10n.colophonMusicHeading),
         _Credit(
           where: l10n.colophonSanctum,
-          what: l10n.colophonBachPiece,
-          who: l10n.colophonBachCredit,
+          what: l10n.colophonSanctumPiece,
+          who: l10n.colophonSanctumCredit,
         ),
         _Credit(
           where: l10n.colophonHunt,
-          what: l10n.colophonAnabasisPiece,
-          who: l10n.colophonAnabasisCredit,
+          what: l10n.colophonHuntPiece,
+          who: l10n.colophonHuntCredit,
         ),
         _Credit(
           where: l10n.colophonRift,
-          what: l10n.colophonKatabasisPiece,
-          who: l10n.colophonKatabasisCredit,
+          what: l10n.colophonRiftPiece,
+          who: l10n.colophonRiftCredit,
         ),
         LedgerHeading(l10n.colophonSightHeading),
         _Credit(

@@ -78,11 +78,15 @@ void main() {
     await pump(tester);
 
     // The composer's own wording, which is the condition of using the music.
-    expect(find.text(l10n.colophonAnabasisCredit), findsOneWidget);
-    expect(find.text(l10n.colophonKatabasisCredit), findsOneWidget);
-    expect(l10n.colophonAnabasisCredit, contains('Scott Buckley'));
-    expect(l10n.colophonAnabasisCredit, contains('CC-BY 4.0'));
-    expect(find.text(l10n.colophonBachCredit), findsOneWidget);
+    for (final credit in [
+      l10n.colophonSanctumCredit,
+      l10n.colophonHuntCredit,
+      l10n.colophonRiftCredit,
+    ]) {
+      expect(find.text(credit), findsOneWidget);
+      expect(credit, contains('Kevin MacLeod (incompetech.com)'));
+      expect(credit, contains('By Attribution 4.0'));
+    }
 
     await tester.scrollUntilVisible(find.text(l10n.colophonTypeCredit), 200);
 
