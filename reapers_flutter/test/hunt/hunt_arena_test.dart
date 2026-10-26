@@ -137,4 +137,28 @@ void main() {
     expect(arena.controller, isNull);
     expect(arena.slashes, isEmpty);
   });
+
+  test('a rematch clears the previous hunt without replacing the camera', () {
+    final arena = _facingTheHusk();
+    final camera = arena.feed;
+    final sim = arena.controller!.sim;
+    final bot = HuntBot(sim);
+
+    while (!sim.isOver) {
+      sim.step(bot.decide());
+    }
+
+    arena
+      ..comeApart = 1
+      ..wound = 1;
+    arena.gone.value = true;
+    arena.engage(_sim());
+
+    expect(arena.controller!.sim.isOver, isFalse);
+    expect(arena.controller!.recorded, isEmpty);
+    expect(arena.comeApart, 0);
+    expect(arena.wound, 0);
+    expect(arena.gone.value, isFalse);
+    expect(arena.feed, same(camera));
+  });
 }

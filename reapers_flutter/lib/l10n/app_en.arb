@@ -558,6 +558,10 @@
 
   "huntSightedLabel": "Husk sighted",
   "huntPracticeLabel": "A stray, for practice",
+  "huntPracticeAgain": "Hunt this stray again",
+  "huntPracticeHolds": "Unbroken holds",
+  "huntPracticeParries": "Charges turned aside",
+  "huntPracticeCadence": "Longest seal streak",
   "huntSafety": "Stand still to hunt, and stay aware of what is around you. You only need to turn on the spot.",
   "huntBegin": "Raise the blade",
   "huntHowSigil": "Trace its sigil: rest the ring on each light in turn until it catches.",
@@ -585,6 +589,20 @@
   "huntPromptStalkDrag": "Drag to look around. Move slowly: it has not seen you.",
   "huntPromptSteady": "Hold steady on it.",
   "huntPromptStrike": "Strike the open seals.",
+  "huntBladeReady": "Blade ready",
+  "huntBladeRecovering": "Recovering",
+  "huntMotionSteady": "Steady",
+  "huntMotionUnsteady": "Ease your movement",
+  "huntPromptTooFast": "Slow down. It can feel you moving.",
+  "huntPromptReapTooFast": "Slower. Let the blade follow the arc.",
+  "huntStrikeHit": "Ward −{damage}",
+  "@huntStrikeHit": {
+    "placeholders": {
+      "damage": { "type": "int" }
+    }
+  },
+  "huntStrikeGlanced": "Glancing blow · aim for a lit seal",
+  "huntStrikeMissed": "Miss · follow the lit seals",
   "huntPromptWindup": "It is drawing breath.",
   "huntPromptHold": "Do not flinch",
   "huntPromptCharge": "It is coming. Swing across it.",

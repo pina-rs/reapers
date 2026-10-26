@@ -162,7 +162,7 @@ class HuntScreen extends HookConsumerWidget {
     final failure = useState<Object?>(null);
     final reward = useState<HuntReward?>(null);
     final gone = useValueListenable(arena.gone);
-    final banner = useState<String?>(null);
+    final banner = useState<HuntBanner?>(null);
     final l10n = context.l10n;
 
     /// Starts the hunt inside [plan].
@@ -179,7 +179,7 @@ class HuntScreen extends HookConsumerWidget {
         occlusion: occlusion,
       );
       engaged.value = true;
-      banner.value = l10n.scanFound;
+      banner.value = HuntBanner(text: l10n.scanFound);
       unawaited(HapticFeedback.heavyImpact());
     }
 
@@ -437,12 +437,13 @@ class HuntScreen extends HookConsumerWidget {
                     light: arena.rig.light,
                     followsDevice: arena.poseSource.followsDevice,
                     banner: banner.value,
+                    turnSpeed: arena.pose.turnSpeed,
                   ),
                 ),
               ),
             ),
           if (!begun.value)
-            _Threshold(
+            HuntBriefing(
               brief: brief,
               ready: loaded.value,
               difficulty: ref.watch(testingDifficultyProvider),
@@ -481,7 +482,18 @@ class HuntScreen extends HookConsumerWidget {
           // The reckoning waits for the husk to finish coming apart: the
           // quiet after the reap is part of the hunt.
           if (reward.value case final paid? when gone)
-            _Reckoning(brief: brief, reward: paid),
+            HuntReckoning(
+              brief: brief,
+              reward: paid,
+              onPracticeAgain: brief.isPractice
+                  ? () {
+                      reward.value = null;
+                      // The player has not moved: keep the room, camera and
+                      // encounter, and get straight back to the hunt.
+                      engage(arena.controller!.sim.plan);
+                    }
+                  : null,
+            ),
         ],
       ),
     );
@@ -490,8 +502,9 @@ class HuntScreen extends HookConsumerWidget {
 
 /// What stands between the player and the hunt: which husk it is, and the
 /// one thing to remember before raising the phone.
-class _Threshold extends HookWidget {
-  const _Threshold({
+class HuntBriefing extends HookWidget {
+  const HuntBriefing({
+    super.key,
     required this.brief,
     required this.ready,
     required this.difficulty,
@@ -517,70 +530,77 @@ class _Threshold extends HookWidget {
     return ColoredBox(
       color: Veil.ink.withValues(alpha: 0.82),
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              LedgerBack(onPressed: () => Navigator.of(context).pop()),
-              const Spacer(),
-              Text(
-                (brief.isPractice
-                        ? l10n.huntPracticeLabel
-                        : l10n.huntSightedLabel)
-                    .toUpperCase(),
-                style: Veil.label(),
-              ),
-              const SizedBox(height: 10),
-              Text(brief.nft.title, style: Veil.display(46)),
-              const SizedBox(height: 18),
-              // The whole of a hunt, in the order it happens.
-              for (final (step, line) in [
-                l10n.huntHowSigil,
-                l10n.huntHowStalk,
-                l10n.huntHowStrike,
-                l10n.huntHowHold,
-                l10n.huntHowCharge,
-                l10n.huntHowReap,
-              ].indexed)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 26,
-                        child: Text(
-                          romanNumeral(step + 1),
-                          style: Veil.figure(color: Veil.ash, size: 13),
+        child: CustomScrollView(
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Padding(
+                padding: const EdgeInsets.all(28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    LedgerBack(onPressed: () => Navigator.of(context).pop()),
+                    const Spacer(),
+                    Text(
+                      (brief.isPractice
+                              ? l10n.huntPracticeLabel
+                              : l10n.huntSightedLabel)
+                          .toUpperCase(),
+                      style: Veil.label(),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(brief.nft.title, style: Veil.display(46)),
+                    const SizedBox(height: 18),
+                    // The whole of a hunt, in the order it happens.
+                    for (final (step, line) in [
+                      l10n.huntHowSigil,
+                      l10n.huntHowStalk,
+                      l10n.huntHowStrike,
+                      l10n.huntHowHold,
+                      l10n.huntHowCharge,
+                      l10n.huntHowReap,
+                    ].indexed)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 26,
+                              child: Text(
+                                romanNumeral(step + 1),
+                                style: Veil.figure(color: Veil.ash, size: 13),
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(line, style: Veil.body(size: 15)),
+                            ),
+                          ],
                         ),
                       ),
-                      Expanded(
-                        child: Text(line, style: Veil.body(size: 15)),
+                    const SizedBox(height: 10),
+                    Text(l10n.huntSafety, style: Veil.body(color: Veil.ash)),
+                    const SizedBox(height: 20),
+                    if (onDifficulty != null) ...[
+                      LedgerButton(
+                        key: const Key('hunt-difficulty'),
+                        label: l10n.huntDifficulty,
+                        detail: difficultyName(l10n, difficulty),
+                        onPressed: onDifficulty,
+                        quiet: true,
                       ),
+                      const SizedBox(height: 8),
                     ],
-                  ),
+                    LedgerButton(
+                      key: const Key('hunt-begin'),
+                      label: ready ? l10n.huntBegin : l10n.commonLoading,
+                      onPressed: ready ? onBegin : null,
+                    ),
+                  ],
                 ),
-              const SizedBox(height: 10),
-              Text(l10n.huntSafety, style: Veil.body(color: Veil.ash)),
-              const SizedBox(height: 20),
-              if (onDifficulty != null) ...[
-                LedgerButton(
-                  key: const Key('hunt-difficulty'),
-                  label: l10n.huntDifficulty,
-                  detail: difficultyName(l10n, difficulty),
-                  onPressed: onDifficulty,
-                  quiet: true,
-                ),
-                const SizedBox(height: 8),
-              ],
-              LedgerButton(
-                key: const Key('hunt-begin'),
-                label: ready ? l10n.huntBegin : l10n.commonLoading,
-                onPressed: ready ? onBegin : null,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -588,11 +608,20 @@ class _Threshold extends HookWidget {
 }
 
 /// The reckoning: how the hunt ended and what it paid.
-class _Reckoning extends HookWidget {
-  const _Reckoning({required this.brief, required this.reward});
+class HuntReckoning extends HookWidget {
+  const HuntReckoning({
+    super.key,
+    required this.brief,
+    required this.reward,
+    this.onPracticeAgain,
+  });
 
   final HuntBrief brief;
   final HuntReward reward;
+
+  /// Reopens the same stray so a player can learn its rhythm without
+  /// returning through the sanctum. Only supplied for practice hunts.
+  final VoidCallback? onPracticeAgain;
 
   @override
   Widget build(BuildContext context) {
@@ -615,121 +644,165 @@ class _Reckoning extends HookWidget {
     return ColoredBox(
       color: Veil.ink.withValues(alpha: 0.88),
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: outcome.absorbed && !brief.isPractice
-                    ? _AbsorbedPlate(nft: brief.nft)
-                    : const SizedBox.shrink(),
-              ),
-              Text(
-                (outcome.absorbed ? l10n.huntReapedLabel : l10n.huntLostLabel)
-                    .toUpperCase(),
-                style: Veil.label(
-                  color: outcome.absorbed ? Veil.ash : Veil.wound,
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Padding(
+                padding: const EdgeInsets.all(28),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (outcome.absorbed && !brief.isPractice)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 28),
+                        child: SizedBox(
+                          height: 168,
+                          child: _AbsorbedPlate(nft: brief.nft),
+                        ),
+                      ),
+                    Text(
+                      (outcome.absorbed
+                              ? l10n.huntReapedLabel
+                              : l10n.huntLostLabel)
+                          .toUpperCase(),
+                      style: Veil.label(
+                        color: outcome.absorbed ? Veil.ash : Veil.wound,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      title,
+                      key: const Key('hunt-result'),
+                      style: Veil.display(52),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(detail, style: Veil.body(color: Veil.ash)),
+                    if (brief.isPractice) ...[
+                      const SizedBox(height: 20),
+                      LedgerRow(
+                        label: l10n.huntPracticeHolds,
+                        value: '${outcome.deeds.holds}',
+                      ),
+                      LedgerRow(
+                        label: l10n.huntPracticeParries,
+                        value: '${outcome.deeds.parries}',
+                      ),
+                      LedgerRow(
+                        label: l10n.huntPracticeCadence,
+                        value: '${outcome.deeds.maxCadence}',
+                      ),
+                    ],
+                    if (reward.xp > 0) ...[
+                      const SizedBox(height: 26),
+                      LedgerRow(
+                        label: l10n.commonExperience,
+                        value: '+${reward.xp}',
+                      ),
+                      LedgerRow(
+                        label: l10n.commonAnima,
+                        value: '+${reward.anima}',
+                      ),
+                      if (reward.feeding case final feeding?)
+                        LedgerRow(
+                          label: l10n.huntFeeding,
+                          value: feedingName(l10n, feeding),
+                          emphasised: feeding == Feeding.feast,
+                        ),
+                      if (reward.feeding != null)
+                        LedgerRow(
+                          label: l10n.huntReceipt,
+                          value: reward.signed
+                              ? l10n.huntReceiptSigned
+                              : l10n.huntReceiptUnsigned,
+                        ),
+                      if (outcome.ambushed)
+                        LedgerRow(
+                          label: l10n.huntAmbush,
+                          value: l10n.huntAmbushBonus,
+                        ),
+                      if (reward.levelledUp)
+                        LedgerRow(
+                          label: l10n.commonLevel,
+                          value: romanNumeral(reward.levelAfter),
+                          emphasised: true,
+                        ),
+                      if (reward.gift != null &&
+                          reward.soulRankAfter > reward.soulRankBefore) ...[
+                        const SizedBox(height: 14),
+                        Semantics(
+                          liveRegion: true,
+                          child: Text(
+                            l10n.soulRankEarned(
+                              giftName(l10n, reward.gift!),
+                              reward.soulRankAfter,
+                            ),
+                            style: Veil.body(
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (reward.art case final art?
+                          when reward.artRankAfter > reward.artRankBefore) ...[
+                        const SizedBox(height: 14),
+                        Semantics(
+                          liveRegion: true,
+                          child: Text(
+                            reward.artRankBefore == 0
+                                ? l10n.huntArtLearned(artName(l10n, art))
+                                : l10n.huntArtDeepened(
+                                    artName(l10n, art),
+                                    reward.artRankAfter,
+                                  ),
+                            key: const Key('hunt-art-learned'),
+                            style: Veil.body(
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (outcome.ambushed ||
+                          outcome.deeds.holds > 0 ||
+                          outcome.deeds.maxCadence >=
+                              SoulRules.cadenceForMark) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          l10n.soulDeedsEarned(
+                            [
+                              if (outcome.ambushed)
+                                soulPathName(l10n, SoulPath.unseen),
+                              if (outcome.deeds.holds > 0)
+                                soulPathName(l10n, SoulPath.stillness),
+                              if (outcome.deeds.maxCadence >=
+                                  SoulRules.cadenceForMark)
+                                soulPathName(l10n, SoulPath.rhythm),
+                            ].join(', '),
+                          ),
+                          style: Veil.body(color: Veil.ash, size: 13),
+                        ),
+                      ],
+                    ],
+                    const SizedBox(height: 30),
+                    if (onPracticeAgain != null) ...[
+                      LedgerButton(
+                        key: const Key('hunt-practice-again'),
+                        label: l10n.huntPracticeAgain,
+                        onPressed: onPracticeAgain,
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    LedgerButton(
+                      key: const Key('hunt-leave'),
+                      label: l10n.huntLeave,
+                      onPressed: () => Navigator.of(context).pop(),
+                      quiet: onPracticeAgain != null,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 10),
-              Text(
-                title,
-                key: const Key('hunt-result'),
-                style: Veil.display(52),
-              ),
-              const SizedBox(height: 14),
-              Text(detail, style: Veil.body(color: Veil.ash)),
-              if (reward.xp > 0) ...[
-                const SizedBox(height: 26),
-                LedgerRow(label: l10n.commonExperience, value: '+${reward.xp}'),
-                LedgerRow(label: l10n.commonAnima, value: '+${reward.anima}'),
-                if (reward.feeding case final feeding?)
-                  LedgerRow(
-                    label: l10n.huntFeeding,
-                    value: feedingName(l10n, feeding),
-                    emphasised: feeding == Feeding.feast,
-                  ),
-                if (reward.feeding != null)
-                  LedgerRow(
-                    label: l10n.huntReceipt,
-                    value: reward.signed
-                        ? l10n.huntReceiptSigned
-                        : l10n.huntReceiptUnsigned,
-                  ),
-                if (outcome.ambushed)
-                  LedgerRow(
-                    label: l10n.huntAmbush,
-                    value: l10n.huntAmbushBonus,
-                  ),
-                if (reward.levelledUp)
-                  LedgerRow(
-                    label: l10n.commonLevel,
-                    value: romanNumeral(reward.levelAfter),
-                    emphasised: true,
-                  ),
-                if (reward.gift != null &&
-                    reward.soulRankAfter > reward.soulRankBefore) ...[
-                  const SizedBox(height: 14),
-                  Semantics(
-                    liveRegion: true,
-                    child: Text(
-                      l10n.soulRankEarned(
-                        giftName(l10n, reward.gift!),
-                        reward.soulRankAfter,
-                      ),
-                      style: Veil.body(
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                  ),
-                ],
-                if (reward.art case final art?
-                    when reward.artRankAfter > reward.artRankBefore) ...[
-                  const SizedBox(height: 14),
-                  Semantics(
-                    liveRegion: true,
-                    child: Text(
-                      reward.artRankBefore == 0
-                          ? l10n.huntArtLearned(artName(l10n, art))
-                          : l10n.huntArtDeepened(
-                              artName(l10n, art),
-                              reward.artRankAfter,
-                            ),
-                      key: const Key('hunt-art-learned'),
-                      style: Veil.body(
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                  ),
-                ],
-                if (outcome.ambushed ||
-                    outcome.deeds.holds > 0 ||
-                    outcome.deeds.maxCadence >= SoulRules.cadenceForMark) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    l10n.soulDeedsEarned(
-                      [
-                        if (outcome.ambushed)
-                          soulPathName(l10n, SoulPath.unseen),
-                        if (outcome.deeds.holds > 0)
-                          soulPathName(l10n, SoulPath.stillness),
-                        if (outcome.deeds.maxCadence >=
-                            SoulRules.cadenceForMark)
-                          soulPathName(l10n, SoulPath.rhythm),
-                      ].join(', '),
-                    ),
-                    style: Veil.body(color: Veil.ash, size: 13),
-                  ),
-                ],
-              ],
-              const SizedBox(height: 30),
-              LedgerButton(
-                key: const Key('hunt-leave'),
-                label: l10n.huntLeave,
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
+            ),
           ),
         ),
       ),

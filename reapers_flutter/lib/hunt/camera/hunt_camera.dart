@@ -12,6 +12,14 @@ import 'camera_optics.dart';
 /// A hunt can be played with no camera at all (a simulator, a refused
 /// permission), in which case [controller] simply stays empty.
 final class HuntCamera {
+  // CameraX keeps one global preview, even across controller ids. Route
+  // transitions may overlap, so the next hunt waits for the previous
+  // controller to finish releasing that preview before it opens another.
+  static Future<void> _available = Future<void>.value();
+
+  final _released = Completer<void>();
+  Future<void>? _closing;
+
   /// The open camera, or null while there is none.
   final controller = ValueNotifier<CameraController?>(null);
 
@@ -52,10 +60,18 @@ final class HuntCamera {
     }
 
     _opening = true;
+    final previous = _available;
+    _available = _released.future;
 
     CameraController? opened;
 
     try {
+      await previous;
+
+      if (_disposed) {
+        return;
+      }
+
       final cameras = await availableCameras();
       final rear = cameras
           .where((lens) => lens.lensDirection == CameraLensDirection.back)
@@ -81,7 +97,7 @@ final class HuntCamera {
       final described = await CameraOptics.describe(rear);
 
       if (_disposed) {
-        unawaited(opened.dispose());
+        await opened.dispose();
 
         return;
       }
@@ -97,7 +113,7 @@ final class HuntCamera {
       // backdrop takes over. The reason is still worth a line in the log
       // for whoever is wondering why.
       debugPrint('Hunt camera unavailable: ${error.code}');
-      unawaited(opened?.dispose());
+      await opened?.dispose();
     } on MissingPluginException {
       // A platform with no camera plugin at all, such as a desktop.
       debugPrint('Hunt camera unavailable: no camera plugin');
@@ -133,10 +149,31 @@ final class HuntCamera {
     await camera.stopImageStream();
   }
 
-  void dispose() {
+  /// Closes this camera exactly once. A new hunt cannot open its camera
+  /// until this completes, including when this hunt left during opening.
+  Future<void> dispose() {
+    if (_closing case final closing?) {
+      return closing;
+    }
+
     _disposed = true;
     _watching = false;
-    unawaited(controller.value?.dispose());
+    final opened = controller.value;
     controller.dispose();
+
+    if (!_opening) {
+      _settled.complete();
+    }
+
+    return _closing = _close(opened);
+  }
+
+  Future<void> _close(CameraController? opened) async {
+    try {
+      await settled;
+      await opened?.dispose();
+    } finally {
+      _released.complete();
+    }
   }
 }

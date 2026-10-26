@@ -2122,6 +2122,30 @@ abstract class AppLocalizations {
   /// **'A stray, for practice'**
   String get huntPracticeLabel;
 
+  /// No description provided for @huntPracticeAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Hunt this stray again'**
+  String get huntPracticeAgain;
+
+  /// No description provided for @huntPracticeHolds.
+  ///
+  /// In en, this message translates to:
+  /// **'Unbroken holds'**
+  String get huntPracticeHolds;
+
+  /// No description provided for @huntPracticeParries.
+  ///
+  /// In en, this message translates to:
+  /// **'Charges turned aside'**
+  String get huntPracticeParries;
+
+  /// No description provided for @huntPracticeCadence.
+  ///
+  /// In en, this message translates to:
+  /// **'Longest seal streak'**
+  String get huntPracticeCadence;
+
   /// No description provided for @huntSafety.
   ///
   /// In en, this message translates to:
@@ -2247,6 +2271,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Strike the open seals.'**
   String get huntPromptStrike;
+
+  /// No description provided for @huntBladeReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Blade ready'**
+  String get huntBladeReady;
+
+  /// No description provided for @huntBladeRecovering.
+  ///
+  /// In en, this message translates to:
+  /// **'Recovering'**
+  String get huntBladeRecovering;
+
+  /// No description provided for @huntMotionSteady.
+  ///
+  /// In en, this message translates to:
+  /// **'Steady'**
+  String get huntMotionSteady;
+
+  /// No description provided for @huntMotionUnsteady.
+  ///
+  /// In en, this message translates to:
+  /// **'Ease your movement'**
+  String get huntMotionUnsteady;
+
+  /// No description provided for @huntPromptTooFast.
+  ///
+  /// In en, this message translates to:
+  /// **'Slow down. It can feel you moving.'**
+  String get huntPromptTooFast;
+
+  /// No description provided for @huntPromptReapTooFast.
+  ///
+  /// In en, this message translates to:
+  /// **'Slower. Let the blade follow the arc.'**
+  String get huntPromptReapTooFast;
+
+  /// No description provided for @huntStrikeHit.
+  ///
+  /// In en, this message translates to:
+  /// **'Ward −{damage}'**
+  String huntStrikeHit(int damage);
+
+  /// No description provided for @huntStrikeGlanced.
+  ///
+  /// In en, this message translates to:
+  /// **'Glancing blow · aim for a lit seal'**
+  String get huntStrikeGlanced;
+
+  /// No description provided for @huntStrikeMissed.
+  ///
+  /// In en, this message translates to:
+  /// **'Miss · follow the lit seals'**
+  String get huntStrikeMissed;
 
   /// No description provided for @huntPromptWindup.
   ///

@@ -363,6 +363,15 @@ final class HuntSim {
   /// Ticks of fighting left before the husk escapes.
   int get fightTicksLeft => math.max(0, _fightLimitTicks - _fightTicks);
 
+  /// Ticks before another strike can land. The view reads the same recovery
+  /// the rules enforce, including a swing that hit nothing.
+  int get strikeTicksLeft => math.max(0, _nextStrikeTick - tick);
+
+  /// Ticks left to land another seal hit and keep the current cadence.
+  int get cadenceTicksLeft => cadence == 0
+      ? 0
+      : math.max(0, HuntRules.cadenceWindowTicks - (tick - _lastHitTick));
+
   int get _fightLimitTicks => inRift
       ? RiftRules.fightLimitTicks
       : (HuntRules.fightLimitTicks * difficulty.patience).round();

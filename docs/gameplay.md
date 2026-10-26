@@ -127,6 +127,17 @@ Each husk has four or five seals: on its brow, its chest, its flanks, its back. 
 - A tap on the body away from a seal glances for a quarter of a strike. A tap that hits nothing breaks your cadence.
 - The fight lasts 75 seconds. After that the husk escapes.
 
+The blade meter shows the weapon's recovery: strike again when it fills.
+Each blow reports whether it cut the ward, glanced off the body or missed.
+The thin line under a cadence counts down the time to keep the streak alive.
+During a shriek the motion meter shows how close the phone is to flinching;
+the stalk and reap prompts also warn when the phone is moving too fast.
+These are readings of the existing rules, not extra bonuses or penalties.
+Practice results show unbroken holds, parries and the longest seal streak.
+They offer the same stray again, with the same seed and room, so its rhythm
+can be learned without tracing the sigil again or returning to the sanctum.
+Practice earns nothing.
+
 ### Shriek
 
 Every 6.5 to 10 seconds the husk stops where it is, turns on you and draws breath (54 ticks of warning, its mouth opening), then shrieks for 66 ticks.

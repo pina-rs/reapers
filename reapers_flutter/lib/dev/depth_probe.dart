@@ -27,7 +27,11 @@ class DepthProbe extends HookWidget {
     final picture = useState<ui.Image?>(null);
     final report = useState('Loading the model');
 
-    useEffect(() => camera.dispose, [camera]);
+    useEffect(
+      () =>
+          () => unawaited(camera.dispose()),
+      [camera],
+    );
 
     useEffect(() {
       if (controller == null) {

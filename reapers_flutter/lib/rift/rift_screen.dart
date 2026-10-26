@@ -61,7 +61,7 @@ class RiftScreen extends HookConsumerWidget {
     final frame = useState<RiftFrame?>(null);
     final ended = useState<RiftFrame?>(null);
     final failure = useState<Object?>(null);
-    final banner = useState<String?>(null);
+    final banner = useState<HuntBanner?>(null);
     final seat = useState<RiftSeat?>(null);
     final lastReportTick = useRef(-_reportEveryTicks);
     final reportedEnd = useRef(false);
@@ -303,6 +303,7 @@ class RiftScreen extends HookConsumerWidget {
                     light: arena.rig.light,
                     followsDevice: arena.poseSource.followsDevice,
                     banner: banner.value,
+                    turnSpeed: arena.pose.turnSpeed,
                     company: _Circle(frame: current, light: arena.rig.light),
                     afterword: switch (fight.sim.outcome) {
                       HuntOutcome(grade: _?) => l10n.riftCutMade,

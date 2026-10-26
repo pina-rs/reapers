@@ -3,6 +3,7 @@ package com.reapers.app
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import android.hardware.camera2.CameraAccessException
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
@@ -13,6 +14,9 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Motion and stillness do not reset Android's touch idle timer.
+        // A visible game must stay awake through a sigil or a slow hunt.
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             // The first Flutter frame matches this still; a system fade
             // would ghost the icon over the animated sweep.

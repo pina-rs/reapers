@@ -175,10 +175,15 @@ final class HuntArena {
   /// where the fight begins. Where the room was seen, [occlusion] is how it
   /// looked, and the husk is hidden by whatever stands in front of it.
   void engage(HuntSim sim, {OcclusionMap? occlusion}) {
-    if (_rest == null) {
+    if (_rest == null || controller?.sim.isOver == true) {
       _gathered = 0;
     }
 
+    comeApart = 0;
+    gone.value = false;
+    wound = 0;
+    slashes.clear();
+    impacts.clear();
     controller = autoplay
         ? AutoplayHuntController(sim: sim)
         : HuntController(sim: sim, poseSource: poseSource);
@@ -355,7 +360,7 @@ final class HuntArena {
 
   void dispose() {
     _disposed = true;
-    feed.dispose();
+    unawaited(feed.dispose());
     poseSource.dispose();
     frame.dispose();
     gone.dispose();
@@ -529,6 +534,7 @@ class HuntArenaView extends HookWidget {
             _Touch(arena: arena, size: size),
           if (controller?.sim.stats.art case final art? when loaded && running)
             ArtTrigger(
+              key: ObjectKey(controller),
               art: art,
               controller: controller!,
               light: arena.rig.light,

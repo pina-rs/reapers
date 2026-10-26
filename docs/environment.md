@@ -172,3 +172,31 @@ For the record, since it is why all of this is done from the camera picture:
 
 - Google Play Services for AR is not installed on the Seeker, and the phone does not report the `android.hardware.camera.ar` feature that certified devices do. Both checked over `adb` on 1 October 2026.
 - No Solana Mobile device is on [Google's list of ARCore supported devices](https://developers.google.com/ar/devices).
+
+## Repeatable device smoke test
+
+Android keeps the screen on while the game is visible. Movement and stillness
+do not reset the display's idle timer. The window flag stops applying when
+the game is backgrounded; the phone's display-timeout setting is unchanged.
+Camera handover is serialized across hunt screens: a new hunt waits until
+the previous controller has finished closing its preview. This also applies
+when a player leaves while the camera is still opening.
+
+From the repository root, with the Seeker connected and unlocked:
+
+```sh
+fvm dart tool/test_hunt.dart <device-id>
+```
+
+This opens two practice hunts through the normal interface, checks that the
+camera preview opens, completes both hunts and an immediate rematch, then
+returns to the threshold. The test uses a volatile player, leaving the
+device's saved player untouched. The wrapper builds a separate
+`com.reapers.app.huntTest` install and grants that install camera permission.
+Never run this journey with bare `flutter drive`: it uninstalls its target
+on exit. Screenshots go to `.impeccable/review/`.
+
+The simulated player skips the sigil and supplies the motion inputs. This
+checks rendering, completion, retries and camera reopening on the hardware;
+tracing a sigil, room alignment and the feel of holding and swinging still
+need a person holding the phone.

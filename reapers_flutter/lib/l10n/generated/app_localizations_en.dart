@@ -1218,6 +1218,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get huntPracticeLabel => 'A stray, for practice';
 
   @override
+  String get huntPracticeAgain => 'Hunt this stray again';
+
+  @override
+  String get huntPracticeHolds => 'Unbroken holds';
+
+  @override
+  String get huntPracticeParries => 'Charges turned aside';
+
+  @override
+  String get huntPracticeCadence => 'Longest seal streak';
+
+  @override
   String get huntSafety =>
       'Stand still to hunt, and stay aware of what is around you. You only need to turn on the spot.';
 
@@ -1291,6 +1303,35 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get huntPromptStrike => 'Strike the open seals.';
+
+  @override
+  String get huntBladeReady => 'Blade ready';
+
+  @override
+  String get huntBladeRecovering => 'Recovering';
+
+  @override
+  String get huntMotionSteady => 'Steady';
+
+  @override
+  String get huntMotionUnsteady => 'Ease your movement';
+
+  @override
+  String get huntPromptTooFast => 'Slow down. It can feel you moving.';
+
+  @override
+  String get huntPromptReapTooFast => 'Slower. Let the blade follow the arc.';
+
+  @override
+  String huntStrikeHit(int damage) {
+    return 'Ward −$damage';
+  }
+
+  @override
+  String get huntStrikeGlanced => 'Glancing blow · aim for a lit seal';
+
+  @override
+  String get huntStrikeMissed => 'Miss · follow the lit seals';
 
   @override
   String get huntPromptWindup => 'It is drawing breath.';
