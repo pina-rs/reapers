@@ -122,3 +122,17 @@ The hooks make that the only way in: `main` refuses any commit that `tool/merge.
 | [docs/launch-readiness.md](docs/launch-readiness.md) | Completed integration, launch engineering still required and decisions needed from Ifiok. |
 | [art/blender/README.md](art/blender/README.md) | How the 3D art is built. |
 | [AGENTS.md](AGENTS.md) | Conventions for anyone, human or not, changing the code. |
+
+## Licence
+
+The code, the art scripts and the models and portraits they build are under the [MIT licence](LICENSE).
+
+Three things in the repository are other people's and keep their own licences:
+
+| What | Licence | Where it says so |
+| --- | --- | --- |
+| The music, by Kevin MacLeod | CC BY 4.0 | [assets/music/CREDITS.md](reapers_flutter/assets/music/CREDITS.md) |
+| The depth model, Depth Anything V2 Small | Apache-2.0 | [assets/depth/LICENSE.txt](reapers_flutter/assets/depth/LICENSE.txt) |
+| DM Sans and Fraunces | SIL Open Font License 1.1 | [assets/fonts/](reapers_flutter/assets/fonts/) |
+
+The five collections' names belong to their holders and are not covered by the licence; see [docs/nfts.md](docs/nfts.md).

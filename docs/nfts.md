@@ -24,7 +24,7 @@ What that means, and does not:
 - **The creatures are our own models**, built from scratch by the scripts in `art/blender/creature_kinds/`. Each follows the spirit of its collection (a hunched bird in a visor, a llama under a striped blanket) and copies none of its artwork.
 - **An NFT's picture in the game is a render of our model** in that NFT's colours.
 - **The eight NFTs of each collection are invented.** They are numbered 1 to 8 and correspond to no real token.
-- **Nothing is licensed.** The research found no collection under an open licence. Using a collection's name in a private prototype is one thing; shipping it needs the agreement of whoever holds the rights, and for several of these that is a holders' DAO. The vault screen says in words that this is a simulation.
+- **Nothing is licensed.** The research found no collection under an open licence. Naming a collection in an open prototype is one thing; shipping a game with it needs the agreement of whoever holds the rights, and for several of these that is a holders' DAO. The vault screen says in words that this is a simulation.
 - **Avoid list.** The research flags collections not to touch: copies of other people's work, ones tied to brands or real people, and ones that ended in fraud. Catalina Whale Mixer and Galactic Geckos were first choices here and were dropped on that evidence.
 
 ## What is a stand-in
