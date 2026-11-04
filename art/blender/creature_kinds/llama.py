@@ -360,7 +360,10 @@ def _head(neck, neck_at, head_at, skull_at, body, detail, dark, accent):
         turn = (0, 0, math.radians(side * 41))
 
         feature(f"socket_{side}", (side * 0.072, y - 0.078, z + 0.012), (0.03, 0.016, 0.035), dark, 120, turn)
-        feature(f"eye_{side}", (side * 0.079, y - 0.087, z + 0.012), (0.012, 0.009, 0.012), accent, 60, turn)
+        creature.eye(side, head, Vector((side * 0.079, y - 0.087, z + 0.012)) - head_at, (0.012, 0.009, 0.012), accent, turn)
+        # A tuft of dark wool over each eye, which is what lets the face
+        # knit and lift.
+        creature.brow(side, head, Vector((side * 0.074, y - 0.086, z + 0.052)) - head_at, (0.03, 0.012, 0.01), dark, turn)
         feature(f"nostril_{side}", (side * 0.019, y - 0.207, z - 0.03), (0.01, 0.008, 0.008), dark, 40)
 
     # The lower jaw is a chin under the muzzle, hinged at the back so that it

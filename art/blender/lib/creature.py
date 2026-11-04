@@ -33,7 +33,19 @@ MOVING_PARTS = (
     "wing_l",
     "wing_r",
     "tail",
+    # The face. Each eye hangs from its own pivot, or both from one when
+    # they are a single band, and a brow over each, so the game can widen
+    # the eyes in terror, squeeze them shut at a blow and raise or knit the
+    # brows. See README.md.
+    "eye_l",
+    "eye_r",
+    "eyes",
+    "brow_l",
+    "brow_r",
 )
+
+# Which way a side is, in a pivot's name: +x is the creature's left.
+SIDES = {1: "l", -1: "r"}
 
 # The only materials a creature may use. The game throws Blender's material
 # away and keeps the name, which picks the surface.
@@ -59,6 +71,35 @@ def pivot(name, parent, at):
     """
 
     return core.empty(name, parent, location=at)
+
+
+def eye(side, head, at, size, mat, rotation=(0, 0, 0), triangles=60):
+    """One eye on its own pivot at `at`, in the head's space: a single blob
+    of `size`, made about the pivot so the game scales it in place.
+
+    `side` is 1 for the creature's left and -1 for its right.
+    """
+
+    joint = pivot(f"eye_{SIDES[side]}", head, at)
+
+    form(f"eye_{side}", [("sphere", (0, 0, 0), size, rotation)], mat, joint, triangles=triangles)
+
+    return joint
+
+
+def brow(side, head, at, size, mat, rotation=(0, 0, 0), triangles=90):
+    """A brow over one eye, on its own pivot at `at`, in the head's space.
+
+    The game lifts the inner end of each brow when the creature is afraid
+    and drives it down when it is furious, turning the brow about its
+    middle, so model it level and centred on the pivot.
+    """
+
+    joint = pivot(f"brow_{SIDES[side]}", head, at)
+
+    form(f"brow_{side}", [("sphere", (0, 0, 0), size, rotation)], mat, joint, triangles=triangles)
+
+    return joint
 
 
 def finish(obj, **masks):

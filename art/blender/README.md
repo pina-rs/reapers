@@ -147,6 +147,9 @@ A creature is not skinned. It is built from rigid parts, and the game moves them
 | `arm_l`, `arm_r` | Swings them against the legs. | The shoulders. |
 | `wing_l`, `wing_r` | Beats them about the Y axis. | The wing roots. |
 | `tail` | Sways it about the Z axis. | The base of the tail. |
+| `eye_l`, `eye_r` | Scales it: wide in fear, narrowed in fury, squeezed shut at a blow. Made by `creature.eye`. | The middle of each eye, as a child of `head`. |
+| `eyes` | Scales a single band of eyes in height only, so that it never stands off the face. | The middle of the band, as a child of `head`. |
+| `brow_l`, `brow_r` | Lifts the inner end in fear and drives it down in fury, turning it about Z, and raises or lowers it. Made by `creature.brow`. | The middle of each brow, as a child of `head`. Model it level. |
 
 Use the ones the body has. A swinging limb needs its pivot at the joint and its length hanging below it, so that turning the pivot about X swings the foot forward and back.
 
@@ -162,6 +165,10 @@ How far each part moves, so that parts can be shaped not to pass through each ot
 | Wings | from 20° below rest to 37° above |
 | Tail | 27° either way |
 | Neck | 9° forward and back |
+| Eyes | from 0.08 to 2.4 times their height, and 0.4 to 2.2 times their width |
+| Brows | about 34° either way, and lifted or lowered by a twentieth of the body's half-height |
+
+When a husk is struck, frightened or reaped the whole body moves on top of all of this: it rocks up to about 9° away from a blow and twists about its feet, cowers lower as its ward fails, and is dragged up to a third of its height off the floor by the reap. Parts that only just clear each other at rest will cross then, so leave room.
 
 The numbers live in `reapers_flutter/lib/render/husk_rig.dart`.
 

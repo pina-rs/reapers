@@ -5,6 +5,7 @@ import 'package:flutter_scene/scene.dart';
 import 'package:reapers_shared/reapers_shared.dart';
 import 'package:vector_math/vector_math.dart' as vm;
 
+import 'husk_reaction.dart';
 import 'nft_image.dart';
 
 /// The shader for a husk's solid surfaces.
@@ -42,8 +43,10 @@ const HuskMood restingMood = (
 /// One husk: a collection's creature, dressed as one NFT.
 ///
 /// The rig only ever draws what the rules say. It is told where the husk is
-/// with [place], what it is doing with [animate], and what happened with
-/// [flash] and [dissolve]; it decides nothing about the hunt.
+/// with [place], what it is doing and what is being done to it with
+/// [animate], and what happened with [flash], [hit] and [dissolve]; it
+/// decides nothing about the hunt. How it acts all that out is
+/// [HuskReaction]'s: it reels, cowers, rages, struggles and dies.
 ///
 /// A creature is built from rigid parts on pivots, and this is where they
 /// move: legs swing as fast as the creature is going, wings beat, the head
@@ -170,6 +173,12 @@ final class HuskRig {
 
   final Map<String, PreprocessedMaterial> _materials;
 
+  final _reaction = HuskReaction();
+
+  /// The way from the player to the husk, flat, in the model's frame: the
+  /// way a blow drives it.
+  vm.Vector3 _away = vm.Vector3(0, 0, 1);
+
   /// Every pivot the game moves, with the transform the model gave it.
   final _rest = <String, (Node, vm.Matrix4)>{};
 
@@ -214,7 +223,16 @@ final class HuskRig {
     'wing_l',
     'wing_r',
     'tail',
+    // The face: each eye, or both in one band, and a brow over each.
+    'eye_l',
+    'eye_r',
+    'eyes',
+    'brow_l',
+    'brow_r',
   };
+
+  /// How bright each glowing surface burns at rest, as `_style` sets it.
+  static const _glowStrength = {'accent': 6.0, 'glow': 7.0};
 
   /// How fast a strike's flash fades, as a share lost each second.
   static const _flashDecay = 7.0;
@@ -255,11 +273,28 @@ final class HuskRig {
       pose.yaw + math.pi - pose.heading,
     ).clamp(-_headTurn, _headTurn);
     _watchPitch = (-pose.pitch).clamp(-_headTilt, _headTilt);
+
+    final away = vm.Matrix4.rotationY(
+      math.pi - pose.heading,
+    ).transform3(vm.Vector3(pose.direction.x, 0, pose.direction.z));
+
+    if (away.length2 > 1e-6) {
+      _away = away.normalized();
+    }
   }
 
   /// Advances everything about the husk that is only for show.
-  void animate(double deltaSeconds, {HuskMood mood = restingMood}) {
-    _seconds += deltaSeconds;
+  void animate(
+    double deltaSeconds, {
+    HuskMood mood = restingMood,
+    HuskPlight plight = calmPlight,
+  }) {
+    final reaction = _reaction..step(deltaSeconds, plight);
+    // A heavy blow stops time for the husk for an instant; its flash and
+    // its reeling carry on through it, so the blow lands with a jolt.
+    final played = deltaSeconds * reaction.timeScale;
+
+    _seconds += played;
 
     final fade = math.exp(-_flashDecay * deltaSeconds);
 
@@ -289,10 +324,12 @@ final class HuskRig {
     final ease = 1 - math.exp(-8 * deltaSeconds);
 
     _effort += (target - _effort) * ease;
-    _gape += (mood.gape - _gape) * (1 - math.exp(-14 * deltaSeconds));
+    _gape +=
+        (math.max(mood.gape, reaction.gape) - _gape) *
+        (1 - math.exp(-14 * deltaSeconds));
     // Strides come faster the faster it goes, and never quite stop: a
     // creature at rest still shifts its weight.
-    _stride += deltaSeconds * (2.2 + 9 * _effort);
+    _stride += played * (2.2 + 9 * _effort);
 
     // Frozen, nothing moves: not a stride, not a breath.
     final still = 1 - _frost;
@@ -301,35 +338,82 @@ final class HuskRig {
         math.sin(_stride) *
         (1 - _tuck) *
         still;
-    final tuck = 0.9 * _tuck;
+    final tuck = 0.9 * _tuck + reaction.splay;
     final t = _seconds * still;
+    final flail = reaction.flail * still;
+    final shiver = reaction.shiver * still;
+    // Arms come up to shield the face as it cowers and flinches.
+    final shield = 1.1 * reaction.cower + 0.8 * reaction.wince;
 
     for (final MapEntry(key: name, value: (node, rest)) in _rest.entries) {
       final turn = switch (name) {
         // A four-legged gait moves diagonal pairs together.
         // In a leap the front legs reach forward and the back legs kick
-        // back, the way a cat's do.
-        'leg_fl' || 'leg_fr' || 'arm_l' || 'arm_r' => vm.Matrix4.rotationX(
-          (name == 'leg_fl' || name == 'arm_r' ? swing : -swing) - tuck,
+        // back, the way a cat's do. Being reaped, every leg scrabbles.
+        'leg_fl' || 'leg_fr' => vm.Matrix4.rotationX(
+          (name == 'leg_fl' ? swing + flail : -swing - flail) - tuck + shiver,
+        ),
+        'arm_l' || 'arm_r' => vm.Matrix4.rotationX(
+          (name == 'arm_r' ? swing + flail : -swing - flail) -
+              tuck -
+              shield +
+              shiver,
         ),
         'leg_bl' || 'leg_br' || 'leg_l' || 'leg_r' => vm.Matrix4.rotationX(
-          (name == 'leg_br' || name == 'leg_l' ? swing : -swing) + tuck,
+          (name == 'leg_br' || name == 'leg_l'
+                  ? swing - flail
+                  : -swing + flail) +
+              tuck -
+              shiver,
         ),
-        // Wings beat all the time, harder when it is fleeing. Left and
-        // right mirror each other.
-        'wing_l' => vm.Matrix4.rotationZ(_beat(t)),
-        'wing_r' => vm.Matrix4.rotationZ(-_beat(t)),
+        // Wings beat all the time, harder when it is fleeing and frantic
+        // when it is reaped; afraid, it draws them in. Left and right
+        // mirror each other.
+        'wing_l' => vm.Matrix4.rotationZ(_wing(t, reaction)),
+        'wing_r' => vm.Matrix4.rotationZ(-_wing(t, reaction)),
         'tail' => vm.Matrix4.rotationY(
-          (0.18 + 0.3 * _effort) * math.sin(_stride * 0.5 + 1),
+          (0.18 + 0.3 * _effort) * math.sin(_stride * 0.5 + 1) +
+              4 * shiver +
+              flail,
         ),
         'neck' => vm.Matrix4.rotationX(
-          0.05 * math.sin(t * 0.8) + 0.1 * _effort * math.sin(_stride * 2),
+          0.05 * math.sin(t * 0.8) +
+              0.1 * _effort * math.sin(_stride * 2) +
+              0.4 * reaction.headPitch * still,
         ),
-        // The head keeps the player in sight, and looks about a little.
+        // The head keeps the player in sight, and looks about a little. It
+        // is thrown back by blows, ducks as it cowers and shakes in terror.
         'head' =>
-          vm.Matrix4.rotationY(_watchYaw + 0.06 * math.sin(t * 0.7)) *
-              vm.Matrix4.rotationX(_watchPitch + 0.04 * math.sin(t * 1.1)),
+          vm.Matrix4.rotationY(
+                _watchYaw + 0.06 * math.sin(t * 0.7) + reaction.headYaw * still,
+              ) *
+              vm.Matrix4.rotationX(
+                _watchPitch +
+                    0.04 * math.sin(t * 1.1) +
+                    0.6 * reaction.headPitch * still,
+              ),
         'jaw' => vm.Matrix4.rotationX(-0.75 * _gape),
+        // Eyes go wide in terror and squeeze shut at a blow.
+        'eye_l' || 'eye_r' => vm.Matrix4.diagonal3Values(
+          reaction.eyeWidth,
+          reaction.eyeHeight,
+          reaction.eyeWidth,
+        ),
+        // A band of eyes wraps round the skull, so it only opens and
+        // narrows: widened, it would stand off the face.
+        'eyes' => vm.Matrix4.diagonal3Values(1, reaction.eyeHeight, 1),
+        // The inner ends of the brows lift in fear and drive down in fury.
+        // The creature's left is +x, so the inner end of its left brow is
+        // towards -x.
+        'brow_l' || 'brow_r' =>
+          vm.Matrix4.translationValues(
+                0,
+                reaction.browLift * vessel.halfHeight,
+                0,
+              ) *
+              vm.Matrix4.rotationZ(
+                name == 'brow_l' ? -reaction.browTilt : reaction.browTilt,
+              ),
         _ => vm.Matrix4.identity(),
       };
 
@@ -337,14 +421,50 @@ final class HuskRig {
     }
 
     // A walker rises and falls with each step; a flier with each beat.
-    final lift = _tuck > 0.5
+    final step = _tuck > 0.5
         ? 0.0
         : vessel.gait == Gait.air
         ? 0.02 * math.sin(t * 2 * math.pi * _beatsPerSecond)
         : 0.03 * _effort * math.sin(_stride * 2).abs();
+    final height = 2 * vessel.halfHeight;
+    final lift = step + reaction.rise * height * still;
 
-    _lift.localTransform = vm.Matrix4.translationValues(0, lift, 0);
+    _lift.localTransform =
+        vm.Matrix4.translationValues(0, lift, 0) * _sway(reaction, still);
     _placeShadows(lift);
+
+    for (final material in _materials.values) {
+      if (_glowStrength[material.name] case final strength?) {
+        material.parameters.setFloat(
+          'glow_strength',
+          strength * reaction.eyeGlow,
+        );
+      }
+    }
+  }
+
+  /// The body's lean, twist and squash from [reaction], turned about its
+  /// feet so that it rocks rather than spins about its middle.
+  vm.Matrix4 _sway(HuskReaction reaction, double still) {
+    // Tipped by blows and staggering, and pulled over towards the reaper
+    // as the reap drags it up the arc.
+    final leanX = (reaction.leanX - _away.x * reaction.drag) * still;
+    final leanZ = (reaction.leanZ - _away.z * reaction.drag) * still;
+    final lean = math.sqrt(leanX * leanX + leanZ * leanZ);
+    final squash = 1 + reaction.squash * still;
+    final spread = 1 / math.sqrt(squash);
+    final feet = vessel.gait == Gait.air ? 0.0 : vessel.halfHeight;
+    final sway = vm.Matrix4.rotationY(reaction.twist * still);
+
+    if (lean > 1e-5) {
+      // Tipping the top towards (x, z) is a turn about up × (x, z).
+      sway.rotate(vm.Vector3(leanZ / lean, 0, -leanX / lean), lean);
+    }
+
+    return vm.Matrix4.translationValues(0, -feet, 0) *
+        sway *
+        vm.Matrix4.diagonal3Values(spread, squash, spread) *
+        vm.Matrix4.translationValues(0, feet, 0);
   }
 
   /// Keeps each shadow on the surface under the husk, smaller and fainter
@@ -373,7 +493,14 @@ final class HuskRig {
     }
   }
 
-  double get _beatsPerSecond => 2.6 + 2.4 * _effort;
+  double get _beatsPerSecond => 2.6 + 2.4 * _effort + 4 * _reaction.flail.abs();
+
+  /// How far a wing is raised at [seconds], in radians: drawn in when the
+  /// creature is afraid, flung wide as it dies.
+  double _wing(double seconds, HuskReaction reaction) =>
+      _beat(seconds) * (1 + 0.8 * reaction.flail.abs()) -
+      0.35 * reaction.cower +
+      0.6 * reaction.splay;
 
   /// How far a wing is raised at [seconds], in radians.
   double _beat(double seconds) =>
@@ -385,6 +512,27 @@ final class HuskRig {
   void flash(double strength) {
     _flash = math.max(_flash, strength);
     _punch = math.max(_punch, strength);
+  }
+
+  /// A blow lands: on seal [seal] when it struck one, or the body as a
+  /// whole. The husk is driven away from the player, twisted away from
+  /// the side it was struck on and flinches; [strength] runs from 0 to 1,
+  /// and a [heavy] blow stops time for an instant.
+  void hit({int? seal, required double strength, bool heavy = false}) {
+    final widest = vessel.seals.fold(
+      0.0,
+      (widest, spec) => math.max(widest, spec.offset.x.abs()),
+    );
+    final side = seal == null || widest == 0
+        ? 0.0
+        : vessel.seals[seal].offset.x / widest;
+
+    _reaction.hit(
+      away: math.atan2(_away.z, _away.x),
+      side: side,
+      strength: strength,
+      heavy: heavy,
+    );
   }
 
   /// How much of the husk has come apart, from 0 (whole) to 1 (gone).

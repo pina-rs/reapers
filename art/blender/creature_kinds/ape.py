@@ -138,7 +138,10 @@ def _head(root, body, trim):
     for side in (1, -1):
         # What is left of its eyes: dark sockets with a light far back in them.
         creature.form(f"socket_{side}", _hang([("sphere", (side * 0.08, -0.286, 0.342), (0.052, 0.022, 0.036))], HEAD), dark, head, triangles=80)
-        creature.form(f"eye_{side}", _hang([("sphere", (side * 0.08, -0.304, 0.342), (0.02, 0.01, 0.02))], HEAD), accent, head, triangles=48)
+        creature.eye(side, head, _from(HEAD, (side * 0.08, -0.304, 0.342)), (0.02, 0.01, 0.02), accent, triangles=48)
+        # A pad of fur over each eye, in front of the ridge of the brow, so
+        # the face can knit and lift.
+        creature.brow(side, head, _from(HEAD, (side * 0.083, -0.3, 0.392)), (0.058, 0.02, 0.017), body, triangles=90)
         creature.form(f"nostril_{side}", _hang([("sphere", (side * 0.034, -0.414, 0.296), (0.019, 0.014, 0.013))], HEAD), dark, head, triangles=40)
         creature.form(f"ear_{side}", _hang([("sphere", (side * 0.21, -0.12, 0.35), (0.035, 0.035, 0.055))], HEAD), trim, head, triangles=64)
 

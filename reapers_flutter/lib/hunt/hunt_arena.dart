@@ -106,10 +106,17 @@ final class HuntArena {
 
   bool _loaded = false;
   HuskPose? _rest;
+
+  /// How long the fight has been over, in seconds.
+  double _overFor = 0;
   int _slashCount = 0;
 
   /// How long a husk takes to come apart once the fight is over.
   static const _dissolveSeconds = 1.7;
+
+  /// How long an absorbed husk convulses whole before it starts to come
+  /// apart: long enough for its death throes to be seen.
+  static const _deathThroesSeconds = 0.35;
 
   /// How long a husk takes to come together when it first appears.
   static const _gatherSeconds = 1.1;
@@ -180,6 +187,7 @@ final class HuntArena {
     }
 
     comeApart = 0;
+    _overFor = 0;
     gone.value = false;
     wound = 0;
     slashes.clear();
@@ -253,37 +261,63 @@ final class HuntArena {
 
     for (final event in events) {
       switch (event) {
-        case StrikeLanded(:final empowered, :final seal):
-          rig.flash(empowered ? 1 : 0.7);
+        case StrikeLanded(:final empowered, :final seal, :final cleaved):
+          rig
+            ..flash(empowered ? 1 : 0.7)
+            ..hit(
+              seal: seal,
+              strength: empowered ? 1 : 0.75,
+              heavy: empowered || cleaved.isNotEmpty,
+            );
 
           if (autoplay) {
             _markStrike(sim.pose.sealDirection(seal));
           }
         case StrikeGlanced():
-          rig.flash(0.3);
+          rig
+            ..flash(0.3)
+            ..hit(strength: 0.3);
         case Struck():
           wound = 1;
         case Parried():
-          rig.flash(1);
+          rig
+            ..flash(1)
+            ..hit(strength: 1, heavy: true);
         case Broken():
-          rig.flash(1);
+          rig
+            ..flash(1)
+            ..hit(strength: 1, heavy: true);
         case ArtLanded(:final art, :final at, :final hit):
           impacts.add(ArtImpact(art: art, at: at, hit: hit));
 
           if (hit) {
-            rig.flash(0.8);
+            rig
+              ..flash(0.8)
+              ..hit(strength: 0.8);
           }
         case IceShattered():
-          rig.flash(1);
+          rig
+            ..flash(1)
+            ..hit(strength: 1, heavy: true);
         default:
           break;
       }
     }
 
     if (sim.isOver) {
-      comeApart = math.min(1, comeApart + deltaSeconds / _dissolveSeconds);
+      _overFor += deltaSeconds;
+
+      // An absorbed husk was broken first, and is already that far gone.
+      final absorbed = sim.phase == HuntPhase.absorbed;
+      final throes = absorbed ? _deathThroesSeconds : 0;
+
+      comeApart = ((_overFor - throes) / _dissolveSeconds).clamp(
+        absorbed ? _brokenDissolve : 0.0,
+        1.0,
+      );
       gone.value = comeApart >= 1;
     } else {
+      _overFor = 0;
       comeApart = sim.phase == HuntPhase.broken ? _brokenDissolve : 0;
     }
 
@@ -306,6 +340,22 @@ final class HuntArena {
           },
           frozen: sim.frozen,
           burning: sim.burning,
+        ),
+        plight: (
+          ward: sim.wardMax <= 0 ? 0 : sim.ward / sim.wardMax,
+          fighting: sim.phase != HuntPhase.stalk,
+          fury: switch (sim.phase) {
+            HuntPhase.windup => sim.shriekProgress,
+            HuntPhase.shriek || HuntPhase.charge => 1.0,
+            _ => 0.0,
+          },
+          staggered: sim.staggered,
+          broken: sim.phase == HuntPhase.broken,
+          reap: sim.phase == HuntPhase.broken && sim.reapBegun
+              ? sim.reapProgress
+              : 0,
+          dying: sim.phase == HuntPhase.absorbed,
+          frozen: sim.frozen,
         ),
       );
 

@@ -118,7 +118,9 @@ def _head(root, body, trim, detail, dark, accent):
     # What is left of its eyes: dark sockets with a light far back in them.
     for side in (1, -1):
         creature.form(f"socket_{side}", [("sphere", (side * 0.075, -0.178, 0.1), (0.036, 0.02, 0.036))], dark, head, triangles=120)
-        creature.form(f"eye_{side}", [("sphere", (side * 0.075, -0.192, 0.1), (0.014, 0.01, 0.014))], accent, head, triangles=60)
+        creature.eye(side, head, (side * 0.075, -0.192, 0.1), (0.014, 0.01, 0.014), accent)
+        # The heavy brow ends in a ledge over each eye that can knit and lift.
+        creature.brow(side, head, (side * 0.075, -0.19, 0.149), (0.046, 0.016, 0.013), body)
 
     creature.form(
         "beak_upper",

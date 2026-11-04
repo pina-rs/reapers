@@ -255,7 +255,7 @@ def _horn(name, origin, length, width, top, bottom, mat, parent, keel=False, ste
     return creature.finish(core.shade_smooth(horn, angle=60))
 
 
-def _band(name, radii, sweep, edges, depth, mat, parent, steps=22):
+def _band(name, radii, sweep, edges, depth, mat, parent, steps=22, origin=Vector()):
     """A strip wrapped around the skull at the height of the eyes.
 
     It reaches `sweep` radians either side of straight ahead. `radii` is its
@@ -274,7 +274,7 @@ def _band(name, radii, sweep, edges, depth, mat, parent, steps=22):
         low, high, drawn = edges(abs(fraction))
 
         def point(inset, height):
-            return SKULL + Vector((math.sin(angle) * (radii[0] - drawn - inset), -math.cos(angle) * (radii[1] - drawn - inset), height))
+            return SKULL - origin + Vector((math.sin(angle) * (radii[0] - drawn - inset), -math.cos(angle) * (radii[1] - drawn - inset), height))
 
         rings.append(
             [
@@ -304,8 +304,21 @@ def _visor(head, dark, accent):
 
     _band("visor", (0.153, 0.158), math.radians(104), lens, 0.05, dark, head)
 
-    # What is left of its eyes: one thin strip of light across the lens.
-    _band("eyes", (0.156, 0.161), math.radians(50), lambda fraction: (0.02, 0.033, 0), 0.012, accent, head, steps=12)
+    # What is left of its eyes: one thin strip of light across the lens. It
+    # hangs from a pivot at its own height, so the game can open it wide or
+    # squeeze it to a slit.
+    middle = SKULL + Vector((0, 0, 0.0265))
+    eyes = creature.pivot("eyes", head, middle)
+
+    _band("eyes", (0.156, 0.161), math.radians(50), lambda fraction: (0.02, 0.033, 0), 0.012, accent, eyes, steps=12, origin=middle)
+
+    # Two hard ridges over the top of the visor, following the skull round:
+    # they are what knits into a scowl or lifts in fright.
+    for side in (1, -1):
+        angle = side * math.radians(21)
+        at = SKULL + Vector((math.sin(angle) * 0.162, -math.cos(angle) * 0.166, 0.079))
+
+        creature.brow(side, head, at, (0.042, 0.013, 0.011), dark, rotation=(0, 0, angle))
 
 
 def _cap(parent, cloth):

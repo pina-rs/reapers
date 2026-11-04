@@ -196,8 +196,6 @@ def _head(root, neck, face, top):
 
     parts = [
         _box(skull, (0.175, (rear - front) / 2, (crown - chin) / 2), body, bevel=0.02),
-        # A brow plate bolted on crooked, a little wider than the box.
-        _box((0, front - 0.012, crown - 0.02), (0.186, 0.04, 0.024), body, bevel=0.01, turn=(0, math.radians(-3.5), 0)),
         # The roof of the mouth: a dark line over the jaw, and the darkness
         # that shows when the jaw drops.
         _box((0, front + 0.052, chin - 0.012), (0.118, 0.042, 0.02), dark, bevel=0.004),
@@ -209,7 +207,6 @@ def _head(root, neck, face, top):
         # Its left eye is a big round lens.
         _bezel(eye_l, forward, 0.06, 0.045, 0.042, detail),
         _drum(eye_l, 0.047, 0.012, dark, toward=forward),
-        _ball(eye_l + forward * 0.01, 0.016, accent),
         # Its left ear is a listening horn, which breaks the outline of the
         # box even when it wears nothing.
         _drum((0.18, 0.0, skull.z), 0.052, 0.036, trim, toward=(1, 0, 0)),
@@ -245,7 +242,6 @@ def _head(root, neck, face, top):
 
     parts += [
         _box(eye_r + forward * 0.002, (0.034, 0.006, 0.022), dark, bevel=0.002),
-        _ball(eye_r + forward * 0.008, 0.015, accent),
     ]
 
     # Vent slots and a bolt in each corner across the back of the skull.
@@ -259,6 +255,7 @@ def _head(root, neck, face, top):
         parts.append(_bolt((across, front, chin + 0.022), forward, detail))
 
     _weld("skull", parts, head)
+    _face(head, eye_l + forward * 0.01, eye_r + forward * 0.008, front, crown, body, accent)
 
     # The jaw is a tray from a different machine, with a grille across its
     # front. The game drops it a long way open, whichever way the head is
@@ -581,6 +578,25 @@ def _hoop(radius, height, proud=0.013, wide=0.026):
         (radius + proud, height - wide / 2),
         (radius, height - wide / 2 - proud * 0.55),
     ]
+
+
+def _face(head, lens_l, lens_r, front, crown, body, accent):
+    """The parts of the face the game moves: the light in each eye, on its
+    own pivot, and the brow plate, split in two so that each half can tilt.
+    It is still bolted on crooked."""
+
+    origin = _origin(head)
+
+    for side, light, radius in ((1, lens_l, 0.016), (-1, lens_r, 0.015)):
+        eye = creature.pivot(f"eye_{creature.SIDES[side]}", head, light - origin)
+
+        _weld(f"eye_light_{side}", [_ball(light, radius, accent)], eye)
+
+    for side in (1, -1):
+        middle = Vector((side * 0.094, front - 0.012, crown - 0.02 + side * 0.003))
+        brow = creature.pivot(f"brow_{creature.SIDES[side]}", head, middle - origin)
+
+        _weld(f"brow_plate_{side}", [_box(middle, (0.092, 0.04, 0.024), body, bevel=0.01, turn=(0, math.radians(-3.5), 0))], brow)
 
 
 def _bezel(at, toward, outer, inner, depth, mat, sides=20):
