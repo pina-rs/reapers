@@ -72,7 +72,7 @@ fvm flutter run --dart-define=REAPERS_SIMNET=true \
   --dart-define=REAPERS_SURFPOOL_URL=http://localhost:8899
 ```
 
-`REAPERS_SURFPOOL_URL` is optional. Without it the simnet is exactly as before: no network. With it, **Simnet ledger** shows the endpoint, `getHealth`, `getGenesisHash` and the burner wallet's real `getBalance`, and offers `requestAirdrop` for one SOL. Those are standard Solana RPC calls. Airdrops are written down per burner wallet and genesis only after `getSignatureStatuses` confirms, so a repeated tap does not ask the faucet twice; a failed or timed-out call writes nothing and can be retried. Surfpool keeps its ledger in memory unless it is started with a database, so a restarted validator has a new genesis and the panel offers the airdrop again. The local network SOL is not the game's simulated SOL.
+`REAPERS_SURFPOOL_URL` is optional. Without it the simnet is exactly as before: no network. With it, **Simnet ledger** shows the endpoint, `getHealth`, `getGenesisHash` and the burner wallet's real `getBalance`, and offers `requestAirdrop` for one SOL. Those are standard Solana RPC calls. The returned signature is saved per burner wallet and genesis before checking confirmation. After a confirmation timeout or app restart, **Check** resumes that signature instead of requesting another airdrop. A confirmed payment disables the action. If the faucet response itself is lost, or saving its signature fails, a retry can still request another payment. A different genesis permits a new airdrop. The local network SOL is not the game's simulated SOL.
 
 What this does not do:
 

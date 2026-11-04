@@ -210,6 +210,44 @@ void main() {
     expect(stub.balances, 2, reason: 'the balance is read again after paying');
   });
 
+  testWidgets('a pending airdrop can resume from the panel', (tester) async {
+    final stub = _StubRpc();
+    await preferences.setString(
+      SurfpoolFaucet.storageKey,
+      jsonEncode({
+        'wallets': {
+          chain.wallet: {
+            'genesis': 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG',
+            'signature': 'pending-signature',
+            'slot': null,
+            'at': '2026-11-04T00:00:00Z',
+            'confirmed': false,
+          },
+        },
+      }),
+    );
+    await pump(
+      tester,
+      local: SurfpoolRpc(
+        endpoint: Uri.parse('http://localhost:8899'),
+        client: stub,
+      ),
+    );
+    final action = find.byKey(const Key('simnet-local-rpc-airdrop'));
+    await tester.ensureVisible(action);
+    await tester.pumpAndSettle();
+    await tester.tap(action);
+    await tester.pumpAndSettle();
+
+    final l10n = await englishStrings();
+    expect(
+      find.text(l10n.simnetLocalRpcAirdropped.toUpperCase()),
+      findsOneWidget,
+    );
+    expect(stub.airdrops, 0);
+    expect(find.text('pending-signature'), findsOneWidget);
+  });
+
   testWidgets('a reset wallet starts the panel over', (tester) async {
     final stub = _StubRpc();
     await pump(

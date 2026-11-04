@@ -320,11 +320,14 @@ class _SurfpoolPanel extends HookConsumerWidget {
                     ? l10n.simnetLocalRpcAirdrop(
                         solAmount(SurfpoolFaucet.lamports),
                       )
-                    : l10n.simnetLocalRpcAirdropped,
+                    : receipt.value!.confirmed
+                    ? l10n.simnetLocalRpcAirdropped
+                    : l10n.simnetLocalRpcCheck,
                 detail: receipt.value == null
                     ? null
                     : shortAddress(receipt.value!.signature),
-                onPressed: receipt.value == null && !airdropping.value
+                onPressed:
+                    receipt.value?.confirmed != true && !airdropping.value
                     ? () => unawaited(fund())
                     : null,
               ),
