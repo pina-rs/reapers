@@ -1,5 +1,6 @@
 import 'package:reapers_shared/reapers_shared.dart';
 
+import '../simnet/simnet_chain.dart';
 import 'generated/app_localizations.dart';
 
 /// Display names for the things the shared rules only know by identifier.
@@ -167,3 +168,28 @@ String difficultyName(AppLocalizations l10n, Difficulty difficulty) =>
       Difficulty.normal => l10n.difficultyNormal,
       Difficulty.hard => l10n.difficultyHard,
     };
+
+String simnetInstructionName(
+  AppLocalizations l10n,
+  SimnetInstruction instruction,
+) => switch (instruction) {
+  SimnetInstruction.airdrop => l10n.simnetInstructionAirdrop,
+  SimnetInstruction.buy => l10n.simnetInstructionBuy,
+  SimnetInstruction.escrow => l10n.simnetInstructionEscrow,
+  SimnetInstruction.burn => l10n.simnetInstructionBurn,
+};
+
+String simnetRoleName(AppLocalizations l10n, SimnetRole role) => switch (role) {
+  SimnetRole.wallet => l10n.simnetRoleWallet,
+  SimnetRole.faucet => l10n.simnetRoleFaucet,
+  SimnetRole.market => l10n.simnetRoleMarket,
+  SimnetRole.mint => l10n.simnetRoleMint,
+  SimnetRole.escrow => l10n.simnetRoleEscrow,
+  SimnetRole.program => l10n.simnetRoleProgram,
+  SimnetRole.keeper => l10n.simnetRoleKeeper,
+};
+
+/// An address or signature cut to its ends, as explorers show them.
+String shortAddress(String address) => address.length <= 12
+    ? address
+    : '${address.substring(0, 4)}…${address.substring(address.length - 4)}';

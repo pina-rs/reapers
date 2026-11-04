@@ -6,7 +6,7 @@ import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_auth_idp_server/core.dart';
 
 import '../generated/protocol.dart';
-import '../receipts/absorption_receipt.dart';
+import '../receipts/receipt_signer.dart';
 import 'player_books.dart';
 
 /// Everything a player can ask of their own books.
@@ -123,7 +123,7 @@ class PlayerEndpoint extends Endpoint {
 
     final absorption = judged.state.codex.last;
     final signer = await _signer(session);
-    final message = await AbsorptionReceipt.message(
+    final message = AbsorptionReceipt.message(
       playerId: '${session.authenticated!.authUserId}',
       absorption: absorption,
     );

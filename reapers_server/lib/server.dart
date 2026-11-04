@@ -4,7 +4,7 @@ import 'package:serverpod_auth_idp_server/core.dart';
 import 'package:serverpod_auth_idp_server/providers/anonymous.dart';
 
 import 'src/generated/serverpod.dart';
-import 'src/receipts/absorption_receipt.dart';
+import 'src/receipts/receipt_signer.dart';
 
 /// The starting point of the Reapers server.
 ///

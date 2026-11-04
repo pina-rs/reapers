@@ -1003,5 +1003,56 @@
         "type": "String"
       }
     }
-  }
+  },
+
+  "simnetOverline": "Simnet",
+  "simnetTitle": "The chain, rehearsed",
+  "simnetIntro": "A pretend devnet that lives on this phone. Every purchase, release and absorption is a transaction signed by a burner wallet made here. Nothing is sent to any cluster, no real SOL moves and no real NFT is touched.",
+  "simnetNetworkName": "Simnet · devnet rehearsal",
+  "simnetWallet": "Burner wallet",
+  "simnetBurned": "Burned",
+  "simnetTransactions": "Transactions",
+  "simnetEmpty": "Nothing yet. Bind a reaper and the faucet drops your SOL.",
+  "simnetInstructionAirdrop": "Airdrop",
+  "simnetInstructionBuy": "Buy",
+  "simnetInstructionEscrow": "Escrow",
+  "simnetInstructionBurn": "Burn",
+  "simnetRoleWallet": "Wallet",
+  "simnetRoleFaucet": "Faucet",
+  "simnetRoleMarket": "Market",
+  "simnetRoleMint": "Mint",
+  "simnetRoleEscrow": "Escrow",
+  "simnetRoleProgram": "Program",
+  "simnetRoleKeeper": "Receipt key",
+  "simnetSignature": "Signature",
+  "simnetSlot": "Slot",
+  "simnetSlotValue": "Slot {slot}",
+  "@simnetSlotValue": {
+    "placeholders": { "slot": { "type": "int", "format": "decimalPattern" } }
+  },
+  "simnetStatus": "Status",
+  "simnetConfirmed": "Confirmed",
+  "simnetFinalized": "Finalized",
+  "simnetAmount": "Amount",
+  "simnetNft": "NFT",
+  "simnetAccounts": "Accounts",
+  "simnetReceipt": "Receipt",
+  "simnetReceiptBody": "The burn carries the 98-byte receipt the keeper signed. On a real cluster the program asks Solana's Ed25519 program to check it before it burns the NFT. This is that check, run on the phone.",
+  "simnetReceiptPasses": "Ed25519 check passes",
+  "simnetReceiptFails": "Ed25519 check fails",
+  "simnetReset": "Start over",
+  "simnetResetDetail": "New wallet",
+  "simnetResetBody": "This makes a new burner wallet and a new reaper for the next player. The simnet ledger and everything this reaper has done are forgotten. The offline game's save is not touched.",
+  "simnetCancel": "Keep playing",
+  "simnetBalance": "{amount} SOL · simnet",
+  "@simnetBalance": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
+  "sanctumSimnet": "Simnet ledger",
+  "sanctumSimnetDetail": "{count, plural, =1{1 transaction} other{{count} transactions}}",
+  "@sanctumSimnetDetail": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "huntReceiptSimnet": "Burned on the simnet",
+  "rosterSimnet": "This is a simnet build. Your wallet is a burner made on this phone, and nothing is sent to a cluster. Every purchase, release and burn is in the simnet ledger."
 }

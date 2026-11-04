@@ -103,7 +103,7 @@ void main() {
 
       // A player whose wallet has been emptied.
       await preferences.setString(
-        LocalBackend.storageKey,
+        LocalBackend.defaultStorageKey,
         jsonEncode({...(await backend.load()).toJson(), 'lamports': 1000}),
       );
 

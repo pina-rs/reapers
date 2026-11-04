@@ -9,6 +9,7 @@ import 'studio/reaper_studio.dart';
 import 'l10n/l10n.dart';
 import 'render/reaper_look.dart';
 import 'screens/sanctum_screen.dart';
+import 'simnet/simnet_toasts.dart';
 import 'sound/score.dart';
 import 'sound/soundtrack.dart';
 import 'screens/threshold_screen.dart';
@@ -60,7 +61,7 @@ class ReapersApp extends HookConsumerWidget {
       builder: (context, child) => SplashGate(
         ready: player.hasValue || player.hasError,
         onFirstFrameReady: onFirstFrameReady,
-        child: child ?? const SizedBox.shrink(),
+        child: SimnetToasts(child: child ?? const SizedBox.shrink()),
       ),
       // The whole interface is lit with the reaper's own light.
       theme: Veil.theme(

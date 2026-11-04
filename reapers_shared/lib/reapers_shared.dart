@@ -5,6 +5,7 @@
 /// the server judges an online player against the same code.
 library;
 
+export 'src/absorption_receipt.dart';
 export 'src/armory.dart';
 export 'src/arts.dart';
 export 'src/feeding.dart';

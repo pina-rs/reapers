@@ -2,6 +2,8 @@ import 'package:reapers_shared/reapers_shared.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../simnet/simnet_backend.dart';
+import '../../simnet/simnet_state.dart';
 import '../backend/game_backend.dart';
 import '../backend/local_backend.dart';
 import '../backend/rift_session.dart';
@@ -21,9 +23,20 @@ SharedPreferences sharedPreferences(Ref ref) =>
 const reapersServerUrl = String.fromEnvironment('REAPERS_SERVER_URL');
 
 /// Whoever keeps this player's books: the server when the build names one,
-/// and the phone itself otherwise.
+/// the phone posting to its simnet in a rehearsal build, and the phone
+/// itself otherwise.
 @Riverpod(keepAlive: true)
 GameBackend gameBackend(Ref ref) {
+  if (ref.watch(simnetChainProvider) case final chain?) {
+    if (reapersServerUrl.isNotEmpty) {
+      throw StateError(
+        'REAPERS_SIMNET plays offline: build it without REAPERS_SERVER_URL.',
+      );
+    }
+
+    return SimnetBackend(ref.watch(sharedPreferencesProvider), chain);
+  }
+
   if (reapersServerUrl.isEmpty) {
     return LocalBackend(ref.watch(sharedPreferencesProvider));
   }

@@ -2309,4 +2309,149 @@ class AppLocalizationsEn extends AppLocalizations {
   String motionRate(String speed) {
     return '$speed×';
   }
+
+  @override
+  String get simnetOverline => 'Simnet';
+
+  @override
+  String get simnetTitle => 'The chain, rehearsed';
+
+  @override
+  String get simnetIntro =>
+      'A pretend devnet that lives on this phone. Every purchase, release and absorption is a transaction signed by a burner wallet made here. Nothing is sent to any cluster, no real SOL moves and no real NFT is touched.';
+
+  @override
+  String get simnetNetworkName => 'Simnet · devnet rehearsal';
+
+  @override
+  String get simnetWallet => 'Burner wallet';
+
+  @override
+  String get simnetBurned => 'Burned';
+
+  @override
+  String get simnetTransactions => 'Transactions';
+
+  @override
+  String get simnetEmpty =>
+      'Nothing yet. Bind a reaper and the faucet drops your SOL.';
+
+  @override
+  String get simnetInstructionAirdrop => 'Airdrop';
+
+  @override
+  String get simnetInstructionBuy => 'Buy';
+
+  @override
+  String get simnetInstructionEscrow => 'Escrow';
+
+  @override
+  String get simnetInstructionBurn => 'Burn';
+
+  @override
+  String get simnetRoleWallet => 'Wallet';
+
+  @override
+  String get simnetRoleFaucet => 'Faucet';
+
+  @override
+  String get simnetRoleMarket => 'Market';
+
+  @override
+  String get simnetRoleMint => 'Mint';
+
+  @override
+  String get simnetRoleEscrow => 'Escrow';
+
+  @override
+  String get simnetRoleProgram => 'Program';
+
+  @override
+  String get simnetRoleKeeper => 'Receipt key';
+
+  @override
+  String get simnetSignature => 'Signature';
+
+  @override
+  String get simnetSlot => 'Slot';
+
+  @override
+  String simnetSlotValue(int slot) {
+    final intl.NumberFormat slotNumberFormat = intl.NumberFormat.decimalPattern(
+      localeName,
+    );
+    final String slotString = slotNumberFormat.format(slot);
+
+    return 'Slot $slotString';
+  }
+
+  @override
+  String get simnetStatus => 'Status';
+
+  @override
+  String get simnetConfirmed => 'Confirmed';
+
+  @override
+  String get simnetFinalized => 'Finalized';
+
+  @override
+  String get simnetAmount => 'Amount';
+
+  @override
+  String get simnetNft => 'NFT';
+
+  @override
+  String get simnetAccounts => 'Accounts';
+
+  @override
+  String get simnetReceipt => 'Receipt';
+
+  @override
+  String get simnetReceiptBody =>
+      'The burn carries the 98-byte receipt the keeper signed. On a real cluster the program asks Solana\'s Ed25519 program to check it before it burns the NFT. This is that check, run on the phone.';
+
+  @override
+  String get simnetReceiptPasses => 'Ed25519 check passes';
+
+  @override
+  String get simnetReceiptFails => 'Ed25519 check fails';
+
+  @override
+  String get simnetReset => 'Start over';
+
+  @override
+  String get simnetResetDetail => 'New wallet';
+
+  @override
+  String get simnetResetBody =>
+      'This makes a new burner wallet and a new reaper for the next player. The simnet ledger and everything this reaper has done are forgotten. The offline game\'s save is not touched.';
+
+  @override
+  String get simnetCancel => 'Keep playing';
+
+  @override
+  String simnetBalance(String amount) {
+    return '$amount SOL · simnet';
+  }
+
+  @override
+  String get sanctumSimnet => 'Simnet ledger';
+
+  @override
+  String sanctumSimnetDetail(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count transactions',
+      one: '1 transaction',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get huntReceiptSimnet => 'Burned on the simnet';
+
+  @override
+  String get rosterSimnet =>
+      'This is a simnet build. Your wallet is a burner made on this phone, and nothing is sent to a cluster. Every purchase, release and burn is in the simnet ledger.';
 }

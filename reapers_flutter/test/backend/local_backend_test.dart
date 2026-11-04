@@ -87,17 +87,20 @@ void main() {
 
     await backend.takeOath();
 
-    final before = preferences.getString(LocalBackend.storageKey);
+    final before = preferences.getString(LocalBackend.defaultStorageKey);
 
     await expectLater(backend.release(_saint), refuses(Refusal.notInVault));
 
-    expect(preferences.getString(LocalBackend.storageKey), before);
+    expect(preferences.getString(LocalBackend.defaultStorageKey), before);
   });
 
   test(
     'a save from a format this build does not know is not misread',
     () async {
-      await preferences.setString(LocalBackend.storageKey, '{"schema": 99}');
+      await preferences.setString(
+        LocalBackend.defaultStorageKey,
+        '{"schema": 99}',
+      );
 
       await expectLater(keeper().load(), throwsFormatException);
     },

@@ -3981,6 +3981,252 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{speed}×'**
   String motionRate(String speed);
+
+  /// No description provided for @simnetOverline.
+  ///
+  /// In en, this message translates to:
+  /// **'Simnet'**
+  String get simnetOverline;
+
+  /// No description provided for @simnetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The chain, rehearsed'**
+  String get simnetTitle;
+
+  /// No description provided for @simnetIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'A pretend devnet that lives on this phone. Every purchase, release and absorption is a transaction signed by a burner wallet made here. Nothing is sent to any cluster, no real SOL moves and no real NFT is touched.'**
+  String get simnetIntro;
+
+  /// No description provided for @simnetNetworkName.
+  ///
+  /// In en, this message translates to:
+  /// **'Simnet · devnet rehearsal'**
+  String get simnetNetworkName;
+
+  /// No description provided for @simnetWallet.
+  ///
+  /// In en, this message translates to:
+  /// **'Burner wallet'**
+  String get simnetWallet;
+
+  /// No description provided for @simnetBurned.
+  ///
+  /// In en, this message translates to:
+  /// **'Burned'**
+  String get simnetBurned;
+
+  /// No description provided for @simnetTransactions.
+  ///
+  /// In en, this message translates to:
+  /// **'Transactions'**
+  String get simnetTransactions;
+
+  /// No description provided for @simnetEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing yet. Bind a reaper and the faucet drops your SOL.'**
+  String get simnetEmpty;
+
+  /// No description provided for @simnetInstructionAirdrop.
+  ///
+  /// In en, this message translates to:
+  /// **'Airdrop'**
+  String get simnetInstructionAirdrop;
+
+  /// No description provided for @simnetInstructionBuy.
+  ///
+  /// In en, this message translates to:
+  /// **'Buy'**
+  String get simnetInstructionBuy;
+
+  /// No description provided for @simnetInstructionEscrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Escrow'**
+  String get simnetInstructionEscrow;
+
+  /// No description provided for @simnetInstructionBurn.
+  ///
+  /// In en, this message translates to:
+  /// **'Burn'**
+  String get simnetInstructionBurn;
+
+  /// No description provided for @simnetRoleWallet.
+  ///
+  /// In en, this message translates to:
+  /// **'Wallet'**
+  String get simnetRoleWallet;
+
+  /// No description provided for @simnetRoleFaucet.
+  ///
+  /// In en, this message translates to:
+  /// **'Faucet'**
+  String get simnetRoleFaucet;
+
+  /// No description provided for @simnetRoleMarket.
+  ///
+  /// In en, this message translates to:
+  /// **'Market'**
+  String get simnetRoleMarket;
+
+  /// No description provided for @simnetRoleMint.
+  ///
+  /// In en, this message translates to:
+  /// **'Mint'**
+  String get simnetRoleMint;
+
+  /// No description provided for @simnetRoleEscrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Escrow'**
+  String get simnetRoleEscrow;
+
+  /// No description provided for @simnetRoleProgram.
+  ///
+  /// In en, this message translates to:
+  /// **'Program'**
+  String get simnetRoleProgram;
+
+  /// No description provided for @simnetRoleKeeper.
+  ///
+  /// In en, this message translates to:
+  /// **'Receipt key'**
+  String get simnetRoleKeeper;
+
+  /// No description provided for @simnetSignature.
+  ///
+  /// In en, this message translates to:
+  /// **'Signature'**
+  String get simnetSignature;
+
+  /// No description provided for @simnetSlot.
+  ///
+  /// In en, this message translates to:
+  /// **'Slot'**
+  String get simnetSlot;
+
+  /// No description provided for @simnetSlotValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Slot {slot}'**
+  String simnetSlotValue(int slot);
+
+  /// No description provided for @simnetStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get simnetStatus;
+
+  /// No description provided for @simnetConfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirmed'**
+  String get simnetConfirmed;
+
+  /// No description provided for @simnetFinalized.
+  ///
+  /// In en, this message translates to:
+  /// **'Finalized'**
+  String get simnetFinalized;
+
+  /// No description provided for @simnetAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount'**
+  String get simnetAmount;
+
+  /// No description provided for @simnetNft.
+  ///
+  /// In en, this message translates to:
+  /// **'NFT'**
+  String get simnetNft;
+
+  /// No description provided for @simnetAccounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Accounts'**
+  String get simnetAccounts;
+
+  /// No description provided for @simnetReceipt.
+  ///
+  /// In en, this message translates to:
+  /// **'Receipt'**
+  String get simnetReceipt;
+
+  /// No description provided for @simnetReceiptBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The burn carries the 98-byte receipt the keeper signed. On a real cluster the program asks Solana\'s Ed25519 program to check it before it burns the NFT. This is that check, run on the phone.'**
+  String get simnetReceiptBody;
+
+  /// No description provided for @simnetReceiptPasses.
+  ///
+  /// In en, this message translates to:
+  /// **'Ed25519 check passes'**
+  String get simnetReceiptPasses;
+
+  /// No description provided for @simnetReceiptFails.
+  ///
+  /// In en, this message translates to:
+  /// **'Ed25519 check fails'**
+  String get simnetReceiptFails;
+
+  /// No description provided for @simnetReset.
+  ///
+  /// In en, this message translates to:
+  /// **'Start over'**
+  String get simnetReset;
+
+  /// No description provided for @simnetResetDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'New wallet'**
+  String get simnetResetDetail;
+
+  /// No description provided for @simnetResetBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This makes a new burner wallet and a new reaper for the next player. The simnet ledger and everything this reaper has done are forgotten. The offline game\'s save is not touched.'**
+  String get simnetResetBody;
+
+  /// No description provided for @simnetCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep playing'**
+  String get simnetCancel;
+
+  /// No description provided for @simnetBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} SOL · simnet'**
+  String simnetBalance(String amount);
+
+  /// No description provided for @sanctumSimnet.
+  ///
+  /// In en, this message translates to:
+  /// **'Simnet ledger'**
+  String get sanctumSimnet;
+
+  /// No description provided for @sanctumSimnetDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 transaction} other{{count} transactions}}'**
+  String sanctumSimnetDetail(int count);
+
+  /// No description provided for @huntReceiptSimnet.
+  ///
+  /// In en, this message translates to:
+  /// **'Burned on the simnet'**
+  String get huntReceiptSimnet;
+
+  /// No description provided for @rosterSimnet.
+  ///
+  /// In en, this message translates to:
+  /// **'This is a simnet build. Your wallet is a burner made on this phone, and nothing is sent to a cluster. Every purchase, release and burn is in the simnet ledger.'**
+  String get rosterSimnet;
 }
 
 class _AppLocalizationsDelegate

@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:reapers_server/src/generated/protocol.dart';
-import 'package:reapers_server/src/receipts/absorption_receipt.dart';
+import 'package:reapers_server/src/receipts/receipt_signer.dart';
 import 'package:reapers_shared/reapers_shared.dart';
 import 'package:serverpod/serverpod.dart' show UuidValue;
 import 'package:test/test.dart';
@@ -343,7 +343,7 @@ void main() {
         final signer = await ReceiptSigner.fromSecret(
           ReceiptSigner.developmentSecret,
         );
-        final message = await AbsorptionReceipt.message(
+        final message = AbsorptionReceipt.message(
           playerId: playerId,
           absorption: entry,
         );
@@ -386,7 +386,7 @@ void main() {
         ]) {
           expect(
             await signer.verifies(
-              await AbsorptionReceipt.message(
+              AbsorptionReceipt.message(
                 playerId: playerId,
                 absorption: forged,
               ),
@@ -399,7 +399,7 @@ void main() {
 
         expect(
           await signer.verifies(
-            await AbsorptionReceipt.message(
+            AbsorptionReceipt.message(
               playerId: otherId,
               absorption: entry,
             ),
@@ -426,37 +426,6 @@ void main() {
             byte.toRadixString(16).padLeft(2, '0'),
         ].join(),
       );
-    });
-
-    test('a receipt is laid out as the documentation says', () async {
-      final at = DateTime.utc(2026, 10, 1, 12);
-      final message = await AbsorptionReceipt.message(
-        playerId: playerId,
-        absorption: Absorption(
-          nft: const Nft(collection: NftCollection.thugbirdz, serial: 3),
-          grade: ReapGrade.perfect,
-          feeding: Feeding.rich,
-          xp: 0x01020304,
-          anima: 77,
-          nonce: 0xCAFEF00D,
-          at: at,
-        ),
-      );
-      final data = ByteData.sublistView(message);
-
-      expect(message, hasLength(AbsorptionReceipt.length));
-      expect(String.fromCharCodes(message.sublist(0, 8)), 'RPRSABS1');
-      expect(message.sublist(8, 40), isNot(everyElement(0)));
-      expect(message.sublist(40, 72), isNot(message.sublist(8, 40)));
-      expect(data.getUint8(72), ReapGrade.perfect.index);
-      expect(data.getUint8(73), Feeding.rich.index);
-      expect(message.sublist(74, 78), [4, 3, 2, 1], reason: 'little-endian');
-      expect(data.getUint32(78, Endian.little), 77);
-      expect(
-        data.getInt64(82, Endian.little),
-        at.millisecondsSinceEpoch ~/ 1000,
-      );
-      expect(data.getUint64(90, Endian.little), 0xCAFEF00D);
     });
 
     test('a different secret signs with a different key', () async {

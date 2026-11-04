@@ -9,6 +9,7 @@ import 'package:reapers_shared/reapers_shared.dart';
 import '../l10n/l10n.dart';
 import '../l10n/lookups.dart';
 import '../l10n/soul_lookups.dart';
+import '../simnet/simnet_state.dart';
 import '../sound/score.dart';
 import '../sound/soundtrack.dart';
 import '../src/state/testing_difficulty.dart';
@@ -714,7 +715,9 @@ class HuntReckoning extends HookWidget {
                         LedgerRow(
                           label: l10n.huntReceipt,
                           value: reward.signed
-                              ? l10n.huntReceiptSigned
+                              ? reapersSimnet
+                                    ? l10n.huntReceiptSimnet
+                                    : l10n.huntReceiptSigned
                               : l10n.huntReceiptUnsigned,
                         ),
                       if (outcome.ambushed)

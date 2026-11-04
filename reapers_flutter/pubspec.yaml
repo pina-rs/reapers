@@ -16,6 +16,8 @@ dependencies:
   intl: any
   # The hunt draws the spirit realm over the live camera feed.
   camera: ^0.12.0
+  # SHA-256, for the simnet's addresses and blockhashes.
+  crypto: ^3.0.7
   flutter_hooks: ^0.21.3+1
   # Every 3D surface, from the reaper in the sanctum to the husks in a hunt.
   flutter_scene: ^0.23.0

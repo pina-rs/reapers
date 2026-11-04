@@ -38,3 +38,28 @@ Before every NFT-bearing game mutation, the server refreshes ownership and locks
 - Solo hunt rewards are replayed. NFT reapers cannot enter rifts until rift replay is built, preventing trusted client reports from earning tradable growth.
 - The five hunted husk collections, prices and burns remain simulated. The signed receipt is still not submitted on-chain. Escrow, real token acquisition and a verified burn program are outstanding; [nfts.md](nfts.md) describes them.
 - Tests use real SDK codecs, RPC transports, Ed25519 signatures and Serverpod's embedded database, with controlled chain responses. They verify proof failures, account restoration, ownership transfer and growth persistence; they do not prove a live marketplace trade.
+
+## The simnet
+
+A build with `--dart-define=REAPERS_SIMNET=true` plays the offline game on a pretend devnet that lives on the phone, so the chain's part can be shown before any program is deployed. It needs no server and no network; it cannot be combined with `REAPERS_SERVER_URL`, and its keeper refuses to open if both are set.
+
+| Step in the game | Simnet transaction | Accounts |
+| --- | --- | --- |
+| Binding a reaper | **Airdrop** of the starting 3 SOL | faucet, wallet |
+| Buying a husk | **Buy** at the rarity's price | wallet, market, mint |
+| Releasing it | **Escrow** into the program | wallet, mint, escrow PDA, program |
+| Absorbing it | **Burn** out of escrow, carrying the receipt | wallet, mint, escrow PDA, program, receipt key |
+
+A husk that gets away posts nothing: it stays in escrow, still huntable. Weapons, outfits, arts and rifts stay off-chain, as they are meant to.
+
+What is real and what is not:
+
+- **The wallet** is a real Ed25519 key pair, generated on the phone and kept in plain preferences. Its address is a valid Solana address. It is a burner: it holds nothing and must never be used anywhere else.
+- **Each transaction's signature** is a real Ed25519 signature by that wallet, over a description of the instruction, its accounts, the amount and a blockhash chained from the previous transaction. It is not a Solana wire transaction and no cluster has seen it.
+- **The escrow** is a real program-derived address, `["escrow", sha256(mint)]` under the simnet program. The program, market and faucet addresses are made from names; nobody holds their keys.
+- **The burn's receipt** is the same 98-byte `AbsorptionReceipt` the server signs, with the burner wallet as the player. It is signed by a simnet keeper key derived from a public name, so it proves only that the layout and the check work. The ledger runs the Ed25519 check a program would make before burning, and a receipt changed after signing fails it.
+- **Slots** count 400 ms from when the wallet was made. Confirmation takes 650 ms; the slip shows the transaction finalized 1.4 s later.
+- **The books** are the offline game's rules, kept under a save of their own (`reapers.simnet.player.v2`). The chain is told what happened after the rules allow it; it decides nothing.
+
+The simnet lives in `reapers_flutter/lib/simnet/`: `SimnetChain` is the wallet and the ledger, `SimnetBackend` posts to it around a `LocalBackend`, `SimnetToasts` is the slip and `SimnetScreen` the explorer. Replacing it with devnet means sending the same four instructions to a deployed program through Solana Kit, with the wallet behind Mobile Wallet Adapter and the receipt signed by the server.
+

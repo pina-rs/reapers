@@ -68,6 +68,7 @@ Useful build flags for the game:
 | Flag | Effect |
 | --- | --- |
 | `--dart-define=REAPERS_SERVER_URL=http://localhost:8080/` | Play against the server. Without it the game is fully offline. |
+| `--dart-define=REAPERS_SIMNET=true` | The offline game on a pretend devnet: a burner wallet, and a signed transaction for every airdrop, purchase, escrow and burn. For showing the chain where no cluster has the program. See `docs/solana.md`. |
 | `--dart-define=REAPERS_AUTOPLAY=true` | A simulated player fights every hunt and rift. The way to watch one on a simulator. |
 | `--dart-define=REAPERS_GALLERY=true` | Debug builds open at a bench for reviewing every reaper and outfit. |
 | `--dart-define=REAPERS_DEPTH_PROBE=true` | Debug builds open at a bench for the depth model: the camera, the depth it makes of it, and how long it takes. |

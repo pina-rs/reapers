@@ -62,6 +62,17 @@ To watch it play itself, which is the only way to see a full hunt on a simulator
 fvm flutter run --dart-define=REAPERS_AUTOPLAY=true
 ```
 
+### On the simnet: a devnet rehearsal
+
+To show the game's chain story where no cluster has the Reapers program yet, for a demo or a hacker house:
+
+```sh
+cd reapers_flutter
+fvm flutter run --release --dart-define=REAPERS_SIMNET=true
+```
+
+That is the offline game with a pretend devnet on the phone. Binding a reaper makes a burner wallet and airdrops its SOL. Buying a husk, releasing it into escrow, and absorbing it each post a signed transaction, and the burn carries the keeper's Ed25519 receipt, checked on the phone the way the program would check it. A slip confirms each transaction as it lands, and **Simnet ledger** in the sanctum is the explorer. **Start over** there makes a new wallet and reaper for the next player, without touching the offline save. Nothing leaves the phone. See [docs/solana.md](docs/solana.md#the-simnet).
+
 ### With the server
 
 ```sh

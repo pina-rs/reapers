@@ -18,6 +18,8 @@ import 'colophon_screen.dart';
 import 'rifts_screen.dart';
 import 'vault_screen.dart';
 import 'roster_screen.dart';
+import '../simnet/simnet_screen.dart';
+import '../simnet/simnet_state.dart';
 import '../studio/reaper_studio.dart';
 
 /// Home: the player's reaper, standing in the dark, and everything that can
@@ -34,6 +36,9 @@ class SanctumScreen extends HookConsumerWidget {
     final light = Theme.of(context).colorScheme.primary;
     final now = _useClock();
     final sighted = _useNewlySighted(player, now);
+    final simnet = ref.watch(simnetChainProvider) == null
+        ? null
+        : ref.watch(simnetLedgerProvider).value ?? const [];
 
     void open(Widget screen) => unawaited(
       Navigator.of(
@@ -112,6 +117,17 @@ class SanctumScreen extends HookConsumerWidget {
                               onHunt: () => startHunt(context, ref, sighting),
                             ),
                           const SizedBox(height: 18),
+                          if (simnet != null) ...[
+                            LedgerButton(
+                              key: const Key('sanctum-simnet'),
+                              label: l10n.sanctumSimnet,
+                              detail: l10n.sanctumSimnetDetail(
+                                simnet.length,
+                              ),
+                              onPressed: () => open(const SimnetScreen()),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
                           LedgerButton(
                             key: const Key('sanctum-roster'),
                             label: l10n.sanctumRoster,
@@ -290,7 +306,9 @@ class _Masthead extends HookWidget {
             Text(l10n.sanctumOverline.toUpperCase(), style: Veil.label()),
             const Spacer(),
             Text(
-              l10n.commonSol(solAmount(player.lamports)),
+              reapersSimnet
+                  ? l10n.simnetBalance(solAmount(player.lamports))
+                  : l10n.commonSol(solAmount(player.lamports)),
               style: Veil.figure(color: Veil.ash, size: 12),
             ),
           ],

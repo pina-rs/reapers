@@ -40,7 +40,8 @@ What that means, and does not:
 | Buying | Subtracts the price and adds the item to the vault. | `PlayerState.acquire` |
 | Releasing | Moves the item from the vault into the veil as a husk. | `PlayerState.release` |
 | Absorbing | Removes the husk, rolls the feeding and writes the codex. | `PlayerState.settleHunt` |
-| The receipt | A real signature, by a development key, that is posted nowhere. | `AbsorptionReceipt` in `reapers_server` |
+| The receipt | A real signature, by a development key, that is posted nowhere. | `AbsorptionReceipt` in `reapers_shared`, `ReceiptSigner` in `reapers_server` |
+| The chain | In a simnet build, a pretend devnet on the phone posts each purchase, escrow and burn as a signed transaction. See [solana.md](solana.md#the-simnet). | `reapers_flutter/lib/simnet/` |
 | Anima | A plain counter. It is not a token and is not meant to become one. | `PlayerState.anima` |
 
 ## The design the stand-ins assume

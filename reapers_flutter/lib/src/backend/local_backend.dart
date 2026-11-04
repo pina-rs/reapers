@@ -21,12 +21,22 @@ final class LocalBackend implements GameBackend {
     this._preferences, {
     DateTime Function()? clock,
     Random? random,
+    this.storageKey = defaultStorageKey,
+    this.signReceipt,
   }) : _clock = clock ?? (() => DateTime.now().toUtc()),
        _random = random ?? Random.secure();
 
   /// Where the player is stored. The name carries the schema's generation,
   /// so a future incompatible format starts fresh instead of failing to read.
-  static const storageKey = 'reapers.player.v2';
+  static const defaultStorageKey = 'reapers.player.v2';
+
+  /// Where this keeper stores its player. The simnet keeps a player of its
+  /// own, so a rehearsal never touches the offline game's save.
+  final String storageKey;
+
+  /// Signs an absorption's receipt, for a keeper that vouches for what it
+  /// settles. The plain offline game signs nothing.
+  final Future<String> Function(Absorption absorption)? signReceipt;
 
   final SharedPreferences _preferences;
   final DateTime Function() _clock;
@@ -63,12 +73,25 @@ final class LocalBackend implements GameBackend {
 
   @override
   Future<HuntSettlement> settleHunt(int sightingId, HuntLog log) async {
-    final settlement = (await load()).judgeHunt(
+    final judged = (await load()).judgeHunt(
       sightingId,
       log,
       now: _clock(),
       feedingSeed: _seed(),
     );
+    final settlement = switch (signReceipt) {
+      final sign? when judged.outcome.absorbed => HuntSettlement(
+        state: judged.state.signAbsorption(
+          judged.state.codex.last.nft,
+          await sign(judged.state.codex.last),
+        ),
+        outcome: judged.outcome,
+        xp: judged.xp,
+        anima: judged.anima,
+        feeding: judged.feeding,
+      ),
+      _ => judged,
+    };
 
     await _save(settlement.state);
 
@@ -122,6 +145,9 @@ final class LocalBackend implements GameBackend {
 
     return next;
   }
+
+  /// Forgets the player, as if the game had just been installed.
+  Future<void> forget() => _preferences.remove(storageKey);
 
   Future<void> _save(PlayerState state) =>
       _preferences.setString(storageKey, jsonEncode(state.toJson()));

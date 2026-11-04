@@ -91,6 +91,8 @@ Models and materials are compiled by the build hook in `hook/build.dart`, so cha
 
 **Browser studio.** Supported targets are web, Android and iOS. `main_preview.dart` opens the isolated studio on each; the camera game targets Android and iOS. `ReaperStage` conditionally exports the mobile Flutter GPU portrait or a WebGL 2 portrait. The web portrait loads the same models and adapts the authored `reaper.fmat` fragment to a lit material, including its vertex masks, burn front and hollowing. Colour uniforms convert from sRGB to linear light, as the native material's `source_color` hint does. Calling changes release the previous model; cached trait changes update uniforms and morph weights. Web does not import the native GPU scene, read preferences, or open a wallet.
 
+**Simnet.** `--dart-define=REAPERS_SIMNET=true` swaps the keeper for a `SimnetBackend`: a `LocalBackend` under its own save, which posts an airdrop, a buy, an escrow and a receipt-carrying burn to a `SimnetChain` on the phone after the rules allow each one. `SimnetToasts`, laid over every screen in `MaterialApp.builder`, confirms each transaction; `SimnetScreen` is its explorer. It is for showing the chain before a program exists. See [solana.md](solana.md#the-simnet).
+
 **Autoplay.** `--dart-define=REAPERS_AUTOPLAY=true` has a simulated player fight every hunt and rift. It is how the game can be watched on a simulator, which has no gyroscope.
 
 ## Art
@@ -104,7 +106,7 @@ Serverpod 4, with its embedded Postgres in development and tests.
 - **Sign-in.** A fresh install plays as a guest (the anonymous identity provider) so nobody signs up before their first hunt. Android wallet proof links that guest, or restores the wallet's existing account.
 - **`PlayerEndpoint`** stores each player's `PlayerState` whole, in one row. Every request locks the row, applies one shared rule and stores the result (`PlayerBooks.change`). No method takes a player id from the client.
 - **Location.** `updateLocation` and `location` require authentication and use the same player row. Only the latest `GeoFix` is kept; out-of-order updates are ignored, null clears it, and stale readings are never returned. This is positioning, not proof of physical presence: coordinates reported by a modified client remain untrusted.
-- **Receipts.** When a hunt is absorbed, the server rolls how well the reaper fed and signs the result with Ed25519 (`AbsorptionReceipt`, `ReceiptSigner`), in a fixed 98-byte layout a Solana program could verify. See [nfts.md](nfts.md).
+- **Receipts.** When a hunt is absorbed, the server rolls how well the reaper fed and signs the result with Ed25519 (`ReceiptSigner`), in the fixed 98-byte layout of the shared `AbsorptionReceipt` a Solana program could verify. See [nfts.md](nfts.md).
 - **`RiftEndpoint`** is one streaming call per reaper: frames come down, the reaper's reports go up. `RiftHall` keeps the open rifts in memory and moves each on ten times a second.
 - **Refusals** cross the wire as a `Refused` exception carrying the shared `Refusal`'s name, so an online player is told exactly what an offline one would be.
 

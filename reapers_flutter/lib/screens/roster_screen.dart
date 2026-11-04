@@ -11,6 +11,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../l10n/l10n.dart';
 import '../l10n/lookups.dart';
 import '../l10n/soul_lookups.dart';
+import '../simnet/simnet_backend.dart';
+import '../simnet/simnet_screen.dart';
 import '../solana/chain_state.dart';
 import '../src/backend/game_backend.dart';
 import '../src/backend/server_backend.dart';
@@ -106,7 +108,37 @@ class RosterScreen extends HookConsumerWidget {
                   ),
                 ),
                 LedgerHeading(l10n.rosterLinked),
-                if (backend is! ServerBackend)
+                if (backend is SimnetBackend) ...[
+                  LedgerRow(
+                    label: l10n.rosterNetwork,
+                    value: l10n.simnetNetworkName,
+                  ),
+                  SelectableText(
+                    backend.chain.wallet,
+                    style: Veil.figure(size: 12),
+                  ),
+                  if (player != null)
+                    LedgerRow(
+                      label: l10n.rosterBalance,
+                      value: solAmount(player.lamports),
+                    ),
+                  const SizedBox(height: 12),
+                  Text(
+                    l10n.rosterSimnet,
+                    style: Veil.body(color: Veil.ash, size: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  LedgerButton(
+                    label: l10n.sanctumSimnet,
+                    onPressed: () => unawaited(
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const SimnetScreen(),
+                        ),
+                      ),
+                    ),
+                  ),
+                ] else if (backend is! ServerBackend)
                   Text(l10n.rosterOffline, style: Veil.body(color: Veil.ash))
                 else ...[
                   if (chain.isLoading) const LinearProgressIndicator(),
