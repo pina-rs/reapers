@@ -35,6 +35,9 @@ material {
     { type: float, name: hollow_level, hint: range(0, 1, 0.01), default: 0 },
     { type: vec4, name: rim, hint: source_color, default: [0.45, 0.62, 0.8, 1] },
     { type: float, name: rim_strength, default: 0.7 },
+    { type: vec4, name: ink, hint: source_color, default: [0.82, 0.78, 0.68, 1] },
+    { type: float, name: ink_strength, default: 1 },
+    { type: float, name: ink_seed, default: 0 },
     { type: vec4, name: glow, hint: source_color, default: [0, 0, 0, 1] },
     { type: float, name: glow_strength, default: 0 },
   ],
@@ -122,6 +125,26 @@ fragment {
     // behind rather than an outline.
     rim_amount *= 0.3 + 0.7 * clamp(normal.y * 0.5 + 0.7, 0.0, 1.0);
 
+    // A hand-drawn line around the figure. Its width is held to a few pixels
+    // with fwidth, then varied by noise fixed to the rest position: the line
+    // moves with the body and never crawls or flickers on its own.
+    float ink_width = min(max(0.04, fwidth(facing) * 2.1), 0.17);
+    float ink_wander = Noise(rest * 4.7 + vec3(material_params.ink_seed));
+    float ink_hand = Noise(rest * 23.0 + vec3(material_params.ink_seed * 1.7));
+    ink_width *= 0.18 + 1.75 * ink_wander;
+    float ink_edge = smoothstep(1.0 - ink_width, 1.0, 1.0 - facing);
+    // Where the hand lifts, the line thins to a dry stroke; where it bore
+    // down, a second pass widens it. Both are fixed to the surface, so the
+    // line is redrawn identically on every frame.
+    ink_edge *= 0.25 + 0.75 * smoothstep(0.2, 0.6, ink_hand);
+    float ink_press = smoothstep(0.55, 0.8, ink_wander);
+    ink_edge = max(
+        ink_edge,
+        smoothstep(1.0 - ink_width * 1.8, 1.0, 1.0 - facing) *
+            ink_press * 0.55);
+    ink_edge *= material_params.ink_strength;
+    color = mix(color, material_params.ink.rgb, clamp(ink_edge * 0.95, 0.0, 1.0));
+
     material.base_color = vec4(color, 1.0);
     material.normal = normal;
     material.metallic = material_params.surface_metallic * (1.0 - charred);
@@ -136,7 +159,8 @@ fragment {
             mix(1.0, masks.r, 0.6) * (1.0 - 0.6 * charred) +
         material_params.ember.rgb * material_params.ember_strength *
             (ember_line * flicker + embers * 0.8) +
-        material_params.glow.rgb * hollow_edge * 2.2 * flicker;
+        material_params.glow.rgb * hollow_edge * 2.2 * flicker +
+        material_params.ink.rgb * ink_edge * 1.4;
 
     PrepareMaterial(material);
   }

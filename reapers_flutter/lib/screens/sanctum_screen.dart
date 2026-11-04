@@ -12,6 +12,7 @@ import '../l10n/lookups.dart';
 import '../render/reaper_stage.dart';
 import '../theme/veil.dart';
 import '../widgets/ledger.dart';
+import '../widgets/sketch.dart';
 import 'armory_screen.dart';
 import 'codex_screen.dart';
 import 'colophon_screen.dart';
@@ -413,6 +414,13 @@ class _SightedBanner extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final light = Theme.of(context).colorScheme.primary;
+    final decoration = useMemoized(
+      () => Sketch.box(
+        colour: light,
+        seed: Sketch.seedFor(sighting.nft.id),
+      ),
+      [light, sighting.nft.id],
+    );
 
     return Semantics(
       liveRegion: true,
@@ -423,10 +431,8 @@ class _SightedBanner extends HookWidget {
         child: Container(
           margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: BoxDecoration(
-            color: Veil.inkRaised,
-            border: Border.all(color: light),
-          ),
+          decoration: BoxDecoration(color: Veil.inkRaised),
+          foregroundDecoration: decoration,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

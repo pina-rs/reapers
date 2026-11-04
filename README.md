@@ -99,6 +99,8 @@ dart tool/build_depth_model.dart  # rebuild the depth model that reads rooms (ne
 dart tool/build_music.dart    # fetch and re-encode the music (needs ffmpeg and curl)
 ```
 
+Every push to `main` and every pull request runs `dart tool/check.dart` on GitHub Actions with the pinned SDK; [.github/workflows/ci.yml](.github/workflows/ci.yml) has the full story.
+
 There are no pull requests. Work happens on a branch and is merged into `main` locally:
 
 ```sh

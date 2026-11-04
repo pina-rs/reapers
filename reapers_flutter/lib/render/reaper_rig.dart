@@ -246,6 +246,9 @@ final class ReaperRig {
       ..setFloat('hollow_level', surface.burns ? look.hollowLevel : 0)
       ..setColor('rim', look.rim)
       ..setFloat('rim_strength', surface.grime == 0 ? 0 : look.rimStrength)
+      ..setColor('ink', look.ink)
+      ..setFloat('ink_strength', look.inkStrength)
+      ..setFloat('ink_seed', look.inkSeed)
       ..setColor('glow', look.accent)
       ..setFloat('glow_strength', surface.glowStrength);
   }

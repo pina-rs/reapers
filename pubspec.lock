@@ -1625,6 +1625,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.0"
+  skribble:
+    dependency: transitive
+    description:
+      name: skribble
+      sha256: "18817860494d246c4d5f138d387dfe7dcb24e54557e64fb7a3c85ed62d5c804a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.1"
   sky_engine:
     dependency: transitive
     description: flutter

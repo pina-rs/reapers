@@ -45,6 +45,7 @@ dart tool/merge.dart --push      # the same, then push main to origin
 - `main` only fast-forwards. If it has moved since the branch was cut, `git rebase main` first.
 - Clean up `wip:` commits into conventional commits before merging: what lands on `main` is what gets pushed.
 - Do not open pull requests, and do not use `gh pr`.
+- `.github/workflows/ci.yml` runs the same full `dart tool/check.dart` on GitHub for pull requests and pushes to `main`. It is a mirror of the local gate, never a replacement for running the checks before merging.
 - `REAPERS_SKIP_HOOKS=1` bypasses the hooks. It is for recovery work the user has asked for, never for getting past a failing check.
 
 ## Commands

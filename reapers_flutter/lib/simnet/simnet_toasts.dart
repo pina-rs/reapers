@@ -7,6 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../l10n/l10n.dart';
 import '../l10n/lookups.dart';
 import '../theme/veil.dart';
+import '../widgets/sketch.dart';
 import 'simnet_chain.dart';
 import 'simnet_state.dart';
 
@@ -126,6 +127,10 @@ class _Slip extends HookWidget {
       if (transaction.lamports > 0)
         l10n.commonSol(solAmount(transaction.lamports)),
     ].join(' · ');
+    final decoration = useMemoized(
+      () => Sketch.box(seed: Sketch.seedFor(transaction.signature)),
+      [transaction.signature],
+    );
 
     return Semantics(
       liveRegion: true,
@@ -136,10 +141,8 @@ class _Slip extends HookWidget {
         constraints: const BoxConstraints(maxWidth: Veil.contentWidth),
         margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        decoration: BoxDecoration(
-          color: Veil.inkRaised,
-          border: Border.all(color: Veil.hairline),
-        ),
+        decoration: BoxDecoration(color: Veil.inkRaised),
+        foregroundDecoration: decoration,
         child: Row(
           children: [
             Expanded(

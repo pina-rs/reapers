@@ -45,6 +45,8 @@ dependencies:
   url_launcher: ^6.3.2
   three_js: ^0.3.0
   web: ^1.1.1
+  # A hand-drawn pen for the ledger's boxes.
+  skribble: ^0.3.1
 
 dev_dependencies:
   flutter_launcher_icons: ^0.14.4

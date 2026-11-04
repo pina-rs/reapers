@@ -78,6 +78,9 @@ final class ReaperLook {
     required this.emberStrength,
     required this.charLevel,
     required this.hollowLevel,
+    required this.ink,
+    required this.inkStrength,
+    required this.inkSeed,
     required this.headless,
   });
 
@@ -102,6 +105,13 @@ final class ReaperLook {
       emberStrength: state.ember,
       charLevel: state.char,
       hollowLevel: state.hollow,
+      ink: _lerp(
+        _lerp(colourway.rim, const Color(0xFFE9E4D4), 0.55),
+        colourway.accent,
+        0.15,
+      ),
+      inkStrength: 1,
+      inkSeed: _inkSeed(genome),
       headless: outfit == Outfit.hollowed,
       surfaces: {
         'cloth': SurfaceLook(tint: cloth, roughness: 0.95, weave: 0.8),
@@ -201,6 +211,19 @@ final class ReaperLook {
   /// How much of the figure has been eaten away, from 0 (none) to 1.
   final double hollowLevel;
 
+  /// The line drawn around the figure.
+  ///
+  /// It is the reaper's own light rather than a plain black outline: on the
+  /// veil, ink has to be brighter than the paper to read.
+  final Color ink;
+
+  /// How strongly the line is laid down.
+  final double inkStrength;
+
+  /// An offset into the line's noise, fixed by the genome, so every reaper is
+  /// sketched by a slightly different hand. It never changes over time.
+  final double inkSeed;
+
   /// Whether the head has gone, leaving only what the reaper wears on it.
   final bool headless;
 
@@ -287,6 +310,17 @@ final class _OutfitState {
 
 /// Raw cloth: what a shrouded outfit looks like before any dye.
 const _rawCloth = Color(0xFF5E5245);
+
+/// A stable offset into the ink's noise field, from 0 to 8.
+double _inkSeed(ReaperGenome genome) {
+  var hash = 0x811c9dc5;
+
+  for (final unit in genome.code.codeUnits) {
+    hash = ((hash ^ unit) * 0x01000193) & 0xffffffff;
+  }
+
+  return (hash % 1024) / 128;
+}
 
 Color _dye(Color dyed, _OutfitState state) =>
     _scale(_lerp(dyed, _rawCloth, state.undyed), state.shade);

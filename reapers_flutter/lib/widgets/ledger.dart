@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
 import '../theme/veil.dart';
+import 'sketch.dart';
 
 /// The pieces every screen is ruled with: buttons, rows, meters and marks,
 /// all drawn like entries in a ledger.
@@ -42,6 +43,19 @@ class LedgerButton extends HookWidget {
         : pressed.value
         ? Veil.ink
         : Veil.bone;
+    final rule = focused.value
+        ? light
+        : enabled
+        ? Veil.bone.withValues(alpha: 0.7)
+        : Veil.hairline;
+    // Keep one decoration for the life of the button, so a clock elsewhere on
+    // the screen cannot restart the border animation once a second.
+    final sketch = useMemoized(
+      () => quiet && !focused.value
+          ? null
+          : Sketch.box(colour: rule, seed: Sketch.seedFor(label)),
+      [quiet, focused.value, rule, label],
+    );
 
     void activate() {
       HapticFeedback.selectionClick();
@@ -73,16 +87,11 @@ class LedgerButton extends HookWidget {
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
             decoration: BoxDecoration(
               color: pressed.value ? light : Colors.transparent,
-              border: quiet && !focused.value
-                  ? null
-                  : Border.all(
-                      color: focused.value
-                          ? light
-                          : enabled
-                          ? Veil.bone.withValues(alpha: 0.7)
-                          : Veil.hairline,
-                    ),
             ),
+            // A quiet button carries no line until it is focused. The rule is
+            // drawn by hand, and its seed follows the label, so two actions
+            // never share exactly the same wobble.
+            foregroundDecoration: sketch,
             // The label sits left and the detail right while both fit on one
             // line. On a narrow phone the detail drops under the label rather
             // than running into it.

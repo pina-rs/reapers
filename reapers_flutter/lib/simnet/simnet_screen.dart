@@ -10,6 +10,7 @@ import '../src/state/player.dart';
 import '../theme/veil.dart';
 import '../widgets/ledger.dart';
 import '../widgets/ledger_page.dart';
+import '../widgets/sketch.dart';
 import 'simnet_backend.dart';
 import 'simnet_chain.dart';
 import 'simnet_state.dart';
@@ -88,31 +89,32 @@ class SimnetScreen extends HookConsumerWidget {
       barrierColor: Veil.ink.withValues(alpha: 0.8),
       builder: (context) => Dialog(
         backgroundColor: Veil.inkRaised,
-        shape: const RoundedRectangleBorder(
-          side: BorderSide(color: Veil.hairline),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(l10n.simnetReset.toUpperCase(), style: Veil.label()),
-              const SizedBox(height: 12),
-              Text(l10n.simnetResetBody, style: Veil.body()),
-              const SizedBox(height: 22),
-              LedgerButton(
-                key: const Key('simnet-reset-confirm'),
-                label: l10n.simnetReset,
-                onPressed: () => Navigator.of(context).pop(true),
-              ),
-              const SizedBox(height: 8),
-              LedgerButton(
-                label: l10n.simnetCancel,
-                quiet: true,
-                onPressed: () => Navigator.of(context).pop(false),
-              ),
-            ],
+        shape: const RoundedRectangleBorder(),
+        child: SketchFrame(
+          seed: Sketch.seedFor(l10n.simnetReset),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l10n.simnetReset.toUpperCase(), style: Veil.label()),
+                const SizedBox(height: 12),
+                Text(l10n.simnetResetBody, style: Veil.body()),
+                const SizedBox(height: 22),
+                LedgerButton(
+                  key: const Key('simnet-reset-confirm'),
+                  label: l10n.simnetReset,
+                  onPressed: () => Navigator.of(context).pop(true),
+                ),
+                const SizedBox(height: 8),
+                LedgerButton(
+                  label: l10n.simnetCancel,
+                  quiet: true,
+                  onPressed: () => Navigator.of(context).pop(false),
+                ),
+              ],
+            ),
           ),
         ),
       ),

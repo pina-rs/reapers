@@ -35,7 +35,8 @@ Staging and production also refuse the simulated acquire, release, hunt-settleme
 lib/
 ├── app.dart, main.dart
 ├── theme/veil.dart        Colour, type and spacing tokens.
-├── widgets/               The "funeral ledger" interface kit.
+├── widgets/               The "funeral ledger" interface kit: sketchy boxes
+│                          over straight rules, rows and marks.
 ├── screens/               Threshold, oath, sanctum, vault, armory, codex, rifts.
 ├── hunt/                  The arena, the HUD, the pose sources, the hunt screen.
 ├── rift/                  The rift screen.
@@ -81,6 +82,10 @@ Anything that learns more about the room (ARKit, ARCore, a server that names wha
 - `husk.fmat` draws a husk's surfaces in an NFT's colours, lights its eyes and seals, and dissolves it. On a rift's husk it also carries the collection's portraits.
 - `shadow.fmat` is the soft dark patch under a husk that stands on the floor.
 
+The reaper's silhouette is sketched, not just lit. `reaper.fmat` lays a line where the surface turns away from the camera, keeps it a few pixels wide with `fwidth`, and varies its weight with noise fixed to the model's rest coordinates. The line therefore moves with a limb and is redrawn identically every frame: it never crawls, and there is no per-frame random value anywhere in it. `ReaperLook` owns the line's colour, weight and a genome-fixed seed, so every reaper is drawn by its own slightly different hand. The browser material binds the same uniforms and reuses the very same fragment body through `webReaperSurface`.
+
+The ledger's boxes are sketched by Skribble. `Sketch.box` wraps a `RoughBoxDecoration` with two passes of a fine pen, and every seed is fixed by the box's label or content, so a rebuild redraws the same line. `LedgerButton`, dialogs, thumbnail plates, the sighted banner and the simnet slip all use it. Only the boxes are hand-drawn: type stays in DM Sans and Fraunces on the veil's ink, and a box never takes up more room than its content.
+
 **Creatures.** A husk's creature is not skinned. It is built from rigid parts on named pivots, and `HuskRig` moves the pivots from what the rules say the husk is doing: legs swing as fast as it is going, wings beat, the jaw drops as it draws breath, the head turns to watch the player. `HuskReaction` lays how it feels on top, from the fight's state and every blow: springs rock and twist the body away from where it was struck, a heavy blow stops time for an instant, its eyes and brows move from fear to fury, the reap drags it up flailing, and it arches and screams as it dies. It is only for show and reads nothing the rules depend on, so a husk's seals stay where the rules put them.
 
 **Reaper animation.** All six reaper GLBs contain 64 named Blender clips: spirit and humanoid performances for 32 states. The rig separates chest and pelvis, with neck, arm and leg joints. `ReaperMotion` is the shared presentation catalogue; `ReaperAppearance.clipName` selects the form's performance and `ReaperPlayback` drives the same elapsed time into Flutter Scene and the browser mixer. The studio exposes selection, scrubbing and contact poses. Cloth motion follows that clock while preserving genome morphs. This is an articulated rigid-part rig, with class-specific gesture sizes and hand adaptations. It changes no combat outcomes. See [animations.md](animations.md).
@@ -98,6 +103,16 @@ Models and materials are compiled by the build hook in `hook/build.dart`, so cha
 ## Art
 
 There are no hand-made model files. Every reaper, weapon and husk is built by a Python script run inside headless Blender, driven by `dart tool/build_art.dart`. The husk scripts read their dimensions and seal positions from the shared `Vessel` enum, and fail the build if a creature does not fit them, so the model and the hit-testing cannot disagree. The same build renders every NFT's portrait from its creature and its look. See `art/blender/README.md`.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every pull request, every push to `main`, and by hand. It reads the repository with no write permission, installs the Flutter pinned in `.fvmrc` (3.47.4) through `subosito/flutter-action`, and adds the Linux build tools the asset hooks use (`clang`, `cmake`, `ninja`, `pkg-config`, GTK and lzma headers). It then copies `reapers_server/config/passwords.example.yaml` to the git-ignored `passwords.yaml`, so the embedded test PostgreSQL has local placeholders and no repository secret is needed, and runs the same full command a person runs:
+
+```sh
+dart tool/check.dart
+```
+
+That is formatting, analysis of `tool/` and all three packages, and every test, including the server tests and the native asset build hooks. The job has a 45-minute ceiling and cancels a superseded run on the same ref.
 
 ## The server
 

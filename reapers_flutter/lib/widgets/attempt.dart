@@ -6,6 +6,7 @@ import '../l10n/lookups.dart';
 import '../src/backend/game_backend.dart';
 import '../theme/veil.dart';
 import 'ledger.dart';
+import 'sketch.dart';
 
 /// Runs [request] and, when the rules refuse it or the keeper cannot be
 /// reached, tells the player why. Returns whether it went through.
@@ -54,25 +55,26 @@ Future<void> _explain(
   barrierColor: Veil.ink.withValues(alpha: 0.8),
   builder: (context) => Dialog(
     backgroundColor: Veil.inkRaised,
-    shape: const RoundedRectangleBorder(
-      side: BorderSide(color: Veil.hairline),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title.toUpperCase(), style: Veil.label(color: Veil.wound)),
-          const SizedBox(height: 12),
-          Text(body, style: Veil.display(24)),
-          const SizedBox(height: 22),
-          LedgerButton(
-            key: const Key('refusal-dismiss'),
-            label: context.l10n.commonDismiss,
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-        ],
+    shape: const RoundedRectangleBorder(),
+    child: SketchFrame(
+      seed: Sketch.seedFor(title),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title.toUpperCase(), style: Veil.label(color: Veil.wound)),
+            const SizedBox(height: 12),
+            Text(body, style: Veil.display(24)),
+            const SizedBox(height: 22),
+            LedgerButton(
+              key: const Key('refusal-dismiss'),
+              label: context.l10n.commonDismiss,
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
+        ),
       ),
     ),
   ),

@@ -31,7 +31,7 @@ final class ReaperWebMaterial extends three.MeshStandardMaterial {
     : super.fromMap({'name': surfaceName, 'side': three.DoubleSide}) {
     update(look);
     time = 0;
-    customProgramCacheKey = () => 'reaper-surface-v1';
+    customProgramCacheKey = () => 'reaper-surface-v2';
     onBeforeCompile = (three.Parameters shader, three.Renderer renderer) {
       if (!shader.vertexShader.contains('void main() {')) {
         throw const FormatException('Missing WebGL vertex entry point');
@@ -100,6 +100,12 @@ final class ReaperWebMaterial extends three.MeshStandardMaterial {
     _set('hollow_level', surface.burns ? look.hollowLevel : 0.0);
     _set('rim', _color(look.rim));
     _set('rim_strength', surface.grime == 0 ? 0.0 : look.rimStrength);
+    // The sketch line is the same authored ink on both renderers. Its seed is
+    // fixed by the genome, so the hand never shakes differently between
+    // frames or platforms.
+    _set('ink', _color(look.ink));
+    _set('ink_strength', look.inkStrength);
+    _set('ink_seed', look.inkSeed);
     _set('glow', _color(look.accent));
     _set('glow_strength', surface.glowStrength);
   }
@@ -137,6 +143,9 @@ uniform float uReaper_ember_strength;
 uniform float uReaper_hollow_level;
 uniform vec4 uReaper_rim;
 uniform float uReaper_rim_strength;
+uniform vec4 uReaper_ink;
+uniform float uReaper_ink_strength;
+uniform float uReaper_ink_seed;
 uniform vec4 uReaper_glow;
 uniform float uReaper_glow_strength;
 uniform float uReaper_time;
