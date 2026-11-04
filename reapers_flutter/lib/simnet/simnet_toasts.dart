@@ -64,32 +64,37 @@ class SimnetToasts extends HookConsumerWidget {
     return Stack(
       children: [
         child,
-        SafeArea(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: IgnorePointer(
-              child: AnimatedSwitcher(
-                duration: still
-                    ? Duration.zero
-                    : const Duration(milliseconds: 240),
-                transitionBuilder: (child, animation) => FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(
-                    position: Tween(
-                      begin: const Offset(0, -0.6),
-                      end: Offset.zero,
-                    ).animate(animation),
-                    child: child,
+        // The slip sits above the navigator, so it brings its own Material
+        // for its text to be set in.
+        Material(
+          type: MaterialType.transparency,
+          child: SafeArea(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: IgnorePointer(
+                child: AnimatedSwitcher(
+                  duration: still
+                      ? Duration.zero
+                      : const Duration(milliseconds: 240),
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween(
+                        begin: const Offset(0, -0.6),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    ),
                   ),
+                  child: switch (current.value) {
+                    final transaction? => _Slip(
+                      key: ValueKey(transaction.signature),
+                      transaction: transaction,
+                      finalized: finalized.value,
+                    ),
+                    null => const SizedBox.shrink(),
+                  },
                 ),
-                child: switch (current.value) {
-                  final transaction? => _Slip(
-                    key: ValueKey(transaction.signature),
-                    transaction: transaction,
-                    finalized: finalized.value,
-                  ),
-                  null => const SizedBox.shrink(),
-                },
               ),
             ),
           ),

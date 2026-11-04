@@ -78,6 +78,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byKey(const Key('simnet-slip')), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.byKey(const Key('simnet-slip')),
+        matching: find.byType(Material),
+      ),
+      findsOneWidget,
+      reason: 'above the navigator, the slip brings its own Material',
+    );
     expect(find.textContaining(l10n.simnetConfirmed), findsOneWidget);
 
     await tester.pump(SimnetToasts.finality);
