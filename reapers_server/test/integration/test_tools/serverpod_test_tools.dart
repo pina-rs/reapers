@@ -768,6 +768,39 @@ class _RiftEndpoint {
     );
     return _localTestStreamManager.outputStreamController.stream;
   }
+
+  _ida.Stream<_ivi8svxc.RiftFrame> enterDemo(
+    _ist.TestSessionBuilder sessionBuilder,
+    String site,
+    _ida.Stream<_ivi8svxc.RiftReport> reports,
+  ) {
+    var _localTestStreamManager = _ist.TestStreamManager<_ivi8svxc.RiftFrame>();
+    _ist.callStreamFunctionAndHandleExceptions(
+      () async {
+        var _localUniqueSession =
+            (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+              endpoint: 'rift',
+              method: 'enterDemo',
+            );
+        var _localCallContext = await _endpointDispatch
+            .getMethodStreamCallContext(
+              createSessionCallback: (_) => _localUniqueSession,
+              endpointPath: 'rift',
+              methodName: 'enterDemo',
+              arguments: {'site': site},
+              requestedInputStreams: ['reports'],
+              serializationManager: _serializationManager,
+            );
+        await _localTestStreamManager.callStreamMethod(
+          _localCallContext,
+          _localUniqueSession,
+          {'reports': reports},
+        );
+      },
+      _localTestStreamManager.outputStreamController,
+    );
+    return _localTestStreamManager.outputStreamController.stream;
+  }
 }
 
 class _SolanaEndpoint {

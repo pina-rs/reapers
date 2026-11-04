@@ -61,5 +61,41 @@ What is real and what is not:
 - **Slots** count 400 ms from when the wallet was made. Confirmation takes 650 ms; the slip shows the transaction finalized 1.4 s later.
 - **The books** are the offline game's rules, kept under a save of their own (`reapers.simnet.player.v2`). The chain is told what happened after the rules allow it; it decides nothing.
 
-The simnet lives in `reapers_flutter/lib/simnet/`: `SimnetChain` is the wallet and the ledger, `SimnetBackend` posts to it around a `LocalBackend`, `SimnetToasts` is the slip and `SimnetScreen` the explorer. Replacing it with devnet means sending the same four instructions to a deployed program through Solana Kit, with the wallet behind Mobile Wallet Adapter and the receipt signed by the server.
+### A real local validator beside the simnet
+
+A simnet build may also name a real Solana JSON-RPC endpoint, usually a local [Surfpool](https://docs.surfpool.run/rpc/overview) validator:
+
+```sh
+surfpool start --offline --no-deploy
+cd reapers_flutter
+fvm flutter run --dart-define=REAPERS_SIMNET=true \
+  --dart-define=REAPERS_SURFPOOL_URL=http://localhost:8899
+```
+
+`REAPERS_SURFPOOL_URL` is optional. Without it the simnet is exactly as before: no network. With it, **Simnet ledger** shows the endpoint, `getHealth`, `getGenesisHash` and the burner wallet's real `getBalance`, and offers `requestAirdrop` for one SOL. Those are standard Solana RPC calls. Airdrops are written down per burner wallet and genesis only after `getSignatureStatuses` confirms, so a repeated tap does not ask the faucet twice; a failed or timed-out call writes nothing and can be retried. Surfpool keeps its ledger in memory unless it is started with a database, so a restarted validator has a new genesis and the panel offers the airdrop again. The local network SOL is not the game's simulated SOL.
+
+What this does not do:
+
+- It does **not** broadcast `SimnetChain`'s signed descriptions. They are receipts in a rehearsal format, not Solana wire transactions.
+- It does **not** buy, escrow or burn an NFT. No Reapers program is deployed; those steps stay demo receipts in the simnet ledger, and the validator is never told they happened.
+- It does **not** coordinate players or rifts. Surfpool is a validator. Shared enemies are the server's `RiftHall`, as described below and in [gameplay.md](gameplay.md#rifts).
+
+Public hosts need HTTPS. Cleartext HTTP is allowed only for loopback, an emulator's host alias (`10.0.2.2`) and private LAN addresses, which is where a developer's Surfpool runs.
+
+## Demo circles
+
+A development build can waive the collection attunement so several real people join one demo rift:
+
+```sh
+fvm flutter run --dart-define=REAPERS_SERVER_URL=http://localhost:8080/ \
+  --dart-define=REAPERS_DEMO_RIFT=true
+```
+
+Every client that joins the same gathering on the same development or test server shares one server-hosted `RiftRoom`: one seed, one ward, one roster, one timetable of shrieks. Open the rift on each client before pressing ready, so all are present when the count begins. Each seat reports its own fight, and the server pays each player's own books exactly once when the rift is sealed. Empty seats are the ordinary shades. Demo circles are kept apart from ordinary ones, so the flag cannot mix strangers into a real circle.
+
+The flag is ignored by release builds, and `RiftEndpoint.enterDemo` goes through the same development/test gate as the rest of the simulated economy: staging and production refuse it. The rewards are simulated experience and anima, not a chain payout. Nothing in the demo needs a wallet or sends a transaction.
+
+The demo and the simnet are separate launches: `REAPERS_SIMNET` plays offline and refuses `REAPERS_SERVER_URL`, while `REAPERS_DEMO_RIFT` needs a server and refuses the simnet. A build sets one, never both. The simnet's Surfpool validator, where one is configured, is not part of a demo rift.
+
+The simnet lives in `reapers_flutter/lib/simnet/`: `SimnetChain` is the wallet and the ledger, `SimnetBackend` posts to it around a `LocalBackend`, `SurfpoolRpc` speaks to an optional local validator, `SimnetToasts` is the slip and `SimnetScreen` the explorer. Replacing it with devnet means sending the same four instructions to a deployed program through Solana Kit, with the wallet behind Mobile Wallet Adapter and the receipt signed by the server.
 

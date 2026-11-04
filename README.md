@@ -73,6 +73,17 @@ fvm flutter run --release --dart-define=REAPERS_SIMNET=true
 
 That is the offline game with a pretend devnet on the phone. Binding a reaper makes a burner wallet and airdrops its SOL. Buying a husk, releasing it into escrow, and absorbing it each post a signed transaction, and the burn carries the keeper's Ed25519 receipt, checked on the phone the way the program would check it. A slip confirms each transaction as it lands, and **Simnet ledger** in the sanctum is the explorer. **Start over** there makes a new wallet and reaper for the next player, without touching the offline save. Nothing leaves the phone. See [docs/solana.md](docs/solana.md#the-simnet).
 
+To put a **real local Solana validator** beside that rehearsal, start Surfpool and point the same build at it:
+
+```sh
+surfpool start --offline --no-deploy
+cd reapers_flutter
+fvm flutter run --dart-define=REAPERS_SIMNET=true \
+  --dart-define=REAPERS_SURFPOOL_URL=http://localhost:8899
+```
+
+**Simnet ledger** then shows the validator's health, genesis hash and the burner wallet's real balance there, with an **Airdrop 1 SOL** action. Those calls are real JSON-RPC. The game's buy, escrow and burn stay demo receipts: no Reapers program is deployed, so they are never broadcast, and the validator does not coordinate players. On an Android emulator use `http://10.0.2.2:8899`; on a phone use your computer's LAN address, such as `http://192.168.1.20:8899`. It plays exactly as before without the flag.
+
 ### With the server
 
 ```sh
@@ -87,6 +98,22 @@ serverpod start
 cd reapers_flutter
 fvm flutter run --dart-define=REAPERS_SERVER_URL=http://localhost:8080/
 ```
+
+### Several players, one demo enemy
+
+To show several real people attacking the same rift without first hunting a collection, launch each client against the same local server with the demo flag:
+
+```sh
+cd reapers_flutter
+fvm flutter run --dart-define=REAPERS_SERVER_URL=http://localhost:8080/ \
+  --dart-define=REAPERS_DEMO_RIFT=true
+```
+
+Take the oath, open **Rifts**, and choose the same site on every client. Open the rift on every client before anyone presses **Stand ready**, so they are all present when the count begins. The server seats them in one circle around one shared enemy: the roster, the ward and every shriek are synchronised, empty seats become shades, and each player is paid separately, once, by the server's own books. The demo waives only the collection attunement. It is available on development and test servers, ignored by release builds, and kept in circles separate from ordinary play. Rewards stay in the simulated economy and are never paid on a chain. Every client must reach the same server process.
+
+The demo and the simnet are **separate launches**. The simnet (`REAPERS_SIMNET`) plays offline and refuses a server URL; the demo (`REAPERS_DEMO_RIFT`) is only meaningful with `REAPERS_SERVER_URL` and refuses the simnet. A build sets one or the other — combining them does not start. The Surfpool validator belongs to the simnet alone, and no wallet or transaction appears in a demo rift.
+
+If you launch from `serverpod start`, the **Reapers demo circle** entry in its app list already carries both flags.
 
 ## Work on it
 

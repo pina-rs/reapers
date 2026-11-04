@@ -25,12 +25,16 @@ final class RiftHall {
   final int? ticksPerBeat;
 
   final Random _random;
-  final _gathering = <RiftSite, HostedRift>{};
+  final _gathering = <({RiftSite site, bool demo}), HostedRift>{};
 
   /// Seats [entrant] in the rift gathering at [site], opening a new one when
   /// none is gathering or the one that is has filled.
-  RiftChair join(RiftSite site, RiftEntrant entrant) {
-    var rift = _gathering[site];
+  ///
+  /// A [demo] circle is kept apart from the real one at the same site, so a
+  /// development demo can never be mixed into a circle of ordinary reapers.
+  RiftChair join(RiftSite site, RiftEntrant entrant, {bool demo = false}) {
+    final key = (site: site, demo: demo);
+    var rift = _gathering[key];
 
     if (rift == null || !rift.room.isOpen) {
       rift = HostedRift(
@@ -38,7 +42,7 @@ final class RiftHall {
         beat: beat,
         ticksPerBeat: ticksPerBeat,
       );
-      _gathering[site] = rift;
+      _gathering[key] = rift;
     }
 
     return rift.seat(entrant);

@@ -25,6 +25,8 @@ dependencies:
   # It is unrelated to `flutter_hooks`.
   hooks: ^2.0.2
   hooks_riverpod: ^3.4.3
+  # Real JSON-RPC for a local Surfpool validator in development builds.
+  http: ^1.6.0
   reapers_client:
     path: ../reapers_client
   reapers_shared:

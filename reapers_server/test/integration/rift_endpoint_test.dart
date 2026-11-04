@@ -173,6 +173,21 @@ void main() {
       },
     );
 
+    test('when a visitor has no oath then the demo is refused', () async {
+      await expectLater(
+        endpoints.rift
+            .enterDemo(player, site, const Stream.empty())
+            .drain<void>(),
+        throwsA(
+          isA<Refused>().having(
+            (refused) => refused.refusal,
+            'refusal',
+            Refusal.oathRequired.name,
+          ),
+        ),
+      );
+    });
+
     test('when the site does not exist then they are refused', () async {
       await attune(player, playerId);
 
@@ -336,6 +351,102 @@ void main() {
           expect(second.last.you.dealt, greaterThan(0));
           expect((await endpoints.player.load(player)).riftsSealed, 1);
           expect((await endpoints.player.load(other)).riftsSealed, 1);
+        },
+      );
+
+      test(
+        'when two reapers join the demo then they share one enemy and each '
+        'is paid once without absorbing a collection',
+        () async {
+          await endpoints.player.takeOath(player);
+          await endpoints.player.takeOath(other);
+          final firstBefore = await endpoints.player.load(player);
+          final secondBefore = await endpoints.player.load(other);
+          final first = _Reaper(firstBefore.loadout);
+          final second = _Reaper(secondBefore.loadout);
+
+          await Future.wait([
+            first.play(
+              endpoints.rift.enterDemo(player, site, first.reports.stream),
+            ),
+            second.play(
+              endpoints.rift.enterDemo(other, site, second.reports.stream),
+            ),
+          ]);
+
+          expect(first.last.seed, second.last.seed);
+          expect(first.last.wardMax, second.last.wardMax);
+          expect(first.last.ward, second.last.ward);
+          expect(
+            first.last.members.map((member) => member.name),
+            second.last.members.map((member) => member.name),
+          );
+          expect(
+            first.last.members.where((member) => !member.shade),
+            hasLength(2),
+          );
+          expect(
+            first.last.members.where((member) => member.shade),
+            hasLength(2),
+            reason: 'the empty seats are the ordinary shades',
+          );
+          expect(
+            first.last.members[first.last.seat].name,
+            firstBefore.genome.name,
+          );
+          expect(
+            second.last.members[second.last.seat].name,
+            secondBefore.genome.name,
+          );
+          expect(first.last.phase, RiftPhase.sealed);
+          expect(second.last.phase, RiftPhase.sealed);
+          expect(first.last.xp, greaterThan(0));
+          expect(second.last.xp, greaterThan(0));
+
+          final firstAfter = await endpoints.player.load(player);
+          final secondAfter = await endpoints.player.load(other);
+
+          expect(firstAfter.xp, firstBefore.xp + first.last.xp);
+          expect(secondAfter.xp, secondBefore.xp + second.last.xp);
+          expect(firstAfter.anima, firstBefore.anima + first.last.anima);
+          expect(secondAfter.anima, secondBefore.anima + second.last.anima);
+          expect(firstAfter.riftsSealed, 1);
+          expect(secondAfter.riftsSealed, 1);
+
+          // Reading the books again is not a second payment.
+          expect((await endpoints.player.load(player)).xp, firstAfter.xp);
+          expect((await endpoints.player.load(other)).xp, secondAfter.xp);
+        },
+      );
+
+      test(
+        'when a demo and an ordinary circle share a site they do not mix',
+        () async {
+          final first = _Reaper((await attune(player, playerId)).loadout);
+          await endpoints.player.takeOath(other);
+          final second = _Reaper((await endpoints.player.load(other)).loadout);
+
+          await Future.wait([
+            first.play(
+              endpoints.rift.enter(player, site, first.reports.stream),
+            ),
+            second.play(
+              endpoints.rift.enterDemo(other, site, second.reports.stream),
+            ),
+          ]);
+
+          expect(
+            first.last.members.where((member) => !member.shade),
+            hasLength(1),
+            reason: 'the ordinary circle has only its own reaper',
+          );
+          expect(
+            second.last.members.where((member) => !member.shade),
+            hasLength(1),
+            reason: 'the demo circle has only its own reaper',
+          );
+          expect(first.last.phase, RiftPhase.sealed);
+          expect(second.last.phase, RiftPhase.sealed);
         },
       );
 

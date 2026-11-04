@@ -23,6 +23,7 @@ class RiftsScreen extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final player = ref.watch(playerProvider).requireValue;
+    final demo = ref.watch(demoRiftProvider);
     final entering = useState<RiftSite?>(null);
 
     Future<void> enter(RiftSite site) async {
@@ -31,7 +32,10 @@ class RiftsScreen extends HookConsumerWidget {
       entering.value = site;
 
       await attempt(context, () async {
-        session = await ref.read(playerProvider.notifier).enterRift(site);
+        final keeper = ref.read(playerProvider.notifier);
+        session = demo
+            ? await keeper.enterDemoRift(site)
+            : await keeper.enterRift(site);
       });
 
       if (!context.mounted) {
@@ -64,10 +68,19 @@ class RiftsScreen extends HookConsumerWidget {
           l10n.riftsLocationNote,
           style: Veil.body(color: Veil.ash, size: 13),
         ),
+        if (demo) ...[
+          const SizedBox(height: 14),
+          Text(
+            l10n.riftsDemoNote,
+            key: const Key('rifts-demo-note'),
+            style: Veil.body(color: Veil.ash, size: 13),
+          ),
+        ],
         for (final site in RiftSite.values)
           _SiteBlock(
             site: site,
-            attuned: player.attunedTo(site),
+            attuned: demo || player.attunedTo(site),
+            demo: demo,
             entering: entering.value == site,
             onEnter: entering.value == null ? () => enter(site) : null,
           ),
@@ -81,12 +94,14 @@ class _SiteBlock extends HookWidget {
   const _SiteBlock({
     required this.site,
     required this.attuned,
+    required this.demo,
     required this.entering,
     required this.onEnter,
   });
 
   final RiftSite site;
   final bool attuned;
+  final bool demo;
   final bool entering;
   final VoidCallback? onEnter;
 
@@ -121,7 +136,12 @@ class _SiteBlock extends HookWidget {
           if (attuned)
             LedgerButton(
               key: Key('rift-enter-${site.name}'),
-              label: entering ? l10n.riftEntering : l10n.riftsOpen,
+              label: entering
+                  ? l10n.riftEntering
+                  : demo
+                  ? l10n.riftsDemoOpen
+                  : l10n.riftsOpen,
+              detail: demo ? l10n.riftsDemoDetail : null,
               onPressed: onEnter,
             )
           else

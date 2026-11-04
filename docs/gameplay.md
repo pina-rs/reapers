@@ -419,6 +419,8 @@ A rift is a whole dead collection piled into one body. It takes a circle of four
 
 `dart reapers_shared/tool/rift_pacing.dart` prints how rifts go for circles of different sizes and levels.
 
+A development demo build (`REAPERS_DEMO_RIFT`) waives only the collection gate so several people can meet one enemy before they own its dead. The fight, the ward, the shrieks, the cuts and the pay are the same rules above; each player is paid once from their own books. The flag is ignored by release builds, and staging and production servers refuse the demo endpoint.
+
 ### Standing in the same place
 
 A rift's husk stands at one place on the earth, and everyone in the circle is pointed at it. Four people in a park all turn the same way.

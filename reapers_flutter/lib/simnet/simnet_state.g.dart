@@ -8,6 +8,64 @@ part of 'simnet_state.dart';
 
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // ignore_for_file: type=lint, type=warning
+/// The local validator, when a simnet build names one.
+///
+/// It is deliberately separate from [simnetChainProvider]: the game's
+/// receipts are not Solana transactions, and no game state is coordinated
+/// through the validator.
+
+@ProviderFor(surfpoolSetup)
+final surfpoolSetupProvider = SurfpoolSetupProvider._();
+
+/// The local validator, when a simnet build names one.
+///
+/// It is deliberately separate from [simnetChainProvider]: the game's
+/// receipts are not Solana transactions, and no game state is coordinated
+/// through the validator.
+
+final class SurfpoolSetupProvider
+    extends $FunctionalProvider<SurfpoolSetup, SurfpoolSetup, SurfpoolSetup>
+    with $Provider<SurfpoolSetup> {
+  /// The local validator, when a simnet build names one.
+  ///
+  /// It is deliberately separate from [simnetChainProvider]: the game's
+  /// receipts are not Solana transactions, and no game state is coordinated
+  /// through the validator.
+  SurfpoolSetupProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'surfpoolSetupProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$surfpoolSetupHash();
+
+  @$internal
+  @override
+  $ProviderElement<SurfpoolSetup> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  SurfpoolSetup create(Ref ref) {
+    return surfpoolSetup(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(SurfpoolSetup value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<SurfpoolSetup>(value),
+    );
+  }
+}
+
+String _$surfpoolSetupHash() => r'98651eff78aa52ce725b08762c5d24c6787106c5';
+
 /// The simnet, in a build that has one.
 
 @ProviderFor(simnetChain)

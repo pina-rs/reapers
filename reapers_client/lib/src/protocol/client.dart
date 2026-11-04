@@ -263,6 +263,28 @@ class EndpointRift extends _isc.EndpointRef {
         {'site': site},
         {'reports': reports},
       );
+
+  /// Joins the development demo circle at [site], where attunement is waived
+  /// so several people can meet one enemy without first hunting a collection.
+  ///
+  /// Demo circles are kept apart from ordinary ones. The shared [RiftRoom]
+  /// still owns the ward, the roster, the shrieks and each reaper's reward;
+  /// only the entry requirement is waived. Development and test servers
+  /// answer this; staging and production refuse it with the rest of the
+  /// simulated economy.
+  _ida.Stream<_ivi8svxc.RiftFrame> enterDemo(
+    String site,
+    _ida.Stream<_ivi8svxc.RiftReport> reports,
+  ) =>
+      caller.callStreamingServerEndpoint<
+        _ida.Stream<_ivi8svxc.RiftFrame>,
+        _ivi8svxc.RiftFrame
+      >(
+        'rift',
+        'enterDemo',
+        {'site': site},
+        {'reports': reports},
+      );
 }
 
 /// Wallet proof, balance and verified collection imports. Payment and NFT

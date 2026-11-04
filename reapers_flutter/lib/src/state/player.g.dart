@@ -63,6 +63,57 @@ final class SharedPreferencesProvider
 
 String _$sharedPreferencesHash() => r'7549e653690f4f4e0483e83597dfd5488ae80fc4';
 
+/// What the screens read for [reapersDemoRift], so a test can turn the demo
+/// on. The launch itself is still validated against the constants when the
+/// books are chosen.
+
+@ProviderFor(demoRift)
+final demoRiftProvider = DemoRiftProvider._();
+
+/// What the screens read for [reapersDemoRift], so a test can turn the demo
+/// on. The launch itself is still validated against the constants when the
+/// books are chosen.
+
+final class DemoRiftProvider extends $FunctionalProvider<bool, bool, bool>
+    with $Provider<bool> {
+  /// What the screens read for [reapersDemoRift], so a test can turn the demo
+  /// on. The launch itself is still validated against the constants when the
+  /// books are chosen.
+  DemoRiftProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'demoRiftProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$demoRiftHash();
+
+  @$internal
+  @override
+  $ProviderElement<bool> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  bool create(Ref ref) {
+    return demoRift(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(bool value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<bool>(value),
+    );
+  }
+}
+
+String _$demoRiftHash() => r'223568dc1e78bfb005015c1b8bf8606ea5e54f88';
+
 /// Whoever keeps this player's books: the server when the build names one,
 /// the phone posting to its simnet in a rehearsal build, and the phone
 /// itself otherwise.
@@ -113,7 +164,7 @@ final class GameBackendProvider
   }
 }
 
-String _$gameBackendHash() => r'1a578983e68df4b3a131c614f4be508bbc313fa2';
+String _$gameBackendHash() => r'5cb8a8640f4d35900ce0796b26919f50d516a675';
 
 /// The player: what they own and what they have done.
 ///
@@ -157,7 +208,7 @@ final class PlayerProvider extends $AsyncNotifierProvider<Player, PlayerState> {
   Player create() => Player();
 }
 
-String _$playerHash() => r'2ffe5f3bc06ed1fac5086e77ecd5a76cdb5c661f';
+String _$playerHash() => r'a6c2b21bdb4f76ab8d0f1deea2be4d5b01703e98';
 
 /// The player: what they own and what they have done.
 ///

@@ -14,6 +14,7 @@ import '../widgets/sketch.dart';
 import 'simnet_backend.dart';
 import 'simnet_chain.dart';
 import 'simnet_state.dart';
+import 'surfpool_rpc.dart';
 
 /// The simnet's explorer: the burner wallet, the program's addresses, and
 /// every transaction the wallet has signed, newest first.
@@ -26,6 +27,7 @@ class SimnetScreen extends HookConsumerWidget {
     final chain = ref.watch(simnetChainProvider);
     final player = ref.watch(playerProvider).value;
     final transactions = ref.watch(simnetLedgerProvider).value ?? const [];
+    final local = ref.watch(surfpoolSetupProvider);
 
     if (chain == null || player == null) {
       return const SizedBox.shrink();
@@ -47,6 +49,21 @@ class SimnetScreen extends HookConsumerWidget {
       children: [
         Text(l10n.simnetIntro, style: Veil.body(color: Veil.ash, size: 13)),
         const SizedBox(height: 12),
+        if (local.rpc case final rpc?) ...[
+          _SurfpoolPanel(
+            key: ValueKey('surfpool-${chain.wallet}'),
+            rpc: rpc,
+            wallet: chain.wallet,
+          ),
+          const SizedBox(height: 18),
+        ] else if (local.problem case final problem?) ...[
+          Text(
+            l10n.simnetLocalRpcConfig(problem),
+            key: const Key('simnet-local-rpc-config'),
+            style: Veil.body(color: Veil.wound, size: 13),
+          ),
+          const SizedBox(height: 18),
+        ],
         LedgerRow(label: l10n.rosterNetwork, value: l10n.simnetNetworkName),
         LedgerRow(label: l10n.simnetBurned, value: '$burned', emphasised: true),
         _Address(label: l10n.simnetWallet, address: chain.wallet),
@@ -139,6 +156,189 @@ class SimnetScreen extends HookConsumerWidget {
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }
+}
+
+/// The development validator beside the simnet: a real RPC to check, and a
+/// faucet that pays the burner wallet there without touching the game.
+class _SurfpoolPanel extends HookConsumerWidget {
+  const _SurfpoolPanel({super.key, required this.rpc, required this.wallet});
+
+  final SurfpoolRpc rpc;
+  final String wallet;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final faucet = useMemoized(
+      () => SurfpoolFaucet(ref.read(sharedPreferencesProvider), rpc),
+      [rpc],
+    );
+    final receipt = useState<SurfpoolFaucetReceipt?>(null);
+    final genesis = useState<String?>(null);
+    final balance = useState<int?>(null);
+    final failure = useState<Object?>(null);
+    final checking = useState(true);
+    final airdropping = useState(false);
+    final healthy = useState<bool?>(null);
+
+    Future<void> check() async {
+      if (!context.mounted) {
+        return;
+      }
+
+      checking.value = true;
+      failure.value = null;
+
+      try {
+        // Read before the validator: a record that cannot be read is the
+        // panel's own problem, and must not be mistaken for a fresh slate.
+        receipt.value = faucet.receiptFor(wallet);
+        await rpc.health();
+        final hash = await rpc.genesisHash();
+        final funds = await rpc.balance(wallet);
+
+        if (!context.mounted) {
+          return;
+        }
+
+        healthy.value = true;
+        genesis.value = hash;
+        balance.value = funds;
+
+        // A restarted Surfpool has a new genesis and has forgotten the old
+        // airdrop, so the faucet is offered again for the new chain.
+        if (receipt.value case final paid? when paid.genesis != hash) {
+          receipt.value = null;
+        }
+      } catch (error) {
+        if (!context.mounted) {
+          return;
+        }
+
+        healthy.value = false;
+        failure.value = error;
+      } finally {
+        if (context.mounted) {
+          checking.value = false;
+        }
+      }
+    }
+
+    Future<void> fund() async {
+      airdropping.value = true;
+      failure.value = null;
+
+      try {
+        final paid = await faucet.fund(wallet);
+
+        if (!context.mounted) {
+          return;
+        }
+
+        receipt.value = paid;
+        await check();
+      } catch (error) {
+        if (context.mounted) {
+          failure.value = error;
+        }
+      } finally {
+        if (context.mounted) {
+          airdropping.value = false;
+        }
+      }
+    }
+
+    useEffect(() {
+      unawaited(check());
+
+      return null;
+    }, [rpc]);
+
+    final status = checking.value
+        ? l10n.simnetLocalRpcChecking
+        : healthy.value == true
+        ? l10n.simnetLocalRpcHealthy
+        : l10n.simnetLocalRpcUnreachable;
+
+    return Column(
+      key: const Key('simnet-local-rpc'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LedgerHeading(l10n.simnetLocalRpc),
+        Text(
+          l10n.simnetLocalRpcBody,
+          style: Veil.body(color: Veil.ash, size: 13),
+        ),
+        const SizedBox(height: 6),
+        _Address(
+          label: l10n.simnetLocalRpcEndpoint,
+          address: rpc.endpoint.toString(),
+        ),
+        LedgerRow(label: l10n.simnetLocalRpcHealth, value: status),
+        if (genesis.value case final hash?)
+          _Address(label: l10n.simnetLocalRpcGenesis, address: hash),
+        if (balance.value case final lamports?)
+          LedgerRow(
+            label: l10n.simnetLocalRpcBalance,
+            value: l10n.commonSol(solAmount(lamports)),
+          ),
+        const SizedBox(height: 8),
+        Text(
+          l10n.simnetLocalRpcAirdropBody,
+          style: Veil.body(color: Veil.ash, size: 13),
+        ),
+        if (receipt.value case final paid?) ...[
+          const SizedBox(height: 4),
+          _Address(
+            label: l10n.simnetLocalRpcSignature,
+            address: paid.signature,
+          ),
+        ],
+        if (failure.value case final error?) ...[
+          const SizedBox(height: 6),
+          Text(
+            l10n.simnetLocalRpcFailure(_reason(error)),
+            key: const Key('simnet-local-rpc-failure'),
+            style: Veil.body(color: Veil.wound, size: 13),
+          ),
+        ],
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: LedgerButton(
+                key: const Key('simnet-local-rpc-check'),
+                label: l10n.simnetLocalRpcCheck,
+                onPressed: checking.value ? null : () => unawaited(check()),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: LedgerButton(
+                key: const Key('simnet-local-rpc-airdrop'),
+                label: receipt.value == null
+                    ? l10n.simnetLocalRpcAirdrop(
+                        solAmount(SurfpoolFaucet.lamports),
+                      )
+                    : l10n.simnetLocalRpcAirdropped,
+                detail: receipt.value == null
+                    ? null
+                    : shortAddress(receipt.value!.signature),
+                onPressed: receipt.value == null && !airdropping.value
+                    ? () => unawaited(fund())
+                    : null,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  static String _reason(Object error) => switch (error) {
+    SurfpoolRpcException(:final detail) => detail,
+    _ => '$error',
+  };
 }
 
 /// An address in full, under its name, for copying.

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:reapers_shared/reapers_shared.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,11 +23,47 @@ SharedPreferences sharedPreferences(Ref ref) =>
 /// fully offline game.
 const reapersServerUrl = String.fromEnvironment('REAPERS_SERVER_URL');
 
+/// Whether this build offers the development demo rift, set with
+/// `--dart-define=REAPERS_DEMO_RIFT=true`. A release build ignores it.
+///
+/// The demo needs a server because the server coordinates the shared enemy,
+/// and it cannot be combined with the offline simnet.
+const reapersDemoRift =
+    !kReleaseMode && bool.fromEnvironment('REAPERS_DEMO_RIFT');
+
+/// What the screens read for [reapersDemoRift], so a test can turn the demo
+/// on. The launch itself is still validated against the constants when the
+/// books are chosen.
+@Riverpod(keepAlive: true)
+bool demoRift(Ref ref) => reapersDemoRift;
+
 /// Whoever keeps this player's books: the server when the build names one,
 /// the phone posting to its simnet in a rehearsal build, and the phone
 /// itself otherwise.
 @Riverpod(keepAlive: true)
 GameBackend gameBackend(Ref ref) {
+  if (reapersDemoRift) {
+    if (reapersSimnet) {
+      throw StateError(
+        'REAPERS_DEMO_RIFT needs a server: leave REAPERS_SIMNET out.',
+      );
+    }
+
+    if (reapersServerUrl.isEmpty) {
+      throw StateError(
+        'REAPERS_DEMO_RIFT needs REAPERS_SERVER_URL pointing at a '
+        'development server.',
+      );
+    }
+  }
+
+  if (reapersSurfpoolUrl.isNotEmpty && !reapersSimnet) {
+    throw StateError(
+      'REAPERS_SURFPOOL_URL belongs to the simnet: '
+      'add --dart-define=REAPERS_SIMNET=true.',
+    );
+  }
+
   if (ref.watch(simnetChainProvider) case final chain?) {
     if (reapersServerUrl.isNotEmpty) {
       throw StateError(
@@ -90,6 +127,17 @@ class Player extends _$Player {
 
   /// Seats the player in the rift at [site].
   Future<RiftSession> enterRift(RiftSite site) => _backend.enterRift(site);
+
+  /// Seats the player in the development demo circle at [site], where
+  /// attunement is waived and every demo client on the server shares one
+  /// enemy.
+  Future<RiftSession> enterDemoRift(RiftSite site) async {
+    if (_backend case final DemoRiftBackend backend) {
+      return backend.enterDemoRift(site);
+    }
+
+    throw const BackendUnavailable('This build has no demo rift');
+  }
 
   /// Reads the player again from the keeper, after something that changed
   /// them without going through this notifier: a sealed rift pays its

@@ -16,7 +16,7 @@ import '../../solana/reaper_wallet.dart';
 /// its own seeds and its own clock, and replays every hunt before paying
 /// for it. This class only carries requests there and turns the server's
 /// answers back into the shared types.
-final class ServerBackend implements GameBackend {
+final class ServerBackend implements GameBackend, DemoRiftBackend {
   ServerBackend(this._client);
 
   final Client _client;
@@ -90,17 +90,27 @@ final class ServerBackend implements GameBackend {
       _ask(() => _client.player.attune(art.name));
 
   @override
-  Future<RiftSession> enterRift(RiftSite site) async {
+  Future<RiftSession> enterRift(RiftSite site) => _enterRift(site, demo: false);
+
+  /// Seats the player in the development demo circle. The server refuses
+  /// this outside development and test.
+  @override
+  Future<RiftSession> enterDemoRift(RiftSite site) =>
+      _enterRift(site, demo: true);
+
+  Future<RiftSession> _enterRift(RiftSite site, {required bool demo}) async {
     // Signing in is a request of its own, so a refusal to sign in is told
     // apart from a refusal to enter.
     await _ask(() async {});
 
     final reports = StreamController<RiftReport>();
+    final frames = demo
+        ? _client.rift.enterDemo(site.name, reports.stream)
+        : _client.rift.enter(site.name, reports.stream);
 
     return _ServerRiftSession(
       reports: reports,
-      frames: _client.rift
-          .enter(site.name, reports.stream)
+      frames: frames
           .handleError(
             (Object error) => throw RuleBreach(
               _refusal((error as Refused).refusal),

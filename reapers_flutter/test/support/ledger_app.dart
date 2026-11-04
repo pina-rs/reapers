@@ -14,10 +14,12 @@ Future<AppLocalizations> englishStrings() =>
 ///
 /// The screen is shown at a phone's size, and only once the player has been
 /// read, since every screen behind the threshold takes the player as given.
+/// With [demo], the build acts as `--dart-define=REAPERS_DEMO_RIFT=true`.
 Future<void> pumpScreen(
   WidgetTester tester,
   Widget screen, {
   required GameBackend backend,
+  bool demo = false,
 }) async {
   tester.view
     ..physicalSize = const Size(402, 874)
@@ -26,7 +28,10 @@ Future<void> pumpScreen(
 
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [gameBackendProvider.overrideWithValue(backend)],
+      overrides: [
+        gameBackendProvider.overrideWithValue(backend),
+        if (demo) demoRiftProvider.overrideWithValue(true),
+      ],
       child: MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,

@@ -1360,6 +1360,24 @@ abstract class AppLocalizations {
   /// **'Enter'**
   String get riftsOpen;
 
+  /// No description provided for @riftsDemoOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Join the demo circle'**
+  String get riftsDemoOpen;
+
+  /// No description provided for @riftsDemoDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'No collection needed'**
+  String get riftsDemoDetail;
+
+  /// No description provided for @riftsDemoNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Demo build. Every reaper who joins this site on this server fights the same enemy. Empty seats become shades. It is development only: rewards stay in the simulated economy and nothing is paid on a chain.'**
+  String get riftsDemoNote;
+
   /// No description provided for @riftsAttune.
   ///
   /// In en, this message translates to:
@@ -3999,6 +4017,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'A pretend devnet that lives on this phone. Every purchase, release and absorption is a transaction signed by a burner wallet made here. Nothing is sent to any cluster, no real SOL moves and no real NFT is touched.'**
   String get simnetIntro;
+
+  /// No description provided for @simnetLocalRpc.
+  ///
+  /// In en, this message translates to:
+  /// **'Local validator'**
+  String get simnetLocalRpc;
+
+  /// No description provided for @simnetLocalRpcBody.
+  ///
+  /// In en, this message translates to:
+  /// **'A real Solana RPC, usually Surfpool on this machine. Health, balance and the faucet below are real calls to it. The game\'s buy, escrow and burn stay demo receipts: no Reapers program is deployed, so those are never broadcast.'**
+  String get simnetLocalRpcBody;
+
+  /// No description provided for @simnetLocalRpcEndpoint.
+  ///
+  /// In en, this message translates to:
+  /// **'RPC'**
+  String get simnetLocalRpcEndpoint;
+
+  /// No description provided for @simnetLocalRpcHealth.
+  ///
+  /// In en, this message translates to:
+  /// **'Health'**
+  String get simnetLocalRpcHealth;
+
+  /// No description provided for @simnetLocalRpcChecking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking…'**
+  String get simnetLocalRpcChecking;
+
+  /// No description provided for @simnetLocalRpcHealthy.
+  ///
+  /// In en, this message translates to:
+  /// **'Reachable'**
+  String get simnetLocalRpcHealthy;
+
+  /// No description provided for @simnetLocalRpcUnreachable.
+  ///
+  /// In en, this message translates to:
+  /// **'Unreachable'**
+  String get simnetLocalRpcUnreachable;
+
+  /// No description provided for @simnetLocalRpcGenesis.
+  ///
+  /// In en, this message translates to:
+  /// **'Genesis'**
+  String get simnetLocalRpcGenesis;
+
+  /// No description provided for @simnetLocalRpcBalance.
+  ///
+  /// In en, this message translates to:
+  /// **'Wallet at RPC'**
+  String get simnetLocalRpcBalance;
+
+  /// No description provided for @simnetLocalRpcCheck.
+  ///
+  /// In en, this message translates to:
+  /// **'Check'**
+  String get simnetLocalRpcCheck;
+
+  /// No description provided for @simnetLocalRpcAirdrop.
+  ///
+  /// In en, this message translates to:
+  /// **'Airdrop {amount} SOL'**
+  String simnetLocalRpcAirdrop(String amount);
+
+  /// No description provided for @simnetLocalRpcAirdropped.
+  ///
+  /// In en, this message translates to:
+  /// **'Airdropped'**
+  String get simnetLocalRpcAirdropped;
+
+  /// No description provided for @simnetLocalRpcAirdropBody.
+  ///
+  /// In en, this message translates to:
+  /// **'A real requestAirdrop against the local validator. It pays the burner wallet there only: the game\'s own SOL is not changed and nothing goes to a public cluster.'**
+  String get simnetLocalRpcAirdropBody;
+
+  /// No description provided for @simnetLocalRpcSignature.
+  ///
+  /// In en, this message translates to:
+  /// **'Airdrop signature'**
+  String get simnetLocalRpcSignature;
+
+  /// No description provided for @simnetLocalRpcFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'The local RPC failed: {reason}'**
+  String simnetLocalRpcFailure(String reason);
+
+  /// No description provided for @simnetLocalRpcConfig.
+  ///
+  /// In en, this message translates to:
+  /// **'The local RPC is not configured: {reason}'**
+  String simnetLocalRpcConfig(String reason);
 
   /// No description provided for @simnetNetworkName.
   ///

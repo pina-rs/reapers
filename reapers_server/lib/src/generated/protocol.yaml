@@ -19,6 +19,7 @@ player:
   - attune:
 rift:
   - enter:
+  - enterDemo:
 solana:
   - status:
   - challenge:

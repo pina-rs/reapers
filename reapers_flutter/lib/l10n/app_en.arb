@@ -385,6 +385,9 @@
     }
   },
   "riftsOpen": "Enter",
+  "riftsDemoOpen": "Join the demo circle",
+  "riftsDemoDetail": "No collection needed",
+  "riftsDemoNote": "Demo build. Every reaper who joins this site on this server fights the same enemy. Empty seats become shades. It is development only: rewards stay in the simulated economy and nothing is paid on a chain.",
   "riftsAttune": "Absorb one of the {collection} and it will open for you.",
   "@riftsAttune": {
     "placeholders": { "collection": { "type": "String" } }
@@ -1008,6 +1011,31 @@
   "simnetOverline": "Simnet",
   "simnetTitle": "The chain, rehearsed",
   "simnetIntro": "A pretend devnet that lives on this phone. Every purchase, release and absorption is a transaction signed by a burner wallet made here. Nothing is sent to any cluster, no real SOL moves and no real NFT is touched.",
+  "simnetLocalRpc": "Local validator",
+  "simnetLocalRpcBody": "A real Solana RPC, usually Surfpool on this machine. Health, balance and the faucet below are real calls to it. The game's buy, escrow and burn stay demo receipts: no Reapers program is deployed, so those are never broadcast.",
+  "simnetLocalRpcEndpoint": "RPC",
+  "simnetLocalRpcHealth": "Health",
+  "simnetLocalRpcChecking": "Checking…",
+  "simnetLocalRpcHealthy": "Reachable",
+  "simnetLocalRpcUnreachable": "Unreachable",
+  "simnetLocalRpcGenesis": "Genesis",
+  "simnetLocalRpcBalance": "Wallet at RPC",
+  "simnetLocalRpcCheck": "Check",
+  "simnetLocalRpcAirdrop": "Airdrop {amount} SOL",
+  "@simnetLocalRpcAirdrop": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
+  "simnetLocalRpcAirdropped": "Airdropped",
+  "simnetLocalRpcAirdropBody": "A real requestAirdrop against the local validator. It pays the burner wallet there only: the game's own SOL is not changed and nothing goes to a public cluster.",
+  "simnetLocalRpcSignature": "Airdrop signature",
+  "simnetLocalRpcFailure": "The local RPC failed: {reason}",
+  "@simnetLocalRpcFailure": {
+    "placeholders": { "reason": { "type": "String" } }
+  },
+  "simnetLocalRpcConfig": "The local RPC is not configured: {reason}",
+  "@simnetLocalRpcConfig": {
+    "placeholders": { "reason": { "type": "String" } }
+  },
   "simnetNetworkName": "Simnet · devnet rehearsal",
   "simnetWallet": "Burner wallet",
   "simnetBurned": "Burned",

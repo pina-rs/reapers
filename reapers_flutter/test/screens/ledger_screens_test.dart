@@ -182,6 +182,32 @@ void main() {
       expect(find.byKey(const Key('rift-shut-londonBridge')), findsNothing);
       expect(find.byKey(const Key('rift-enter-shibuyaCrossing')), findsNothing);
     });
+
+    testWidgets('a demo build says so and opens every rift unattuned', (
+      tester,
+    ) async {
+      final l10n = await englishStrings();
+
+      await pumpScreen(
+        tester,
+        const RiftsScreen(),
+        backend: backend,
+        demo: true,
+      );
+
+      expect(find.byKey(const Key('rifts-demo-note')), findsOneWidget);
+
+      await tester.scrollUntilVisible(
+        find.byKey(Key('rift-enter-${RiftSite.values.last.name}')),
+        200,
+      );
+
+      expect(
+        find.text(l10n.riftsDemoOpen.toUpperCase()),
+        findsWidgets,
+        reason: 'the gate is waived, so the rifts offer to open',
+      );
+    });
   });
 
   test('every refusal has something to say for itself', () async {

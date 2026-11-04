@@ -46,6 +46,16 @@ abstract interface class GameBackend {
   Future<RiftSession> enterRift(RiftSite site);
 }
 
+/// A keeper that can seat a reaper in a development demo rift.
+///
+/// Only the server has one, and only development and test servers answer it.
+/// The demo skips attunement; it changes no shared rule, mixes with no real
+/// circle, and is unavailable from a release build.
+abstract interface class DemoRiftBackend {
+  /// Seats the player in the demo circle at [site].
+  Future<RiftSession> enterDemoRift(RiftSite site);
+}
+
 /// The keeper could not be reached, or answered with something that is not
 /// an answer. A timed-out mutation may have reached the keeper; read the
 /// books again before deciding whether to repeat it.

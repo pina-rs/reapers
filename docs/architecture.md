@@ -98,6 +98,8 @@ Models and materials are compiled by the build hook in `hook/build.dart`, so cha
 
 **Simnet.** `--dart-define=REAPERS_SIMNET=true` swaps the keeper for a `SimnetBackend`: a `LocalBackend` under its own save, which posts an airdrop, a buy, an escrow and a receipt-carrying burn to a `SimnetChain` on the phone after the rules allow each one. `SimnetToasts`, laid over every screen in `MaterialApp.builder`, confirms each transaction; `SimnetScreen` is its explorer. It is for showing the chain before a program exists. See [solana.md](solana.md#the-simnet).
 
+A simnet build may also set `--dart-define=REAPERS_SURFPOOL_URL=http://localhost:8899`, which adds a `SurfpoolRpc` to the explorer: standard JSON-RPC health, genesis, balance and a once-per-burner faucet against a local validator. It is a separate client, not a replacement for `SimnetChain`; the demo receipts are never broadcast, and the validator coordinates no game state. Without the flag the build stays fully offline.
+
 **Autoplay.** `--dart-define=REAPERS_AUTOPLAY=true` has a simulated player fight every hunt and rift. It is how the game can be watched on a simulator, which has no gyroscope.
 
 ## Art
@@ -134,6 +136,8 @@ Secrets are never committed. `config/passwords.yaml` is git-ignored and created 
 Each reaper runs their own `HuntSim` in rift mode on their own phone and reports a running total of the damage they have dealt. Reports are whole standings, not changes, so one that is lost, repeated or late never miscounts. A phone shows its own strikes at once by subtracting what the room has not yet heard of. The shrieks come from a seed-only timetable, so every phone in the circle is told to hold still at the same moment.
 
 Shades are the same simulated player the tests use, stepped by the room.
+
+A development build may set `REAPERS_DEMO_RIFT=true` with `REAPERS_SERVER_URL`. It uses the same server rift: two real clients that open the same site are seated in one `RiftRoom`, share one ward, and are each paid once from their own books. The demo waives only attunement. Demo rooms are keyed apart from ordinary rooms, release builds ignore the flag, and `rift.enterDemo` passes the same development/test gate as the rest of the simulated economy. See [solana.md](solana.md#demo-circles).
 
 ## Known limits of this design
 

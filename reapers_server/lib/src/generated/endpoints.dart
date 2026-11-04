@@ -384,6 +384,33 @@ class Endpoints extends _is.EndpointDispatch {
                 streamParams['reports']!.cast<_ivi8svxc.RiftReport>(),
               ),
         ),
+        'enterDemo': _is.MethodStreamConnector(
+          name: 'enterDemo',
+          params: {
+            'site': _is.ParameterDescription(
+              name: 'site',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          streamParams: {
+            'reports': _is.StreamParameterDescription<_ivi8svxc.RiftReport>(
+              name: 'reports',
+              nullable: false,
+            ),
+          },
+          returnType: _is.MethodStreamReturnType.streamType,
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+                Map<String, Stream> streamParams,
+              ) => (endpoints['rift'] as _iz5xxncc.RiftEndpoint).enterDemo(
+                session,
+                params['site'],
+                streamParams['reports']!.cast<_ivi8svxc.RiftReport>(),
+              ),
+        ),
       },
     );
     connectors['solana'] = _is.EndpointConnector(

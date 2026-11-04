@@ -30,9 +30,31 @@ class RiftEndpoint extends Endpoint {
     Session session,
     String site,
     Stream<RiftReport> reports,
-  ) async* {
+  ) => _enter(session, site, reports, demo: false);
+
+  /// Joins the development demo circle at [site], where attunement is waived
+  /// so several people can meet one enemy without first hunting a collection.
+  ///
+  /// Demo circles are kept apart from ordinary ones. The shared [RiftRoom]
+  /// still owns the ward, the roster, the shrieks and each reaper's reward;
+  /// only the entry requirement is waived. Development and test servers
+  /// answer this; staging and production refuse it with the rest of the
+  /// simulated economy.
+  Stream<RiftFrame> enterDemo(
+    Session session,
+    String site,
+    Stream<RiftReport> reports,
+  ) => _enter(session, site, reports, demo: true);
+
+  Stream<RiftFrame> _enter(
+    Session session,
+    String site,
+    Stream<RiftReport> reports, {
+    required bool demo,
+  }) async* {
     // Reported results are not replayed yet; their rewards belong only in
-    // the simulated development economy.
+    // the simulated development economy. This is also what keeps the demo
+    // out of staging and production: there is deliberately no bypass flag.
     PlayerEndpoint.requireSimulation(session.serverpod.runMode);
     final riftSite = RiftSite.values.asNameMap()[site];
 
@@ -44,13 +66,13 @@ class RiftEndpoint extends Endpoint {
     late final String reaperId;
 
     await PlayerBooks.change(session, (state) {
-      entrant = state.entrantFor(riftSite);
+      entrant = demo ? _demoEntrant(state) : state.entrantFor(riftSite);
       reaperId = state.activeReaperId!;
 
       return state;
     });
 
-    final chair = hall.join(riftSite, entrant);
+    final chair = hall.join(riftSite, entrant, demo: demo);
     Object? reportFailure;
     final listening = reports.listen(
       (report) {
@@ -82,6 +104,9 @@ class RiftEndpoint extends Endpoint {
         if (frame.phase == RiftPhase.sealed) {
           final reward = chair.reward;
 
+          // Each seat is settled in its own player row, from its own share
+          // of the ward. The room reports a sealed rift once; the player
+          // row's next load sees exactly one payment.
           await PlayerBooks.change(
             session,
             (state) => state.settleRift(
@@ -99,5 +124,22 @@ class RiftEndpoint extends Endpoint {
       await listening.cancel();
       chair.leave();
     }
+  }
+
+  /// What a demo reaper takes into the circle.
+  ///
+  /// The starter is the only reaper allowed into a rift until rift reports
+  /// can be replayed, and the demo keeps that rule. It waives attunement
+  /// alone, and only a development or test server reaches this method.
+  static RiftEntrant _demoEntrant(PlayerState state) {
+    if (!state.oathTaken) {
+      throw const RuleBreach(Refusal.oathRequired);
+    }
+
+    if (state.activeReaper!.isNft) {
+      throw const RuleBreach(Refusal.riftUnproven);
+    }
+
+    return RiftEntrant(name: state.genome.name, loadout: state.loadout);
   }
 }

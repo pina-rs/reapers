@@ -789,6 +789,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get riftsOpen => 'Enter';
 
   @override
+  String get riftsDemoOpen => 'Join the demo circle';
+
+  @override
+  String get riftsDemoDetail => 'No collection needed';
+
+  @override
+  String get riftsDemoNote =>
+      'Demo build. Every reaper who joins this site on this server fights the same enemy. Empty seats become shades. It is development only: rewards stay in the simulated economy and nothing is paid on a chain.';
+
+  @override
   String riftsAttune(String collection) {
     return 'Absorb one of the $collection and it will open for you.';
   }
@@ -2319,6 +2329,62 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get simnetIntro =>
       'A pretend devnet that lives on this phone. Every purchase, release and absorption is a transaction signed by a burner wallet made here. Nothing is sent to any cluster, no real SOL moves and no real NFT is touched.';
+
+  @override
+  String get simnetLocalRpc => 'Local validator';
+
+  @override
+  String get simnetLocalRpcBody =>
+      'A real Solana RPC, usually Surfpool on this machine. Health, balance and the faucet below are real calls to it. The game\'s buy, escrow and burn stay demo receipts: no Reapers program is deployed, so those are never broadcast.';
+
+  @override
+  String get simnetLocalRpcEndpoint => 'RPC';
+
+  @override
+  String get simnetLocalRpcHealth => 'Health';
+
+  @override
+  String get simnetLocalRpcChecking => 'Checking…';
+
+  @override
+  String get simnetLocalRpcHealthy => 'Reachable';
+
+  @override
+  String get simnetLocalRpcUnreachable => 'Unreachable';
+
+  @override
+  String get simnetLocalRpcGenesis => 'Genesis';
+
+  @override
+  String get simnetLocalRpcBalance => 'Wallet at RPC';
+
+  @override
+  String get simnetLocalRpcCheck => 'Check';
+
+  @override
+  String simnetLocalRpcAirdrop(String amount) {
+    return 'Airdrop $amount SOL';
+  }
+
+  @override
+  String get simnetLocalRpcAirdropped => 'Airdropped';
+
+  @override
+  String get simnetLocalRpcAirdropBody =>
+      'A real requestAirdrop against the local validator. It pays the burner wallet there only: the game\'s own SOL is not changed and nothing goes to a public cluster.';
+
+  @override
+  String get simnetLocalRpcSignature => 'Airdrop signature';
+
+  @override
+  String simnetLocalRpcFailure(String reason) {
+    return 'The local RPC failed: $reason';
+  }
+
+  @override
+  String simnetLocalRpcConfig(String reason) {
+    return 'The local RPC is not configured: $reason';
+  }
 
   @override
   String get simnetNetworkName => 'Simnet · devnet rehearsal';

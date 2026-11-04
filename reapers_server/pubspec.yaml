@@ -34,6 +34,14 @@ serverpod:
       target: lib/main.dart
       dart-define:
         REAPERS_SERVER_URL=http://localhost:8080/
+    demo:
+      path: ../reapers_flutter
+      displayName: "Reapers demo circle"
+      auto_launch: false
+      target: lib/main.dart
+      dart-define:
+        REAPERS_SERVER_URL=http://localhost:8080/
+        REAPERS_DEMO_RIFT=true
     studio:
       path: ../reapers_flutter
       displayName: "Reaper studio"
