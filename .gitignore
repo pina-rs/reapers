@@ -64,3 +64,12 @@ app.*.map.json
 # compiled models are committed under reapers_flutter/assets/models.
 art/build/
 *.blend1
+
+# Rust
+/target/
+**/*.rs.bk
+
+# Solana keys are never committed: deploy keypairs live outside the repository.
+*-keypair.json
+/keys/
+.leptoskit/

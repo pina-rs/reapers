@@ -1,0 +1,8 @@
+[toolchain]
+# The same nightly leptoskit pins, so the app, its Wasm guest and the leptoskit
+# crates it builds from git agree. The on-chain program is built by
+# cargo-build-sbf with Solana's platform tools, not this toolchain.
+channel = "nightly-2026-10-21"
+components = ["cargo", "clippy", "rustfmt", "rust-src", "llvm-tools-preview"]
+profile = "default"
+targets = ["wasm32-unknown-unknown", "wasm32-wasip1", "aarch64-linux-android", "aarch64-apple-ios", "aarch64-apple-ios-sim"]
