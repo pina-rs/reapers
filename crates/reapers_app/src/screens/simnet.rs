@@ -149,7 +149,7 @@ fn transaction_row(game: Game, transaction: &SimnetTransaction) -> Element {
 /// What happened when a transaction was sent to the local validator.
 fn sent() -> RwSignal<Option<Result<String, String>>> {
 	thread_local! {
-		static SENT: RwSignal<Option<Result<String, String>>> = RwSignal::new(None);
+		static SENT: RwSignal<Option<Result<String, String>>> = crate::ui::lasting(|| RwSignal::new(None));
 	}
 	SENT.with(|sent| *sent)
 }
@@ -322,7 +322,7 @@ struct Local {
 
 fn local() -> Local {
 	thread_local! {
-		static LOCAL: Local = Local {
+		static LOCAL: Local = crate::ui::lasting(|| Local {
 			wallet: RwSignal::new(String::new()),
 			checking: RwSignal::new(false),
 			airdropping: RwSignal::new(false),
@@ -331,7 +331,7 @@ fn local() -> Local {
 			balance: RwSignal::new(None),
 			receipt: RwSignal::new(None),
 			failure: RwSignal::new(None),
-		};
+		});
 	}
 	LOCAL.with(|local| *local)
 }

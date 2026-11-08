@@ -145,6 +145,7 @@ impl Game {
 	/// A game with nothing read yet, keeping what it must remember in
 	/// `prefs`. Call [`Self::open`] to read the books.
 	pub fn new(flags: BuildFlags, prefs: Rc<dyn Prefs>) -> Self {
+		crate::ui::install_lasting_owner();
 		Self {
 			flags,
 			books: RwSignal::new(Books::Opening),

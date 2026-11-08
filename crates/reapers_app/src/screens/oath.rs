@@ -28,6 +28,7 @@ use crate::theme::reaper_light;
 use crate::ui::LedgerButton;
 use crate::ui::body;
 use crate::ui::display;
+use crate::ui::foot_scrim;
 use crate::ui::gap;
 use crate::ui::label;
 use crate::ui::ledger_back;
@@ -55,9 +56,11 @@ enum Moment {
 pub fn page() -> Element {
 	let game = Game::get();
 	let moment = moment_signal();
+	// A bound player sees the reaper the shuffle drew whenever it is not
+	// turning, as the Flutter oath did.
 	match (moment.get(), game.player()) {
-		(Moment::Drawn, Some(player)) if player.oath_taken() => drawn(&player),
 		(Moment::Turning(index), _) => reading(game, moment, Some(index)),
+		(_, Some(player)) if player.oath_taken() => drawn(&player),
 		_ => reading(game, moment, None),
 	}
 }
@@ -66,7 +69,7 @@ pub fn page() -> Element {
 /// leaves mid-shuffle comes back to it.
 fn moment_signal() -> RwSignal<Moment> {
 	thread_local! {
-		static MOMENT: RwSignal<Moment> = RwSignal::new(Moment::Reading);
+		static MOMENT: RwSignal<Moment> = crate::ui::lasting(|| RwSignal::new(Moment::Reading));
 	}
 	MOMENT.with(|moment| *moment)
 }
@@ -84,7 +87,10 @@ fn speak(game: Game, moment: RwSignal<Moment>) {
 			}
 			turned += SHUFFLE;
 			index = (index + 7) % REAPER_GIVEN_NAMES.len();
-			moment.set(Moment::Turning(index));
+			// A refusal may have stopped the shuffle while it slept.
+			if matches!(moment.get_untracked(), Moment::Turning(_)) {
+				moment.set(Moment::Turning(index));
+			}
 		}
 	});
 	game.change(
@@ -185,7 +191,7 @@ fn drawn(player: &PlayerState) -> Element {
 		))
 		// The foot of the stage darkens so the ledger over it stays
 		// readable.
-		.child(View().class("absolute left-0 right-0 bottom-0 h-[58%] bg-[#07080bf2]"))
+		.child(foot_scrim(64, 0xF2))
 		.child(
 			View()
 				.class(format!(

@@ -54,12 +54,12 @@ struct Panel {
 
 fn panel() -> Panel {
 	thread_local! {
-		static PANEL: Panel = Panel {
+		static PANEL: Panel = crate::ui::lasting(|| Panel {
 			chain: RwSignal::new(Chain::Unasked),
 			busy: RwSignal::new(false),
 			failure: RwSignal::new(None),
 			asset: RwSignal::new(String::new()),
-		};
+		});
 	}
 	PANEL.with(|panel| *panel)
 }

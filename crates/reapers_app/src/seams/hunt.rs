@@ -196,21 +196,27 @@ pub fn hunt_view(props: &HuntViewProps) -> Element {
 			words.hunt_ward(),
 			brief.nft.rarity().ward().to_string(),
 			false,
-		))
-		.child(ledger_row(
-			words.hunt_difficulty(),
-			difficulty_name(&*words, difficulty),
-			false,
 		));
-	if let Some(cycle) = props.on_difficulty.clone() {
-		column = column.child(
-			LedgerButton::new(words.hunt_difficulty())
-				.detail(difficulty_name(&*words, difficulty))
-				.quiet()
-				.test_id("hunt-difficulty")
-				.on_press(move || cycle()),
-		);
-	}
+	// A build that may change the difficulty offers the switch; a release
+	// build only says what it is.
+	column = match props.on_difficulty.clone() {
+		Some(cycle) => {
+			column.child(
+				LedgerButton::new(words.hunt_difficulty())
+					.detail(difficulty_name(&*words, difficulty))
+					.quiet()
+					.test_id("hunt-difficulty")
+					.on_press(move || cycle()),
+			)
+		}
+		None => {
+			column.child(ledger_row(
+				words.hunt_difficulty(),
+				difficulty_name(&*words, difficulty),
+				false,
+			))
+		}
+	};
 	column = column
 		.child(gap(18))
 		.child(aside(words.hunt_how_sigil()).class(format!("text-[{}]", ASH.hex())))

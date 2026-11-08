@@ -305,11 +305,11 @@ mod web {
 		body: Vec<u8>,
 		timeout: Duration,
 	) -> Result<HttpReply, PlatformError> {
+		use leptoskit_plugin_http::Client;
 		use leptoskit_plugin_http::Config;
 		use leptoskit_plugin_http::Header;
 		use leptoskit_plugin_http::Method;
 		use leptoskit_plugin_http::Request;
-		use leptoskit_plugin_http::web::Client;
 
 		let origin = super::origin_of(url)
 			.ok_or_else(|| PlatformError::Failed(format!("not a URL: {url}")))?;
@@ -338,10 +338,8 @@ mod web {
 		static STORE: RefCell<Option<leptoskit_plugin_store::web::Store>> = const { RefCell::new(None) };
 	}
 
-	fn with_store<T>(
-		use_store: impl FnOnce(
-			&mut leptoskit_plugin_store::web::Store,
-		) -> Result<T, leptoskit_plugin_store::Error>,
+	fn with_store<T, E: std::fmt::Display>(
+		use_store: impl FnOnce(&mut leptoskit_plugin_store::web::Store) -> Result<T, E>,
 	) -> Result<T, PlatformError> {
 		STORE.with_borrow_mut(|store| {
 			if store.is_none() {
@@ -450,6 +448,9 @@ mod guest {
 	pub fn reduced_motion() -> bool {
 		false
 	}
+
+	/// The guest has no console of its own; the host keeps no log of it yet.
+	pub fn log(_message: &str) {}
 
 	pub async fn post_json(
 		url: &str,

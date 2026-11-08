@@ -32,18 +32,28 @@ use crate::ui::sketch;
 /// The frame around `children`, the matched route.
 pub fn frame(children: Children) -> Element {
 	let game = Game::get();
+	// The frame is exactly the screen's height and the route scrolls inside
+	// it, so what is laid over it (a sheet, a dialog, a slip) covers the
+	// screen rather than the whole length of a long ledger: leptoskit has no
+	// fixed positioning.
 	let mut root = View()
-		.class("relative flex-1 w-full min-h-screen bg-[#07080b] text-[#e9e4d4]")
-		.children(children.elements().iter().cloned());
+		.class("relative w-full h-screen overflow-hidden bg-[#07080b] text-[#e9e4d4]")
+		.child(
+			ScrollView()
+				.class("flex-1 w-full")
+				.test_id("frame-scroll")
+				.children(children.elements().iter().cloned()),
+		);
+	if let Some(overlay) = game.overlay.get() {
+		root = root.child(overlay_view(game, overlay));
+	}
+	// The slip sits over everything but the arrival, a sheet included.
 	if let Some(slip) = game.slip.get() {
 		root = root.child(
 			View()
 				.class("absolute left-0 right-0 top-0 items-center px-4 pt-safe-offset-2")
 				.child(slip_view(&slip)),
 		);
-	}
-	if let Some(overlay) = game.overlay.get() {
-		root = root.child(overlay_view(game, overlay));
 	}
 	if !game.arrived.get() {
 		root = root.child(arrival());

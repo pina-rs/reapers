@@ -62,11 +62,11 @@ struct Fitting {
 
 fn fitting() -> Fitting {
 	thread_local! {
-		static FITTING: Fitting = Fitting {
+		static FITTING: Fitting = crate::ui::lasting(|| Fitting {
 			tab: RwSignal::new(Tab::Weapons),
 			weapon: RwSignal::new(None),
 			outfit: RwSignal::new(None),
-		};
+		});
 	}
 	FITTING.with(|fitting| *fitting)
 }

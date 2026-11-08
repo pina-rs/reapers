@@ -34,11 +34,11 @@ struct Seat {
 
 fn seat() -> Seat {
 	thread_local! {
-		static SEAT: Seat = Seat {
+		static SEAT: Seat = crate::ui::lasting(|| Seat {
 			site: RwSignal::new(None),
 			frame: RwSignal::new(None),
 			session: StoredValue::new_local(None),
-		};
+		});
 	}
 	SEAT.with(|seat| *seat)
 }

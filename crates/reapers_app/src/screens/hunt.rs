@@ -67,7 +67,7 @@ enum Stage {
 
 fn stage() -> RwSignal<Option<Stage>> {
 	thread_local! {
-		static STAGE: RwSignal<Option<Stage>> = RwSignal::new(None);
+		static STAGE: RwSignal<Option<Stage>> = crate::ui::lasting(|| RwSignal::new(None));
 	}
 	STAGE.with(|stage| *stage)
 }

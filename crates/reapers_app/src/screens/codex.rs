@@ -28,7 +28,7 @@ use crate::ui::light;
 /// Whether the soul's ledger is open: the Flutter `ExpansionTile`.
 fn soul_open() -> RwSignal<bool> {
 	thread_local! {
-		static OPEN: RwSignal<bool> = RwSignal::new(false);
+		static OPEN: RwSignal<bool> = crate::ui::lasting(|| RwSignal::new(false));
 	}
 	OPEN.with(|open| *open)
 }

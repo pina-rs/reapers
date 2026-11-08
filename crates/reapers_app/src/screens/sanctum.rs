@@ -25,6 +25,7 @@ use crate::ui::LedgerButton;
 use crate::ui::body;
 use crate::ui::display;
 use crate::ui::figure;
+use crate::ui::foot_scrim;
 use crate::ui::gap;
 use crate::ui::label;
 use crate::ui::ledger_heading;
@@ -151,7 +152,7 @@ pub fn page(player: &PlayerState) -> Element {
 	let masthead =
 		View()
 			.class(format!(
-				"absolute inset-0 w-full {CONTENT_WIDTH} self-center px-6 pt-safe-offset-[14px] pb-[10px]"
+				"flex-1 w-full {CONTENT_WIDTH} self-center px-6 pt-safe-offset-4 pb-[10px]"
 			))
 			.child(
 				View()
@@ -188,7 +189,7 @@ pub fn page(player: &PlayerState) -> Element {
 					player.outfit(),
 				)))
 				// The foot of the stage falls into the page's ink.
-				.child(View().class("absolute left-0 right-0 bottom-0 h-[30%] bg-[#07080bb3]"))
+				.child(foot_scrim(40, 0xFF))
 				.child(masthead),
 		)
 		.child(ScrollView().class("flex-1 w-full pb-safe").child(list));

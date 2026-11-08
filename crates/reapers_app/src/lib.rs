@@ -48,6 +48,7 @@ pub fn App() -> impl leptos::prelude::IntoView {
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 #[wasm_bindgen::prelude::wasm_bindgen(start)]
 pub fn start() {
+	console_error_panic_hook::set_once();
 	#[cfg(feature = "devtools")]
 	leptoskit::devtools::install(env!("CARGO_PKG_NAME"));
 	leptos::mount::mount_to_body(App);
