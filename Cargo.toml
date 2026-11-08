@@ -84,7 +84,11 @@ leptoskit_build = { version = "=0.3.0", default-features = false }
 leptoskit_l10n = { version = "=0.3.0" }
 leptoskit_plugin_crypto = { version = "=0.3.0" }
 leptoskit_plugin_haptics = { version = "=0.3.0" }
-leptoskit_plugin_http = { version = "=0.3.0" }
+# Without its default `browser` feature: the app asks for `browser` or
+# `guest` per platform, and Solana's platform-tools cargo, which builds the
+# program inside this workspace, refuses a member that turns off defaults the
+# workspace left on.
+leptoskit_plugin_http = { version = "=0.3.0", default-features = false }
 leptoskit_plugin_linking = { version = "=0.3.0" }
 leptoskit_plugin_secure_store = { version = "=0.3.0" }
 leptoskit_plugin_websocket = { version = "=0.3.0", default-features = false }
