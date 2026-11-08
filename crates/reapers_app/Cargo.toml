@@ -67,6 +67,8 @@ leptoskit_l10n = { workspace = true }
 leptoskit_plugin_crypto = { workspace = true }
 leptoskit_router = { workspace = true }
 reactive_graph = "0.3.0-rc0"
+reapers_program_client = { workspace = true }
+reapers_receipt = { workspace = true }
 reapers_rules = { workspace = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -77,6 +79,8 @@ solana_kit_memo = { workspace = true }
 solana_kit_wallet = { workspace = true, optional = true, features = ["mwa"] }
 leptoskit_bridge = { workspace = true, optional = true, features = ["guest"] }
 solana_kit_system = { workspace = true }
+solana-instruction = { workspace = true }
+solana-pubkey = { workspace = true }
 thiserror = "2"
 
 # The browser renderer and its glue.

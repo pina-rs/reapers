@@ -21,6 +21,7 @@ pub mod config;
 pub mod l10n;
 pub mod lookups;
 pub mod platform;
+pub mod program;
 pub mod receipt;
 #[allow(
 	clippy::all,

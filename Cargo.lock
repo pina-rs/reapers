@@ -5407,10 +5407,15 @@ dependencies = [
  "leptoskit_router",
  "leptoskit_testing",
  "reactive_graph",
+ "reapers_api",
+ "reapers_program_client",
+ "reapers_receipt",
  "reapers_rules",
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "solana-instruction 4.0.0",
+ "solana-pubkey 4.4.0",
  "solana_kit_core",
  "solana_kit_leptoskit",
  "solana_kit_memo",
@@ -5563,6 +5568,7 @@ dependencies = [
  "tokio",
  "toml 0.9.12+spec-1.1.0",
  "tower",
+ "tower-http",
  "url",
 ]
 

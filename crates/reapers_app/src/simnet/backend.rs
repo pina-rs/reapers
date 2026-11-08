@@ -66,9 +66,21 @@ impl SimnetBackend {
 	}
 }
 
-/// The receipt for `absorption`: the player is the burner wallet.
+/// The receipt for `absorption`: the player is the burner wallet, and the
+/// husk the address that stands for its NFT.
 fn receipt_for(chain: &SimnetChain, absorption: &Absorption) -> Vec<u8> {
-	receipt::message(&chain.wallet(), absorption).to_vec()
+	let wallet = chain
+		.wallet()
+		.parse::<solana_kit_core::Address>()
+		.map(|wallet| *wallet.as_bytes())
+		.unwrap_or_default();
+	receipt::of(
+		wallet,
+		*SimnetChain::mint_for(absorption.nft).as_bytes(),
+		absorption,
+	)
+	.map(|receipt| receipt.encode().to_vec())
+	.unwrap_or_default()
 }
 
 #[async_trait(?Send)]
@@ -117,7 +129,7 @@ impl GameBackend for SimnetBackend {
 					vec![
 						self.wallet(),
 						SimnetAccount::new(SimnetRole::Market, &SimnetChain::market()),
-						SimnetAccount::new(SimnetRole::Mint, &nft.mock_mint()),
+						SimnetAccount::new(SimnetRole::Mint, &SimnetChain::mint_for(nft)),
 					],
 				)
 			})
@@ -134,7 +146,7 @@ impl GameBackend for SimnetBackend {
 					SimnetInstruction::Escrow,
 					vec![
 						self.wallet(),
-						SimnetAccount::new(SimnetRole::Mint, &nft.mock_mint()),
+						SimnetAccount::new(SimnetRole::Mint, &SimnetChain::mint_for(nft)),
 						SimnetAccount::new(SimnetRole::Escrow, &SimnetChain::escrow_for(nft)),
 						SimnetAccount::new(SimnetRole::Program, &SimnetChain::program()),
 					],
@@ -174,7 +186,7 @@ impl GameBackend for SimnetBackend {
 					SimnetInstruction::Burn,
 					vec![
 						self.wallet(),
-						SimnetAccount::new(SimnetRole::Mint, &nft.mock_mint()),
+						SimnetAccount::new(SimnetRole::Mint, &SimnetChain::mint_for(nft)),
 						SimnetAccount::new(SimnetRole::Escrow, &SimnetChain::escrow_for(nft)),
 						SimnetAccount::new(SimnetRole::Program, &SimnetChain::program()),
 						SimnetAccount::new(SimnetRole::Keeper, &SimnetChain::keeper()),
@@ -384,7 +396,7 @@ mod tests {
 		assert!(absorption.signature.is_some(), "the codex keeps it");
 		assert_eq!(
 			burn.receipt.as_deref(),
-			Some(&receipt::message(&chain.wallet(), absorption)[..])
+			Some(&receipt_for(&chain, absorption)[..])
 		);
 		assert!(burn.receipt_verifies());
 	}

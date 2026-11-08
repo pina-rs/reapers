@@ -7,9 +7,13 @@
 //! amounts and NFTs are handed to it by whoever keeps the books.
 //!
 //! Every transaction but the airdrop is a real Solana wire transaction,
-//! compiled and signed with Solana Kit: a System transfer to the market for
-//! a purchase, a Memo for each step, and on a burn an Ed25519 program
-//! instruction that makes the cluster itself check the keeper's receipt.
+//! compiled and signed with Solana Kit: a System transfer to the market and
+//! a Memo for a purchase, and for a release and a burn the Reapers program's
+//! own `ReleaseCore` and `AbsorbCore` from its generated client
+//! ([`crate::program`]), the burn after the Ed25519 instruction that makes
+//! the cluster check the keeper's receipt. Those two are exactly what a
+//! cluster with the program takes; only the husk is a stand-in, an address
+//! made from the NFT's invented mint, which no cluster holds.
 //! Offline its blockhash is chained from the previous transaction, so no
 //! cluster would accept it as it stands; [`SimnetChain::rebuild`] signs the
 //! same instructions again over a real blockhash for a validator that can
@@ -29,15 +33,12 @@ use serde::Deserialize;
 use serde::Serialize;
 use sha2::Digest as _;
 use sha2::Sha256;
-use solana_kit_core::AccountMeta;
 use solana_kit_core::Address;
 use solana_kit_core::Hash;
 use solana_kit_core::Instruction;
 use solana_kit_core::Signature;
-use solana_kit_core::address_constants::ED25519_PROGRAM;
 use solana_kit_core::codecs::Limits;
 use solana_kit_core::crypto::Keypair;
-use solana_kit_core::crypto::find_program_address;
 use solana_kit_core::crypto::verify;
 use solana_kit_core::transaction::Lifetime;
 use solana_kit_core::transaction::Message;
@@ -50,6 +51,8 @@ use crate::backend::KeeperError;
 use crate::backend::KeeperResult;
 use crate::platform;
 use crate::platform::Prefs;
+use crate::program;
+use crate::receipt::Receipt;
 
 /// What a simnet transaction does. These are the four things the chain is
 /// meant to do for Reapers (see docs/nfts.md); everything else in the game
@@ -263,11 +266,12 @@ impl SimnetChain {
 	/// Where the simnet is stored: the Flutter game's key.
 	pub const STORAGE_KEY: &'static str = "reapers.simnet.v1";
 
-	/// The program, the market and the faucet: no key exists for any of them.
+	/// The Reapers program, the one a cluster runs.
 	pub fn program() -> Address {
-		named("program")
+		program::program_id()
 	}
 
+	/// The market and the faucet: no key exists for either.
 	pub fn market() -> Address {
 		named("market")
 	}
@@ -341,12 +345,20 @@ impl SimnetChain {
 		self.listeners.borrow_mut().push(Box::new(listener));
 	}
 
+	/// The address that stands for `nft` on the simnet: its invented mint
+	/// is a string, and the program needs 32 bytes.
+	pub fn mint_for(nft: Nft) -> Address {
+		Address::from_bytes(Sha256::digest(nft.mock_mint().as_bytes()).into())
+	}
+
+	/// The Core collection that stands for `nft`'s collection.
+	pub fn collection_for(nft: Nft) -> Address {
+		named(&format!("collection:{}", nft.collection.name()))
+	}
+
 	/// Where `nft` waits while it is loose: the program's escrow for its mint.
 	pub fn escrow_for(nft: Nft) -> Address {
-		let mint: [u8; 32] = Sha256::digest(nft.mock_mint().as_bytes()).into();
-		find_program_address(&[b"escrow", &mint], &Self::program())
-			.map(|pda| pda.address())
-			.expect("a 32-byte seed always has a viable bump")
+		program::escrow(&Self::mint_for(nft))
 	}
 
 	/// Signs `receipt` as the simnet keeper.
@@ -506,18 +518,26 @@ impl SimnetChain {
 				])
 			}
 			SimnetInstruction::Escrow => {
-				Some(vec![memo(format!(
-					"reapers-simnet/1 escrow {mint} into {}",
-					post.nft.map(Self::escrow_for)?
-				))?])
+				let nft = post.nft?;
+				Some(vec![program::release_core(
+					&wallet,
+					&Self::mint_for(nft),
+					Some(&Self::collection_for(nft)),
+				)])
 			}
 			SimnetInstruction::Burn => {
-				let receipt = post.receipt.as_deref()?;
-				let signature = post.receipt_signature.as_deref()?;
-				Some(vec![
-					ed25519_verify(&Self::keeper(), signature, receipt)?,
-					memo(format!("reapers-simnet/1 burn {mint}"))?,
-				])
+				let nft = post.nft?;
+				let receipt = Receipt::decode(post.receipt.as_deref()?).ok()?;
+				let signature: &[u8; 64] = post.receipt_signature.as_deref()?.try_into().ok()?;
+				Some(
+					program::absorb_core(
+						&Self::keeper(),
+						signature,
+						&receipt,
+						Some(&Self::collection_for(nft)),
+					)
+					.to_vec(),
+				)
 			}
 		}
 	}
@@ -539,42 +559,6 @@ impl SimnetChain {
 		lines.push(post.nft.map(|nft| nft.mock_mint()).unwrap_or_default());
 		lines.join("\n").into_bytes()
 	}
-}
-
-/// An Ed25519 program instruction that checks `signature` by `signer` over
-/// `message` before anything after it in the transaction runs: the check a
-/// Reapers program would require of a burn's receipt.
-fn ed25519_verify(signer: &Address, signature: &[u8], message: &[u8]) -> Option<Instruction> {
-	const OFFSETS: u16 = 2;
-	const KEY: u16 = OFFSETS + 14;
-	const SIGNATURE: u16 = KEY + 32;
-	const MESSAGE: u16 = SIGNATURE + 64;
-	const THIS_INSTRUCTION: u16 = u16::MAX;
-
-	if signature.len() != 64 {
-		return None;
-	}
-	let mut data = vec![1, 0];
-	for field in [
-		SIGNATURE,
-		THIS_INSTRUCTION,
-		KEY,
-		THIS_INSTRUCTION,
-		MESSAGE,
-		u16::try_from(message.len()).ok()?,
-		THIS_INSTRUCTION,
-	] {
-		data.extend_from_slice(&field.to_le_bytes());
-	}
-	data.extend_from_slice(signer.as_bytes());
-	data.extend_from_slice(signature);
-	data.extend_from_slice(message);
-
-	Some(Instruction {
-		program_address: ED25519_PROGRAM,
-		accounts: Vec::<AccountMeta>::new(),
-		data,
-	})
 }
 
 mod iso8601 {
