@@ -1,0 +1,1089 @@
+{
+ "nfts": [
+  {
+   "id": "degenApes:1",
+   "rarity": "common",
+   "title": "Degenerate Ape Academy #1",
+   "imageKey": "degenApes_1",
+   "mockMint": "weYtk9wQnNAn1Ccs3cZrqieSWg7c1M2k1czsUhMMJDWh",
+   "look": {
+    "body": 3882822,
+    "trim": 12036506,
+    "detail": 14267457,
+    "accent": 5759231,
+    "backdrop": 14730603,
+    "trait": 0
+   }
+  },
+  {
+   "id": "degenApes:2",
+   "rarity": "common",
+   "title": "Degenerate Ape Academy #2",
+   "imageKey": "degenApes_2",
+   "mockMint": "5qEzz46qQKyvXHM47fd38Kupozkt99YTnjmyxQDn9tgj",
+   "look": {
+    "body": 9059131,
+    "trim": 14267276,
+    "detail": 11680314,
+    "accent": 5759231,
+    "backdrop": 14730603,
+    "trait": 0
+   }
+  },
+  {
+   "id": "degenApes:3",
+   "rarity": "common",
+   "title": "Degenerate Ape Academy #3",
+   "imageKey": "degenApes_3",
+   "mockMint": "4BC1FcxmvYLUr7N2dxfAv55hcu2LfNsnk3UA63mPkzya",
+   "look": {
+    "body": 9059131,
+    "trim": 10335642,
+    "detail": 15262160,
+    "accent": 16730938,
+    "backdrop": 9418953,
+    "trait": 0
+   }
+  },
+  {
+   "id": "degenApes:4",
+   "rarity": "common",
+   "title": "Degenerate Ape Academy #4",
+   "imageKey": "degenApes_4",
+   "mockMint": "6e8G1qAHCca3GTc4NBBTJZZGD2mdHvGCBnjNNknftboo",
+   "look": {
+    "body": 3882822,
+    "trim": 14267276,
+    "detail": 15262160,
+    "accent": 16730938,
+    "backdrop": 13213888,
+    "trait": 2
+   }
+  },
+  {
+   "id": "degenApes:5",
+   "rarity": "uncommon",
+   "title": "Degenerate Ape Academy #5",
+   "imageKey": "degenApes_5",
+   "mockMint": "8Kby9Fom6o36JNhst9rLCBBo8RgkXkrYMADorYVN3qtw",
+   "look": {
+    "body": 3882822,
+    "trim": 13213818,
+    "detail": 14267457,
+    "accent": 16765503,
+    "backdrop": 13213888,
+    "trait": 1
+   }
+  },
+  {
+   "id": "degenApes:6",
+   "rarity": "uncommon",
+   "title": "Degenerate Ape Academy #6",
+   "imageKey": "degenApes_6",
+   "mockMint": "HW1GbY4B2Xzm1hZxGm7sB3fzxuvfrsmyQ1gA6mrjAGoZ",
+   "look": {
+    "body": 5914674,
+    "trim": 13213818,
+    "detail": 1842207,
+    "accent": 12123994,
+    "backdrop": 14267276,
+    "trait": 0
+   }
+  },
+  {
+   "id": "degenApes:7",
+   "rarity": "rare",
+   "title": "Degenerate Ape Academy #7",
+   "imageKey": "degenApes_7",
+   "mockMint": "GqkU6VcNuWmY9WF44Lo1VuXainDcCWkx9Fv9RaXTuWnf",
+   "look": {
+    "body": 5914674,
+    "trim": 14267276,
+    "detail": 15262160,
+    "accent": 5759231,
+    "backdrop": 9418953,
+    "trait": 1
+   }
+  },
+  {
+   "id": "degenApes:8",
+   "rarity": "epic",
+   "title": "Degenerate Ape Academy #8",
+   "imageKey": "degenApes_8",
+   "mockMint": "NQtFXdHnd14dSTprdcV1kCKbf1bf9ESDZk12AbJMXKcV",
+   "look": {
+    "body": 13214247,
+    "trim": 16049072,
+    "detail": 14267457,
+    "accent": 16730938,
+    "backdrop": 14730603,
+    "trait": 2
+   }
+  },
+  {
+   "id": "thugbirdz:1",
+   "rarity": "common",
+   "title": "Thugbirdz #1",
+   "imageKey": "thugbirdz_1",
+   "mockMint": "uN4UoWkove7eUickkPqZecq6Jq5YL6kzY6K1QbtRi4Hb",
+   "look": {
+    "body": 3043289,
+    "trim": 15883386,
+    "detail": 11680314,
+    "accent": 16742958,
+    "backdrop": 13148402,
+    "trait": 0
+   }
+  },
+  {
+   "id": "thugbirdz:2",
+   "rarity": "common",
+   "title": "Thugbirdz #2",
+   "imageKey": "thugbirdz_2",
+   "mockMint": "9UALeiA8msHuX2XXPJJjmdtPQ5fZ5EDj6KTDTfANJugF",
+   "look": {
+    "body": 14721070,
+    "trim": 15883386,
+    "detail": 15262160,
+    "accent": 7077849,
+    "backdrop": 15917194,
+    "trait": 1
+   }
+  },
+  {
+   "id": "thugbirdz:3",
+   "rarity": "common",
+   "title": "Thugbirdz #3",
+   "imageKey": "thugbirdz_3",
+   "mockMint": "hq1XtW8QAgor3LvR5FAVagPGghZj9iMkWUgsyCEGYZRM",
+   "look": {
+    "body": 14721070,
+    "trim": 15909198,
+    "detail": 15262160,
+    "accent": 16769355,
+    "backdrop": 11924128,
+    "trait": 0
+   }
+  },
+  {
+   "id": "thugbirdz:4",
+   "rarity": "common",
+   "title": "Thugbirdz #4",
+   "imageKey": "thugbirdz_4",
+   "mockMint": "a1yRe5FgthMtVndstpoT4h8MK4xnKyZd3f9ypUQq3Kte",
+   "look": {
+    "body": 9064409,
+    "trim": 15883386,
+    "detail": 15262160,
+    "accent": 16742958,
+    "backdrop": 15917194,
+    "trait": 0
+   }
+  },
+  {
+   "id": "thugbirdz:5",
+   "rarity": "uncommon",
+   "title": "Thugbirdz #5",
+   "imageKey": "thugbirdz_5",
+   "mockMint": "MXDNvNN5M1dvz3x3kkJBU3giAJkCEYMAQuj1c7Ekq3KP",
+   "look": {
+    "body": 14239022,
+    "trim": 15883386,
+    "detail": 14267457,
+    "accent": 7077849,
+    "backdrop": 11924128,
+    "trait": 0
+   }
+  },
+  {
+   "id": "thugbirdz:6",
+   "rarity": "uncommon",
+   "title": "Thugbirdz #6",
+   "imageKey": "thugbirdz_6",
+   "mockMint": "WzLkQCYgN4sYazkSm2oHgiMY1o7wS5eyEXP5Qdsh1edW",
+   "look": {
+    "body": 14721070,
+    "trim": 15883386,
+    "detail": 14267457,
+    "accent": 16742958,
+    "backdrop": 13148402,
+    "trait": 0
+   }
+  },
+  {
+   "id": "thugbirdz:7",
+   "rarity": "rare",
+   "title": "Thugbirdz #7",
+   "imageKey": "thugbirdz_7",
+   "mockMint": "hvmJMb1q8zSXXXNdCLiTQYjfsteUmuK1jMbpG6Tijytq",
+   "look": {
+    "body": 3059566,
+    "trim": 15262160,
+    "detail": 11680314,
+    "accent": 16742958,
+    "backdrop": 10541298,
+    "trait": 0
+   }
+  },
+  {
+   "id": "thugbirdz:8",
+   "rarity": "epic",
+   "title": "Thugbirdz #8",
+   "imageKey": "thugbirdz_8",
+   "mockMint": "nyy64atqX5maUuZKCYigbHm7cTtJMAkoQW9AUDgi4zFW",
+   "look": {
+    "body": 13214247,
+    "trim": 16049072,
+    "detail": 1842207,
+    "accent": 7077849,
+    "backdrop": 15900853,
+    "trait": 1
+   }
+  },
+  {
+   "id": "peskyPenguins:1",
+   "rarity": "common",
+   "title": "Pesky Penguins #1",
+   "imageKey": "peskyPenguins_1",
+   "mockMint": "oeZ6VRsjEJJMDxuJ7s8eh5BgnoWPPghfzVdwY93fxeWT",
+   "look": {
+    "body": 13201966,
+    "trim": 15921126,
+    "detail": 15900731,
+    "accent": 16769146,
+    "backdrop": 7317721,
+    "trait": 2
+   }
+  },
+  {
+   "id": "peskyPenguins:2",
+   "rarity": "common",
+   "title": "Pesky Penguins #2",
+   "imageKey": "peskyPenguins_2",
+   "mockMint": "getgCECPxXjurojXQWKAponCfnRjHtLicVY7m71qLBvi",
+   "look": {
+    "body": 3107682,
+    "trim": 15921126,
+    "detail": 15900731,
+    "accent": 16769146,
+    "backdrop": 8368288,
+    "trait": 0
+   }
+  },
+  {
+   "id": "peskyPenguins:3",
+   "rarity": "common",
+   "title": "Pesky Penguins #3",
+   "imageKey": "peskyPenguins_3",
+   "mockMint": "n4hznWA77EumVyGW2dmWUjfzUzvJ8ttKoA4zCDJqi43p",
+   "look": {
+    "body": 13201966,
+    "trim": 15921126,
+    "detail": 14267457,
+    "accent": 16747130,
+    "backdrop": 10125247,
+    "trait": 0
+   }
+  },
+  {
+   "id": "peskyPenguins:4",
+   "rarity": "common",
+   "title": "Pesky Penguins #4",
+   "imageKey": "peskyPenguins_4",
+   "mockMint": "isVYMKxLSsNKGHxAjyoiv5A9L9MtmNRTQCTrnscZvcMs",
+   "look": {
+    "body": 13201966,
+    "trim": 15918808,
+    "detail": 15900731,
+    "accent": 16769146,
+    "backdrop": 8368288,
+    "trait": 2
+   }
+  },
+  {
+   "id": "peskyPenguins:5",
+   "rarity": "uncommon",
+   "title": "Pesky Penguins #5",
+   "imageKey": "peskyPenguins_5",
+   "mockMint": "2swgrNA2d2pS8DU55FzDc5ZScUnUY4WYwXqe4usLYRof",
+   "look": {
+    "body": 3107682,
+    "trim": 15921126,
+    "detail": 15262160,
+    "accent": 8052991,
+    "backdrop": 8368288,
+    "trait": 0
+   }
+  },
+  {
+   "id": "peskyPenguins:6",
+   "rarity": "uncommon",
+   "title": "Pesky Penguins #6",
+   "imageKey": "peskyPenguins_6",
+   "mockMint": "CUAaVSR5DCCcNdjPpfzoo9eJbupyCoqEVmkoYV7apexk",
+   "look": {
+    "body": 2968186,
+    "trim": 14543064,
+    "detail": 14267457,
+    "accent": 16769146,
+    "backdrop": 8368288,
+    "trait": 0
+   }
+  },
+  {
+   "id": "peskyPenguins:7",
+   "rarity": "rare",
+   "title": "Pesky Penguins #7",
+   "imageKey": "peskyPenguins_7",
+   "mockMint": "DdZWEi8ZeW979o7fCd4uqW5N1VJhWMPnmrJf7iQJMoBt",
+   "look": {
+    "body": 2968186,
+    "trim": 14543064,
+    "detail": 15262160,
+    "accent": 8052991,
+    "backdrop": 6262674,
+    "trait": 2
+   }
+  },
+  {
+   "id": "peskyPenguins:8",
+   "rarity": "epic",
+   "title": "Pesky Penguins #8",
+   "imageKey": "peskyPenguins_8",
+   "mockMint": "BgM5fmm9xVpETeaFAeAbqcnU6FzN6PaN9fb1ZENc5wvQ",
+   "look": {
+    "body": 13214247,
+    "trim": 16049072,
+    "detail": 14267457,
+    "accent": 8052991,
+    "backdrop": 6262674,
+    "trait": 1
+   }
+  },
+  {
+   "id": "sollamas:1",
+   "rarity": "common",
+   "title": "Sollamas #1",
+   "imageKey": "sollamas_1",
+   "mockMint": "UbXsvJvnHThCsWg7sbAMjygwnCAQmxX4ZmCUSXUCBGk2",
+   "look": {
+    "body": 15128767,
+    "trim": 3051481,
+    "detail": 1842207,
+    "accent": 13172586,
+    "backdrop": 14272480,
+    "trait": 0
+   }
+  },
+  {
+   "id": "sollamas:2",
+   "rarity": "common",
+   "title": "Sollamas #2",
+   "imageKey": "sollamas_2",
+   "mockMint": "NzkB7WwJPYTLpozrnKUZaFwszADiZQe8fgTyJCf3tYhf",
+   "look": {
+    "body": 12159578,
+    "trim": 3051481,
+    "detail": 3812904,
+    "accent": 16756795,
+    "backdrop": 14272480,
+    "trait": 0
+   }
+  },
+  {
+   "id": "sollamas:3",
+   "rarity": "common",
+   "title": "Sollamas #3",
+   "imageKey": "sollamas_3",
+   "mockMint": "kiSF36RESedXK3iRji5zZyucVGY5akzcYE5ahKEUsTWY",
+   "look": {
+    "body": 15128767,
+    "trim": 14239022,
+    "detail": 1842207,
+    "accent": 16738954,
+    "backdrop": 14272480,
+    "trait": 2
+   }
+  },
+  {
+   "id": "sollamas:4",
+   "rarity": "common",
+   "title": "Sollamas #4",
+   "imageKey": "sollamas_4",
+   "mockMint": "WYBEMpK17fiU9wZDbaKYmrSMAEPhVaSWPg1dLK8Gx85V",
+   "look": {
+    "body": 15920870,
+    "trim": 14239022,
+    "detail": 14267457,
+    "accent": 8052991,
+    "backdrop": 5925530,
+    "trait": 0
+   }
+  },
+  {
+   "id": "sollamas:5",
+   "rarity": "uncommon",
+   "title": "Sollamas #5",
+   "imageKey": "sollamas_5",
+   "mockMint": "DNMhsnYDP6AKD9KLJ5sVcxyG9cwrxeZB3ynQJ1RsTmeB",
+   "look": {
+    "body": 15128767,
+    "trim": 14239022,
+    "detail": 1842207,
+    "accent": 16756795,
+    "backdrop": 5925530,
+    "trait": 1
+   }
+  },
+  {
+   "id": "sollamas:6",
+   "rarity": "uncommon",
+   "title": "Sollamas #6",
+   "imageKey": "sollamas_6",
+   "mockMint": "enAt7evPv9QBdcn9TLsnUhSUz7xsS1doc84wbk2kWY31",
+   "look": {
+    "body": 9080726,
+    "trim": 3059566,
+    "detail": 3812904,
+    "accent": 13172586,
+    "backdrop": 14727290,
+    "trait": 1
+   }
+  },
+  {
+   "id": "sollamas:7",
+   "rarity": "rare",
+   "title": "Sollamas #7",
+   "imageKey": "sollamas_7",
+   "mockMint": "YzFfK9Yse6ZFpshW3WpbgfJryjUfxmjcSwjR6CwaTga3",
+   "look": {
+    "body": 12159578,
+    "trim": 3051481,
+    "detail": 3812904,
+    "accent": 16756795,
+    "backdrop": 10273930,
+    "trait": 0
+   }
+  },
+  {
+   "id": "sollamas:8",
+   "rarity": "epic",
+   "title": "Sollamas #8",
+   "imageKey": "sollamas_8",
+   "mockMint": "9fTEYMK7VZ8eFToNx6kkVFdBArPyE3MT38meTWZ4FF2v",
+   "look": {
+    "body": 13214247,
+    "trim": 16049072,
+    "detail": 14267457,
+    "accent": 13172586,
+    "backdrop": 5925530,
+    "trait": 2
+   }
+  },
+  {
+   "id": "solarians:1",
+   "rarity": "common",
+   "title": "Solarians #1",
+   "imageKey": "solarians_1",
+   "mockMint": "eCRvBYgJJCPD5VDP378KzTezham7HxHmEUi3S5nHwZnH",
+   "look": {
+    "body": 8019850,
+    "trim": 4471370,
+    "detail": 14702139,
+    "accent": 10120191,
+    "backdrop": 3352890,
+    "trait": 0
+   }
+  },
+  {
+   "id": "solarians:2",
+   "rarity": "common",
+   "title": "Solarians #2",
+   "imageKey": "solarians_2",
+   "mockMint": "2aQ2zkSe9nYFWyZeMfGVizZEDNqCaaFVcx6VKjjy6Xth",
+   "look": {
+    "body": 9080985,
+    "trim": 3356735,
+    "detail": 14267457,
+    "accent": 10120191,
+    "backdrop": 3095082,
+    "trait": 0
+   }
+  },
+  {
+   "id": "solarians:3",
+   "rarity": "common",
+   "title": "Solarians #3",
+   "imageKey": "solarians_3",
+   "mockMint": "g9ncKPdUqUnch92epvtzcK8MPy5ehjRvVPd8Yw2yrW4g",
+   "look": {
+    "body": 6253432,
+    "trim": 2767428,
+    "detail": 12633808,
+    "accent": 3932128,
+    "backdrop": 3352890,
+    "trait": 0
+   }
+  },
+  {
+   "id": "solarians:4",
+   "rarity": "common",
+   "title": "Solarians #4",
+   "imageKey": "solarians_4",
+   "mockMint": "fWqRa8JwS8GXuot3YgG1ZwzunK5fPQ8nzjeJNsQ5rX8y",
+   "look": {
+    "body": 9080985,
+    "trim": 4866104,
+    "detail": 14702139,
+    "accent": 10120191,
+    "backdrop": 2372666,
+    "trait": 0
+   }
+  },
+  {
+   "id": "solarians:5",
+   "rarity": "uncommon",
+   "title": "Solarians #5",
+   "imageKey": "solarians_5",
+   "mockMint": "M5xVt8RkxA8TtfpGZfvXGpDqenj6uTFYErc7b8y9KK8P",
+   "look": {
+    "body": 10111546,
+    "trim": 4471370,
+    "detail": 14702139,
+    "accent": 16771131,
+    "backdrop": 3352890,
+    "trait": 2
+   }
+  },
+  {
+   "id": "solarians:6",
+   "rarity": "uncommon",
+   "title": "Solarians #6",
+   "imageKey": "solarians_6",
+   "mockMint": "EawY12dbLy8JcWJvYep13M5J2GDVZFEqK5yvQQPNvyJQ",
+   "look": {
+    "body": 6253432,
+    "trim": 3356735,
+    "detail": 14702139,
+    "accent": 10120191,
+    "backdrop": 3095082,
+    "trait": 1
+   }
+  },
+  {
+   "id": "solarians:7",
+   "rarity": "rare",
+   "title": "Solarians #7",
+   "imageKey": "solarians_7",
+   "mockMint": "e6uPttcAsLUNXytkzoJzLkC9SBUdXMcFSEGenFTR5juN",
+   "look": {
+    "body": 9080985,
+    "trim": 4471370,
+    "detail": 14702139,
+    "accent": 3932128,
+    "backdrop": 3813162,
+    "trait": 0
+   }
+  },
+  {
+   "id": "solarians:8",
+   "rarity": "epic",
+   "title": "Solarians #8",
+   "imageKey": "solarians_8",
+   "mockMint": "Wz1GQbk7H7CC9tp2ZVVn1G5jdRfC4Ny4xqWv4kZfS6kX",
+   "look": {
+    "body": 13214247,
+    "trim": 16049072,
+    "detail": 12633808,
+    "accent": 16734779,
+    "backdrop": 3352890,
+    "trait": 2
+   }
+  }
+ ],
+ "nftParses": [
+  {
+   "id": "thugbirdz:3",
+   "parsed": "thugbirdz:3"
+  },
+  {
+   "id": "degenApes:8",
+   "parsed": "degenApes:8"
+  },
+  {
+   "id": "solarians:1",
+   "parsed": "solarians:1"
+  },
+  {
+   "id": "solarians:0",
+   "parsed": null
+  },
+  {
+   "id": "solarians:9",
+   "parsed": null
+  },
+  {
+   "id": "solarians:+2",
+   "parsed": "solarians:2"
+  },
+  {
+   "id": "solarians:0x2",
+   "parsed": "solarians:2"
+  },
+  {
+   "id": "solarians: 2",
+   "parsed": "solarians:2"
+  },
+  {
+   "id": "solarians",
+   "parsed": null
+  },
+  {
+   "id": "solarians:2:3",
+   "parsed": null
+  },
+  {
+   "id": "nobody:1",
+   "parsed": null
+  }
+ ],
+ "weapons": [
+  {
+   "id": "scythe.shrouded",
+   "levelRequired": 1,
+   "prices": {
+    "har": 0,
+    "fer": 120,
+    "wei": 120,
+    "cho": 120,
+    "hol": 120,
+    "mou": 120
+   }
+  },
+  {
+   "id": "scythe.sworn",
+   "levelRequired": 4,
+   "prices": {
+    "har": 220,
+    "fer": 220,
+    "wei": 220,
+    "cho": 220,
+    "hol": 220,
+    "mou": 220
+   }
+  },
+  {
+   "id": "scythe.scorched",
+   "levelRequired": 9,
+   "prices": {
+    "har": 640,
+    "fer": 640,
+    "wei": 640,
+    "cho": 640,
+    "hol": 640,
+    "mou": 640
+   }
+  },
+  {
+   "id": "scythe.hollowed",
+   "levelRequired": 15,
+   "prices": {
+    "har": 1500,
+    "fer": 1500,
+    "wei": 1500,
+    "cho": 1500,
+    "hol": 1500,
+    "mou": 1500
+   }
+  },
+  {
+   "id": "lanternPole.shrouded",
+   "levelRequired": 1,
+   "prices": {
+    "har": 120,
+    "fer": 0,
+    "wei": 120,
+    "cho": 120,
+    "hol": 120,
+    "mou": 120
+   }
+  },
+  {
+   "id": "lanternPole.sworn",
+   "levelRequired": 4,
+   "prices": {
+    "har": 220,
+    "fer": 220,
+    "wei": 220,
+    "cho": 220,
+    "hol": 220,
+    "mou": 220
+   }
+  },
+  {
+   "id": "lanternPole.scorched",
+   "levelRequired": 9,
+   "prices": {
+    "har": 640,
+    "fer": 640,
+    "wei": 640,
+    "cho": 640,
+    "hol": 640,
+    "mou": 640
+   }
+  },
+  {
+   "id": "lanternPole.hollowed",
+   "levelRequired": 15,
+   "prices": {
+    "har": 1500,
+    "fer": 1500,
+    "wei": 1500,
+    "cho": 1500,
+    "hol": 1500,
+    "mou": 1500
+   }
+  },
+  {
+   "id": "balanceFlail.shrouded",
+   "levelRequired": 1,
+   "prices": {
+    "har": 120,
+    "fer": 120,
+    "wei": 0,
+    "cho": 120,
+    "hol": 120,
+    "mou": 120
+   }
+  },
+  {
+   "id": "balanceFlail.sworn",
+   "levelRequired": 4,
+   "prices": {
+    "har": 220,
+    "fer": 220,
+    "wei": 220,
+    "cho": 220,
+    "hol": 220,
+    "mou": 220
+   }
+  },
+  {
+   "id": "balanceFlail.scorched",
+   "levelRequired": 9,
+   "prices": {
+    "har": 640,
+    "fer": 640,
+    "wei": 640,
+    "cho": 640,
+    "hol": 640,
+    "mou": 640
+   }
+  },
+  {
+   "id": "balanceFlail.hollowed",
+   "levelRequired": 15,
+   "prices": {
+    "har": 1500,
+    "fer": 1500,
+    "wei": 1500,
+    "cho": 1500,
+    "hol": 1500,
+    "mou": 1500
+   }
+  },
+  {
+   "id": "spear.shrouded",
+   "levelRequired": 1,
+   "prices": {
+    "har": 120,
+    "fer": 120,
+    "wei": 120,
+    "cho": 0,
+    "hol": 120,
+    "mou": 120
+   }
+  },
+  {
+   "id": "spear.sworn",
+   "levelRequired": 4,
+   "prices": {
+    "har": 220,
+    "fer": 220,
+    "wei": 220,
+    "cho": 220,
+    "hol": 220,
+    "mou": 220
+   }
+  },
+  {
+   "id": "spear.scorched",
+   "levelRequired": 9,
+   "prices": {
+    "har": 640,
+    "fer": 640,
+    "wei": 640,
+    "cho": 640,
+    "hol": 640,
+    "mou": 640
+   }
+  },
+  {
+   "id": "spear.hollowed",
+   "levelRequired": 15,
+   "prices": {
+    "har": 1500,
+    "fer": 1500,
+    "wei": 1500,
+    "cho": 1500,
+    "hol": 1500,
+    "mou": 1500
+   }
+  },
+  {
+   "id": "chainWhip.shrouded",
+   "levelRequired": 1,
+   "prices": {
+    "har": 120,
+    "fer": 120,
+    "wei": 120,
+    "cho": 120,
+    "hol": 0,
+    "mou": 120
+   }
+  },
+  {
+   "id": "chainWhip.sworn",
+   "levelRequired": 4,
+   "prices": {
+    "har": 220,
+    "fer": 220,
+    "wei": 220,
+    "cho": 220,
+    "hol": 220,
+    "mou": 220
+   }
+  },
+  {
+   "id": "chainWhip.scorched",
+   "levelRequired": 9,
+   "prices": {
+    "har": 640,
+    "fer": 640,
+    "wei": 640,
+    "cho": 640,
+    "hol": 640,
+    "mou": 640
+   }
+  },
+  {
+   "id": "chainWhip.hollowed",
+   "levelRequired": 15,
+   "prices": {
+    "har": 1500,
+    "fer": 1500,
+    "wei": 1500,
+    "cho": 1500,
+    "hol": 1500,
+    "mou": 1500
+   }
+  },
+  {
+   "id": "bell.shrouded",
+   "levelRequired": 1,
+   "prices": {
+    "har": 120,
+    "fer": 120,
+    "wei": 120,
+    "cho": 120,
+    "hol": 120,
+    "mou": 0
+   }
+  },
+  {
+   "id": "bell.sworn",
+   "levelRequired": 4,
+   "prices": {
+    "har": 220,
+    "fer": 220,
+    "wei": 220,
+    "cho": 220,
+    "hol": 220,
+    "mou": 220
+   }
+  },
+  {
+   "id": "bell.scorched",
+   "levelRequired": 9,
+   "prices": {
+    "har": 640,
+    "fer": 640,
+    "wei": 640,
+    "cho": 640,
+    "hol": 640,
+    "mou": 640
+   }
+  },
+  {
+   "id": "bell.hollowed",
+   "levelRequired": 15,
+   "prices": {
+    "har": 1500,
+    "fer": 1500,
+    "wei": 1500,
+    "cho": 1500,
+    "hol": 1500,
+    "mou": 1500
+   }
+  },
+  {
+   "id": "greatsword.shrouded",
+   "levelRequired": 3,
+   "prices": {
+    "har": 320,
+    "fer": 320,
+    "wei": 320,
+    "cho": 320,
+    "hol": 320,
+    "mou": 320
+   }
+  },
+  {
+   "id": "greatsword.sworn",
+   "levelRequired": 4,
+   "prices": {
+    "har": 220,
+    "fer": 220,
+    "wei": 220,
+    "cho": 220,
+    "hol": 220,
+    "mou": 220
+   }
+  },
+  {
+   "id": "greatsword.scorched",
+   "levelRequired": 9,
+   "prices": {
+    "har": 640,
+    "fer": 640,
+    "wei": 640,
+    "cho": 640,
+    "hol": 640,
+    "mou": 640
+   }
+  },
+  {
+   "id": "greatsword.hollowed",
+   "levelRequired": 15,
+   "prices": {
+    "har": 1500,
+    "fer": 1500,
+    "wei": 1500,
+    "cho": 1500,
+    "hol": 1500,
+    "mou": 1500
+   }
+  },
+  {
+   "id": "axe.shrouded",
+   "levelRequired": 3,
+   "prices": {
+    "har": 320,
+    "fer": 320,
+    "wei": 320,
+    "cho": 320,
+    "hol": 320,
+    "mou": 320
+   }
+  },
+  {
+   "id": "axe.sworn",
+   "levelRequired": 4,
+   "prices": {
+    "har": 220,
+    "fer": 220,
+    "wei": 220,
+    "cho": 220,
+    "hol": 220,
+    "mou": 220
+   }
+  },
+  {
+   "id": "axe.scorched",
+   "levelRequired": 9,
+   "prices": {
+    "har": 640,
+    "fer": 640,
+    "wei": 640,
+    "cho": 640,
+    "hol": 640,
+    "mou": 640
+   }
+  },
+  {
+   "id": "axe.hollowed",
+   "levelRequired": 15,
+   "prices": {
+    "har": 1500,
+    "fer": 1500,
+    "wei": 1500,
+    "cho": 1500,
+    "hol": 1500,
+    "mou": 1500
+   }
+  }
+ ],
+ "weaponParses": [
+  {
+   "id": "scythe.sworn",
+   "parsed": "scythe.sworn"
+  },
+  {
+   "id": "greatsword.hollowed",
+   "parsed": "greatsword.hollowed"
+  },
+  {
+   "id": "scythe",
+   "parsed": null
+  },
+  {
+   "id": "scythe.sworn.extra",
+   "parsed": null
+  },
+  {
+   "id": "sickle.sworn",
+   "parsed": null
+  },
+  {
+   "id": "scythe.rusty",
+   "parsed": null
+  }
+ ],
+ "times": [
+  {
+   "text": "2026-10-01T12:00:00.000Z",
+   "micros": 1790856000000000,
+   "iso": "2026-10-01T12:00:00.000Z"
+  },
+  {
+   "text": "2026-10-01T12:00:00.123456Z",
+   "micros": 1790856000123456,
+   "iso": "2026-10-01T12:00:00.123456Z"
+  },
+  {
+   "text": "2026-10-01T13:30:00+01:30",
+   "micros": 1790856000000000,
+   "iso": "2026-10-01T12:00:00.000Z"
+  },
+  {
+   "text": "1969-12-31T23:59:59.999Z",
+   "micros": -1000,
+   "iso": "1969-12-31T23:59:59.999Z"
+  },
+  {
+   "text": "2000-02-29T00:00:00Z",
+   "micros": 951782400000000,
+   "iso": "2000-02-29T00:00:00.000Z"
+  }
+ ]
+}

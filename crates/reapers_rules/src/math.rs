@@ -60,14 +60,15 @@ mod imp {
 	pub fn sqrt(x: f64) -> f64 {
 		x.sqrt()
 	}
+	// Rounding is exact everywhere, so it comes from libm either way.
 	pub fn floor(x: f64) -> f64 {
-		x.floor()
+		libm::floor(x)
 	}
 	pub fn ceil(x: f64) -> f64 {
-		x.ceil()
+		libm::ceil(x)
 	}
 	pub fn round(x: f64) -> f64 {
-		x.round()
+		libm::round(x)
 	}
 }
 

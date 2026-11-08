@@ -213,7 +213,10 @@ impl HuntLog {
 	/// Reads a log from the bytes written by [`encode`](Self::encode).
 	///
 	/// Fails when the bytes are not a whole log.
-	#[allow(clippy::too_many_lines, reason = "one pass over the bytes, in their order")]
+	#[allow(
+		clippy::too_many_lines,
+		reason = "one pass over the bytes, in their order"
+	)]
 	pub fn decode(bytes: &[u8]) -> Result<Self, HuntLogError> {
 		if bytes.is_empty() {
 			return Err(HuntLogError::Empty);

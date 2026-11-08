@@ -1,0 +1,1415 @@
+{
+ "steps": [
+  {
+   "step": "release before the oath",
+   "refusal": "oathRequired"
+  },
+  {
+   "step": "take the oath",
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 0,
+      "weapons": [
+       "spear.shrouded"
+      ],
+      "outfits": [
+       "shrouded"
+      ],
+      "weapon": "spear.shrouded",
+      "outfit": "shrouded",
+      "codex": [],
+      "huntsLost": 0,
+      "riftsSealed": 0,
+      "memory": {
+       "unseen": 0,
+       "stillness": 0,
+       "rhythm": 0
+      },
+      "art": null
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 0,
+    "lamports": 3000000000,
+    "vault": [],
+    "sightings": [],
+    "nextSightingId": 1
+   }
+  },
+  {
+   "step": "take it again",
+   "refusal": "oathAlreadyTaken"
+  },
+  {
+   "step": "acquire an ape",
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 0,
+      "weapons": [
+       "spear.shrouded"
+      ],
+      "outfits": [
+       "shrouded"
+      ],
+      "weapon": "spear.shrouded",
+      "outfit": "shrouded",
+      "codex": [],
+      "huntsLost": 0,
+      "riftsSealed": 0,
+      "memory": {
+       "unseen": 0,
+       "stillness": 0,
+       "rhythm": 0
+      },
+      "art": null
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 0,
+    "lamports": 2980000000,
+    "vault": [
+     "degenApes:2"
+    ],
+    "sightings": [],
+    "nextSightingId": 1
+   }
+  },
+  {
+   "step": "acquire it again",
+   "refusal": "alreadyHeld"
+  },
+  {
+   "step": "acquire a bird",
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 0,
+      "weapons": [
+       "spear.shrouded"
+      ],
+      "outfits": [
+       "shrouded"
+      ],
+      "weapon": "spear.shrouded",
+      "outfit": "shrouded",
+      "codex": [],
+      "huntsLost": 0,
+      "riftsSealed": 0,
+      "memory": {
+       "unseen": 0,
+       "stillness": 0,
+       "rhythm": 0
+      },
+      "art": null
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 0,
+    "lamports": 2720000000,
+    "vault": [
+     "degenApes:2",
+     "thugbirdz:8"
+    ],
+    "sightings": [],
+    "nextSightingId": 1
+   }
+  },
+  {
+   "step": "acquire a penguin",
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 0,
+      "weapons": [
+       "spear.shrouded"
+      ],
+      "outfits": [
+       "shrouded"
+      ],
+      "weapon": "spear.shrouded",
+      "outfit": "shrouded",
+      "codex": [],
+      "huntsLost": 0,
+      "riftsSealed": 0,
+      "memory": {
+       "unseen": 0,
+       "stillness": 0,
+       "rhythm": 0
+      },
+      "art": null
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 0,
+    "lamports": 2610000000,
+    "vault": [
+     "degenApes:2",
+     "thugbirdz:8",
+     "peskyPenguins:7"
+    ],
+    "sightings": [],
+    "nextSightingId": 1
+   }
+  },
+  {
+   "step": "release the ape",
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 0,
+      "weapons": [
+       "spear.shrouded"
+      ],
+      "outfits": [
+       "shrouded"
+      ],
+      "weapon": "spear.shrouded",
+      "outfit": "shrouded",
+      "codex": [],
+      "huntsLost": 0,
+      "riftsSealed": 0,
+      "memory": {
+       "unseen": 0,
+       "stillness": 0,
+       "rhythm": 0
+      },
+      "art": null
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 0,
+    "lamports": 2610000000,
+    "vault": [
+     "thugbirdz:8",
+     "peskyPenguins:7"
+    ],
+    "sightings": [
+     {
+      "id": 1,
+      "nft": "degenApes:2",
+      "seed": 41,
+      "surfacesAt": "2026-10-01T12:00:13.000Z"
+     }
+    ],
+    "nextSightingId": 2
+   }
+  },
+  {
+   "step": "release the bird",
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 0,
+      "weapons": [
+       "spear.shrouded"
+      ],
+      "outfits": [
+       "shrouded"
+      ],
+      "weapon": "spear.shrouded",
+      "outfit": "shrouded",
+      "codex": [],
+      "huntsLost": 0,
+      "riftsSealed": 0,
+      "memory": {
+       "unseen": 0,
+       "stillness": 0,
+       "rhythm": 0
+      },
+      "art": null
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 0,
+    "lamports": 2610000000,
+    "vault": [
+     "peskyPenguins:7"
+    ],
+    "sightings": [
+     {
+      "id": 1,
+      "nft": "degenApes:2",
+      "seed": 41,
+      "surfacesAt": "2026-10-01T12:00:13.000Z"
+     },
+     {
+      "id": 2,
+      "nft": "thugbirdz:8",
+      "seed": 42,
+      "surfacesAt": "2026-10-01T12:00:11.000Z"
+     }
+    ],
+    "nextSightingId": 3
+   }
+  },
+  {
+   "step": "judge degenApes:2",
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 56,
+      "weapons": [
+       "spear.shrouded"
+      ],
+      "outfits": [
+       "shrouded"
+      ],
+      "weapon": "spear.shrouded",
+      "outfit": "shrouded",
+      "codex": [
+       {
+        "nft": "degenApes:2",
+        "grade": "perfect",
+        "feeding": "meagre",
+        "xp": 56,
+        "anima": 26,
+        "nonce": 124,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       }
+      ],
+      "huntsLost": 0,
+      "riftsSealed": 0,
+      "memory": {
+       "unseen": 1,
+       "stillness": 1,
+       "rhythm": 1
+      },
+      "art": "cinder"
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 26,
+    "lamports": 2610000000,
+    "vault": [
+     "peskyPenguins:7"
+    ],
+    "sightings": [
+     {
+      "id": 2,
+      "nft": "thugbirdz:8",
+      "seed": 42,
+      "surfacesAt": "2026-10-01T12:00:11.000Z"
+     }
+    ],
+    "nextSightingId": 3
+   }
+  },
+  {
+   "step": "judge thugbirdz:8",
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 403,
+      "weapons": [
+       "spear.shrouded"
+      ],
+      "outfits": [
+       "shrouded"
+      ],
+      "weapon": "spear.shrouded",
+      "outfit": "shrouded",
+      "codex": [
+       {
+        "nft": "degenApes:2",
+        "grade": "perfect",
+        "feeding": "meagre",
+        "xp": 56,
+        "anima": 26,
+        "nonce": 124,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "thugbirdz:8",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 347,
+        "anima": 140,
+        "nonce": 127,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       }
+      ],
+      "huntsLost": 0,
+      "riftsSealed": 0,
+      "memory": {
+       "unseen": 2,
+       "stillness": 2,
+       "rhythm": 2
+      },
+      "art": "cinder"
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 166,
+    "lamports": 2610000000,
+    "vault": [
+     "peskyPenguins:7"
+    ],
+    "sightings": [],
+    "nextSightingId": 3
+   }
+  },
+  {
+   "step": "release the penguin",
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 403,
+      "weapons": [
+       "spear.shrouded"
+      ],
+      "outfits": [
+       "shrouded"
+      ],
+      "weapon": "spear.shrouded",
+      "outfit": "shrouded",
+      "codex": [
+       {
+        "nft": "degenApes:2",
+        "grade": "perfect",
+        "feeding": "meagre",
+        "xp": 56,
+        "anima": 26,
+        "nonce": 124,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "thugbirdz:8",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 347,
+        "anima": 140,
+        "nonce": 127,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       }
+      ],
+      "huntsLost": 0,
+      "riftsSealed": 0,
+      "memory": {
+       "unseen": 2,
+       "stillness": 2,
+       "rhythm": 2
+      },
+      "art": "cinder"
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 166,
+    "lamports": 2610000000,
+    "vault": [],
+    "sightings": [
+     {
+      "id": 3,
+      "nft": "peskyPenguins:7",
+      "seed": 43,
+      "surfacesAt": "2026-10-01T12:00:14.000Z"
+     }
+    ],
+    "nextSightingId": 4
+   }
+  },
+  {
+   "step": "hunt too early",
+   "refusal": "notSurfaced"
+  },
+  {
+   "step": "settle an escape",
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 403,
+      "weapons": [
+       "spear.shrouded"
+      ],
+      "outfits": [
+       "shrouded"
+      ],
+      "weapon": "spear.shrouded",
+      "outfit": "shrouded",
+      "codex": [
+       {
+        "nft": "degenApes:2",
+        "grade": "perfect",
+        "feeding": "meagre",
+        "xp": 56,
+        "anima": 26,
+        "nonce": 124,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "thugbirdz:8",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 347,
+        "anima": 140,
+        "nonce": 127,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       }
+      ],
+      "huntsLost": 1,
+      "riftsSealed": 0,
+      "memory": {
+       "unseen": 2,
+       "stillness": 2,
+       "rhythm": 2
+      },
+      "art": "cinder"
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 166,
+    "lamports": 2610000000,
+    "vault": [],
+    "sightings": [
+     {
+      "id": 3,
+      "nft": "peskyPenguins:7",
+      "seed": 43,
+      "surfacesAt": "2026-10-01T12:00:14.000Z"
+     }
+    ],
+    "nextSightingId": 4
+   }
+  },
+  {
+   "step": "settle an absorption",
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 601,
+      "weapons": [
+       "spear.shrouded"
+      ],
+      "outfits": [
+       "shrouded"
+      ],
+      "weapon": "spear.shrouded",
+      "outfit": "shrouded",
+      "codex": [
+       {
+        "nft": "degenApes:2",
+        "grade": "perfect",
+        "feeding": "meagre",
+        "xp": 56,
+        "anima": 26,
+        "nonce": 124,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "thugbirdz:8",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 347,
+        "anima": 140,
+        "nonce": 127,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "peskyPenguins:7",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 198,
+        "anima": 79,
+        "nonce": 4277009102,
+        "at": "2026-10-01T12:03:00.000Z",
+        "signature": null
+       }
+      ],
+      "huntsLost": 1,
+      "riftsSealed": 0,
+      "memory": {
+       "unseen": 3,
+       "stillness": 3,
+       "rhythm": 3
+      },
+      "art": "cinder"
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 245,
+    "lamports": 2610000000,
+    "vault": [],
+    "sightings": [],
+    "nextSightingId": 4
+   }
+  },
+  {
+   "step": "sign the penguin",
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 601,
+      "weapons": [
+       "spear.shrouded"
+      ],
+      "outfits": [
+       "shrouded"
+      ],
+      "weapon": "spear.shrouded",
+      "outfit": "shrouded",
+      "codex": [
+       {
+        "nft": "degenApes:2",
+        "grade": "perfect",
+        "feeding": "meagre",
+        "xp": 56,
+        "anima": 26,
+        "nonce": 124,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "thugbirdz:8",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 347,
+        "anima": 140,
+        "nonce": 127,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "peskyPenguins:7",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 198,
+        "anima": 79,
+        "nonce": 4277009102,
+        "at": "2026-10-01T12:03:00.000Z",
+        "signature": "c2lnbmVk"
+       }
+      ],
+      "huntsLost": 1,
+      "riftsSealed": 0,
+      "memory": {
+       "unseen": 3,
+       "stillness": 3,
+       "rhythm": 3
+      },
+      "art": "cinder"
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 245,
+    "lamports": 2610000000,
+    "vault": [],
+    "sightings": [],
+    "nextSightingId": 4
+   }
+  },
+  {
+   "step": "buy a heavy weapon too soon",
+   "refusal": "insufficientAnima"
+  },
+  {
+   "step": "settle a rift",
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 1001,
+      "weapons": [
+       "spear.shrouded"
+      ],
+      "outfits": [
+       "shrouded"
+      ],
+      "weapon": "spear.shrouded",
+      "outfit": "shrouded",
+      "codex": [
+       {
+        "nft": "degenApes:2",
+        "grade": "perfect",
+        "feeding": "meagre",
+        "xp": 56,
+        "anima": 26,
+        "nonce": 124,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "thugbirdz:8",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 347,
+        "anima": 140,
+        "nonce": 127,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "peskyPenguins:7",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 198,
+        "anima": 79,
+        "nonce": 4277009102,
+        "at": "2026-10-01T12:03:00.000Z",
+        "signature": "c2lnbmVk"
+       }
+      ],
+      "huntsLost": 1,
+      "riftsSealed": 1,
+      "memory": {
+       "unseen": 3,
+       "stillness": 3,
+       "rhythm": 3
+      },
+      "art": "cinder"
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 1145,
+    "lamports": 2610000000,
+    "vault": [],
+    "sightings": [],
+    "nextSightingId": 4
+   }
+  },
+  {
+   "step": "buy an axe",
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 1001,
+      "weapons": [
+       "spear.shrouded",
+       "axe.shrouded"
+      ],
+      "outfits": [
+       "shrouded"
+      ],
+      "weapon": "spear.shrouded",
+      "outfit": "shrouded",
+      "codex": [
+       {
+        "nft": "degenApes:2",
+        "grade": "perfect",
+        "feeding": "meagre",
+        "xp": 56,
+        "anima": 26,
+        "nonce": 124,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "thugbirdz:8",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 347,
+        "anima": 140,
+        "nonce": 127,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "peskyPenguins:7",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 198,
+        "anima": 79,
+        "nonce": 4277009102,
+        "at": "2026-10-01T12:03:00.000Z",
+        "signature": "c2lnbmVk"
+       }
+      ],
+      "huntsLost": 1,
+      "riftsSealed": 1,
+      "memory": {
+       "unseen": 3,
+       "stillness": 3,
+       "rhythm": 3
+      },
+      "art": "cinder"
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 825,
+    "lamports": 2610000000,
+    "vault": [],
+    "sightings": [],
+    "nextSightingId": 4
+   }
+  },
+  {
+   "step": "wield it",
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 1001,
+      "weapons": [
+       "spear.shrouded",
+       "axe.shrouded"
+      ],
+      "outfits": [
+       "shrouded"
+      ],
+      "weapon": "axe.shrouded",
+      "outfit": "shrouded",
+      "codex": [
+       {
+        "nft": "degenApes:2",
+        "grade": "perfect",
+        "feeding": "meagre",
+        "xp": 56,
+        "anima": 26,
+        "nonce": 124,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "thugbirdz:8",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 347,
+        "anima": 140,
+        "nonce": 127,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "peskyPenguins:7",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 198,
+        "anima": 79,
+        "nonce": 4277009102,
+        "at": "2026-10-01T12:03:00.000Z",
+        "signature": "c2lnbmVk"
+       }
+      ],
+      "huntsLost": 1,
+      "riftsSealed": 1,
+      "memory": {
+       "unseen": 3,
+       "stillness": 3,
+       "rhythm": 3
+      },
+      "art": "cinder"
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 825,
+    "lamports": 2610000000,
+    "vault": [],
+    "sightings": [],
+    "nextSightingId": 4
+   }
+  },
+  {
+   "step": "buy an outfit",
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 1001,
+      "weapons": [
+       "spear.shrouded",
+       "axe.shrouded"
+      ],
+      "outfits": [
+       "shrouded",
+       "sworn"
+      ],
+      "weapon": "axe.shrouded",
+      "outfit": "shrouded",
+      "codex": [
+       {
+        "nft": "degenApes:2",
+        "grade": "perfect",
+        "feeding": "meagre",
+        "xp": 56,
+        "anima": 26,
+        "nonce": 124,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "thugbirdz:8",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 347,
+        "anima": 140,
+        "nonce": 127,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "peskyPenguins:7",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 198,
+        "anima": 79,
+        "nonce": 4277009102,
+        "at": "2026-10-01T12:03:00.000Z",
+        "signature": "c2lnbmVk"
+       }
+      ],
+      "huntsLost": 1,
+      "riftsSealed": 1,
+      "memory": {
+       "unseen": 3,
+       "stillness": 3,
+       "rhythm": 3
+      },
+      "art": "cinder"
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 525,
+    "lamports": 2610000000,
+    "vault": [],
+    "sightings": [],
+    "nextSightingId": 4
+   }
+  },
+  {
+   "step": "wear it",
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 1001,
+      "weapons": [
+       "spear.shrouded",
+       "axe.shrouded"
+      ],
+      "outfits": [
+       "shrouded",
+       "sworn"
+      ],
+      "weapon": "axe.shrouded",
+      "outfit": "sworn",
+      "codex": [
+       {
+        "nft": "degenApes:2",
+        "grade": "perfect",
+        "feeding": "meagre",
+        "xp": 56,
+        "anima": 26,
+        "nonce": 124,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "thugbirdz:8",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 347,
+        "anima": 140,
+        "nonce": 127,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "peskyPenguins:7",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 198,
+        "anima": 79,
+        "nonce": 4277009102,
+        "at": "2026-10-01T12:03:00.000Z",
+        "signature": "c2lnbmVk"
+       }
+      ],
+      "huntsLost": 1,
+      "riftsSealed": 1,
+      "memory": {
+       "unseen": 3,
+       "stillness": 3,
+       "rhythm": 3
+      },
+      "art": "cinder"
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 525,
+    "lamports": 2610000000,
+    "vault": [],
+    "sightings": [],
+    "nextSightingId": 4
+   }
+  },
+  {
+   "step": "attune rime",
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 1001,
+      "weapons": [
+       "spear.shrouded",
+       "axe.shrouded"
+      ],
+      "outfits": [
+       "shrouded",
+       "sworn"
+      ],
+      "weapon": "axe.shrouded",
+      "outfit": "sworn",
+      "codex": [
+       {
+        "nft": "degenApes:2",
+        "grade": "perfect",
+        "feeding": "meagre",
+        "xp": 56,
+        "anima": 26,
+        "nonce": 124,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "thugbirdz:8",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 347,
+        "anima": 140,
+        "nonce": 127,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "peskyPenguins:7",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 198,
+        "anima": 79,
+        "nonce": 4277009102,
+        "at": "2026-10-01T12:03:00.000Z",
+        "signature": "c2lnbmVk"
+       }
+      ],
+      "huntsLost": 1,
+      "riftsSealed": 1,
+      "memory": {
+       "unseen": 3,
+       "stillness": 3,
+       "rhythm": 3
+      },
+      "art": "rime"
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 525,
+    "lamports": 2610000000,
+    "vault": [],
+    "sightings": [],
+    "nextSightingId": 4
+   }
+  },
+  {
+   "step": "attune gale",
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 1001,
+      "weapons": [
+       "spear.shrouded",
+       "axe.shrouded"
+      ],
+      "outfits": [
+       "shrouded",
+       "sworn"
+      ],
+      "weapon": "axe.shrouded",
+      "outfit": "sworn",
+      "codex": [
+       {
+        "nft": "degenApes:2",
+        "grade": "perfect",
+        "feeding": "meagre",
+        "xp": 56,
+        "anima": 26,
+        "nonce": 124,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "thugbirdz:8",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 347,
+        "anima": 140,
+        "nonce": 127,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "peskyPenguins:7",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 198,
+        "anima": 79,
+        "nonce": 4277009102,
+        "at": "2026-10-01T12:03:00.000Z",
+        "signature": "c2lnbmVk"
+       }
+      ],
+      "huntsLost": 1,
+      "riftsSealed": 1,
+      "memory": {
+       "unseen": 3,
+       "stillness": 3,
+       "rhythm": 3
+      },
+      "art": "gale"
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 525,
+    "lamports": 2610000000,
+    "vault": [],
+    "sightings": [],
+    "nextSightingId": 4
+   }
+  },
+  {
+   "step": "enter a rift",
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 1001,
+      "weapons": [
+       "spear.shrouded",
+       "axe.shrouded"
+      ],
+      "outfits": [
+       "shrouded",
+       "sworn"
+      ],
+      "weapon": "axe.shrouded",
+      "outfit": "sworn",
+      "codex": [
+       {
+        "nft": "degenApes:2",
+        "grade": "perfect",
+        "feeding": "meagre",
+        "xp": 56,
+        "anima": 26,
+        "nonce": 124,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "thugbirdz:8",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 347,
+        "anima": 140,
+        "nonce": 127,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "peskyPenguins:7",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 198,
+        "anima": 79,
+        "nonce": 4277009102,
+        "at": "2026-10-01T12:03:00.000Z",
+        "signature": "c2lnbmVk"
+       }
+      ],
+      "huntsLost": 1,
+      "riftsSealed": 1,
+      "memory": {
+       "unseen": 3,
+       "stillness": 3,
+       "rhythm": 3
+      },
+      "art": "gale"
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 525,
+    "lamports": 2610000000,
+    "vault": [],
+    "sightings": [],
+    "nextSightingId": 4
+   }
+  }
+ ],
+ "settlements": [
+  {
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 56,
+      "weapons": [
+       "spear.shrouded"
+      ],
+      "outfits": [
+       "shrouded"
+      ],
+      "weapon": "spear.shrouded",
+      "outfit": "shrouded",
+      "codex": [
+       {
+        "nft": "degenApes:2",
+        "grade": "perfect",
+        "feeding": "meagre",
+        "xp": 56,
+        "anima": 26,
+        "nonce": 124,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       }
+      ],
+      "huntsLost": 0,
+      "riftsSealed": 0,
+      "memory": {
+       "unseen": 1,
+       "stillness": 1,
+       "rhythm": 1
+      },
+      "art": "cinder"
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 26,
+    "lamports": 2610000000,
+    "vault": [
+     "peskyPenguins:7"
+    ],
+    "sightings": [
+     {
+      "id": 2,
+      "nft": "thugbirdz:8",
+      "seed": 42,
+      "surfacesAt": "2026-10-01T12:00:11.000Z"
+     }
+    ],
+    "nextSightingId": 3
+   },
+   "outcome": {
+    "grade": "perfect",
+    "escape": null,
+    "ambushed": true,
+    "ticks": 1358,
+    "deeds": {
+     "holds": 1,
+     "parries": 1,
+     "maxCadence": 6
+    }
+   },
+   "xp": 56,
+   "anima": 26,
+   "feeding": "meagre"
+  },
+  {
+   "state": {
+    "schema": 3,
+    "reapers": [
+     {
+      "id": "oathbound",
+      "genome": "R1-cho-h0-m1-r1-p2-o0-a2-s533-g142-z816-t919-n31-e4",
+      "xp": 403,
+      "weapons": [
+       "spear.shrouded"
+      ],
+      "outfits": [
+       "shrouded"
+      ],
+      "weapon": "spear.shrouded",
+      "outfit": "shrouded",
+      "codex": [
+       {
+        "nft": "degenApes:2",
+        "grade": "perfect",
+        "feeding": "meagre",
+        "xp": 56,
+        "anima": 26,
+        "nonce": 124,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       },
+       {
+        "nft": "thugbirdz:8",
+        "grade": "perfect",
+        "feeding": "fair",
+        "xp": 347,
+        "anima": 140,
+        "nonce": 127,
+        "at": "2026-10-01T12:01:00.000Z",
+        "signature": null
+       }
+      ],
+      "huntsLost": 0,
+      "riftsSealed": 0,
+      "memory": {
+       "unseen": 2,
+       "stillness": 2,
+       "rhythm": 2
+      },
+      "art": "cinder"
+     }
+    ],
+    "activeReaperId": "oathbound",
+    "anima": 166,
+    "lamports": 2610000000,
+    "vault": [
+     "peskyPenguins:7"
+    ],
+    "sightings": [],
+    "nextSightingId": 3
+   },
+   "outcome": {
+    "grade": "perfect",
+    "escape": null,
+    "ambushed": true,
+    "ticks": 4739,
+    "deeds": {
+     "holds": 7,
+     "parries": 6,
+     "maxCadence": 6
+    }
+   },
+   "xp": 347,
+   "anima": 140,
+   "feeding": "fair"
+  }
+ ],
+ "loadout": {
+  "class": "cho",
+  "level": 5,
+  "weapon": "axe.shrouded",
+  "completedSets": 0,
+  "gift": "firstLight",
+  "temperament": "stalwart",
+  "soulRank": 1,
+  "art": "gale",
+  "artRank": 1
+ },
+ "entrant": "Neve who Does Not Miss",
+ "schemaTwo": {
+  "schema": 2,
+  "genome": "R1-hol-h2-m0-r2-p0-o0-a2-s458-g906-z229-t780-n29-e5",
+  "xp": 500,
+  "weapons": [
+   "scythe.shrouded",
+   "scythe.sworn",
+   "scythe.sworn"
+  ],
+  "outfits": [
+   "shrouded"
+  ],
+  "weapon": "scythe.sworn",
+  "outfit": "shrouded",
+  "codex": [],
+  "huntsLost": 2,
+  "riftsSealed": 1,
+  "anima": 70,
+  "lamports": 1000,
+  "vault": [
+   "sollamas:4"
+  ],
+  "sightings": [],
+  "nextSightingId": 3
+ },
+ "schemaTwoMigrated": {
+  "schema": 3,
+  "reapers": [
+   {
+    "id": "oathbound",
+    "genome": "R1-hol-h2-m0-r2-p0-o0-a2-s458-g906-z229-t780-n29-e5",
+    "xp": 500,
+    "weapons": [
+     "scythe.shrouded",
+     "scythe.sworn"
+    ],
+    "outfits": [
+     "shrouded"
+    ],
+    "weapon": "scythe.sworn",
+    "outfit": "shrouded",
+    "codex": [],
+    "huntsLost": 2,
+    "riftsSealed": 1,
+    "memory": {
+     "unseen": 0,
+     "stillness": 0,
+     "rhythm": 0
+    },
+    "art": null
+   }
+  ],
+  "activeReaperId": "oathbound",
+  "anima": 70,
+  "lamports": 1000,
+  "vault": [
+   "sollamas:4"
+  ],
+  "sightings": [],
+  "nextSightingId": 3
+ }
+}

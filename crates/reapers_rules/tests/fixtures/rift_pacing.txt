@@ -1,0 +1,17 @@
+--- level 1 ---
+1 reaper  + 3 shades: sealed 8/8  82s, 330 xp
+2 reapers + 2 shades: sealed 8/8  73s, 330 xp
+4 reapers + 0 shades: sealed 8/8  61s, 321 xp
+--- level 6 ---
+1 reaper  + 3 shades: sealed 8/8  82s, 330 xp
+2 reapers + 2 shades: sealed 8/8  73s, 330 xp
+4 reapers + 0 shades: sealed 8/8  61s, 321 xp
+--- level 12 ---
+1 reaper  + 3 shades: sealed 8/8  82s, 330 xp
+2 reapers + 2 shades: sealed 8/8  73s, 330 xp
+4 reapers + 0 shades: sealed 8/8  61s, 321 xp
+--- level 20 ---
+1 reaper  + 3 shades: sealed 8/8  82s, 330 xp
+2 reapers + 2 shades: sealed 8/8  73s, 330 xp
+4 reapers + 0 shades: sealed 8/8  61s, 321 xp
+one idle reaper + 3 shades: sealed 2/8

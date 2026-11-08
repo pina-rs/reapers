@@ -1,0 +1,2254 @@
+{
+ "shuffles": [
+  {
+   "seed": 0,
+   "code": "R1-fer-h0-m0-r0-p1-o0-a2-s649-g456-z581-t246-n3-e7",
+   "name": "Quill who Poles the Dark",
+   "gift": "passage",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 1,
+   "code": "R1-cho-h0-m1-r3-p2-o0-a2-s721-g426-z995-t455-n19-e1",
+   "name": "Odile of the Single Cast",
+   "gift": "lastWord",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 2,
+   "code": "R1-hol-h0-m0-r2-p2-o0-a1-s357-g782-z114-t786-n8-e3",
+   "name": "Bram of the Night Road",
+   "gift": "echo",
+   "temperament": "keen"
+  },
+  {
+   "seed": 3,
+   "code": "R1-hol-h0-m1-r0-p2-o0-a1-s161-g263-z553-t195-n3-e5",
+   "name": "Quill of the Rattling Chain",
+   "gift": "hunger",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 4,
+   "code": "R1-mou-h0-m0-r0-p0-o0-a0-s974-g622-z691-t768-n14-e5",
+   "name": "Lorn of the Long Lament",
+   "gift": "keening",
+   "temperament": "patient"
+  },
+  {
+   "seed": 5,
+   "code": "R1-hol-h2-m0-r2-p0-o0-a2-s458-g906-z229-t780-n29-e5",
+   "name": "Hollis of the Rattling Chain",
+   "gift": "echo",
+   "temperament": "patient"
+  },
+  {
+   "seed": 6,
+   "code": "R1-cho-h0-m1-r0-p1-o0-a0-s921-g971-z210-t934-n15-e0",
+   "name": "Tamsin who Marks the Fallen",
+   "gift": "firstLight",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 7,
+   "code": "R1-har-h0-m2-r2-p1-o0-a1-s240-g553-z730-t258-n6-e6",
+   "name": "Calder the Winnower",
+   "gift": "aftermath",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 8,
+   "code": "R1-har-h1-m0-r2-p1-o0-a3-s239-g507-z60-t514-n2-e4",
+   "name": "Thren the Late Harvest",
+   "gift": "gathering",
+   "temperament": "patient"
+  },
+  {
+   "seed": 9,
+   "code": "R1-fer-h2-m0-r3-p2-o0-a1-s920-g130-z632-t698-n23-e2",
+   "name": "Vigil who Takes the Fare",
+   "gift": "returnLight",
+   "temperament": "patient"
+  },
+  {
+   "seed": 10,
+   "code": "R1-cho-h2-m2-r3-p1-o0-a0-s83-g34-z997-t923-n5-e3",
+   "name": "Nerys of the Red Thread",
+   "gift": "lastWord",
+   "temperament": "patient"
+  },
+  {
+   "seed": 11,
+   "code": "R1-cho-h1-m1-r2-p2-o0-a0-s531-g608-z450-t480-n33-e3",
+   "name": "Pall of the Red Thread",
+   "gift": "firstLight",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 12,
+   "code": "R1-fer-h0-m1-r3-p0-o0-a2-s640-g555-z737-t30-n37-e2",
+   "name": "Eira who Takes the Fare",
+   "gift": "passage",
+   "temperament": "keen"
+  },
+  {
+   "seed": 13,
+   "code": "R1-cho-h1-m0-r0-p0-o0-a0-s354-g558-z871-t656-n30-e2",
+   "name": "Mire the Raven-Sworn",
+   "gift": "firstLight",
+   "temperament": "patient"
+  },
+  {
+   "seed": 14,
+   "code": "R1-wei-h1-m1-r1-p0-o0-a2-s10-g936-z876-t361-n2-e6",
+   "name": "Thren the Unbribed",
+   "gift": "verdict",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 15,
+   "code": "R1-fer-h1-m1-r1-p0-o0-a3-s305-g65-z380-t363-n12-e0",
+   "name": "Maud of the Slow Water",
+   "gift": "returnLight",
+   "temperament": "keen"
+  },
+  {
+   "seed": 16,
+   "code": "R1-cho-h0-m2-r1-p1-o0-a3-s513-g187-z934-t455-n0-e2",
+   "name": "Vesper the Raven-Sworn",
+   "gift": "firstLight",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 17,
+   "code": "R1-hol-h0-m1-r0-p0-o0-a1-s546-g257-z684-t797-n12-e1",
+   "name": "Maud of the Empty Collar",
+   "gift": "echo",
+   "temperament": "patient"
+  },
+  {
+   "seed": 18,
+   "code": "R1-wei-h1-m1-r0-p2-o0-a2-s209-g141-z548-t391-n20-e1",
+   "name": "Rook the Even Hand",
+   "gift": "verdict",
+   "temperament": "keen"
+  },
+  {
+   "seed": 19,
+   "code": "R1-har-h0-m1-r3-p2-o0-a2-s531-g530-z823-t113-n19-e4",
+   "name": "Odile the Late Harvest",
+   "gift": "aftermath",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 20,
+   "code": "R1-hol-h1-m1-r1-p1-o0-a2-s858-g416-z961-t247-n6-e2",
+   "name": "Calder who Carries the Light",
+   "gift": "hunger",
+   "temperament": "keen"
+  },
+  {
+   "seed": 21,
+   "code": "R1-wei-h1-m0-r1-p1-o1-a3-s346-g443-z777-t189-n13-e4",
+   "name": "Hesper the Assayer",
+   "gift": "foreknowledge",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 22,
+   "code": "R1-cho-h0-m0-r0-p1-o1-a1-s673-g745-z16-t107-n5-e1",
+   "name": "Nerys of the Single Cast",
+   "gift": "firstLight",
+   "temperament": "keen"
+  },
+  {
+   "seed": 23,
+   "code": "R1-har-h0-m1-r1-p0-o0-a2-s954-g826-z8-t709-n8-e0",
+   "name": "Bram of the Last Furrow",
+   "gift": "furrow",
+   "temperament": "keen"
+  },
+  {
+   "seed": 24,
+   "code": "R1-fer-h2-m0-r0-p1-o0-a1-s459-g878-z783-t644-n13-e0",
+   "name": "Hesper of the Slow Water",
+   "gift": "returnLight",
+   "temperament": "keen"
+  },
+  {
+   "seed": 25,
+   "code": "R1-cho-h2-m1-r2-p0-o0-a1-s452-g336-z251-t248-n1-e4",
+   "name": "Morrow who Does Not Miss",
+   "gift": "lastWord",
+   "temperament": "patient"
+  },
+  {
+   "seed": 26,
+   "code": "R1-cho-h2-m1-r0-p2-o0-a3-s747-g829-z856-t252-n2-e6",
+   "name": "Thren of the Quiet Wing",
+   "gift": "lastWord",
+   "temperament": "patient"
+  },
+  {
+   "seed": 27,
+   "code": "R1-wei-h0-m0-r0-p2-o0-a1-s92-g473-z519-t392-n20-e3",
+   "name": "Rook of the Feather Weight",
+   "gift": "verdict",
+   "temperament": "keen"
+  },
+  {
+   "seed": 28,
+   "code": "R1-wei-h2-m2-r2-p0-o0-a1-s82-g965-z434-t921-n33-e7",
+   "name": "Pall who Reads the Beam",
+   "gift": "foreknowledge",
+   "temperament": "patient"
+  },
+  {
+   "seed": 29,
+   "code": "R1-fer-h0-m0-r0-p1-o0-a1-s322-g247-z35-t649-n0-e4",
+   "name": "Vesper the Tarred",
+   "gift": "passage",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 30,
+   "code": "R1-mou-h2-m1-r0-p0-o0-a3-s443-g923-z369-t826-n17-e6",
+   "name": "Isolde who Names the Hour",
+   "gift": "keening",
+   "temperament": "patient"
+  },
+  {
+   "seed": 31,
+   "code": "R1-hol-h2-m2-r0-p1-o0-a0-s932-g813-z664-t320-n29-e4",
+   "name": "Hollis the Riderless",
+   "gift": "hunger",
+   "temperament": "keen"
+  },
+  {
+   "seed": 32,
+   "code": "R1-wei-h2-m0-r3-p1-o0-a0-s561-g781-z863-t287-n4-e1",
+   "name": "Oswin the Even Hand",
+   "gift": "equilibrium",
+   "temperament": "keen"
+  },
+  {
+   "seed": 33,
+   "code": "R1-cho-h2-m1-r0-p1-o1-a1-s592-g790-z963-t322-n32-e1",
+   "name": "Orrin of the Single Cast",
+   "gift": "lastWord",
+   "temperament": "patient"
+  },
+  {
+   "seed": 34,
+   "code": "R1-cho-h2-m0-r1-p0-o0-a1-s754-g205-z312-t983-n11-e0",
+   "name": "Corvin who Marks the Fallen",
+   "gift": "reprisal",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 35,
+   "code": "R1-har-h1-m2-r3-p1-o0-a1-s745-g864-z211-t623-n34-e4",
+   "name": "Silas the Late Harvest",
+   "gift": "aftermath",
+   "temperament": "patient"
+  },
+  {
+   "seed": 36,
+   "code": "R1-mou-h2-m0-r0-p2-o1-a2-s964-g766-z200-t520-n14-e0",
+   "name": "Lorn of the First Toll",
+   "gift": "hush",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 37,
+   "code": "R1-cho-h2-m0-r2-p0-o0-a0-s959-g639-z496-t600-n31-e1",
+   "name": "Neve of the Single Cast",
+   "gift": "reprisal",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 38,
+   "code": "R1-hol-h2-m0-r3-p2-o0-a1-s167-g957-z327-t519-n4-e5",
+   "name": "Oswin of the Rattling Chain",
+   "gift": "echo",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 39,
+   "code": "R1-har-h2-m1-r0-p2-o0-a0-s282-g950-z780-t908-n31-e6",
+   "name": "Neve the Winnower",
+   "gift": "gathering",
+   "temperament": "patient"
+  },
+  {
+   "seed": 40,
+   "code": "R1-cho-h2-m0-r2-p1-o0-a2-s166-g93-z831-t82-n15-e1",
+   "name": "Tamsin of the Single Cast",
+   "gift": "reprisal",
+   "temperament": "keen"
+  },
+  {
+   "seed": 41,
+   "code": "R1-mou-h1-m1-r2-p2-o0-a3-s443-g57-z710-t832-n13-e2",
+   "name": "Hesper who Washes at the Ford",
+   "gift": "hush",
+   "temperament": "patient"
+  },
+  {
+   "seed": 42,
+   "code": "R1-cho-h1-m2-r2-p0-o0-a1-s625-g866-z472-t250-n35-e5",
+   "name": "Umbra the Named Hour",
+   "gift": "reprisal",
+   "temperament": "keen"
+  },
+  {
+   "seed": 43,
+   "code": "R1-mou-h0-m1-r0-p0-o0-a0-s62-g880-z190-t259-n34-e7",
+   "name": "Silas the Unconsoled",
+   "gift": "keening",
+   "temperament": "keen"
+  },
+  {
+   "seed": 44,
+   "code": "R1-mou-h0-m0-r3-p1-o0-a2-s375-g605-z759-t276-n0-e7",
+   "name": "Vesper the Unconsoled",
+   "gift": "keening",
+   "temperament": "patient"
+  },
+  {
+   "seed": 45,
+   "code": "R1-har-h2-m2-r1-p1-o0-a0-s727-g568-z755-t653-n36-e2",
+   "name": "Brannoc of the Long Field",
+   "gift": "aftermath",
+   "temperament": "patient"
+  },
+  {
+   "seed": 46,
+   "code": "R1-har-h2-m1-r3-p0-o0-a2-s5-g768-z744-t489-n7-e5",
+   "name": "Ilse of the Bent Stalk",
+   "gift": "aftermath",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 47,
+   "code": "R1-cho-h0-m1-r2-p1-o0-a2-s598-g27-z564-t122-n3-e2",
+   "name": "Quill the Raven-Sworn",
+   "gift": "lastWord",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 48,
+   "code": "R1-mou-h1-m0-r0-p1-o1-a0-s435-g783-z756-t273-n2-e4",
+   "name": "Thren the Hush",
+   "gift": "refrain",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 49,
+   "code": "R1-wei-h1-m2-r0-p1-o0-a1-s861-g19-z168-t684-n26-e4",
+   "name": "Dirge the Assayer",
+   "gift": "equilibrium",
+   "temperament": "patient"
+  },
+  {
+   "seed": 50,
+   "code": "R1-cho-h0-m1-r0-p0-o2-a0-s253-g898-z210-t239-n5-e1",
+   "name": "Nerys of the Single Cast",
+   "gift": "lastWord",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 51,
+   "code": "R1-har-h0-m1-r0-p0-o0-a1-s318-g920-z964-t315-n39-e5",
+   "name": "Jorun of the Bent Stalk",
+   "gift": "furrow",
+   "temperament": "keen"
+  },
+  {
+   "seed": 52,
+   "code": "R1-fer-h0-m1-r3-p1-o0-a0-s302-g807-z651-t965-n24-e6",
+   "name": "Wick the Mooring",
+   "gift": "passage",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 53,
+   "code": "R1-har-h2-m0-r3-p0-o0-a0-s773-g538-z954-t647-n37-e5",
+   "name": "Eira of the Bent Stalk",
+   "gift": "aftermath",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 54,
+   "code": "R1-fer-h1-m0-r1-p0-o0-a2-s747-g982-z431-t103-n39-e5",
+   "name": "Jorun of the Low Tide",
+   "gift": "anchor",
+   "temperament": "patient"
+  },
+  {
+   "seed": 55,
+   "code": "R1-wei-h2-m2-r2-p0-o0-a2-s333-g510-z82-t593-n15-e2",
+   "name": "Tamsin who Tips the Pan",
+   "gift": "foreknowledge",
+   "temperament": "patient"
+  },
+  {
+   "seed": 56,
+   "code": "R1-har-h1-m2-r1-p1-o0-a3-s435-g794-z471-t25-n12-e4",
+   "name": "Maud the Late Harvest",
+   "gift": "aftermath",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 57,
+   "code": "R1-hol-h0-m0-r2-p1-o0-a0-s515-g497-z447-t547-n25-e2",
+   "name": "Yarrow who Carries the Light",
+   "gift": "echo",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 58,
+   "code": "R1-wei-h1-m2-r0-p2-o0-a1-s903-g795-z430-t985-n26-e1",
+   "name": "Dirge the Even Hand",
+   "gift": "foreknowledge",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 59,
+   "code": "R1-wei-h1-m0-r0-p0-o0-a1-s327-g967-z25-t192-n29-e2",
+   "name": "Hollis who Tips the Pan",
+   "gift": "verdict",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 60,
+   "code": "R1-fer-h0-m0-r2-p1-o0-a3-s909-g835-z778-t85-n24-e1",
+   "name": "Wick the Unmoved",
+   "gift": "returnLight",
+   "temperament": "keen"
+  },
+  {
+   "seed": 61,
+   "code": "R1-cho-h2-m2-r2-p0-o0-a2-s421-g392-z520-t789-n25-e5",
+   "name": "Yarrow the Named Hour",
+   "gift": "lastWord",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 62,
+   "code": "R1-hol-h0-m0-r1-p0-o0-a3-s988-g827-z311-t615-n14-e2",
+   "name": "Lorn who Carries the Light",
+   "gift": "unbroken",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 63,
+   "code": "R1-fer-h0-m0-r0-p1-o1-a1-s662-g663-z200-t51-n0-e0",
+   "name": "Vesper of the Slow Water",
+   "gift": "returnLight",
+   "temperament": "patient"
+  },
+  {
+   "seed": 64,
+   "code": "R1-mou-h1-m1-r1-p2-o3-a3-s458-g877-z656-t616-n34-e0",
+   "name": "Silas of the First Toll",
+   "gift": "keening",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 65,
+   "code": "R1-har-h1-m1-r2-p1-o0-a3-s852-g569-z141-t199-n37-e6",
+   "name": "Eira the Winnower",
+   "gift": "gathering",
+   "temperament": "patient"
+  },
+  {
+   "seed": 66,
+   "code": "R1-har-h0-m0-r2-p1-o1-a0-s4-g552-z269-t2-n0-e7",
+   "name": "Vesper of the Stubble Dark",
+   "gift": "furrow",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 67,
+   "code": "R1-mou-h1-m1-r1-p0-o0-a2-s392-g694-z141-t605-n13-e6",
+   "name": "Hesper who Names the Hour",
+   "gift": "refrain",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 68,
+   "code": "R1-wei-h0-m0-r3-p0-o0-a1-s998-g740-z567-t745-n0-e4",
+   "name": "Vesper the Assayer",
+   "gift": "verdict",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 69,
+   "code": "R1-hol-h0-m2-r3-p2-o0-a2-s177-g843-z947-t990-n18-e7",
+   "name": "Fenwick the Open Gate",
+   "gift": "hunger",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 70,
+   "code": "R1-hol-h0-m0-r1-p2-o1-a0-s702-g617-z977-t928-n36-e2",
+   "name": "Brannoc who Carries the Light",
+   "gift": "echo",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 71,
+   "code": "R1-hol-h0-m1-r2-p1-o0-a0-s677-g304-z431-t944-n27-e4",
+   "name": "Knell the Riderless",
+   "gift": "hunger",
+   "temperament": "keen"
+  },
+  {
+   "seed": 72,
+   "code": "R1-fer-h0-m0-r0-p0-o0-a3-s913-g828-z327-t569-n8-e0",
+   "name": "Bram of the Slow Water",
+   "gift": "anchor",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 73,
+   "code": "R1-hol-h2-m2-r0-p2-o0-a0-s121-g953-z309-t124-n20-e3",
+   "name": "Rook of the Night Road",
+   "gift": "echo",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 74,
+   "code": "R1-har-h2-m2-r2-p1-o0-a3-s72-g807-z859-t674-n34-e3",
+   "name": "Silas who Walks the Rows",
+   "gift": "furrow",
+   "temperament": "keen"
+  },
+  {
+   "seed": 75,
+   "code": "R1-fer-h0-m2-r0-p1-o0-a3-s933-g55-z137-t394-n19-e6",
+   "name": "Odile the Mooring",
+   "gift": "anchor",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 76,
+   "code": "R1-wei-h2-m2-r0-p2-o0-a2-s954-g357-z324-t594-n17-e0",
+   "name": "Isolde of the True Measure",
+   "gift": "verdict",
+   "temperament": "keen"
+  },
+  {
+   "seed": 77,
+   "code": "R1-wei-h0-m2-r1-p0-o1-a3-s784-g56-z180-t910-n23-e3",
+   "name": "Vigil of the Feather Weight",
+   "gift": "verdict",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 78,
+   "code": "R1-cho-h0-m1-r2-p2-o2-a1-s482-g485-z849-t349-n2-e3",
+   "name": "Thren of the Red Thread",
+   "gift": "reprisal",
+   "temperament": "patient"
+  },
+  {
+   "seed": 79,
+   "code": "R1-har-h2-m2-r1-p2-o0-a0-s191-g254-z268-t240-n9-e3",
+   "name": "Sable who Walks the Rows",
+   "gift": "aftermath",
+   "temperament": "keen"
+  },
+  {
+   "seed": 80,
+   "code": "R1-hol-h2-m2-r0-p2-o1-a2-s664-g16-z217-t618-n0-e5",
+   "name": "Vesper of the Rattling Chain",
+   "gift": "hunger",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 81,
+   "code": "R1-mou-h0-m1-r2-p0-o0-a3-s862-g239-z254-t43-n7-e4",
+   "name": "Ilse the Hush",
+   "gift": "refrain",
+   "temperament": "patient"
+  },
+  {
+   "seed": 82,
+   "code": "R1-hol-h2-m1-r2-p1-o0-a3-s385-g342-z651-t437-n37-e4",
+   "name": "Eira the Riderless",
+   "gift": "hunger",
+   "temperament": "patient"
+  },
+  {
+   "seed": 83,
+   "code": "R1-hol-h0-m1-r2-p2-o0-a0-s355-g133-z910-t507-n33-e4",
+   "name": "Pall the Riderless",
+   "gift": "unbroken",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 84,
+   "code": "R1-wei-h1-m2-r2-p2-o0-a2-s289-g664-z374-t737-n38-e5",
+   "name": "Haldis of the Final Count",
+   "gift": "equilibrium",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 85,
+   "code": "R1-wei-h1-m2-r0-p1-o0-a1-s75-g630-z802-t902-n29-e5",
+   "name": "Hollis of the Final Count",
+   "gift": "verdict",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 86,
+   "code": "R1-har-h2-m2-r3-p1-o0-a1-s784-g715-z745-t0-n7-e4",
+   "name": "Ilse the Late Harvest",
+   "gift": "aftermath",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 87,
+   "code": "R1-har-h1-m1-r2-p0-o0-a1-s448-g537-z341-t312-n16-e5",
+   "name": "Garrick of the Bent Stalk",
+   "gift": "furrow",
+   "temperament": "keen"
+  },
+  {
+   "seed": 88,
+   "code": "R1-mou-h2-m1-r1-p1-o0-a2-s361-g219-z284-t114-n37-e3",
+   "name": "Eira of the Grey Veil",
+   "gift": "keening",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 89,
+   "code": "R1-mou-h0-m2-r3-p0-o0-a3-s778-g890-z220-t744-n19-e1",
+   "name": "Odile the Keening",
+   "gift": "keening",
+   "temperament": "patient"
+  },
+  {
+   "seed": 90,
+   "code": "R1-har-h0-m0-r1-p2-o0-a2-s6-g856-z197-t397-n38-e2",
+   "name": "Haldis of the Long Field",
+   "gift": "gathering",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 91,
+   "code": "R1-cho-h0-m2-r1-p0-o0-a1-s165-g406-z287-t997-n8-e3",
+   "name": "Bram of the Red Thread",
+   "gift": "firstLight",
+   "temperament": "patient"
+  },
+  {
+   "seed": 92,
+   "code": "R1-wei-h1-m2-r2-p0-o0-a3-s814-g500-z416-t892-n31-e7",
+   "name": "Neve who Reads the Beam",
+   "gift": "equilibrium",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 93,
+   "code": "R1-fer-h1-m1-r3-p2-o0-a1-s987-g894-z71-t203-n24-e4",
+   "name": "Wick the Tarred",
+   "gift": "passage",
+   "temperament": "patient"
+  },
+  {
+   "seed": 94,
+   "code": "R1-fer-h0-m2-r2-p2-o0-a1-s595-g487-z379-t421-n21-e4",
+   "name": "Sorrel the Tarred",
+   "gift": "returnLight",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 95,
+   "code": "R1-cho-h2-m0-r3-p0-o2-a3-s344-g718-z756-t948-n13-e7",
+   "name": "Hesper the Singled Out",
+   "gift": "firstLight",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 96,
+   "code": "R1-har-h0-m0-r3-p2-o0-a2-s676-g78-z363-t568-n4-e6",
+   "name": "Oswin the Winnower",
+   "gift": "gathering",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 97,
+   "code": "R1-cho-h0-m2-r2-p0-o0-a1-s548-g184-z198-t780-n28-e7",
+   "name": "Cairn the Singled Out",
+   "gift": "firstLight",
+   "temperament": "patient"
+  },
+  {
+   "seed": 98,
+   "code": "R1-cho-h0-m1-r0-p0-o0-a2-s586-g414-z32-t728-n2-e1",
+   "name": "Thren of the Single Cast",
+   "gift": "reprisal",
+   "temperament": "patient"
+  },
+  {
+   "seed": 99,
+   "code": "R1-fer-h2-m1-r2-p0-o1-a0-s105-g396-z671-t366-n2-e2",
+   "name": "Thren who Takes the Fare",
+   "gift": "returnLight",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 100,
+   "code": "R1-fer-h0-m1-r3-p1-o0-a0-s521-g229-z502-t632-n7-e1",
+   "name": "Ilse the Unmoved",
+   "gift": "anchor",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 101,
+   "code": "R1-har-h2-m1-r2-p1-o0-a2-s964-g228-z77-t386-n31-e3",
+   "name": "Neve who Walks the Rows",
+   "gift": "aftermath",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 102,
+   "code": "R1-hol-h1-m2-r3-p2-o0-a2-s802-g491-z158-t522-n36-e6",
+   "name": "Brannoc who Lost the First Thing",
+   "gift": "unbroken",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 103,
+   "code": "R1-fer-h2-m0-r3-p0-o0-a1-s26-g742-z148-t46-n3-e1",
+   "name": "Quill the Unmoved",
+   "gift": "returnLight",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 104,
+   "code": "R1-mou-h2-m2-r0-p1-o0-a3-s510-g193-z54-t961-n25-e6",
+   "name": "Yarrow who Names the Hour",
+   "gift": "refrain",
+   "temperament": "patient"
+  },
+  {
+   "seed": 105,
+   "code": "R1-har-h0-m2-r3-p1-o0-a3-s916-g584-z271-t895-n18-e3",
+   "name": "Fenwick who Walks the Rows",
+   "gift": "aftermath",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 106,
+   "code": "R1-fer-h1-m0-r3-p0-o0-a3-s802-g26-z115-t598-n39-e1",
+   "name": "Jorun the Unmoved",
+   "gift": "returnLight",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 107,
+   "code": "R1-mou-h1-m2-r2-p2-o0-a0-s893-g146-z335-t44-n22-e7",
+   "name": "Thorne the Unconsoled",
+   "gift": "refrain",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 108,
+   "code": "R1-wei-h1-m2-r3-p1-o0-a1-s433-g85-z810-t551-n35-e2",
+   "name": "Umbra who Tips the Pan",
+   "gift": "foreknowledge",
+   "temperament": "keen"
+  },
+  {
+   "seed": 109,
+   "code": "R1-mou-h2-m1-r0-p0-o0-a2-s105-g406-z772-t413-n3-e1",
+   "name": "Quill the Keening",
+   "gift": "refrain",
+   "temperament": "patient"
+  },
+  {
+   "seed": 110,
+   "code": "R1-har-h2-m2-r3-p0-o0-a2-s60-g804-z667-t165-n37-e2",
+   "name": "Eira of the Long Field",
+   "gift": "gathering",
+   "temperament": "keen"
+  },
+  {
+   "seed": 111,
+   "code": "R1-mou-h2-m0-r1-p2-o0-a1-s436-g179-z503-t714-n10-e4",
+   "name": "Wren the Hush",
+   "gift": "refrain",
+   "temperament": "keen"
+  },
+  {
+   "seed": 112,
+   "code": "R1-cho-h2-m1-r1-p0-o0-a1-s938-g677-z960-t107-n12-e3",
+   "name": "Maud of the Red Thread",
+   "gift": "firstLight",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 113,
+   "code": "R1-hol-h2-m1-r1-p1-o0-a1-s742-g805-z762-t822-n21-e5",
+   "name": "Sorrel of the Rattling Chain",
+   "gift": "unbroken",
+   "temperament": "keen"
+  },
+  {
+   "seed": 114,
+   "code": "R1-wei-h1-m2-r3-p1-o0-a3-s960-g631-z135-t480-n38-e4",
+   "name": "Haldis the Assayer",
+   "gift": "equilibrium",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 115,
+   "code": "R1-fer-h2-m2-r1-p1-o0-a0-s477-g800-z759-t554-n26-e4",
+   "name": "Dirge the Tarred",
+   "gift": "returnLight",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 116,
+   "code": "R1-mou-h2-m1-r2-p2-o0-a2-s617-g479-z660-t849-n18-e1",
+   "name": "Fenwick the Keening",
+   "gift": "keening",
+   "temperament": "keen"
+  },
+  {
+   "seed": 117,
+   "code": "R1-fer-h2-m2-r0-p1-o1-a3-s918-g654-z255-t557-n35-e6",
+   "name": "Umbra the Mooring",
+   "gift": "anchor",
+   "temperament": "keen"
+  },
+  {
+   "seed": 118,
+   "code": "R1-har-h1-m0-r3-p0-o0-a2-s224-g296-z61-t305-n3-e5",
+   "name": "Quill of the Bent Stalk",
+   "gift": "furrow",
+   "temperament": "keen"
+  },
+  {
+   "seed": 119,
+   "code": "R1-mou-h2-m0-r3-p1-o1-a2-s423-g521-z349-t259-n13-e4",
+   "name": "Hesper the Hush",
+   "gift": "keening",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 120,
+   "code": "R1-mou-h0-m1-r0-p2-o0-a0-s405-g838-z912-t543-n10-e5",
+   "name": "Wren of the Long Lament",
+   "gift": "keening",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 121,
+   "code": "R1-har-h2-m2-r1-p0-o0-a1-s580-g90-z148-t208-n29-e0",
+   "name": "Hollis of the Last Furrow",
+   "gift": "gathering",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 122,
+   "code": "R1-hol-h1-m2-r2-p2-o0-a2-s94-g284-z43-t700-n33-e1",
+   "name": "Pall of the Empty Collar",
+   "gift": "unbroken",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 123,
+   "code": "R1-hol-h0-m1-r0-p1-o1-a3-s930-g785-z409-t615-n39-e1",
+   "name": "Jorun of the Empty Collar",
+   "gift": "unbroken",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 124,
+   "code": "R1-hol-h0-m1-r2-p1-o0-a3-s919-g137-z360-t367-n1-e1",
+   "name": "Morrow of the Empty Collar",
+   "gift": "hunger",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 125,
+   "code": "R1-mou-h2-m1-r0-p2-o0-a2-s530-g825-z652-t763-n18-e4",
+   "name": "Fenwick the Hush",
+   "gift": "refrain",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 126,
+   "code": "R1-cho-h2-m0-r0-p1-o0-a2-s955-g318-z245-t675-n0-e6",
+   "name": "Vesper of the Quiet Wing",
+   "gift": "lastWord",
+   "temperament": "patient"
+  },
+  {
+   "seed": 127,
+   "code": "R1-fer-h2-m2-r2-p2-o0-a2-s404-g548-z968-t728-n20-e6",
+   "name": "Rook the Mooring",
+   "gift": "passage",
+   "temperament": "patient"
+  },
+  {
+   "seed": 128,
+   "code": "R1-wei-h0-m2-r1-p0-o0-a1-s392-g760-z471-t130-n35-e0",
+   "name": "Umbra of the True Measure",
+   "gift": "verdict",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 129,
+   "code": "R1-fer-h0-m1-r2-p1-o1-a0-s686-g288-z589-t774-n4-e5",
+   "name": "Oswin of the Low Tide",
+   "gift": "returnLight",
+   "temperament": "patient"
+  },
+  {
+   "seed": 130,
+   "code": "R1-fer-h2-m2-r0-p1-o0-a3-s368-g616-z23-t988-n14-e0",
+   "name": "Lorn of the Slow Water",
+   "gift": "passage",
+   "temperament": "patient"
+  },
+  {
+   "seed": 131,
+   "code": "R1-fer-h2-m0-r0-p0-o1-a0-s387-g114-z783-t68-n25-e6",
+   "name": "Yarrow the Mooring",
+   "gift": "returnLight",
+   "temperament": "keen"
+  },
+  {
+   "seed": 132,
+   "code": "R1-wei-h1-m2-r3-p2-o2-a1-s601-g54-z815-t562-n22-e7",
+   "name": "Thorne who Reads the Beam",
+   "gift": "equilibrium",
+   "temperament": "keen"
+  },
+  {
+   "seed": 133,
+   "code": "R1-cho-h2-m2-r3-p2-o0-a2-s426-g511-z20-t653-n24-e1",
+   "name": "Wick of the Single Cast",
+   "gift": "firstLight",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 134,
+   "code": "R1-cho-h2-m2-r3-p0-o1-a0-s127-g896-z467-t694-n33-e2",
+   "name": "Pall the Raven-Sworn",
+   "gift": "reprisal",
+   "temperament": "keen"
+  },
+  {
+   "seed": 135,
+   "code": "R1-har-h2-m2-r1-p0-o1-a0-s860-g979-z499-t224-n22-e6",
+   "name": "Thorne the Winnower",
+   "gift": "furrow",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 136,
+   "code": "R1-wei-h2-m1-r1-p2-o0-a0-s901-g5-z644-t876-n38-e6",
+   "name": "Haldis the Unbribed",
+   "gift": "foreknowledge",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 137,
+   "code": "R1-hol-h1-m0-r0-p1-o0-a1-s481-g414-z141-t920-n16-e7",
+   "name": "Garrick the Open Gate",
+   "gift": "hunger",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 138,
+   "code": "R1-har-h2-m2-r2-p2-o0-a1-s110-g751-z836-t233-n5-e7",
+   "name": "Nerys of the Stubble Dark",
+   "gift": "aftermath",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 139,
+   "code": "R1-wei-h0-m2-r0-p1-o1-a2-s28-g825-z755-t306-n4-e1",
+   "name": "Oswin the Even Hand",
+   "gift": "equilibrium",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 140,
+   "code": "R1-fer-h0-m0-r3-p1-o2-a0-s185-g131-z945-t770-n20-e1",
+   "name": "Rook the Unmoved",
+   "gift": "returnLight",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 141,
+   "code": "R1-hol-h0-m0-r2-p2-o0-a2-s779-g693-z774-t614-n5-e2",
+   "name": "Nerys who Carries the Light",
+   "gift": "hunger",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 142,
+   "code": "R1-cho-h1-m1-r3-p2-o0-a2-s696-g734-z832-t913-n34-e0",
+   "name": "Silas who Marks the Fallen",
+   "gift": "firstLight",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 143,
+   "code": "R1-mou-h1-m1-r2-p1-o0-a1-s878-g318-z368-t918-n30-e4",
+   "name": "Mire the Hush",
+   "gift": "hush",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 144,
+   "code": "R1-har-h1-m1-r0-p2-o0-a0-s271-g735-z179-t788-n21-e2",
+   "name": "Sorrel of the Long Field",
+   "gift": "aftermath",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 145,
+   "code": "R1-cho-h1-m2-r3-p1-o1-a1-s700-g492-z74-t715-n36-e6",
+   "name": "Brannoc of the Quiet Wing",
+   "gift": "lastWord",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 146,
+   "code": "R1-har-h0-m0-r3-p2-o0-a1-s283-g611-z930-t660-n15-e3",
+   "name": "Tamsin who Walks the Rows",
+   "gift": "furrow",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 147,
+   "code": "R1-wei-h0-m0-r1-p2-o0-a2-s520-g677-z353-t521-n22-e5",
+   "name": "Thorne of the Final Count",
+   "gift": "foreknowledge",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 148,
+   "code": "R1-cho-h2-m1-r0-p0-o0-a3-s540-g148-z273-t362-n32-e0",
+   "name": "Orrin who Marks the Fallen",
+   "gift": "reprisal",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 149,
+   "code": "R1-wei-h1-m2-r3-p1-o2-a1-s944-g154-z598-t388-n15-e4",
+   "name": "Tamsin the Assayer",
+   "gift": "equilibrium",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 150,
+   "code": "R1-hol-h1-m2-r3-p0-o0-a0-s919-g433-z188-t747-n0-e1",
+   "name": "Vesper of the Empty Collar",
+   "gift": "hunger",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 151,
+   "code": "R1-fer-h0-m0-r1-p2-o0-a1-s297-g91-z937-t437-n10-e2",
+   "name": "Wren who Takes the Fare",
+   "gift": "returnLight",
+   "temperament": "keen"
+  },
+  {
+   "seed": 152,
+   "code": "R1-wei-h0-m1-r0-p1-o0-a1-s939-g942-z341-t782-n6-e2",
+   "name": "Calder who Tips the Pan",
+   "gift": "verdict",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 153,
+   "code": "R1-har-h2-m0-r0-p1-o0-a3-s742-g793-z484-t201-n12-e7",
+   "name": "Maud of the Stubble Dark",
+   "gift": "gathering",
+   "temperament": "patient"
+  },
+  {
+   "seed": 154,
+   "code": "R1-cho-h2-m0-r0-p1-o0-a1-s48-g529-z125-t223-n0-e4",
+   "name": "Vesper who Does Not Miss",
+   "gift": "firstLight",
+   "temperament": "patient"
+  },
+  {
+   "seed": 155,
+   "code": "R1-wei-h0-m2-r3-p0-o0-a0-s871-g437-z20-t586-n22-e3",
+   "name": "Thorne of the Feather Weight",
+   "gift": "verdict",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 156,
+   "code": "R1-cho-h2-m2-r3-p0-o0-a1-s648-g831-z801-t165-n8-e3",
+   "name": "Bram of the Red Thread",
+   "gift": "reprisal",
+   "temperament": "patient"
+  },
+  {
+   "seed": 157,
+   "code": "R1-fer-h2-m2-r3-p1-o0-a2-s258-g473-z22-t102-n8-e2",
+   "name": "Bram who Takes the Fare",
+   "gift": "anchor",
+   "temperament": "keen"
+  },
+  {
+   "seed": 158,
+   "code": "R1-har-h0-m2-r2-p2-o0-a2-s594-g149-z380-t325-n19-e5",
+   "name": "Odile of the Bent Stalk",
+   "gift": "furrow",
+   "temperament": "patient"
+  },
+  {
+   "seed": 159,
+   "code": "R1-fer-h0-m0-r2-p2-o0-a0-s668-g289-z699-t952-n14-e3",
+   "name": "Lorn of the Far Bank",
+   "gift": "anchor",
+   "temperament": "keen"
+  },
+  {
+   "seed": 160,
+   "code": "R1-mou-h0-m2-r3-p2-o0-a1-s639-g526-z254-t772-n8-e2",
+   "name": "Bram who Washes at the Ford",
+   "gift": "refrain",
+   "temperament": "keen"
+  },
+  {
+   "seed": 161,
+   "code": "R1-fer-h0-m2-r2-p2-o1-a2-s698-g895-z232-t887-n11-e0",
+   "name": "Corvin of the Slow Water",
+   "gift": "returnLight",
+   "temperament": "patient"
+  },
+  {
+   "seed": 162,
+   "code": "R1-hol-h2-m0-r1-p0-o0-a3-s463-g57-z284-t456-n7-e7",
+   "name": "Ilse the Open Gate",
+   "gift": "unbroken",
+   "temperament": "patient"
+  },
+  {
+   "seed": 163,
+   "code": "R1-wei-h2-m1-r2-p0-o0-a1-s204-g187-z279-t994-n11-e3",
+   "name": "Corvin of the Feather Weight",
+   "gift": "verdict",
+   "temperament": "keen"
+  },
+  {
+   "seed": 164,
+   "code": "R1-fer-h2-m0-r2-p1-o2-a2-s153-g486-z317-t384-n7-e1",
+   "name": "Ilse the Unmoved",
+   "gift": "returnLight",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 165,
+   "code": "R1-cho-h1-m0-r2-p1-o1-a3-s940-g404-z835-t66-n22-e1",
+   "name": "Thorne of the Single Cast",
+   "gift": "reprisal",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 166,
+   "code": "R1-hol-h0-m1-r0-p2-o1-a0-s643-g9-z244-t527-n37-e3",
+   "name": "Eira of the Night Road",
+   "gift": "hunger",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 167,
+   "code": "R1-mou-h2-m0-r2-p0-o0-a0-s503-g244-z140-t421-n37-e7",
+   "name": "Eira the Unconsoled",
+   "gift": "refrain",
+   "temperament": "patient"
+  },
+  {
+   "seed": 168,
+   "code": "R1-fer-h1-m1-r2-p1-o3-a0-s64-g161-z973-t989-n24-e1",
+   "name": "Wick the Unmoved",
+   "gift": "returnLight",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 169,
+   "code": "R1-fer-h0-m1-r0-p2-o0-a1-s249-g582-z830-t71-n6-e2",
+   "name": "Calder who Takes the Fare",
+   "gift": "anchor",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 170,
+   "code": "R1-mou-h1-m0-r3-p2-o0-a3-s647-g420-z31-t738-n38-e3",
+   "name": "Haldis of the Grey Veil",
+   "gift": "refrain",
+   "temperament": "keen"
+  },
+  {
+   "seed": 171,
+   "code": "R1-cho-h1-m0-r2-p2-o0-a1-s548-g895-z1000-t66-n31-e6",
+   "name": "Neve of the Quiet Wing",
+   "gift": "firstLight",
+   "temperament": "keen"
+  },
+  {
+   "seed": 172,
+   "code": "R1-har-h0-m2-r1-p0-o0-a1-s5-g285-z771-t195-n11-e5",
+   "name": "Corvin of the Bent Stalk",
+   "gift": "furrow",
+   "temperament": "keen"
+  },
+  {
+   "seed": 173,
+   "code": "R1-har-h2-m0-r2-p0-o0-a0-s851-g764-z681-t811-n15-e6",
+   "name": "Tamsin the Winnower",
+   "gift": "furrow",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 174,
+   "code": "R1-cho-h2-m2-r0-p2-o0-a0-s208-g426-z510-t785-n0-e3",
+   "name": "Vesper of the Red Thread",
+   "gift": "firstLight",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 175,
+   "code": "R1-cho-h2-m1-r0-p0-o0-a1-s2-g540-z862-t468-n35-e2",
+   "name": "Umbra the Raven-Sworn",
+   "gift": "reprisal",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 176,
+   "code": "R1-har-h2-m0-r0-p1-o0-a2-s543-g83-z765-t302-n29-e0",
+   "name": "Hollis of the Last Furrow",
+   "gift": "aftermath",
+   "temperament": "patient"
+  },
+  {
+   "seed": 177,
+   "code": "R1-cho-h0-m1-r2-p2-o0-a0-s460-g1-z465-t608-n29-e6",
+   "name": "Hollis of the Quiet Wing",
+   "gift": "reprisal",
+   "temperament": "keen"
+  },
+  {
+   "seed": 178,
+   "code": "R1-mou-h1-m2-r3-p1-o0-a0-s401-g538-z971-t564-n24-e0",
+   "name": "Wick of the First Toll",
+   "gift": "refrain",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 179,
+   "code": "R1-cho-h2-m1-r2-p1-o0-a2-s190-g736-z307-t555-n17-e1",
+   "name": "Isolde of the Single Cast",
+   "gift": "firstLight",
+   "temperament": "keen"
+  },
+  {
+   "seed": 180,
+   "code": "R1-mou-h1-m1-r2-p1-o0-a2-s769-g429-z411-t627-n23-e0",
+   "name": "Vigil of the First Toll",
+   "gift": "keening",
+   "temperament": "keen"
+  },
+  {
+   "seed": 181,
+   "code": "R1-wei-h1-m2-r2-p0-o0-a0-s658-g963-z702-t911-n22-e0",
+   "name": "Thorne of the True Measure",
+   "gift": "equilibrium",
+   "temperament": "patient"
+  },
+  {
+   "seed": 182,
+   "code": "R1-mou-h0-m2-r2-p2-o0-a1-s841-g844-z89-t976-n23-e0",
+   "name": "Vigil of the First Toll",
+   "gift": "hush",
+   "temperament": "keen"
+  },
+  {
+   "seed": 183,
+   "code": "R1-har-h1-m1-r2-p2-o0-a3-s816-g18-z642-t996-n36-e0",
+   "name": "Brannoc of the Last Furrow",
+   "gift": "furrow",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 184,
+   "code": "R1-har-h2-m2-r0-p2-o0-a1-s583-g766-z525-t429-n16-e7",
+   "name": "Garrick of the Stubble Dark",
+   "gift": "furrow",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 185,
+   "code": "R1-hol-h0-m2-r2-p0-o0-a3-s397-g628-z374-t936-n12-e4",
+   "name": "Maud the Riderless",
+   "gift": "hunger",
+   "temperament": "keen"
+  },
+  {
+   "seed": 186,
+   "code": "R1-cho-h1-m2-r0-p1-o1-a2-s85-g577-z413-t991-n14-e4",
+   "name": "Lorn who Does Not Miss",
+   "gift": "reprisal",
+   "temperament": "keen"
+  },
+  {
+   "seed": 187,
+   "code": "R1-mou-h0-m2-r0-p1-o1-a1-s329-g908-z217-t644-n12-e4",
+   "name": "Maud the Hush",
+   "gift": "refrain",
+   "temperament": "keen"
+  },
+  {
+   "seed": 188,
+   "code": "R1-cho-h1-m2-r1-p1-o2-a0-s890-g382-z398-t309-n17-e7",
+   "name": "Isolde the Singled Out",
+   "gift": "reprisal",
+   "temperament": "keen"
+  },
+  {
+   "seed": 189,
+   "code": "R1-har-h0-m2-r1-p2-o0-a2-s527-g738-z375-t276-n24-e4",
+   "name": "Wick the Late Harvest",
+   "gift": "aftermath",
+   "temperament": "keen"
+  },
+  {
+   "seed": 190,
+   "code": "R1-cho-h1-m1-r1-p0-o0-a1-s822-g986-z192-t308-n38-e7",
+   "name": "Haldis the Singled Out",
+   "gift": "lastWord",
+   "temperament": "patient"
+  },
+  {
+   "seed": 191,
+   "code": "R1-har-h2-m1-r2-p1-o0-a3-s272-g280-z229-t490-n2-e1",
+   "name": "Thren the Gleaner",
+   "gift": "furrow",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 192,
+   "code": "R1-har-h1-m1-r3-p2-o0-a1-s35-g819-z827-t158-n16-e0",
+   "name": "Garrick of the Last Furrow",
+   "gift": "aftermath",
+   "temperament": "patient"
+  },
+  {
+   "seed": 193,
+   "code": "R1-hol-h0-m1-r3-p1-o1-a0-s834-g310-z620-t11-n7-e6",
+   "name": "Ilse who Lost the First Thing",
+   "gift": "echo",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 194,
+   "code": "R1-hol-h1-m2-r3-p0-o0-a0-s305-g773-z603-t164-n35-e2",
+   "name": "Umbra who Carries the Light",
+   "gift": "hunger",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 195,
+   "code": "R1-mou-h1-m0-r3-p2-o0-a0-s249-g880-z489-t308-n33-e5",
+   "name": "Pall of the Long Lament",
+   "gift": "refrain",
+   "temperament": "keen"
+  },
+  {
+   "seed": 196,
+   "code": "R1-hol-h1-m2-r2-p1-o0-a0-s897-g730-z509-t37-n39-e1",
+   "name": "Jorun of the Empty Collar",
+   "gift": "hunger",
+   "temperament": "patient"
+  },
+  {
+   "seed": 197,
+   "code": "R1-fer-h0-m2-r3-p2-o0-a2-s123-g227-z182-t250-n15-e4",
+   "name": "Tamsin the Tarred",
+   "gift": "passage",
+   "temperament": "patient"
+  },
+  {
+   "seed": 198,
+   "code": "R1-mou-h1-m0-r1-p1-o0-a1-s598-g33-z830-t755-n8-e0",
+   "name": "Bram of the First Toll",
+   "gift": "hush",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 199,
+   "code": "R1-mou-h1-m1-r1-p2-o0-a3-s677-g910-z326-t170-n0-e7",
+   "name": "Vesper the Unconsoled",
+   "gift": "hush",
+   "temperament": "keen"
+  },
+  {
+   "seed": 200,
+   "code": "R1-fer-h1-m1-r2-p2-o0-a3-s278-g907-z320-t869-n33-e6",
+   "name": "Pall the Mooring",
+   "gift": "returnLight",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 201,
+   "code": "R1-wei-h1-m1-r3-p0-o0-a1-s377-g502-z888-t912-n33-e7",
+   "name": "Pall who Reads the Beam",
+   "gift": "verdict",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 202,
+   "code": "R1-har-h2-m0-r1-p1-o0-a1-s361-g274-z108-t199-n26-e4",
+   "name": "Dirge the Late Harvest",
+   "gift": "gathering",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 203,
+   "code": "R1-hol-h0-m1-r0-p2-o2-a3-s903-g991-z745-t968-n33-e2",
+   "name": "Pall who Carries the Light",
+   "gift": "hunger",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 204,
+   "code": "R1-cho-h1-m0-r0-p0-o0-a1-s908-g460-z9-t415-n23-e3",
+   "name": "Vigil of the Red Thread",
+   "gift": "reprisal",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 205,
+   "code": "R1-fer-h2-m1-r2-p1-o0-a2-s839-g372-z392-t973-n20-e1",
+   "name": "Rook the Unmoved",
+   "gift": "anchor",
+   "temperament": "patient"
+  },
+  {
+   "seed": 206,
+   "code": "R1-cho-h2-m2-r1-p1-o2-a1-s961-g471-z946-t378-n7-e6",
+   "name": "Ilse of the Quiet Wing",
+   "gift": "firstLight",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 207,
+   "code": "R1-har-h2-m2-r2-p0-o2-a1-s268-g475-z937-t228-n28-e7",
+   "name": "Cairn of the Stubble Dark",
+   "gift": "aftermath",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 208,
+   "code": "R1-fer-h2-m1-r3-p2-o0-a2-s326-g159-z740-t767-n14-e3",
+   "name": "Lorn of the Far Bank",
+   "gift": "passage",
+   "temperament": "patient"
+  },
+  {
+   "seed": 209,
+   "code": "R1-har-h2-m2-r0-p1-o0-a0-s466-g735-z211-t934-n28-e5",
+   "name": "Cairn of the Bent Stalk",
+   "gift": "gathering",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 210,
+   "code": "R1-mou-h0-m0-r1-p2-o0-a1-s138-g388-z710-t895-n13-e0",
+   "name": "Hesper of the First Toll",
+   "gift": "keening",
+   "temperament": "keen"
+  },
+  {
+   "seed": 211,
+   "code": "R1-fer-h1-m1-r0-p1-o0-a3-s622-g746-z704-t338-n19-e0",
+   "name": "Odile of the Slow Water",
+   "gift": "anchor",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 212,
+   "code": "R1-wei-h2-m1-r2-p1-o0-a3-s105-g58-z322-t211-n15-e1",
+   "name": "Tamsin the Even Hand",
+   "gift": "equilibrium",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 213,
+   "code": "R1-fer-h2-m1-r2-p0-o0-a0-s808-g471-z162-t242-n33-e1",
+   "name": "Pall the Unmoved",
+   "gift": "anchor",
+   "temperament": "keen"
+  },
+  {
+   "seed": 214,
+   "code": "R1-fer-h1-m2-r3-p0-o0-a1-s17-g287-z477-t802-n16-e5",
+   "name": "Garrick of the Low Tide",
+   "gift": "anchor",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 215,
+   "code": "R1-fer-h2-m1-r3-p0-o1-a0-s276-g759-z347-t414-n1-e3",
+   "name": "Morrow of the Far Bank",
+   "gift": "anchor",
+   "temperament": "keen"
+  },
+  {
+   "seed": 216,
+   "code": "R1-fer-h1-m1-r0-p0-o1-a0-s739-g932-z839-t43-n11-e7",
+   "name": "Corvin who Poles the Dark",
+   "gift": "anchor",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 217,
+   "code": "R1-har-h1-m1-r1-p2-o0-a3-s179-g226-z531-t66-n21-e1",
+   "name": "Sorrel the Gleaner",
+   "gift": "aftermath",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 218,
+   "code": "R1-har-h1-m1-r2-p2-o0-a3-s310-g275-z176-t60-n39-e1",
+   "name": "Jorun the Gleaner",
+   "gift": "furrow",
+   "temperament": "keen"
+  },
+  {
+   "seed": 219,
+   "code": "R1-wei-h1-m0-r1-p0-o0-a0-s756-g76-z359-t596-n39-e7",
+   "name": "Jorun who Reads the Beam",
+   "gift": "foreknowledge",
+   "temperament": "patient"
+  },
+  {
+   "seed": 220,
+   "code": "R1-har-h2-m1-r3-p0-o0-a0-s234-g909-z143-t827-n5-e3",
+   "name": "Nerys who Walks the Rows",
+   "gift": "furrow",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 221,
+   "code": "R1-cho-h1-m1-r0-p0-o0-a2-s25-g742-z385-t465-n34-e4",
+   "name": "Silas who Does Not Miss",
+   "gift": "reprisal",
+   "temperament": "patient"
+  },
+  {
+   "seed": 222,
+   "code": "R1-fer-h1-m2-r0-p1-o2-a1-s9-g21-z98-t425-n0-e6",
+   "name": "Vesper the Mooring",
+   "gift": "returnLight",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 223,
+   "code": "R1-cho-h2-m1-r3-p0-o0-a2-s556-g204-z593-t995-n36-e5",
+   "name": "Brannoc the Named Hour",
+   "gift": "reprisal",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 224,
+   "code": "R1-har-h1-m0-r3-p2-o0-a0-s629-g736-z892-t716-n18-e0",
+   "name": "Fenwick of the Last Furrow",
+   "gift": "aftermath",
+   "temperament": "keen"
+  },
+  {
+   "seed": 225,
+   "code": "R1-har-h1-m1-r2-p1-o1-a0-s415-g628-z876-t946-n29-e3",
+   "name": "Hollis who Walks the Rows",
+   "gift": "aftermath",
+   "temperament": "keen"
+  },
+  {
+   "seed": 226,
+   "code": "R1-cho-h1-m0-r2-p0-o3-a3-s474-g877-z577-t962-n35-e0",
+   "name": "Umbra who Marks the Fallen",
+   "gift": "lastWord",
+   "temperament": "keen"
+  },
+  {
+   "seed": 227,
+   "code": "R1-cho-h2-m2-r2-p2-o0-a1-s153-g180-z649-t699-n12-e4",
+   "name": "Maud who Does Not Miss",
+   "gift": "lastWord",
+   "temperament": "patient"
+  },
+  {
+   "seed": 228,
+   "code": "R1-mou-h2-m0-r3-p2-o2-a1-s448-g723-z981-t722-n13-e0",
+   "name": "Hesper of the First Toll",
+   "gift": "refrain",
+   "temperament": "keen"
+  },
+  {
+   "seed": 229,
+   "code": "R1-cho-h2-m1-r1-p2-o0-a2-s132-g255-z164-t731-n11-e2",
+   "name": "Corvin the Raven-Sworn",
+   "gift": "lastWord",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 230,
+   "code": "R1-fer-h0-m2-r0-p2-o0-a2-s31-g60-z722-t890-n26-e7",
+   "name": "Dirge who Poles the Dark",
+   "gift": "anchor",
+   "temperament": "keen"
+  },
+  {
+   "seed": 231,
+   "code": "R1-mou-h0-m1-r3-p1-o0-a0-s490-g1-z634-t915-n16-e1",
+   "name": "Garrick the Keening",
+   "gift": "keening",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 232,
+   "code": "R1-mou-h0-m0-r0-p2-o2-a2-s755-g59-z713-t63-n26-e4",
+   "name": "Dirge the Hush",
+   "gift": "keening",
+   "temperament": "keen"
+  },
+  {
+   "seed": 233,
+   "code": "R1-fer-h0-m2-r3-p0-o0-a0-s760-g10-z909-t535-n27-e0",
+   "name": "Knell of the Slow Water",
+   "gift": "passage",
+   "temperament": "keen"
+  },
+  {
+   "seed": 234,
+   "code": "R1-wei-h1-m0-r3-p0-o0-a1-s93-g348-z560-t41-n35-e2",
+   "name": "Umbra who Tips the Pan",
+   "gift": "equilibrium",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 235,
+   "code": "R1-wei-h1-m2-r2-p1-o0-a2-s393-g483-z536-t817-n29-e0",
+   "name": "Hollis of the True Measure",
+   "gift": "foreknowledge",
+   "temperament": "keen"
+  },
+  {
+   "seed": 236,
+   "code": "R1-har-h1-m2-r1-p1-o0-a2-s674-g108-z12-t618-n20-e1",
+   "name": "Rook the Gleaner",
+   "gift": "gathering",
+   "temperament": "patient"
+  },
+  {
+   "seed": 237,
+   "code": "R1-cho-h0-m1-r3-p0-o0-a1-s127-g133-z261-t836-n37-e4",
+   "name": "Eira who Does Not Miss",
+   "gift": "firstLight",
+   "temperament": "patient"
+  },
+  {
+   "seed": 238,
+   "code": "R1-mou-h2-m1-r2-p1-o0-a3-s384-g107-z348-t866-n29-e2",
+   "name": "Hollis who Washes at the Ford",
+   "gift": "hush",
+   "temperament": "keen"
+  },
+  {
+   "seed": 239,
+   "code": "R1-har-h1-m1-r1-p1-o1-a1-s390-g722-z720-t422-n13-e1",
+   "name": "Hesper the Gleaner",
+   "gift": "furrow",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 240,
+   "code": "R1-wei-h2-m0-r3-p0-o0-a0-s316-g919-z931-t107-n1-e1",
+   "name": "Morrow the Even Hand",
+   "gift": "verdict",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 241,
+   "code": "R1-har-h1-m2-r0-p1-o0-a2-s817-g459-z335-t287-n34-e1",
+   "name": "Silas the Gleaner",
+   "gift": "gathering",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 242,
+   "code": "R1-hol-h1-m1-r0-p0-o0-a3-s3-g721-z22-t102-n10-e4",
+   "name": "Wren the Riderless",
+   "gift": "echo",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 243,
+   "code": "R1-fer-h0-m2-r1-p0-o0-a1-s85-g672-z82-t860-n34-e1",
+   "name": "Silas the Unmoved",
+   "gift": "anchor",
+   "temperament": "keen"
+  },
+  {
+   "seed": 244,
+   "code": "R1-hol-h1-m2-r1-p2-o3-a3-s204-g539-z860-t770-n21-e2",
+   "name": "Sorrel who Carries the Light",
+   "gift": "echo",
+   "temperament": "keen"
+  },
+  {
+   "seed": 245,
+   "code": "R1-mou-h1-m0-r0-p0-o1-a2-s911-g53-z633-t574-n26-e3",
+   "name": "Dirge of the Grey Veil",
+   "gift": "keening",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 246,
+   "code": "R1-hol-h2-m2-r3-p0-o0-a0-s141-g80-z164-t787-n33-e0",
+   "name": "Pall the Unheaded",
+   "gift": "unbroken",
+   "temperament": "patient"
+  },
+  {
+   "seed": 247,
+   "code": "R1-har-h1-m1-r1-p2-o0-a2-s313-g253-z488-t166-n1-e2",
+   "name": "Morrow of the Long Field",
+   "gift": "furrow",
+   "temperament": "patient"
+  },
+  {
+   "seed": 248,
+   "code": "R1-mou-h2-m0-r3-p0-o1-a2-s325-g231-z868-t838-n26-e1",
+   "name": "Dirge the Keening",
+   "gift": "hush",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 249,
+   "code": "R1-cho-h1-m2-r1-p1-o0-a0-s250-g57-z990-t927-n12-e2",
+   "name": "Maud the Raven-Sworn",
+   "gift": "lastWord",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 250,
+   "code": "R1-hol-h0-m2-r1-p1-o0-a1-s73-g607-z520-t669-n33-e4",
+   "name": "Pall the Riderless",
+   "gift": "unbroken",
+   "temperament": "keen"
+  },
+  {
+   "seed": 251,
+   "code": "R1-fer-h2-m1-r3-p0-o0-a0-s34-g11-z669-t288-n36-e3",
+   "name": "Brannoc of the Far Bank",
+   "gift": "passage",
+   "temperament": "keen"
+  },
+  {
+   "seed": 252,
+   "code": "R1-hol-h1-m2-r3-p1-o0-a1-s736-g471-z901-t238-n35-e0",
+   "name": "Umbra the Unheaded",
+   "gift": "unbroken",
+   "temperament": "keen"
+  },
+  {
+   "seed": 253,
+   "code": "R1-wei-h1-m1-r1-p1-o0-a0-s159-g658-z350-t668-n6-e2",
+   "name": "Calder who Tips the Pan",
+   "gift": "verdict",
+   "temperament": "keen"
+  },
+  {
+   "seed": 254,
+   "code": "R1-mou-h2-m1-r0-p2-o0-a3-s250-g738-z193-t353-n27-e6",
+   "name": "Knell who Names the Hour",
+   "gift": "keening",
+   "temperament": "keen"
+  },
+  {
+   "seed": 255,
+   "code": "R1-wei-h2-m0-r0-p0-o0-a3-s385-g300-z361-t482-n9-e3",
+   "name": "Sable of the Feather Weight",
+   "gift": "verdict",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 256,
+   "code": "R1-mou-h1-m2-r1-p2-o0-a1-s810-g311-z778-t177-n23-e6",
+   "name": "Vigil who Names the Hour",
+   "gift": "refrain",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 257,
+   "code": "R1-fer-h0-m1-r0-p0-o0-a1-s709-g179-z747-t777-n21-e7",
+   "name": "Sorrel who Poles the Dark",
+   "gift": "anchor",
+   "temperament": "keen"
+  },
+  {
+   "seed": 258,
+   "code": "R1-hol-h1-m2-r3-p2-o0-a2-s386-g298-z989-t495-n9-e0",
+   "name": "Sable the Unheaded",
+   "gift": "unbroken",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 259,
+   "code": "R1-cho-h0-m1-r1-p1-o0-a2-s419-g374-z36-t577-n18-e4",
+   "name": "Fenwick who Does Not Miss",
+   "gift": "reprisal",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 260,
+   "code": "R1-hol-h1-m2-r2-p0-o0-a0-s741-g980-z49-t451-n2-e7",
+   "name": "Thren the Open Gate",
+   "gift": "hunger",
+   "temperament": "patient"
+  },
+  {
+   "seed": 261,
+   "code": "R1-fer-h1-m0-r1-p0-o0-a3-s14-g37-z269-t745-n34-e6",
+   "name": "Silas the Mooring",
+   "gift": "anchor",
+   "temperament": "patient"
+  },
+  {
+   "seed": 262,
+   "code": "R1-cho-h1-m2-r2-p1-o0-a2-s149-g405-z117-t536-n31-e7",
+   "name": "Neve the Singled Out",
+   "gift": "firstLight",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 263,
+   "code": "R1-cho-h1-m2-r1-p0-o2-a1-s350-g414-z37-t773-n33-e3",
+   "name": "Pall of the Red Thread",
+   "gift": "reprisal",
+   "temperament": "keen"
+  },
+  {
+   "seed": 264,
+   "code": "R1-cho-h1-m0-r0-p0-o0-a1-s792-g46-z606-t211-n33-e5",
+   "name": "Pall the Named Hour",
+   "gift": "lastWord",
+   "temperament": "keen"
+  },
+  {
+   "seed": 265,
+   "code": "R1-har-h1-m2-r2-p2-o1-a3-s319-g708-z87-t844-n36-e1",
+   "name": "Brannoc the Gleaner",
+   "gift": "aftermath",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 266,
+   "code": "R1-mou-h2-m0-r0-p2-o0-a0-s35-g58-z120-t682-n6-e0",
+   "name": "Calder of the First Toll",
+   "gift": "hush",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 267,
+   "code": "R1-fer-h1-m2-r2-p0-o1-a2-s110-g841-z390-t701-n22-e3",
+   "name": "Thorne of the Far Bank",
+   "gift": "returnLight",
+   "temperament": "patient"
+  },
+  {
+   "seed": 268,
+   "code": "R1-mou-h1-m2-r2-p2-o1-a3-s511-g251-z778-t810-n22-e5",
+   "name": "Thorne of the Long Lament",
+   "gift": "refrain",
+   "temperament": "patient"
+  },
+  {
+   "seed": 269,
+   "code": "R1-fer-h0-m0-r3-p1-o0-a1-s142-g885-z267-t362-n10-e6",
+   "name": "Wren the Mooring",
+   "gift": "returnLight",
+   "temperament": "keen"
+  },
+  {
+   "seed": 270,
+   "code": "R1-mou-h1-m2-r0-p1-o0-a2-s393-g700-z4-t713-n10-e0",
+   "name": "Wren of the First Toll",
+   "gift": "hush",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 271,
+   "code": "R1-wei-h2-m1-r1-p0-o0-a0-s536-g609-z249-t608-n32-e1",
+   "name": "Orrin the Even Hand",
+   "gift": "equilibrium",
+   "temperament": "keen"
+  },
+  {
+   "seed": 272,
+   "code": "R1-har-h2-m1-r2-p1-o0-a0-s939-g210-z156-t582-n39-e1",
+   "name": "Jorun the Gleaner",
+   "gift": "aftermath",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 273,
+   "code": "R1-cho-h0-m1-r0-p2-o0-a2-s333-g557-z454-t76-n13-e7",
+   "name": "Hesper the Singled Out",
+   "gift": "reprisal",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 274,
+   "code": "R1-cho-h2-m2-r1-p1-o0-a0-s161-g127-z163-t652-n17-e7",
+   "name": "Isolde the Singled Out",
+   "gift": "firstLight",
+   "temperament": "patient"
+  },
+  {
+   "seed": 275,
+   "code": "R1-cho-h0-m2-r3-p2-o1-a2-s616-g779-z935-t366-n2-e6",
+   "name": "Thren of the Quiet Wing",
+   "gift": "firstLight",
+   "temperament": "keen"
+  },
+  {
+   "seed": 276,
+   "code": "R1-hol-h2-m2-r2-p2-o0-a1-s457-g780-z743-t317-n9-e4",
+   "name": "Sable the Riderless",
+   "gift": "hunger",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 277,
+   "code": "R1-cho-h1-m2-r0-p1-o0-a2-s744-g317-z170-t217-n20-e5",
+   "name": "Rook the Named Hour",
+   "gift": "lastWord",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 278,
+   "code": "R1-fer-h0-m0-r3-p1-o0-a1-s376-g258-z955-t632-n34-e5",
+   "name": "Silas of the Low Tide",
+   "gift": "returnLight",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 279,
+   "code": "R1-wei-h1-m2-r1-p0-o0-a2-s527-g488-z46-t387-n21-e7",
+   "name": "Sorrel who Reads the Beam",
+   "gift": "equilibrium",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 280,
+   "code": "R1-wei-h0-m2-r3-p0-o1-a0-s777-g403-z431-t909-n21-e6",
+   "name": "Sorrel the Unbribed",
+   "gift": "equilibrium",
+   "temperament": "keen"
+  },
+  {
+   "seed": 281,
+   "code": "R1-har-h1-m0-r1-p2-o0-a2-s118-g456-z486-t211-n12-e1",
+   "name": "Maud the Gleaner",
+   "gift": "aftermath",
+   "temperament": "keen"
+  },
+  {
+   "seed": 282,
+   "code": "R1-wei-h0-m2-r0-p2-o0-a1-s67-g546-z792-t324-n29-e0",
+   "name": "Hollis of the True Measure",
+   "gift": "verdict",
+   "temperament": "keen"
+  },
+  {
+   "seed": 283,
+   "code": "R1-mou-h1-m0-r0-p1-o1-a0-s196-g442-z348-t423-n17-e0",
+   "name": "Isolde of the First Toll",
+   "gift": "keening",
+   "temperament": "keen"
+  },
+  {
+   "seed": 284,
+   "code": "R1-har-h1-m2-r0-p1-o0-a3-s289-g203-z876-t691-n25-e2",
+   "name": "Yarrow of the Long Field",
+   "gift": "aftermath",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 285,
+   "code": "R1-har-h2-m0-r1-p2-o0-a0-s82-g943-z503-t739-n7-e1",
+   "name": "Ilse the Gleaner",
+   "gift": "gathering",
+   "temperament": "patient"
+  },
+  {
+   "seed": 286,
+   "code": "R1-mou-h1-m0-r1-p2-o0-a1-s370-g813-z838-t994-n30-e2",
+   "name": "Mire who Washes at the Ford",
+   "gift": "hush",
+   "temperament": "keen"
+  },
+  {
+   "seed": 287,
+   "code": "R1-cho-h1-m0-r3-p1-o0-a0-s308-g375-z698-t64-n27-e5",
+   "name": "Knell the Named Hour",
+   "gift": "reprisal",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 288,
+   "code": "R1-cho-h2-m1-r2-p0-o2-a3-s489-g529-z723-t646-n27-e1",
+   "name": "Knell of the Single Cast",
+   "gift": "reprisal",
+   "temperament": "patient"
+  },
+  {
+   "seed": 289,
+   "code": "R1-har-h2-m1-r0-p1-o0-a0-s266-g331-z503-t275-n38-e5",
+   "name": "Haldis of the Bent Stalk",
+   "gift": "gathering",
+   "temperament": "patient"
+  },
+  {
+   "seed": 290,
+   "code": "R1-wei-h2-m2-r0-p0-o0-a3-s396-g285-z268-t96-n1-e1",
+   "name": "Morrow the Even Hand",
+   "gift": "verdict",
+   "temperament": "keen"
+  },
+  {
+   "seed": 291,
+   "code": "R1-hol-h1-m0-r2-p1-o0-a0-s28-g824-z344-t569-n21-e5",
+   "name": "Sorrel of the Rattling Chain",
+   "gift": "echo",
+   "temperament": "keen"
+  },
+  {
+   "seed": 292,
+   "code": "R1-cho-h0-m2-r3-p1-o0-a2-s977-g884-z652-t949-n4-e7",
+   "name": "Oswin the Singled Out",
+   "gift": "reprisal",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 293,
+   "code": "R1-wei-h1-m1-r1-p2-o0-a0-s503-g223-z253-t13-n37-e7",
+   "name": "Eira who Reads the Beam",
+   "gift": "verdict",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 294,
+   "code": "R1-hol-h0-m2-r0-p2-o0-a3-s154-g414-z711-t365-n11-e4",
+   "name": "Corvin the Riderless",
+   "gift": "unbroken",
+   "temperament": "keen"
+  },
+  {
+   "seed": 295,
+   "code": "R1-mou-h2-m0-r3-p0-o2-a2-s455-g941-z755-t852-n33-e7",
+   "name": "Pall the Unconsoled",
+   "gift": "hush",
+   "temperament": "patient"
+  },
+  {
+   "seed": 296,
+   "code": "R1-wei-h2-m1-r2-p2-o2-a2-s603-g872-z981-t177-n39-e2",
+   "name": "Jorun who Tips the Pan",
+   "gift": "equilibrium",
+   "temperament": "patient"
+  },
+  {
+   "seed": 297,
+   "code": "R1-fer-h0-m1-r2-p0-o1-a1-s212-g946-z357-t459-n23-e5",
+   "name": "Vigil of the Low Tide",
+   "gift": "passage",
+   "temperament": "keen"
+  },
+  {
+   "seed": 298,
+   "code": "R1-wei-h1-m0-r2-p2-o0-a2-s213-g292-z207-t990-n12-e1",
+   "name": "Maud the Even Hand",
+   "gift": "verdict",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 299,
+   "code": "R1-hol-h2-m0-r2-p0-o1-a3-s56-g120-z561-t585-n5-e7",
+   "name": "Nerys the Open Gate",
+   "gift": "unbroken",
+   "temperament": "keen"
+  },
+  {
+   "seed": 0,
+   "code": "R1-fer-h0-m0-r0-p1-o0-a2-s649-g456-z581-t246-n3-e7",
+   "name": "Quill who Poles the Dark",
+   "gift": "passage",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 1,
+   "code": "R1-cho-h0-m1-r3-p2-o0-a2-s721-g426-z995-t455-n19-e1",
+   "name": "Odile of the Single Cast",
+   "gift": "lastWord",
+   "temperament": "stalwart"
+  },
+  {
+   "seed": 7,
+   "code": "R1-har-h0-m2-r2-p1-o0-a1-s240-g553-z730-t258-n6-e6",
+   "name": "Calder the Winnower",
+   "gift": "aftermath",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 42,
+   "code": "R1-cho-h1-m2-r2-p0-o0-a1-s625-g866-z472-t250-n35-e5",
+   "name": "Umbra the Named Hour",
+   "gift": "reprisal",
+   "temperament": "keen"
+  },
+  {
+   "seed": -1,
+   "code": "R1-mou-h0-m2-r3-p2-o0-a2-s476-g135-z989-t872-n7-e2",
+   "name": "Ilse who Washes at the Ford",
+   "gift": "hush",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 2147483647,
+   "code": "R1-wei-h0-m1-r1-p0-o2-a2-s996-g358-z290-t539-n36-e5",
+   "name": "Brannoc of the Final Count",
+   "gift": "verdict",
+   "temperament": "keen"
+  },
+  {
+   "seed": 2147483648,
+   "code": "R1-hol-h1-m2-r2-p2-o0-a3-s933-g675-z417-t752-n20-e2",
+   "name": "Rook who Carries the Light",
+   "gift": "hunger",
+   "temperament": "patient"
+  },
+  {
+   "seed": 4294967295,
+   "code": "R1-mou-h0-m2-r3-p2-o0-a2-s476-g135-z989-t872-n7-e2",
+   "name": "Ilse who Washes at the Ford",
+   "gift": "hush",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 4294967296,
+   "code": "R1-fer-h0-m0-r0-p1-o0-a2-s649-g456-z581-t246-n3-e7",
+   "name": "Quill who Poles the Dark",
+   "gift": "passage",
+   "temperament": "hungry"
+  },
+  {
+   "seed": 3735928559,
+   "code": "R1-mou-h0-m2-r1-p1-o1-a0-s317-g88-z245-t788-n16-e5",
+   "name": "Garrick of the Long Lament",
+   "gift": "hush",
+   "temperament": "keen"
+  },
+  {
+   "seed": 1099511627781,
+   "code": "R1-hol-h2-m0-r2-p0-o0-a2-s458-g906-z229-t780-n29-e5",
+   "name": "Hollis of the Rattling Chain",
+   "gift": "echo",
+   "temperament": "patient"
+  },
+  {
+   "seed": -123456789012,
+   "code": "R1-fer-h1-m0-r0-p1-o0-a3-s364-g904-z359-t973-n31-e6",
+   "name": "Neve the Mooring",
+   "gift": "anchor",
+   "temperament": "keen"
+  }
+ ],
+ "parses": [
+  {
+   "code": "R1-har-h0-m0-r0-p0-o0-a2-s500-g500-z400-t500-n0-e0",
+   "parsed": "R1-har-h0-m0-r0-p0-o0-a2-s500-g500-z400-t500-n0-e0"
+  },
+  {
+   "code": "R1-mou-h2-m2-r3-p2-o3-a3-s1000-g0-z1000-t0-n39-e7",
+   "parsed": "R1-mou-h2-m2-r3-p2-o3-a3-s1000-g0-z1000-t0-n39-e7"
+  },
+  {
+   "code": "R1-cho-h1-m1-r1-p1-o1-a1-s1-g2-z3-t4-n5-e6",
+   "parsed": "R1-cho-h1-m1-r1-p1-o1-a1-s1-g2-z3-t4-n5-e6"
+  },
+  {
+   "code": "R1-hol-h+1-m0-r0-p0-o0-a0-s0x10-g0-z0-t0-n0-e0",
+   "parsed": "R1-hol-h1-m0-r0-p0-o0-a0-s16-g0-z0-t0-n0-e0"
+  },
+  {
+   "code": "R1-har-h3-m0-r0-p0-o0-a0-s0-g0-z0-t0-n0-e0",
+   "parsed": null
+  },
+  {
+   "code": "R1-xxx-h0-m0-r0-p0-o0-a0-s0-g0-z0-t0-n0-e0",
+   "parsed": null
+  },
+  {
+   "code": "R2-har-h0-m0-r0-p0-o0-a0-s0-g0-z0-t0-n0-e0",
+   "parsed": null
+  },
+  {
+   "code": "R1-har-h0-m0-r0-p0-o0-a0-s0-g0-z0-t0-n0",
+   "parsed": null
+  },
+  {
+   "code": "R1-har-m0-h0-r0-p0-o0-a0-s0-g0-z0-t0-n0-e0",
+   "parsed": null
+  },
+  {
+   "code": "R1-har-h-1-m0-r0-p0-o0-a0-s0-g0-z0-t0-n0-e0",
+   "parsed": null
+  },
+  {
+   "code": "R1-wei-h0-m0-r0-p0-o4-a0-s0-g0-z0-t0-n0-e0",
+   "parsed": null
+  },
+  {
+   "code": "R1-fer-h0-m0-r0-p0-o0-a0-s1001-g0-z0-t0-n0-e0",
+   "parsed": null
+  },
+  {
+   "code": "R1-fer-h0-m0-r0-p0-o0-a0-s0-g0-z0-t0-n40-e0",
+   "parsed": null
+  },
+  {
+   "code": "R1-fer-h0-m0-r0-p0-o0-a0-s0-g0-z0-t0-n0-e8",
+   "parsed": null
+  },
+  {
+   "code": "R1-fer-h 1-m0-r0-p0-o0-a0-s0-g0-z0-t0-n0-e0",
+   "parsed": "R1-fer-h1-m0-r0-p0-o0-a0-s0-g0-z0-t0-n0-e0"
+  },
+  {
+   "code": "",
+   "parsed": null
+  }
+ ]
+}

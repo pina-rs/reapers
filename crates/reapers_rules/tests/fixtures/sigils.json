@@ -1,0 +1,9462 @@
+{
+ "draws": [
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 3,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fe921fb54442d18",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 134,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fe921fb54442d18",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 265,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3fe921fb54442d18",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 396,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfdf46bb9c109324"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 527,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 658,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfdf46bb9c109324"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 789,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 920,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fe921fb54442d18",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 3,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fe921fb54442d18",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 134,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fe921fb54442d18",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 265,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3fe921fb54442d18",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 396,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfdf46bb9c109324"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 527,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 658,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfdf46bb9c109324"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 789,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 920,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fe921fb54442d18",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 3,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fe921fb54442d18",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 134,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fe921fb54442d18",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 265,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3fe921fb54442d18",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 396,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfdf46bb9c109324"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 527,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 658,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfdf46bb9c109324"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 789,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 920,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fe921fb54442d18",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 3,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 134,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 265,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fe921fb54442d18",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 396,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe921fb54442d18",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 527,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fc657184ae74488"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 658,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe921fb54442d18",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 789,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fc657184ae74488"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 920,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 3,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 134,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 265,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fe921fb54442d18",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 396,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe921fb54442d18",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 527,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fc657184ae74488"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 658,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe921fb54442d18",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 789,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fc657184ae74488"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 920,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 3,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 134,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 265,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fe921fb54442d18",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 396,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe921fb54442d18",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 527,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fc657184ae74488"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 658,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe921fb54442d18",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 789,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fc657184ae74488"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 920,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 3,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 134,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 265,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fe921fb54442d18",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 396,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe921fb54442d18",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 527,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fc657184ae74488"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 658,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe921fb54442d18",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 789,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fc657184ae74488"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 920,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fcf46bb9c109324",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 3,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 134,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 265,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fe921fb54442d18",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 396,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe921fb54442d18",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 527,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fc657184ae74488"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 658,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe921fb54442d18",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 789,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fc657184ae74488"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 920,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fc1df46a2529d39",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 3,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 134,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 265,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fe921fb54442d18",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 396,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe921fb54442d18",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 527,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fc657184ae74488"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 658,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe921fb54442d18",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 789,
+   "lights": [
+    [
+     "3fe921fb54442d18",
+     "3fc657184ae74488"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfe921fb54442d18",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "common",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 920,
+   "lights": [
+    [
+     "bfe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe921fb54442d18",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbe61f813f2d814",
+   "holdSeconds": "3fe3333333333333",
+   "fraySeconds": null,
+   "crossings": 0,
+   "halfArc": "3ff0c152382d7365"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 3,
+   "lights": [
+    [
+     "bfd47a80ef53fed2",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfdf46bb9c109324"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 134,
+   "lights": [
+    [
+     "3feeb7c166fdfe3c",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 265,
+   "lights": [
+    [
+     "3feeb7c166fdfe3c",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 396,
+   "lights": [
+    [
+     "3fd47a80ef53fed0",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "bfdf46bb9c109324"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 527,
+   "lights": [
+    [
+     "bfd47a80ef53fed2",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 658,
+   "lights": [
+    [
+     "bfd47a80ef53fed2",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 789,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 920,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 3,
+   "lights": [
+    [
+     "bfd47a80ef53fed2",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfdf46bb9c109324"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 134,
+   "lights": [
+    [
+     "3feeb7c166fdfe3c",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 265,
+   "lights": [
+    [
+     "3feeb7c166fdfe3c",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 396,
+   "lights": [
+    [
+     "3fd47a80ef53fed0",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "bfdf46bb9c109324"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 527,
+   "lights": [
+    [
+     "bfd47a80ef53fed2",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 658,
+   "lights": [
+    [
+     "bfd47a80ef53fed2",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 789,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 920,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 3,
+   "lights": [
+    [
+     "bfd47a80ef53fed2",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfdf46bb9c109324"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 134,
+   "lights": [
+    [
+     "3feeb7c166fdfe3c",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 265,
+   "lights": [
+    [
+     "3feeb7c166fdfe3c",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 396,
+   "lights": [
+    [
+     "3fd47a80ef53fed0",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "bfdf46bb9c109324"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 527,
+   "lights": [
+    [
+     "bfd47a80ef53fed2",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 658,
+   "lights": [
+    [
+     "bfd47a80ef53fed2",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 789,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 920,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 3,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 134,
+   "lights": [
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 265,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 396,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 527,
+   "lights": [
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 658,
+   "lights": [
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 789,
+   "lights": [
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 920,
+   "lights": [
+    [
+     "bfd47a80ef53fed2",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 3,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 134,
+   "lights": [
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 265,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 396,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 527,
+   "lights": [
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 658,
+   "lights": [
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 789,
+   "lights": [
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 920,
+   "lights": [
+    [
+     "bfd47a80ef53fed2",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 3,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 134,
+   "lights": [
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 265,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 396,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 527,
+   "lights": [
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 658,
+   "lights": [
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 789,
+   "lights": [
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 920,
+   "lights": [
+    [
+     "bfd47a80ef53fed2",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 3,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 134,
+   "lights": [
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 265,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 396,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 527,
+   "lights": [
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 658,
+   "lights": [
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 789,
+   "lights": [
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 920,
+   "lights": [
+    [
+     "bfd47a80ef53fed2",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fcb5de4288e80c0",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 3,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 134,
+   "lights": [
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 265,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 396,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 527,
+   "lights": [
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 658,
+   "lights": [
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 789,
+   "lights": [
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 920,
+   "lights": [
+    [
+     "bfd47a80ef53fed2",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbf46bb9c109324",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 3,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 134,
+   "lights": [
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 265,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 396,
+   "lights": [
+    [
+     "bfeeb7c166fdfe3a",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 527,
+   "lights": [
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 658,
+   "lights": [
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 789,
+   "lights": [
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd47a80ef53fed2",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 920,
+   "lights": [
+    [
+     "bfd47a80ef53fed2",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd47a80ef53fed0",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feeb7c166fdfe3c",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeeb7c166fdfe3a",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fba95b911747d12",
+   "holdSeconds": "3fe6666666666666",
+   "fraySeconds": null,
+   "crossings": 1,
+   "halfArc": "3ff38c35418a5bf7"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 3,
+   "lights": [
+    [
+     "bfe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 134,
+   "lights": [
+    [
+     "bfe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 265,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 396,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 527,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 658,
+   "lights": [
+    [
+     "3ff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 789,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 920,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 3,
+   "lights": [
+    [
+     "bfe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 134,
+   "lights": [
+    [
+     "bfe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 265,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 396,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 527,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 658,
+   "lights": [
+    [
+     "3ff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 789,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 920,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 3,
+   "lights": [
+    [
+     "bfe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 134,
+   "lights": [
+    [
+     "bfe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 265,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 396,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 527,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 658,
+   "lights": [
+    [
+     "3ff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 789,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 920,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "0000000000000000",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 3,
+   "lights": [
+    [
+     "3ff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 134,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 265,
+   "lights": [
+    [
+     "bfe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 396,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 527,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 658,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 789,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 920,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 3,
+   "lights": [
+    [
+     "3ff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 134,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 265,
+   "lights": [
+    [
+     "bfe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 396,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 527,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 658,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 789,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 920,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 3,
+   "lights": [
+    [
+     "3ff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 134,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 265,
+   "lights": [
+    [
+     "bfe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 396,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 527,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 658,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 789,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 920,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 3,
+   "lights": [
+    [
+     "3ff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 134,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 265,
+   "lights": [
+    [
+     "bfe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 396,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 527,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 658,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 789,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 920,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fc7750cb50c6e5a",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4028000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 3,
+   "lights": [
+    [
+     "3ff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 134,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 265,
+   "lights": [
+    [
+     "bfe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 396,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 527,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 658,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 789,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 920,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fbacee9f37bebd5",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 3,
+   "lights": [
+    [
+     "3ff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 134,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 265,
+   "lights": [
+    [
+     "bfe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 396,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 527,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 658,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 789,
+   "lights": [
+    [
+     "bff226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fe226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "0000000000000000",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "rare",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 920,
+   "lights": [
+    [
+     "3fe226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "0000000000000000",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfe226c3bcdbe7ae",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff226c3bcdbe7ae",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff226c3bcdbe7ae",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb6c97a0ef6220e",
+   "holdSeconds": "3fe999999999999a",
+   "fraySeconds": "4018000000000000",
+   "crossings": 2,
+   "halfArc": "3ff657184ae74487"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 3,
+   "lights": [
+    [
+     "3feacee9f37bebd6",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3ff657184ae74487",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bff657184ae74487",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfdf46bb9c109324"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 134,
+   "lights": [
+    [
+     "bff657184ae74487",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3ff657184ae74487",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 265,
+   "lights": [
+    [
+     "3fd1df46a2529d38",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bff657184ae74487",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3ff657184ae74487",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 396,
+   "lights": [
+    [
+     "3feacee9f37bebd6",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3ff657184ae74487",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bff657184ae74487",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 527,
+   "lights": [
+    [
+     "3fd1df46a2529d38",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bff657184ae74487",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3ff657184ae74487",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 658,
+   "lights": [
+    [
+     "3ff657184ae74487",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bff657184ae74487",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfdf46bb9c109324"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 789,
+   "lights": [
+    [
+     "bfeacee9f37bebd5",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bff657184ae74487",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3ff657184ae74487",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "easy",
+   "seed": 920,
+   "lights": [
+    [
+     "bfd1df46a2529d38",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bff657184ae74487",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3ff657184ae74487",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 3,
+   "lights": [
+    [
+     "3feacee9f37bebd6",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3ff657184ae74487",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bff657184ae74487",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfdf46bb9c109324"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 134,
+   "lights": [
+    [
+     "bff657184ae74487",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3ff657184ae74487",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 265,
+   "lights": [
+    [
+     "3fd1df46a2529d38",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bff657184ae74487",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3ff657184ae74487",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 396,
+   "lights": [
+    [
+     "3feacee9f37bebd6",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3ff657184ae74487",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bff657184ae74487",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 527,
+   "lights": [
+    [
+     "3fd1df46a2529d38",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bff657184ae74487",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3ff657184ae74487",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 658,
+   "lights": [
+    [
+     "3ff657184ae74487",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bff657184ae74487",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfdf46bb9c109324"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 789,
+   "lights": [
+    [
+     "bfeacee9f37bebd5",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bff657184ae74487",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3ff657184ae74487",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "normal",
+   "seed": 920,
+   "lights": [
+    [
+     "bfd1df46a2529d38",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bff657184ae74487",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3ff657184ae74487",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 3,
+   "lights": [
+    [
+     "3feacee9f37bebd6",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3ff657184ae74487",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bff657184ae74487",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfdf46bb9c109324"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 134,
+   "lights": [
+    [
+     "bff657184ae74487",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3ff657184ae74487",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 265,
+   "lights": [
+    [
+     "3fd1df46a2529d38",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bff657184ae74487",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3ff657184ae74487",
+     "bfe7750cb50c6e5b"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 396,
+   "lights": [
+    [
+     "3feacee9f37bebd6",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3ff657184ae74487",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bff657184ae74487",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 527,
+   "lights": [
+    [
+     "3fd1df46a2529d38",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bff657184ae74487",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3ff657184ae74487",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 658,
+   "lights": [
+    [
+     "3ff657184ae74487",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bff657184ae74487",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfdf46bb9c109324"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 789,
+   "lights": [
+    [
+     "bfeacee9f37bebd5",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "bff657184ae74487",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3ff657184ae74487",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "difficulty": "hard",
+   "seed": 920,
+   "lights": [
+    [
+     "bfd1df46a2529d38",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfcf46bb9c109324"
+    ],
+    [
+     "bff657184ae74487",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "3ff657184ae74487",
+     "bfe7750cb50c6e5b"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfdf46bb9c109324"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfcf46bb9c109324"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 3,
+   "lights": [
+    [
+     "bff657184ae74487",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 134,
+   "lights": [
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff657184ae74487",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 265,
+   "lights": [
+    [
+     "bfeacee9f37bebd5",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 396,
+   "lights": [
+    [
+     "bff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 527,
+   "lights": [
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff657184ae74487",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 658,
+   "lights": [
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 789,
+   "lights": [
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "easy",
+   "seed": 920,
+   "lights": [
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff657184ae74487",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 3,
+   "lights": [
+    [
+     "bff657184ae74487",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 134,
+   "lights": [
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff657184ae74487",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 265,
+   "lights": [
+    [
+     "bfeacee9f37bebd5",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 396,
+   "lights": [
+    [
+     "bff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 527,
+   "lights": [
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff657184ae74487",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 658,
+   "lights": [
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 789,
+   "lights": [
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "normal",
+   "seed": 920,
+   "lights": [
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff657184ae74487",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 3,
+   "lights": [
+    [
+     "bff657184ae74487",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 134,
+   "lights": [
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff657184ae74487",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 265,
+   "lights": [
+    [
+     "bfeacee9f37bebd5",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 396,
+   "lights": [
+    [
+     "bff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 527,
+   "lights": [
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff657184ae74487",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 658,
+   "lights": [
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 789,
+   "lights": [
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "difficulty": "hard",
+   "seed": 920,
+   "lights": [
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff657184ae74487",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 3,
+   "lights": [
+    [
+     "bff657184ae74487",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 134,
+   "lights": [
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff657184ae74487",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 265,
+   "lights": [
+    [
+     "bfeacee9f37bebd5",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 396,
+   "lights": [
+    [
+     "bff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 527,
+   "lights": [
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff657184ae74487",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 658,
+   "lights": [
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 789,
+   "lights": [
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "easy",
+   "seed": 920,
+   "lights": [
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff657184ae74487",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fc580a0fb4b6528",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4024000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 3,
+   "lights": [
+    [
+     "bff657184ae74487",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 134,
+   "lights": [
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff657184ae74487",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 265,
+   "lights": [
+    [
+     "bfeacee9f37bebd5",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 396,
+   "lights": [
+    [
+     "bff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 527,
+   "lights": [
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff657184ae74487",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 658,
+   "lights": [
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 789,
+   "lights": [
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "normal",
+   "seed": 920,
+   "lights": [
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff657184ae74487",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fb893011f31982e",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 3,
+   "lights": [
+    [
+     "bff657184ae74487",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 134,
+   "lights": [
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff657184ae74487",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 265,
+   "lights": [
+    [
+     "bfeacee9f37bebd5",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 396,
+   "lights": [
+    [
+     "bff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 527,
+   "lights": [
+    [
+     "bfd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff657184ae74487",
+     "bfbacee9f37bebd5"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 658,
+   "lights": [
+    [
+     "bfeacee9f37bebd5",
+     "3fc657184ae74488"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bff657184ae74487",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 789,
+   "lights": [
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  },
+  {
+   "rarity": "epic",
+   "gait": "still",
+   "difficulty": "hard",
+   "seed": 920,
+   "lights": [
+    [
+     "3ff657184ae74487",
+     "3fc657184ae74488"
+    ],
+    [
+     "3feacee9f37bebd6",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "bfeacee9f37bebd5",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bfd1df46a2529d38",
+     "3fdd0ad2c7c63f7d"
+    ],
+    [
+     "3fd1df46a2529d38",
+     "bfbacee9f37bebd5"
+    ],
+    [
+     "bff657184ae74487",
+     "3fc657184ae74488"
+    ]
+   ],
+   "radius": "3fb4e35a8db6f48d",
+   "holdSeconds": "3feccccccccccccd",
+   "fraySeconds": "4014000000000000",
+   "crossings": 3,
+   "halfArc": "3ffa876cd8f2a160"
+  }
+ ],
+ "traces": [
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "seed": 0,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "400eeeeeeeeeeedb",
+   "lost": 0,
+   "caught": 3
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "seed": 1,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "400fbbbbbbbbbba7",
+   "lost": 0,
+   "caught": 3
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "seed": 2,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "400f777777777763",
+   "lost": 0,
+   "caught": 3
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "seed": 0,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "4013222222222215",
+   "lost": 0,
+   "caught": 3
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "seed": 1,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "401399999999998c",
+   "lost": 0,
+   "caught": 3
+  },
+  {
+   "rarity": "common",
+   "gait": "ground",
+   "seed": 2,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "401377777777776a",
+   "lost": 0,
+   "caught": 3
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "seed": 0,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "401199999999998e",
+   "lost": 0,
+   "caught": 3
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "seed": 1,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "401199999999998e",
+   "lost": 0,
+   "caught": 3
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "seed": 2,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "4012444444444438",
+   "lost": 0,
+   "caught": 3
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "seed": 0,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "4016888888888878",
+   "lost": 0,
+   "caught": 3
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "seed": 1,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "4016999999999989",
+   "lost": 0,
+   "caught": 3
+  },
+  {
+   "rarity": "common",
+   "gait": "air",
+   "seed": 2,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "4017bbbbbbbbbbaa",
+   "lost": 0,
+   "caught": 3
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "seed": 0,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "4018666666666654",
+   "lost": 0,
+   "caught": 4
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "seed": 1,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "401c666666666650",
+   "lost": 0,
+   "caught": 4
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "seed": 2,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "401a999999999985",
+   "lost": 0,
+   "caught": 4
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "seed": 0,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "401eddddddddddc5",
+   "lost": 0,
+   "caught": 4
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "seed": 1,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "4022c4444444445e",
+   "lost": 0,
+   "caught": 4
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "ground",
+   "seed": 2,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "4021444444444449",
+   "lost": 0,
+   "caught": 4
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "seed": 0,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "401ceeeeeeeeeed8",
+   "lost": 0,
+   "caught": 4
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "seed": 1,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "401effffffffffe7",
+   "lost": 0,
+   "caught": 4
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "seed": 2,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "401caaaaaaaaaa94",
+   "lost": 0,
+   "caught": 4
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "seed": 0,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "40233bbbbbbbbbdc",
+   "lost": 0,
+   "caught": 4
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "seed": 1,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "4024d5555555558c",
+   "lost": 0,
+   "caught": 4
+  },
+  {
+   "rarity": "uncommon",
+   "gait": "air",
+   "seed": 2,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "4022f77777777794",
+   "lost": 0,
+   "caught": 4
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "seed": 0,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "402166666666666d",
+   "lost": 0,
+   "caught": 5
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "seed": 1,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "4020777777777771",
+   "lost": 0,
+   "caught": 5
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "seed": 2,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "40207ffffffffffa",
+   "lost": 0,
+   "caught": 5
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "seed": 0,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "40267777777777c5",
+   "lost": 0,
+   "caught": 5
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "seed": 1,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "4024ddddddddde15",
+   "lost": 0,
+   "caught": 5
+  },
+  {
+   "rarity": "rare",
+   "gait": "ground",
+   "seed": 2,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "4024eeeeeeeeef27",
+   "lost": 0,
+   "caught": 5
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "seed": 0,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "4024555555555585",
+   "lost": 0,
+   "caught": 5
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "seed": 1,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "4024555555555585",
+   "lost": 0,
+   "caught": 5
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "seed": 2,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "4023555555555577",
+   "lost": 0,
+   "caught": 5
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "seed": 0,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "402b3333333333c3",
+   "lost": 0,
+   "caught": 5
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "seed": 1,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "402b3333333333c3",
+   "lost": 0,
+   "caught": 5
+  },
+  {
+   "rarity": "rare",
+   "gait": "air",
+   "seed": 2,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "4029aaaaaaaaab25",
+   "lost": 0,
+   "caught": 5
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "seed": 0,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "4025911111111152",
+   "lost": 0,
+   "caught": 6
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "seed": 1,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "4025f777777777be",
+   "lost": 0,
+   "caught": 6
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "seed": 2,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "4027cccccccccd2d",
+   "lost": 0,
+   "caught": 6
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "seed": 0,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "402b199999999a28",
+   "lost": 0,
+   "caught": 6
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "seed": 1,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "402bd555555555ee",
+   "lost": 0,
+   "caught": 6
+  },
+  {
+   "rarity": "epic",
+   "gait": "ground",
+   "seed": 2,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "402ecccccccccd8f",
+   "lost": 0,
+   "caught": 6
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "seed": 0,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "4029199999999a0c",
+   "lost": 0,
+   "caught": 6
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "seed": 1,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "40275dddddddde38",
+   "lost": 0,
+   "caught": 6
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "seed": 2,
+   "turnSpeed": 1.0,
+   "wobble": 0.15,
+   "closed": true,
+   "seconds": "40296666666666dd",
+   "lost": 0,
+   "caught": 6
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "seed": 0,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "40308ccccccccd2d",
+   "lost": 0,
+   "caught": 6
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "seed": 1,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "402e3333333333ed",
+   "lost": 0,
+   "caught": 6
+  },
+  {
+   "rarity": "epic",
+   "gait": "air",
+   "seed": 2,
+   "turnSpeed": 0.6,
+   "wobble": 0.5,
+   "closed": true,
+   "seconds": "4030cccccccccd29",
+   "lost": 0,
+   "caught": 6
+  }
+ ]
+}

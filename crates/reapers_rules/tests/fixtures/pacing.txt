@@ -1,0 +1,28 @@
+--- level 1, shrouded ---
+harvester  common: 8/8 28s       uncommon: 8/8 41s     rare: 8/8 72s         epic: 0/8 --          
+ferryman   common: 8/8 27s       uncommon: 8/8 39s     rare: 8/8 69s         epic: 0/8 --          
+weigher    common: 8/8 23s       uncommon: 8/8 34s     rare: 8/8 59s         epic: 0/8 --          
+chooser    common: 8/8 21s       uncommon: 8/8 31s     rare: 8/8 54s         epic: 0/8 --          
+hollow     common: 8/8 25s       uncommon: 8/8 36s     rare: 8/8 62s         epic: 0/8 --          
+mourner    common: 8/8 31s       uncommon: 8/8 46s     rare: 0/8 --          epic: 0/8 --          
+--- level 5, sworn ---
+harvester  common: 8/8 18s       uncommon: 8/8 26s     rare: 8/8 45s         epic: 1/8 77s         
+ferryman   common: 8/8 17s       uncommon: 8/8 24s     rare: 8/8 43s         epic: 8/8 76s         
+weigher    common: 8/8 15s       uncommon: 8/8 21s     rare: 8/8 36s         epic: 8/8 65s         
+chooser    common: 8/8 14s       uncommon: 8/8 19s     rare: 8/8 33s         epic: 8/8 59s         
+hollow     common: 8/8 17s       uncommon: 8/8 22s     rare: 8/8 39s         epic: 8/8 68s         
+mourner    common: 8/8 19s       uncommon: 8/8 28s     rare: 8/8 50s         epic: 0/8 --          
+--- level 10, scorched ---
+harvester  common: 8/8 11s       uncommon: 8/8 17s     rare: 8/8 28s         epic: 8/8 49s         
+ferryman   common: 8/8 10s       uncommon: 8/8 16s     rare: 8/8 26s         epic: 8/8 47s         
+weigher    common: 8/8 10s       uncommon: 8/8 13s     rare: 8/8 23s         epic: 8/8 40s         
+chooser    common: 8/8 9s        uncommon: 8/8 13s     rare: 8/8 21s         epic: 8/8 36s         
+hollow     common: 8/8 10s       uncommon: 8/8 15s     rare: 8/8 25s         epic: 8/8 42s         
+mourner    common: 8/8 12s       uncommon: 8/8 18s     rare: 8/8 31s         epic: 8/8 55s         
+--- level 16, hollowed ---
+harvester  common: 8/8 8s        uncommon: 8/8 11s     rare: 8/8 18s         epic: 8/8 31s         
+ferryman   common: 8/8 8s        uncommon: 8/8 10s     rare: 8/8 17s         epic: 8/8 29s         
+weigher    common: 8/8 7s        uncommon: 8/8 9s      rare: 8/8 15s         epic: 8/8 25s         
+chooser    common: 8/8 6s        uncommon: 8/8 9s      rare: 8/8 14s         epic: 8/8 23s         
+hollow     common: 8/8 7s        uncommon: 8/8 10s     rare: 8/8 17s         epic: 8/8 27s         
+mourner    common: 8/8 8s        uncommon: 8/8 12s     rare: 8/8 19s         epic: 8/8 34s         
