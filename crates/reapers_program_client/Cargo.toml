@@ -1,0 +1,24 @@
+[package]
+name = "reapers_program_client"
+description = "Instructions, accounts, events and errors of the Reapers program, for the server, the app and the tools."
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# What the generated sources in `reapers_program/src/generated` use. They build
+# for `wasm32-unknown-unknown`, so the app's guest can build transactions too.
+[dependencies]
+num-derive = { workspace = true }
+num-traits = { workspace = true }
+pina = { workspace = true }
+reapers_receipt = { workspace = true }
+solana-instruction = { workspace = true }
+solana-program-error = { workspace = true }
+solana-pubkey = { workspace = true }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true

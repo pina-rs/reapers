@@ -1,0 +1,17 @@
+[project]
+program = "."
+# The IDL is the program's public contract, so it is committed and reviewed.
+idl_dir = "idl"
+
+# The Rust client is the one the server, the ops tool and the app build
+# instructions with. `pina generate` rewrites only its generated sources.
+[clients]
+output = ".."
+languages = ["rust"]
+mode = "auto"
+# The crate around the generated sources is `crates/reapers_program_client`, which
+# includes them; pina writes only `src/generated`.
+scaffold = false
+
+[clients.rust]
+output = "reapers_program_client"

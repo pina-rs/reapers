@@ -1,0 +1,450 @@
+{
+	"abiVersion": "0.21",
+	"programId": "HuskN1zeKqNaWUZbxwymyoW3S8CxMNneycZWDoXc98XP",
+	"versionType": "u8",
+	"auto": [
+		"accounts",
+		"instructions",
+		"events"
+	],
+	"contracts": {
+		"account:1:01": {
+			"rustName": "Config",
+			"versions": [
+				{
+					"schema": {
+						"layout": "fixed",
+						"fields": [
+							{
+								"name": "authority",
+								"rustType": "Address"
+							},
+							{
+								"name": "keeper",
+								"rustType": "Address"
+							},
+							{
+								"name": "paused",
+								"rustType": "bool"
+							},
+							{
+								"name": "bump",
+								"rustType": "u8"
+							}
+						]
+					}
+				}
+			]
+		},
+		"account:1:02": {
+			"rustName": "Escrow",
+			"versions": [
+				{
+					"schema": {
+						"layout": "fixed",
+						"fields": [
+							{
+								"name": "player",
+								"rustType": "Address"
+							},
+							{
+								"name": "mint",
+								"rustType": "Address"
+							},
+							{
+								"name": "kind",
+								"rustType": "u8"
+							},
+							{
+								"name": "bump",
+								"rustType": "u8"
+							}
+						]
+					}
+				}
+			]
+		},
+		"event:1:01": {
+			"rustName": "HuskReleased",
+			"versions": [
+				{
+					"schema": {
+						"layout": "fixed",
+						"fields": [
+							{
+								"name": "player",
+								"rustType": "Address"
+							},
+							{
+								"name": "mint",
+								"rustType": "Address"
+							},
+							{
+								"name": "kind",
+								"rustType": "u8"
+							}
+						]
+					}
+				}
+			]
+		},
+		"event:1:02": {
+			"rustName": "HuskAbsorbed",
+			"versions": [
+				{
+					"schema": {
+						"layout": "fixed",
+						"fields": [
+							{
+								"name": "player",
+								"rustType": "Address"
+							},
+							{
+								"name": "mint",
+								"rustType": "Address"
+							},
+							{
+								"name": "grade",
+								"rustType": "u8"
+							},
+							{
+								"name": "feeding",
+								"rustType": "u8"
+							},
+							{
+								"name": "xp",
+								"rustType": "u32"
+							},
+							{
+								"name": "anima",
+								"rustType": "u32"
+							},
+							{
+								"name": "at",
+								"rustType": "i64"
+							},
+							{
+								"name": "nonce",
+								"rustType": "u64"
+							}
+						]
+					}
+				}
+			]
+		},
+		"instruction:1:00": {
+			"rustName": "InitializeInstruction",
+			"envelope": false,
+			"versions": [
+				{
+					"schema": {
+						"layout": "fixed",
+						"fields": [
+							{
+								"name": "authority",
+								"rustType": "Address"
+							},
+							{
+								"name": "keeper",
+								"rustType": "Address"
+							}
+						]
+					},
+					"process": {
+						"accounts": [
+							{
+								"name": "upgrade_authority",
+								"writable": true,
+								"signer": true
+							},
+							{
+								"name": "config",
+								"writable": true,
+								"pda": "config"
+							},
+							{
+								"name": "program_data"
+							},
+							{
+								"name": "system_program",
+								"defaultValue": "publicKey:11111111111111111111111111111111"
+							}
+						]
+					}
+				}
+			]
+		},
+		"instruction:1:01": {
+			"rustName": "SetKeeperInstruction",
+			"envelope": false,
+			"versions": [
+				{
+					"schema": {
+						"layout": "fixed",
+						"fields": [
+							{
+								"name": "keeper",
+								"rustType": "Address"
+							}
+						]
+					},
+					"process": {
+						"accounts": [
+							{
+								"name": "authority",
+								"signer": true
+							},
+							{
+								"name": "config",
+								"writable": true,
+								"pda": "config"
+							}
+						]
+					}
+				}
+			]
+		},
+		"instruction:1:02": {
+			"rustName": "SetAuthorityInstruction",
+			"envelope": false,
+			"versions": [
+				{
+					"schema": {
+						"layout": "fixed",
+						"fields": []
+					},
+					"process": {
+						"accounts": [
+							{
+								"name": "authority",
+								"signer": true
+							},
+							{
+								"name": "new_authority",
+								"signer": true
+							},
+							{
+								"name": "config",
+								"writable": true,
+								"pda": "config"
+							}
+						]
+					}
+				}
+			]
+		},
+		"instruction:1:03": {
+			"rustName": "SetPausedInstruction",
+			"envelope": false,
+			"versions": [
+				{
+					"schema": {
+						"layout": "fixed",
+						"fields": [
+							{
+								"name": "paused",
+								"rustType": "bool"
+							}
+						]
+					},
+					"process": {
+						"accounts": [
+							{
+								"name": "authority",
+								"signer": true
+							},
+							{
+								"name": "config",
+								"writable": true,
+								"pda": "config"
+							}
+						]
+					}
+				}
+			]
+		},
+		"instruction:1:04": {
+			"rustName": "ReleaseCoreInstruction",
+			"envelope": false,
+			"versions": [
+				{
+					"schema": {
+						"layout": "fixed",
+						"fields": []
+					},
+					"process": {
+						"accounts": [
+							{
+								"name": "player",
+								"writable": true,
+								"signer": true
+							},
+							{
+								"name": "config",
+								"pda": "config"
+							},
+							{
+								"name": "escrow",
+								"writable": true,
+								"pda": "escrow"
+							},
+							{
+								"name": "asset",
+								"writable": true
+							},
+							{
+								"name": "collection"
+							},
+							{
+								"name": "core_program"
+							},
+							{
+								"name": "system_program",
+								"defaultValue": "publicKey:11111111111111111111111111111111"
+							}
+						]
+					}
+				}
+			]
+		},
+		"instruction:1:05": {
+			"rustName": "ReleaseTokenInstruction",
+			"envelope": false,
+			"versions": [
+				{
+					"schema": {
+						"layout": "fixed",
+						"fields": []
+					},
+					"process": {
+						"accounts": [
+							{
+								"name": "player",
+								"writable": true,
+								"signer": true
+							},
+							{
+								"name": "config",
+								"pda": "config"
+							},
+							{
+								"name": "escrow",
+								"writable": true,
+								"pda": "escrow"
+							},
+							{
+								"name": "mint"
+							},
+							{
+								"name": "player_token",
+								"writable": true
+							},
+							{
+								"name": "vault",
+								"writable": true
+							},
+							{
+								"name": "token_program"
+							},
+							{
+								"name": "associated_token_program",
+								"defaultValue": "publicKey:ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+							},
+							{
+								"name": "system_program",
+								"defaultValue": "publicKey:11111111111111111111111111111111"
+							}
+						]
+					}
+				}
+			]
+		},
+		"instruction:1:06": {
+			"rustName": "AbsorbCoreInstruction",
+			"envelope": false,
+			"versions": [
+				{
+					"schema": {
+						"layout": "fixed",
+						"fields": []
+					},
+					"process": {
+						"accounts": [
+							{
+								"name": "player",
+								"writable": true,
+								"signer": true
+							},
+							{
+								"name": "config",
+								"pda": "config"
+							},
+							{
+								"name": "escrow",
+								"writable": true,
+								"pda": "escrow"
+							},
+							{
+								"name": "asset",
+								"writable": true
+							},
+							{
+								"name": "collection"
+							},
+							{
+								"name": "core_program"
+							},
+							{
+								"name": "instructions_sysvar"
+							}
+						]
+					}
+				}
+			]
+		},
+		"instruction:1:07": {
+			"rustName": "AbsorbTokenInstruction",
+			"envelope": false,
+			"versions": [
+				{
+					"schema": {
+						"layout": "fixed",
+						"fields": []
+					},
+					"process": {
+						"accounts": [
+							{
+								"name": "player",
+								"writable": true,
+								"signer": true
+							},
+							{
+								"name": "config",
+								"pda": "config"
+							},
+							{
+								"name": "escrow",
+								"writable": true,
+								"pda": "escrow"
+							},
+							{
+								"name": "mint",
+								"writable": true
+							},
+							{
+								"name": "vault",
+								"writable": true
+							},
+							{
+								"name": "token_program"
+							},
+							{
+								"name": "instructions_sysvar"
+							}
+						]
+					}
+				}
+			]
+		}
+	}
+}

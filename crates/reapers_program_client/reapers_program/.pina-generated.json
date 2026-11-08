@@ -1,0 +1,24 @@
+{
+  "paths": [
+    "src/generated/accounts/config.rs",
+    "src/generated/accounts/escrow.rs",
+    "src/generated/accounts/mod.rs",
+    "src/generated/errors/mod.rs",
+    "src/generated/errors/reapers_program.rs",
+    "src/generated/events/husk_absorbed.rs",
+    "src/generated/events/husk_released.rs",
+    "src/generated/events/mod.rs",
+    "src/generated/instructions/absorb_core.rs",
+    "src/generated/instructions/absorb_token.rs",
+    "src/generated/instructions/initialize.rs",
+    "src/generated/instructions/migrate.rs",
+    "src/generated/instructions/mod.rs",
+    "src/generated/instructions/release_core.rs",
+    "src/generated/instructions/release_token.rs",
+    "src/generated/instructions/set_authority.rs",
+    "src/generated/instructions/set_keeper.rs",
+    "src/generated/instructions/set_paused.rs",
+    "src/generated/mod.rs",
+    "src/generated/programs.rs"
+  ]
+}

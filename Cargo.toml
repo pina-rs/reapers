@@ -20,9 +20,24 @@ bs58 = "0.5.1"
 ed25519-dalek = { version = "2.2.0", features = ["rand_core"] }
 sha2 = "0.10.9"
 pina = { version = "0.24.0", default-features = false }
+reapers_program_client = { path = "crates/reapers_program_client" }
+
+# The program's generated Rust client.
+num-derive = "0.5"
+num-traits = "0.2.19"
+solana-program-error = "3"
+thiserror = "2"
+mollusk-svm = { version = "0.17.1", features = ["precompiles"] }
+mollusk-svm-programs-token = "0.17.1"
+solana-account = "5"
+solana-instruction = "4"
+solana-instruction-error = "3"
+solana-pubkey = { version = "4.1", features = ["curve25519"] }
 
 [workspace.lints.rust]
 unsafe_code = "deny"
+# The on-chain program is also compiled for `target_os = "solana"`.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }
 unused_must_use = "deny"
 
 [workspace.lints.clippy]
@@ -44,6 +59,9 @@ lto = "fat"
 opt-level = 3
 strip = true
 
-# The on-chain program: as small as it can be made.
+# The on-chain program. Measured with `cargo build-sbf --lto` and the Mollusk
+# suite: opt-level 2 is both the smallest binary (48,232 bytes, against 50,824
+# for "z", 54,752 for "s" and 50,088 for 3) and within 2% of opt-level 3's
+# compute units, where "z" costs about 15% more. See docs/program.md.
 [profile.release.package.reapers_program]
-opt-level = "z"
+opt-level = 2

@@ -1,0 +1,1456 @@
+{
+  "kind": "rootNode",
+  "standard": "codama",
+  "version": "1.8.0",
+  "program": {
+    "kind": "programNode",
+    "name": "reapersProgram",
+    "publicKey": "HuskN1zeKqNaWUZbxwymyoW3S8CxMNneycZWDoXc98XP",
+    "version": "0.0.0",
+    "docs": [
+      "The Reapers program: husks go into escrow, and come out only as ash.",
+      "",
+      "A husk is a dead NFT a player owns. Releasing it moves it into an escrow",
+      "the program owns, and there is no way back: from then on it can only be",
+      "hunted. When the server has replayed a hunt and judged the husk absorbed,",
+      "its keeper key signs a receipt (`reapers_receipt`), and the player posts a",
+      "transaction that verifies that signature with the Ed25519 program and then",
+      "calls `Absorb`, which burns the husk and closes its escrow.",
+      "",
+      "Two kinds of husk are supported: Metaplex Core assets, and classic NFTs",
+      "that are SPL Token or Token-2022 mints with a supply of one and no",
+      "decimals.",
+      "",
+      "See `docs/program.md` for the accounts, the instructions and the argument",
+      "that a receipt cannot be used twice."
+    ],
+    "accounts": [
+      {
+        "kind": "accountNode",
+        "name": "config",
+        "docs": [
+          "The one configuration account: who administers the program, and whose",
+          "receipts it trusts."
+        ],
+        "data": {
+          "kind": "structTypeNode",
+          "fields": [
+            {
+              "kind": "structFieldTypeNode",
+              "name": "discriminator",
+              "defaultValueStrategy": "omitted",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "defaultValue": {
+                "kind": "numberValueNode",
+                "number": 1
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "migrationVersion",
+              "defaultValueStrategy": "omitted",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "defaultValue": {
+                "kind": "numberValueNode",
+                "number": 0
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "authority",
+              "docs": [
+                "Rotates the keeper, pauses, and hands itself on."
+              ],
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "keeper",
+              "docs": [
+                "The Ed25519 public key whose receipts `Absorb` accepts."
+              ],
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "paused",
+              "docs": [
+                "While set, nothing can be released or absorbed."
+              ],
+              "type": {
+                "kind": "booleanTypeNode",
+                "size": {
+                  "kind": "numberTypeNode",
+                  "format": "u8",
+                  "endian": "le"
+                }
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "bump",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              }
+            }
+          ]
+        },
+        "pda": {
+          "kind": "pdaLinkNode",
+          "name": "config"
+        },
+        "discriminators": [
+          {
+            "kind": "constantDiscriminatorNode",
+            "offset": 0,
+            "constant": {
+              "kind": "constantValueNode",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "value": {
+                "kind": "numberValueNode",
+                "number": 1
+              }
+            }
+          },
+          {
+            "kind": "constantDiscriminatorNode",
+            "offset": 1,
+            "constant": {
+              "kind": "constantValueNode",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "value": {
+                "kind": "numberValueNode",
+                "number": 0
+              }
+            }
+          }
+        ]
+      },
+      {
+        "kind": "accountNode",
+        "name": "escrow",
+        "docs": [
+          "A released husk, waiting to be hunted. Its address is derived from the",
+          "husk, so a husk has at most one escrow, and the escrow is what holds it:",
+          "as the Core asset's owner, or as the owner of the token account."
+        ],
+        "data": {
+          "kind": "structTypeNode",
+          "fields": [
+            {
+              "kind": "structFieldTypeNode",
+              "name": "discriminator",
+              "defaultValueStrategy": "omitted",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "defaultValue": {
+                "kind": "numberValueNode",
+                "number": 2
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "migrationVersion",
+              "defaultValueStrategy": "omitted",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "defaultValue": {
+                "kind": "numberValueNode",
+                "number": 0
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "player",
+              "docs": [
+                "The wallet that released the husk; the only one that can absorb it."
+              ],
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "mint",
+              "docs": [
+                "The husk's mint or asset address."
+              ],
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "kind",
+              "docs": [
+                "A [`HuskKind`]."
+              ],
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "bump",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              }
+            }
+          ]
+        },
+        "pda": {
+          "kind": "pdaLinkNode",
+          "name": "escrow"
+        },
+        "discriminators": [
+          {
+            "kind": "constantDiscriminatorNode",
+            "offset": 0,
+            "constant": {
+              "kind": "constantValueNode",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "value": {
+                "kind": "numberValueNode",
+                "number": 2
+              }
+            }
+          },
+          {
+            "kind": "constantDiscriminatorNode",
+            "offset": 1,
+            "constant": {
+              "kind": "constantValueNode",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "value": {
+                "kind": "numberValueNode",
+                "number": 0
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "instructions": [
+      {
+        "kind": "instructionNode",
+        "name": "initialize",
+        "accounts": [
+          {
+            "kind": "instructionAccountNode",
+            "name": "upgradeAuthority",
+            "isWritable": true,
+            "isSigner": true,
+            "isOptional": false
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "config",
+            "isWritable": true,
+            "isSigner": false,
+            "isOptional": false,
+            "defaultValue": {
+              "kind": "pdaValueNode",
+              "pda": {
+                "kind": "pdaLinkNode",
+                "name": "config"
+              }
+            }
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "programData",
+            "isWritable": false,
+            "isSigner": false,
+            "isOptional": false,
+            "docs": [
+              "This program's executable data account, which names the upgrade",
+              "authority."
+            ]
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "systemProgram",
+            "isWritable": false,
+            "isSigner": false,
+            "isOptional": false,
+            "defaultValue": {
+              "kind": "publicKeyValueNode",
+              "publicKey": "11111111111111111111111111111111"
+            }
+          }
+        ],
+        "arguments": [
+          {
+            "kind": "instructionArgumentNode",
+            "name": "discriminator",
+            "defaultValueStrategy": "omitted",
+            "type": {
+              "kind": "numberTypeNode",
+              "format": "u8",
+              "endian": "le"
+            },
+            "defaultValue": {
+              "kind": "numberValueNode",
+              "number": 0
+            }
+          },
+          {
+            "kind": "instructionArgumentNode",
+            "name": "authority",
+            "docs": [
+              "Who administers the program from now on."
+            ],
+            "type": {
+              "kind": "publicKeyTypeNode"
+            }
+          },
+          {
+            "kind": "instructionArgumentNode",
+            "name": "keeper",
+            "docs": [
+              "The keeper's Ed25519 public key."
+            ],
+            "type": {
+              "kind": "publicKeyTypeNode"
+            }
+          }
+        ],
+        "discriminators": [
+          {
+            "kind": "constantDiscriminatorNode",
+            "offset": 0,
+            "constant": {
+              "kind": "constantValueNode",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "value": {
+                "kind": "numberValueNode",
+                "number": 0
+              }
+            }
+          }
+        ]
+      },
+      {
+        "kind": "instructionNode",
+        "name": "setKeeper",
+        "accounts": [
+          {
+            "kind": "instructionAccountNode",
+            "name": "authority",
+            "isWritable": false,
+            "isSigner": true,
+            "isOptional": false
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "config",
+            "isWritable": true,
+            "isSigner": false,
+            "isOptional": false,
+            "defaultValue": {
+              "kind": "pdaValueNode",
+              "pda": {
+                "kind": "pdaLinkNode",
+                "name": "config"
+              }
+            }
+          }
+        ],
+        "arguments": [
+          {
+            "kind": "instructionArgumentNode",
+            "name": "discriminator",
+            "defaultValueStrategy": "omitted",
+            "type": {
+              "kind": "numberTypeNode",
+              "format": "u8",
+              "endian": "le"
+            },
+            "defaultValue": {
+              "kind": "numberValueNode",
+              "number": 1
+            }
+          },
+          {
+            "kind": "instructionArgumentNode",
+            "name": "keeper",
+            "type": {
+              "kind": "publicKeyTypeNode"
+            }
+          }
+        ],
+        "discriminators": [
+          {
+            "kind": "constantDiscriminatorNode",
+            "offset": 0,
+            "constant": {
+              "kind": "constantValueNode",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "value": {
+                "kind": "numberValueNode",
+                "number": 1
+              }
+            }
+          }
+        ]
+      },
+      {
+        "kind": "instructionNode",
+        "name": "setAuthority",
+        "accounts": [
+          {
+            "kind": "instructionAccountNode",
+            "name": "authority",
+            "isWritable": false,
+            "isSigner": true,
+            "isOptional": false
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "newAuthority",
+            "isWritable": false,
+            "isSigner": true,
+            "isOptional": false
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "config",
+            "isWritable": true,
+            "isSigner": false,
+            "isOptional": false,
+            "defaultValue": {
+              "kind": "pdaValueNode",
+              "pda": {
+                "kind": "pdaLinkNode",
+                "name": "config"
+              }
+            }
+          }
+        ],
+        "arguments": [
+          {
+            "kind": "instructionArgumentNode",
+            "name": "discriminator",
+            "defaultValueStrategy": "omitted",
+            "type": {
+              "kind": "numberTypeNode",
+              "format": "u8",
+              "endian": "le"
+            },
+            "defaultValue": {
+              "kind": "numberValueNode",
+              "number": 2
+            }
+          }
+        ],
+        "discriminators": [
+          {
+            "kind": "constantDiscriminatorNode",
+            "offset": 0,
+            "constant": {
+              "kind": "constantValueNode",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "value": {
+                "kind": "numberValueNode",
+                "number": 2
+              }
+            }
+          }
+        ]
+      },
+      {
+        "kind": "instructionNode",
+        "name": "setPaused",
+        "accounts": [
+          {
+            "kind": "instructionAccountNode",
+            "name": "authority",
+            "isWritable": false,
+            "isSigner": true,
+            "isOptional": false
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "config",
+            "isWritable": true,
+            "isSigner": false,
+            "isOptional": false,
+            "defaultValue": {
+              "kind": "pdaValueNode",
+              "pda": {
+                "kind": "pdaLinkNode",
+                "name": "config"
+              }
+            }
+          }
+        ],
+        "arguments": [
+          {
+            "kind": "instructionArgumentNode",
+            "name": "discriminator",
+            "defaultValueStrategy": "omitted",
+            "type": {
+              "kind": "numberTypeNode",
+              "format": "u8",
+              "endian": "le"
+            },
+            "defaultValue": {
+              "kind": "numberValueNode",
+              "number": 3
+            }
+          },
+          {
+            "kind": "instructionArgumentNode",
+            "name": "paused",
+            "type": {
+              "kind": "booleanTypeNode",
+              "size": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              }
+            }
+          }
+        ],
+        "discriminators": [
+          {
+            "kind": "constantDiscriminatorNode",
+            "offset": 0,
+            "constant": {
+              "kind": "constantValueNode",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "value": {
+                "kind": "numberValueNode",
+                "number": 3
+              }
+            }
+          }
+        ]
+      },
+      {
+        "kind": "instructionNode",
+        "name": "releaseCore",
+        "accounts": [
+          {
+            "kind": "instructionAccountNode",
+            "name": "player",
+            "isWritable": true,
+            "isSigner": true,
+            "isOptional": false
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "config",
+            "isWritable": false,
+            "isSigner": false,
+            "isOptional": false,
+            "defaultValue": {
+              "kind": "pdaValueNode",
+              "pda": {
+                "kind": "pdaLinkNode",
+                "name": "config"
+              }
+            }
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "escrow",
+            "isWritable": true,
+            "isSigner": false,
+            "isOptional": false
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "asset",
+            "isWritable": true,
+            "isSigner": false,
+            "isOptional": false
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "collection",
+            "isWritable": false,
+            "isSigner": false,
+            "isOptional": false,
+            "docs": [
+              "The asset's collection, or the Core program when it has none."
+            ]
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "coreProgram",
+            "isWritable": false,
+            "isSigner": false,
+            "isOptional": false
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "systemProgram",
+            "isWritable": false,
+            "isSigner": false,
+            "isOptional": false,
+            "defaultValue": {
+              "kind": "publicKeyValueNode",
+              "publicKey": "11111111111111111111111111111111"
+            }
+          }
+        ],
+        "arguments": [
+          {
+            "kind": "instructionArgumentNode",
+            "name": "discriminator",
+            "defaultValueStrategy": "omitted",
+            "type": {
+              "kind": "numberTypeNode",
+              "format": "u8",
+              "endian": "le"
+            },
+            "defaultValue": {
+              "kind": "numberValueNode",
+              "number": 4
+            }
+          }
+        ],
+        "discriminators": [
+          {
+            "kind": "constantDiscriminatorNode",
+            "offset": 0,
+            "constant": {
+              "kind": "constantValueNode",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "value": {
+                "kind": "numberValueNode",
+                "number": 4
+              }
+            }
+          }
+        ]
+      },
+      {
+        "kind": "instructionNode",
+        "name": "releaseToken",
+        "accounts": [
+          {
+            "kind": "instructionAccountNode",
+            "name": "player",
+            "isWritable": true,
+            "isSigner": true,
+            "isOptional": false
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "config",
+            "isWritable": false,
+            "isSigner": false,
+            "isOptional": false,
+            "defaultValue": {
+              "kind": "pdaValueNode",
+              "pda": {
+                "kind": "pdaLinkNode",
+                "name": "config"
+              }
+            }
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "escrow",
+            "isWritable": true,
+            "isSigner": false,
+            "isOptional": false,
+            "defaultValue": {
+              "kind": "pdaValueNode",
+              "pda": {
+                "kind": "pdaLinkNode",
+                "name": "escrow"
+              },
+              "seeds": [
+                {
+                  "kind": "pdaSeedValueNode",
+                  "name": "mint",
+                  "value": {
+                    "kind": "accountValueNode",
+                    "name": "mint"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "mint",
+            "isWritable": false,
+            "isSigner": false,
+            "isOptional": false
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "playerToken",
+            "isWritable": true,
+            "isSigner": false,
+            "isOptional": false,
+            "docs": [
+              "The player's token account that holds the NFT."
+            ]
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "vault",
+            "isWritable": true,
+            "isSigner": false,
+            "isOptional": false,
+            "docs": [
+              "The escrow's associated token account; created here if it is missing."
+            ]
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "tokenProgram",
+            "isWritable": false,
+            "isSigner": false,
+            "isOptional": false
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "associatedTokenProgram",
+            "isWritable": false,
+            "isSigner": false,
+            "isOptional": false,
+            "defaultValue": {
+              "kind": "publicKeyValueNode",
+              "publicKey": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+            }
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "systemProgram",
+            "isWritable": false,
+            "isSigner": false,
+            "isOptional": false,
+            "defaultValue": {
+              "kind": "publicKeyValueNode",
+              "publicKey": "11111111111111111111111111111111"
+            }
+          }
+        ],
+        "arguments": [
+          {
+            "kind": "instructionArgumentNode",
+            "name": "discriminator",
+            "defaultValueStrategy": "omitted",
+            "type": {
+              "kind": "numberTypeNode",
+              "format": "u8",
+              "endian": "le"
+            },
+            "defaultValue": {
+              "kind": "numberValueNode",
+              "number": 5
+            }
+          }
+        ],
+        "discriminators": [
+          {
+            "kind": "constantDiscriminatorNode",
+            "offset": 0,
+            "constant": {
+              "kind": "constantValueNode",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "value": {
+                "kind": "numberValueNode",
+                "number": 5
+              }
+            }
+          }
+        ]
+      },
+      {
+        "kind": "instructionNode",
+        "name": "absorbCore",
+        "accounts": [
+          {
+            "kind": "instructionAccountNode",
+            "name": "player",
+            "isWritable": true,
+            "isSigner": true,
+            "isOptional": false
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "config",
+            "isWritable": false,
+            "isSigner": false,
+            "isOptional": false,
+            "defaultValue": {
+              "kind": "pdaValueNode",
+              "pda": {
+                "kind": "pdaLinkNode",
+                "name": "config"
+              }
+            }
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "escrow",
+            "isWritable": true,
+            "isSigner": false,
+            "isOptional": false
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "asset",
+            "isWritable": true,
+            "isSigner": false,
+            "isOptional": false
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "collection",
+            "isWritable": false,
+            "isSigner": false,
+            "isOptional": false,
+            "docs": [
+              "The asset's collection, or the Core program when it has none."
+            ]
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "coreProgram",
+            "isWritable": false,
+            "isSigner": false,
+            "isOptional": false
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "instructionsSysvar",
+            "isWritable": false,
+            "isSigner": false,
+            "isOptional": false
+          }
+        ],
+        "arguments": [
+          {
+            "kind": "instructionArgumentNode",
+            "name": "discriminator",
+            "defaultValueStrategy": "omitted",
+            "type": {
+              "kind": "numberTypeNode",
+              "format": "u8",
+              "endian": "le"
+            },
+            "defaultValue": {
+              "kind": "numberValueNode",
+              "number": 6
+            }
+          }
+        ],
+        "discriminators": [
+          {
+            "kind": "constantDiscriminatorNode",
+            "offset": 0,
+            "constant": {
+              "kind": "constantValueNode",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "value": {
+                "kind": "numberValueNode",
+                "number": 6
+              }
+            }
+          }
+        ]
+      },
+      {
+        "kind": "instructionNode",
+        "name": "absorbToken",
+        "accounts": [
+          {
+            "kind": "instructionAccountNode",
+            "name": "player",
+            "isWritable": true,
+            "isSigner": true,
+            "isOptional": false
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "config",
+            "isWritable": false,
+            "isSigner": false,
+            "isOptional": false,
+            "defaultValue": {
+              "kind": "pdaValueNode",
+              "pda": {
+                "kind": "pdaLinkNode",
+                "name": "config"
+              }
+            }
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "escrow",
+            "isWritable": true,
+            "isSigner": false,
+            "isOptional": false,
+            "defaultValue": {
+              "kind": "pdaValueNode",
+              "pda": {
+                "kind": "pdaLinkNode",
+                "name": "escrow"
+              },
+              "seeds": [
+                {
+                  "kind": "pdaSeedValueNode",
+                  "name": "mint",
+                  "value": {
+                    "kind": "accountValueNode",
+                    "name": "mint"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "mint",
+            "isWritable": true,
+            "isSigner": false,
+            "isOptional": false
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "vault",
+            "isWritable": true,
+            "isSigner": false,
+            "isOptional": false
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "tokenProgram",
+            "isWritable": false,
+            "isSigner": false,
+            "isOptional": false
+          },
+          {
+            "kind": "instructionAccountNode",
+            "name": "instructionsSysvar",
+            "isWritable": false,
+            "isSigner": false,
+            "isOptional": false
+          }
+        ],
+        "arguments": [
+          {
+            "kind": "instructionArgumentNode",
+            "name": "discriminator",
+            "defaultValueStrategy": "omitted",
+            "type": {
+              "kind": "numberTypeNode",
+              "format": "u8",
+              "endian": "le"
+            },
+            "defaultValue": {
+              "kind": "numberValueNode",
+              "number": 7
+            }
+          }
+        ],
+        "discriminators": [
+          {
+            "kind": "constantDiscriminatorNode",
+            "offset": 0,
+            "constant": {
+              "kind": "constantValueNode",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "value": {
+                "kind": "numberValueNode",
+                "number": 7
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "pdas": [
+      {
+        "kind": "pdaNode",
+        "name": "config",
+        "seeds": [
+          {
+            "kind": "constantPdaSeedNode",
+            "type": {
+              "kind": "stringTypeNode",
+              "encoding": "utf8"
+            },
+            "value": {
+              "kind": "stringValueNode",
+              "string": "config"
+            }
+          }
+        ]
+      },
+      {
+        "kind": "pdaNode",
+        "name": "escrow",
+        "seeds": [
+          {
+            "kind": "constantPdaSeedNode",
+            "type": {
+              "kind": "stringTypeNode",
+              "encoding": "utf8"
+            },
+            "value": {
+              "kind": "stringValueNode",
+              "string": "escrow"
+            }
+          },
+          {
+            "kind": "variablePdaSeedNode",
+            "name": "mint",
+            "type": {
+              "kind": "publicKeyTypeNode"
+            }
+          }
+        ]
+      }
+    ],
+    "events": [
+      {
+        "kind": "eventNode",
+        "name": "huskReleased",
+        "docs": [
+          "A husk went into escrow."
+        ],
+        "data": {
+          "kind": "structTypeNode",
+          "fields": [
+            {
+              "kind": "structFieldTypeNode",
+              "name": "discriminator",
+              "defaultValueStrategy": "omitted",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "defaultValue": {
+                "kind": "numberValueNode",
+                "number": 1
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "migrationVersion",
+              "defaultValueStrategy": "omitted",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "defaultValue": {
+                "kind": "numberValueNode",
+                "number": 0
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "player",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "mint",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "kind",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              }
+            }
+          ]
+        },
+        "discriminators": [
+          {
+            "kind": "constantDiscriminatorNode",
+            "offset": 0,
+            "constant": {
+              "kind": "constantValueNode",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "value": {
+                "kind": "numberValueNode",
+                "number": 1
+              }
+            }
+          },
+          {
+            "kind": "constantDiscriminatorNode",
+            "offset": 1,
+            "constant": {
+              "kind": "constantValueNode",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "value": {
+                "kind": "numberValueNode",
+                "number": 0
+              }
+            }
+          }
+        ]
+      },
+      {
+        "kind": "eventNode",
+        "name": "huskAbsorbed",
+        "docs": [
+          "A husk was burned, with the receipt that allowed it."
+        ],
+        "data": {
+          "kind": "structTypeNode",
+          "fields": [
+            {
+              "kind": "structFieldTypeNode",
+              "name": "discriminator",
+              "defaultValueStrategy": "omitted",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "defaultValue": {
+                "kind": "numberValueNode",
+                "number": 2
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "migrationVersion",
+              "defaultValueStrategy": "omitted",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "defaultValue": {
+                "kind": "numberValueNode",
+                "number": 0
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "player",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "mint",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "grade",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "feeding",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "xp",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u32",
+                "endian": "le"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "anima",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u32",
+                "endian": "le"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "at",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "i64",
+                "endian": "le"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "nonce",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u64",
+                "endian": "le"
+              }
+            }
+          ]
+        },
+        "discriminators": [
+          {
+            "kind": "constantDiscriminatorNode",
+            "offset": 0,
+            "constant": {
+              "kind": "constantValueNode",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "value": {
+                "kind": "numberValueNode",
+                "number": 2
+              }
+            }
+          },
+          {
+            "kind": "constantDiscriminatorNode",
+            "offset": 1,
+            "constant": {
+              "kind": "constantValueNode",
+              "type": {
+                "kind": "numberTypeNode",
+                "format": "u8",
+                "endian": "le"
+              },
+              "value": {
+                "kind": "numberValueNode",
+                "number": 0
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "errors": [
+      {
+        "kind": "errorNode",
+        "name": "paused",
+        "code": 0,
+        "message": "Releasing and absorbing are paused.",
+        "docs": [
+          "Releasing and absorbing are paused."
+        ]
+      },
+      {
+        "kind": "errorNode",
+        "name": "notAuthority",
+        "code": 1,
+        "message": "The signer is not the configured authority.",
+        "docs": [
+          "The signer is not the configured authority."
+        ]
+      },
+      {
+        "kind": "errorNode",
+        "name": "notUpgradeAuthority",
+        "code": 2,
+        "message": "The signer is not the program's upgrade authority.",
+        "docs": [
+          "The signer is not the program's upgrade authority."
+        ]
+      },
+      {
+        "kind": "errorNode",
+        "name": "notAnNft",
+        "code": 3,
+        "message": "The husk is not an NFT the program accepts.",
+        "docs": [
+          "The husk is not an NFT the program accepts."
+        ]
+      },
+      {
+        "kind": "errorNode",
+        "name": "notOwner",
+        "code": 4,
+        "message": "The player does not own the husk.",
+        "docs": [
+          "The player does not own the husk."
+        ]
+      },
+      {
+        "kind": "errorNode",
+        "name": "unsupportedExtension",
+        "code": 5,
+        "message": "The mint carries a Token-2022 extension the program does not accept.",
+        "docs": [
+          "The mint carries a Token-2022 extension the program does not accept."
+        ]
+      },
+      {
+        "kind": "errorNode",
+        "name": "missingReceipt",
+        "code": 6,
+        "message": "The instruction before `Absorb` is not an Ed25519 verification.",
+        "docs": [
+          "The instruction before `Absorb` is not an Ed25519 verification."
+        ]
+      },
+      {
+        "kind": "errorNode",
+        "name": "unsupportedReceiptInstruction",
+        "code": 7,
+        "message": "The Ed25519 instruction is not one signature over its own data.",
+        "docs": [
+          "The Ed25519 instruction is not one signature over its own data."
+        ]
+      },
+      {
+        "kind": "errorNode",
+        "name": "wrongKeeper",
+        "code": 8,
+        "message": "The receipt is not signed by the configured keeper.",
+        "docs": [
+          "The receipt is not signed by the configured keeper."
+        ]
+      },
+      {
+        "kind": "errorNode",
+        "name": "malformedReceipt",
+        "code": 9,
+        "message": "The signed message is not a version 2 receipt.",
+        "docs": [
+          "The signed message is not a version 2 receipt."
+        ]
+      },
+      {
+        "kind": "errorNode",
+        "name": "wrongPlayer",
+        "code": 10,
+        "message": "The receipt names another player, or the escrow belongs to another.",
+        "docs": [
+          "The receipt names another player, or the escrow belongs to another."
+        ]
+      },
+      {
+        "kind": "errorNode",
+        "name": "wrongHusk",
+        "code": 11,
+        "message": "The receipt names another husk than the escrow holds.",
+        "docs": [
+          "The receipt names another husk than the escrow holds."
+        ]
+      },
+      {
+        "kind": "errorNode",
+        "name": "wrongKind",
+        "code": 12,
+        "message": "The escrow holds another kind of husk than this instruction absorbs.",
+        "docs": [
+          "The escrow holds another kind of husk than this instruction absorbs."
+        ]
+      },
+      {
+        "kind": "errorNode",
+        "name": "escrowEmpty",
+        "code": 13,
+        "message": "The escrow does not hold the husk.",
+        "docs": [
+          "The escrow does not hold the husk."
+        ]
+      }
+    ]
+  }
+}

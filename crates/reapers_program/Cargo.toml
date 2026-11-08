@@ -1,0 +1,49 @@
+[package]
+name = "reapers_program"
+description = "The Reapers on-chain program: husk escrow, and burns that carry the keeper's receipt."
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[package.metadata.cli]
+solana = "3.0.0"
+
+[lib]
+# `cdylib` only. A second `lib`/`rlib` crate type makes rustc reject LTO for
+# the program, which costs 20-35% of deployed program size. Tests exercise the
+# real source through `#[path = "../src/lib.rs"]` includes instead of linking
+# this crate.
+crate-type = ["cdylib"]
+
+[features]
+default = []
+# Enables formatted failure diagnostics and caller locations. Costs `core::fmt`
+# in the deployed binary; use it while debugging, not for production deploys.
+verbose-logs = ["pina/verbose-logs"]
+bpf-entrypoint = []
+
+[dependencies]
+# `account-resize` backs the reserved `Migrate` route that
+# `#[discriminator(entrypoint)]` generates, which is how the program serves
+# migrations of its accounts.
+pina = { workspace = true, features = ["account-resize", "logs", "derive", "token"] }
+reapers_receipt = { workspace = true }
+
+[dev-dependencies]
+ed25519-dalek = { workspace = true }
+mollusk-svm = { workspace = true }
+mollusk-svm-programs-token = { workspace = true }
+reapers_program_client = { workspace = true }
+solana-account = { workspace = true }
+solana-instruction = { workspace = true }
+solana-instruction-error = { workspace = true }
+solana-pubkey = { workspace = true }
+
+# The profile the deployed program is built with is the workspace's: see
+# `[profile.release.package.reapers_program]` in the root `Cargo.toml`.
+
+[lints]
+workspace = true

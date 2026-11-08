@@ -1,0 +1,24 @@
+[package]
+name = "reapers_program-surfpool-tests"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+# Keep Surfpool's host runtime dependency graph isolated from the program's
+# native Mollusk tests and SBF build.
+[workspace]
+
+[dependencies]
+# The program is a cdylib only, so its source is included with
+# `#[path = "../../../src/lib.rs"]` in src/lib.rs instead of linked. Its `pina`
+# features are mirrored here so the included source compiles identically.
+pina = { version = "0.24.0", features = ["account-resize", "logs", "derive", "token"] }
+pina_test = "0.24.0"
+reapers_receipt = { path = "../../../reapers_receipt" }
+
+[lints.rust.unexpected_cfgs]
+level = "warn"
+check-cfg = [
+	'cfg(target_os, values("solana"))',
+	'cfg(feature, values("bpf-entrypoint"))',
+]
