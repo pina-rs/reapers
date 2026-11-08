@@ -119,6 +119,16 @@ impl Stage {
 		self.loading.get()
 	}
 
+	/// What the stage last showed.
+	pub const fn shown(&self) -> Option<StageShow> {
+		self.shown
+	}
+
+	/// The expression the face is held in, if any.
+	pub const fn held_face(&self) -> Option<(&'static str, f32)> {
+		self.held_face
+	}
+
 	/// Shows `show`, sending only what changed since the last.
 	pub fn show(&mut self, show: StageShow) {
 		let ops = self.scene.ops();
@@ -140,6 +150,9 @@ impl Stage {
 				show.appearance,
 			);
 			rig.perform(ops, &self.playback);
+			if self.held_face.is_some() {
+				rig.hold_face(ops, self.held_face);
+			}
 			self.rig = Some(rig);
 			if before.is_some() {
 				self.turn = 0.0;
@@ -445,6 +458,27 @@ mod tests {
 		assert!(stage.dragging);
 		stage.gesture(Gesture::Up);
 		assert!(!stage.dragging);
+	}
+
+	#[test]
+	fn a_held_face_outlasts_a_new_reaper() {
+		let stage = stage(Key::Fixed("test-d"));
+		let mut stage = stage.borrow_mut();
+		stage.show(show(7));
+		stage.hold_face(Some(("joy", 1.0)));
+		assert_eq!(stage.held_face(), Some(("joy", 1.0)));
+		let before = stage.scene.sent().len();
+		stage.show(show(8));
+		assert_eq!(
+			stage.shown().map(|shown| shown.genome),
+			Some(show(8).genome)
+		);
+		assert!(
+			stage.scene.sent()[before..].iter().any(
+				|op| matches!(op, Op::SetMorphWeight { target, weight, .. } if target == "joy" && *weight > 0.9)
+			),
+			"the new rig wears the held face"
+		);
 	}
 
 	#[test]
