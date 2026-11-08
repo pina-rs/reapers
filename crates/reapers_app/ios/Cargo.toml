@@ -10,6 +10,8 @@ crate-type = ["staticlib"]
 
 [target.'cfg(target_os = "ios")'.dependencies]
 leptoskit_bridge_ffi = { version = "=0.3.0", default-features = false, features = ["app"] }
+# The music: decoding, the mixer and the device's output.
+leptoskit_plugin_audio = { workspace = true, features = ["host"] }
 leptoskit_plugin_crypto = { workspace = true }
 leptoskit_plugin_haptics = { workspace = true }
 leptoskit_plugin_http = { workspace = true, features = ["browser"] }

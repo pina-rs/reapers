@@ -24,6 +24,7 @@ use reactive_graph::traits::Set;
 use reactive_graph::traits::SetValue;
 use reactive_graph::traits::Update;
 use reactive_graph::traits::UpdateValue;
+use reactive_graph::traits::WithValue;
 use reapers_rules::Difficulty;
 use reapers_rules::Nft;
 use reapers_rules::PlayerState;
@@ -55,7 +56,9 @@ use crate::simnet::SimnetBackend;
 use crate::simnet::SimnetChain;
 use crate::simnet::SimnetTransaction;
 use crate::simnet::SurfpoolRpc;
+use crate::sound::Mix;
 use crate::sound::Score;
+use crate::sound::Silence;
 use crate::sound::Soundtrack;
 
 /// The player's books, as far as the game has read them.
@@ -185,7 +188,8 @@ impl Game {
 			simnet: StoredValue::new_local(None),
 			surfpool: StoredValue::new_local(None),
 			cluster: StoredValue::new_local(None),
-			soundtrack: StoredValue::new_local(Rc::new(Soundtrack::silent())),
+			// Silent, and held until the player's setting has been read.
+			soundtrack: StoredValue::new_local(Rc::new(Soundtrack::new(Box::new(Silence), false))),
 			waiting: StoredValue::new_local(RefCell::new(BTreeSet::new())),
 		}
 	}
@@ -194,6 +198,14 @@ impl Game {
 	/// context and opening its books in the background.
 	pub fn start() -> Self {
 		let game = Self::new(BuildFlags::current(), Rc::new(DevicePrefs));
+		game.soundtrack.set_value(Rc::new(Soundtrack::new(
+			crate::sound::device_engine(),
+			false,
+		)));
+		// Off the screen, the game is quiet.
+		crate::sound::when_hidden(move |hidden| {
+			game.soundtrack.with_value(|music| music.hold(hidden));
+		});
 		provide_context(game);
 		platform::spawn(async move {
 			game.open().await;
@@ -521,18 +533,33 @@ impl Game {
 		);
 	}
 
-	/// Plays `score`, or holds it while the game is out of sight.
+	/// Makes `score` the music, heard as it comes in: the sanctum as
+	/// recorded, a hunt or a rift a long way off. Asking for the piece
+	/// already playing changes nothing.
 	pub fn play(self, score: Score) {
+		self.play_as(score, score.first_heard());
+	}
+
+	/// Makes `score` the music, heard as `mix`.
+	pub fn play_as(self, score: Score, mix: Mix) {
 		self.soundtrack
-			.get_value()
-			.play(score, self.music.get_untracked());
+			.with_value(|soundtrack| soundtrack.play(score, mix));
+	}
+
+	/// Changes how the music now playing is heard: `hunt_mix` each tick of
+	/// a hunt, `sigil_mix` while its sigil is traced. Cheap enough for
+	/// every tick: only a change that would be heard reaches the engine.
+	pub fn shape(self, mix: Mix) {
+		self.soundtrack
+			.with_value(|soundtrack| soundtrack.shape(mix));
 	}
 
 	/// Turns the music on or off, and remembers which.
 	pub fn toggle_music(self) {
 		let on = !self.music.get_untracked();
 		self.music.set(on);
-		self.soundtrack.get_value().enable(on);
+		self.soundtrack
+			.with_value(|soundtrack| soundtrack.set_enabled(on));
 		let prefs = self.prefs();
 		platform::spawn(async move {
 			let _ = prefs.set(Self::MUSIC_KEY, Value::Bool(on)).await;
@@ -560,6 +587,9 @@ impl Game {
 		if let Ok(Some(Value::Bool(on))) = prefs.get(Self::MUSIC_KEY).await {
 			self.music.set(on);
 		}
+		let on = self.music.get_untracked();
+		self.soundtrack
+			.with_value(|soundtrack| soundtrack.set_enabled(on));
 		if self.flags.testing_difficulty()
 			&& let Ok(Some(Value::String(name))) = prefs.get(Self::DIFFICULTY_KEY).await
 			&& let Some(difficulty) = Difficulty::from_name(&name)

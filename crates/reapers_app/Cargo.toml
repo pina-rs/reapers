@@ -28,6 +28,7 @@ web = [
 	"dep:console_error_panic_hook",
 	"leptoskit/web",
 	"leptoskit_l10n/web",
+	"leptoskit_plugin_audio/browser",
 	"leptoskit_router/web",
 	"leptoskit_plugin_crypto/web",
 	"leptoskit_plugin_http/browser",
@@ -36,10 +37,11 @@ web = [
 	"leptoskit_xr/web",
 ]
 csr = ["web", "leptos/csr"]
-# A native app's Wasm guest: the store, HTTP and linking plugins, and an
-# executor the app keeps itself.
+# A native app's Wasm guest: the store, HTTP, linking and audio plugins, and
+# an executor the app keeps itself.
 native = [
 	"leptoskit/guest",
+	"leptoskit_plugin_audio/guest",
 	"leptoskit_plugin_crypto/guest",
 	"reapers_api/guest",
 	"dep:leptoskit_plugin_haptics",
@@ -74,6 +76,8 @@ base64 = "0.22"
 futures = { version = "0.3", default-features = false, features = ["std", "async-await"] }
 leptoskit = { workspace = true, features = ["3d"] }
 leptoskit_l10n = { workspace = true }
+# The music: Web Audio in the browser, the host's engine in a native app.
+leptoskit_plugin_audio = { workspace = true }
 leptoskit_plugin_crypto = { workspace = true }
 leptoskit_router = { workspace = true }
 reactive_graph = "0.3.0-rc0"

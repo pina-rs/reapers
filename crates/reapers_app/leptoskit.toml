@@ -45,10 +45,10 @@ viewport_height = 844.0
 # server and the cluster's RPC (http), the rifts' live socket (websocket),
 # the fresh seeds and burner keys (crypto), the marketplace and the
 # explorer (linking), a click under the thumb (haptics), Mobile Wallet
-# Adapter on Android (solana-wallet), the room around the player (xr: ARKit,
-# ARCore, OpenXR on Quest, or the rotation sensor) and the camera's
-# permission it needs (permissions).
-plugins = ["store", "secure-store", "http", "websocket", "crypto", "linking", "haptics", "solana-wallet", "xr", "permissions"]
+# Adapter on Android (solana-wallet), the music (audio), the room around the
+# player (xr: ARKit, ARCore, OpenXR on Quest, or the rotation sensor) and the
+# camera's permission it needs (permissions).
+plugins = ["store", "secure-store", "http", "websocket", "crypto", "linking", "haptics", "solana-wallet", "audio", "xr", "permissions"]
 
 # The rifts' live socket runs as an async plugin, which takes its host
 # configuration here; it needs none.

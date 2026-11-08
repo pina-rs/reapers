@@ -83,6 +83,9 @@ leptoskit = { version = "=0.3.0", default-features = false }
 leptoskit_bridge = { version = "=0.3.0" }
 leptoskit_build = { version = "=0.3.0", default-features = false }
 leptoskit_l10n = { version = "=0.3.0" }
+# The engine for native hosts and Web Audio for the browser are each turned
+# on where they run: the app's own build needs only the types.
+leptoskit_plugin_audio = { version = "=0.3.0", default-features = false }
 leptoskit_plugin_crypto = { version = "=0.3.0" }
 leptoskit_plugin_haptics = { version = "=0.3.0" }
 # Without its default `browser` feature: the app asks for `browser` or

@@ -120,6 +120,10 @@ What `leptoskit_3d` cannot do, and what the port does instead:
 
 The web game is served from its own origin and signs in as a native app does, with a bearer token rather than a cookie, so the server must name its origin as `REAPERS_ORIGIN` to answer it across origins.
 
+## Music
+
+`sound::Soundtrack` takes a `ScoreEngine`; `sound::device_engine` is the real one, on `leptoskit_plugin_audio` (Web Audio in the browser, the `audio` plugin in the apps), handed in by `Game::start` and silent everywhere else. Screens say `game.play(Score::…)` and, each tick of a hunt, `game.shape(hunt_mix(&sim))`, or `game.shape(sigil_mix(&trace))` while its sigil is traced. A browser holds the music back until the page is first pressed, and while it is hidden. leptoskit stages `assets/` into the native apps because the app draws 3D scenes, and the music comes with it.
+
 
 ## Tests
 
