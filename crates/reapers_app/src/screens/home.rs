@@ -20,10 +20,12 @@ pub fn page() -> Element {
 	match game.books.get() {
 		Books::Opening => opening_books(),
 		Books::Unreadable(failure) => unreadable(game, &failure),
-		// A debug build may open at a bench instead (REAPERS_GALLERY,
-		// REAPERS_DEPTH_PROBE); both are the 3D port's, so both open the
-		// studio's seam for now.
-		Books::Open(player) if game.flags.gallery || game.flags.depth_probe => {
+		// A debug build may open at a bench instead: the gallery, which
+		// steps the studio through every reaper and outfit
+		// (REAPERS_GALLERY), or the depth model's (REAPERS_DEPTH_PROBE),
+		// which opens the studio's seam until it is built.
+		Books::Open(player) if game.flags.gallery => crate::studio::gallery(player.genome()),
+		Books::Open(player) if game.flags.depth_probe => {
 			studio_view(&StudioViewProps {
 				genome: player.genome(),
 			})
