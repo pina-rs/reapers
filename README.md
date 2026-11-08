@@ -28,7 +28,7 @@ The five collections are real ones from Solana's first wave (Degenerate Ape Acad
 
 ### Where it stands
 
-Everything is Rust: the rules, the server, the program, the tools and every screen of the game. The 3D views and the camera hunt are being built into the app's seams on `leptoskit_3d` and `leptoskit_xr`. Until they land, each seam draws a 2D stand-in that honours its contract, and a hunt is fought by the rules' own careful player, so its log is real and the server settles it as it would any other. [crates/reapers_app/README.md](crates/reapers_app/README.md) has the seams and what each platform still lacks.
+Everything is Rust: the rules, the server, the program, the tools and every screen of the game. The reapers, the husks, the studio, the hunt and the rifts are drawn in 3D on the GPU by `leptoskit_3d`, and the hunt follows the phone through `leptoskit_xr`: ARKit, ARCore or the rotation sensor, and a dragged finger on a desktop. Each of these views sits behind one of the app's seams. [crates/reapers_app/README.md](crates/reapers_app/README.md) has the seams and what each platform still lacks.
 
 ## The stack
 
@@ -53,7 +53,7 @@ You need the leptoskit CLI, at the revision the workspace pins:
 
 ```sh
 cargo install --locked --git https://github.com/leptoskit/leptoskit \
-  --rev 53ca7405fac9fb680cd7468429cf09d9b004e76e leptoskit_cli
+  --rev bc629fb883d87040b595653f314c5970d1f89cf9 leptoskit_cli
 ```
 
 ### In the browser

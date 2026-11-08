@@ -12,8 +12,9 @@ distinction as a release contract, not a warning hidden in a roadmap.
 - Bound Sigil is selected for launcher icons, notification icons and the
   native/animated arrival. All four image masters are retained.
 - One leptoskit app for the browser, Android and iOS; no desktop application.
-  Every screen is built; the 3D views and the camera hunt are seams with 2D
-  stand-ins until `leptoskit_3d` and `leptoskit_xr` fill them.
+  Every screen is built, and the 3D views and the hunt run on `leptoskit_3d`
+  and `leptoskit_xr`. Nothing has run on a phone or headset yet, and native
+  phones do not yet draw the camera's picture behind the hunt.
 - Six offices, 18 birth gifts, four temperaments, original gift lore, individual
   soul memories and three earned awakenings. Shared deterministic rules drive
   gameplay, preview, settlement and persistence.

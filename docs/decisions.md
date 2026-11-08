@@ -92,7 +92,7 @@ The book's copy is in `crates/reapers_app/locales/en.arb` (the `ledger…` strin
 
 - The Rust rules keep the Dart rules' numbers, order of operations and save format, and are held to the bit to fixtures the Dart rules wrote (`crates/reapers_rules/tests/fixtures`). The generator stays there, retired, with the `git` command that checks out the last commit beside which it ran (`a7c2456`).
 - The keeper was ported test for test from the Serverpod keeper's, against a real PostgreSQL.
-- Every screen was ported with its strings; the 3D and camera views became seams with 2D stand-ins, so the game settles real hunts end to end before `leptoskit_3d` and `leptoskit_xr` fill them.
+- Every screen was ported with its strings; the 3D and camera views became seams with 2D stand-ins, so the game settled real hunts end to end before `leptoskit_3d` and `leptoskit_xr` filled them. They were filled the same day; the seams stayed, as the line between the screens and the views.
 - `cargo xtask hooks` and `cargo xtask merge` keep the same guard on `main` the Dart tools had: `main` moves only to a commit the checks have just passed.
 
 **What it costs:**
