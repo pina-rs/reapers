@@ -1,0 +1,26 @@
+[package]
+name = "reapers_db"
+description = "The Reapers keeper's tables and their migrations, on leptoskit_db and PostgreSQL."
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# Its own crate, apart from the keeper, so the migration tool builds without
+# Solana Kit: Solana Kit's client turns on serde_json's
+# `arbitrary_precision`, under which leptoskit_db_schema cannot read its own
+# schema snapshots back.
+[dependencies]
+chrono = { workspace = true, features = ["clock", "std"] }
+leptoskit_auth = { workspace = true, features = ["postgres"] }
+leptoskit_db = { workspace = true, features = ["postgres"] }
+leptoskit_db_schema = { workspace = true }
+leptoskit_rpc = { workspace = true, features = ["postgres"] }
+reapers_rules = { workspace = true }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true
