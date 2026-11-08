@@ -1,0 +1,105 @@
+[package]
+name = "reapers_app"
+description = "The Reapers game on leptoskit: one tree of screens for the browser and the iOS and Android apps' Wasm guest."
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# The library is the app for every host: the browser's Wasm client and the
+# native apps' Wasm guest. `leptoskit dev` and `leptoskit build` choose its
+# features per platform.
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[features]
+default = []
+# The browser: the leptos web renderer, `fetch`, `localStorage` and the
+# address bar.
+web = [
+	"dep:leptos",
+	"dep:wasm-bindgen",
+	"dep:wasm-bindgen-futures",
+	"dep:web-sys",
+	"dep:js-sys",
+	"leptoskit/web",
+	"leptoskit_l10n/web",
+	"leptoskit_router/web",
+	"leptoskit_plugin_crypto/web",
+	"leptoskit_plugin_http/browser",
+]
+csr = ["web", "leptos/csr"]
+# A native app's Wasm guest: the store, HTTP and linking plugins, and an
+# executor the app keeps itself.
+native = [
+	"leptoskit/guest",
+	"leptoskit_plugin_crypto/guest",
+	"leptoskit_plugin_haptics/guest",
+	"leptoskit_plugin_http/guest",
+	"leptoskit_plugin_linking/guest",
+	"leptoskit_plugin_store/guest",
+	"dep:futures-executor",
+	"dep:any_spawner",
+]
+ios = ["native", "leptoskit/ios"]
+# Android adds Mobile Wallet Adapter, which only Android wallets speak.
+android = [
+	"native",
+	"leptoskit/android",
+	"dep:leptoskit_bridge",
+	"dep:solana_kit_leptoskit",
+	"dep:solana_kit_wallet",
+	"solana_kit_leptoskit/wallet-session",
+]
+# The DevTools agents; `leptoskit dev` turns this on, `leptoskit build` never does.
+devtools = ["leptoskit/devtools"]
+
+[dependencies]
+async-trait = "0.1"
+base64 = "0.22"
+futures = { version = "0.3", default-features = false, features = ["std", "async-await"] }
+leptoskit = { workspace = true }
+leptoskit_l10n = { workspace = true }
+leptoskit_plugin_crypto = { workspace = true }
+leptoskit_plugin_haptics = { workspace = true }
+leptoskit_plugin_http = { workspace = true, default-features = false }
+leptoskit_plugin_linking = { workspace = true }
+leptoskit_plugin_store = { workspace = true }
+leptoskit_router = { workspace = true }
+reactive_graph = "0.3.0-rc0"
+reapers_rules = { workspace = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+solana_kit_core = { workspace = true }
+solana_kit_leptoskit = { workspace = true, optional = true }
+solana_kit_memo = { workspace = true }
+solana_kit_wallet = { workspace = true, optional = true, features = ["mwa"] }
+leptoskit_bridge = { workspace = true, optional = true, features = ["guest"] }
+solana_kit_system = { workspace = true }
+thiserror = "2"
+
+# The browser renderer and its glue.
+leptos = { version = "0.9.0-rc0", default-features = false, optional = true }
+js-sys = { version = "0.3", optional = true }
+# The embedded wasm-bindgen CLI accepts exactly its matching library version.
+wasm-bindgen = { version = "=0.2.129", optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
+web-sys = { version = "0.3", optional = true, features = ["Window", "Navigator", "Request", "RequestInit", "RequestMode", "Response", "Headers", "Location", "Crypto", "MediaQueryList"] }
+
+# The native guest has no executor of its own.
+any_spawner = { version = "0.3", features = ["futures-executor"], optional = true }
+futures-executor = { version = "0.3", optional = true }
+
+[dev-dependencies]
+futures = { version = "0.3", features = ["executor"] }
+leptoskit_testing = { workspace = true }
+
+[build-dependencies]
+leptoskit_build = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,5 @@
+/.leptoskit
+/dist
+/android/.gradle
+/android/**/build
+/android/local.properties

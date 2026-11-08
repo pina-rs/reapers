@@ -1,0 +1,72 @@
+#:schema https://leptoskit.dev/schemas/leptoskit.v0.schema.json
+
+schema_version = 0
+
+# Reapers: the browser through `leptoskit dev`, and the iOS and Android apps
+# through `leptoskit build --platform ios|android`. The headset (Quest) joins
+# later through leptoskit_xr. The server is its own crate, `reapers_server`,
+# so this project builds no backend of its own.
+[app]
+name = "reapers"
+version = "0.1.0"
+default_platform = "web"
+platforms = ["web", "ios", "android"]
+render = "csr"
+
+# Agents and people alike write builder calls here: the compiler checks them
+# directly, and there is no markup to keep in step.
+[lint]
+markup = "builder"
+
+[lint.rules]
+markup_style = "deny"
+component_attribute = "deny"
+
+[build]
+backend = false
+client_package = "reapers_app"
+
+[serve]
+address = "127.0.0.1"
+port = 3010
+
+[bundle]
+optimize = "fast"
+wasm_opt = true
+precompress = false
+
+[native]
+update_contract = "mobile-v1"
+package_id = "com.reapers.app"
+viewport_width = 390.0
+viewport_height = 844.0
+# The save (store), the server and the simnet's local validator (http), the
+# fresh seeds and burner keys (crypto), the marketplace (linking), a
+# click under the thumb (haptics), and Mobile
+# Wallet Adapter on Android (solana-wallet).
+plugins = ["store", "http", "crypto", "linking", "haptics", "solana-wallet"]
+
+# The HTTP plugin only talks to these origins: a development server and a
+# local Surfpool on this machine, and the Android emulator's alias for it.
+# A build for a deployed server adds its origin here and sets
+# REAPERS_SERVER_URL when it builds.
+[native.plugin-options.http]
+origins = [
+	"http://127.0.0.1:8080",
+	"http://localhost:8080",
+	"http://10.0.2.2:8080",
+	"http://127.0.0.1:8899",
+	"http://localhost:8899",
+	"http://10.0.2.2:8899",
+]
+
+# Screens are files under src/routes; `leptoskit build` writes src/routes.rs.
+[[plugins]]
+name = "router"
+
+# Every string a player reads is in locales/en.arb; `leptoskit build`
+# writes src/l10n.rs from it.
+[l10n]
+dir = "locales"
+output = "src/l10n.rs"
+template = "en"
