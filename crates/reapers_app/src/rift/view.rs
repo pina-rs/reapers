@@ -588,11 +588,11 @@ fn lobby(props: &RiftViewProps, state: &RiftState) -> Element {
 			} else {
 				words.rift_no_compass()
 			};
+			column = column.child(gap(14)).child(body(title, 15, colour));
+			if frame.phase == RiftPhase::Gathering {
+				column = column.child(gap(6)).child(body(placing, 13, ASH));
+			}
 			column = column
-				.child(gap(14))
-				.child(body(title, 15, colour))
-				.child(gap(6))
-				.child(body(placing, 13, ASH))
 				.child(gap(18))
 				.child(ledger_meter(
 					words.hunt_ward(),

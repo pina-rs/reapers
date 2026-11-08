@@ -195,6 +195,18 @@ impl Sketch {
 		}
 	}
 
+	/// A line through `points` in `tint` at `alpha`, broken wherever one is
+	/// behind the player.
+	pub fn line_through(
+		&mut self,
+		points: &[Option<(f64, f64)>],
+		tint: Rgb,
+		alpha: f64,
+		width: f64,
+	) {
+		self.polyline(points, colour(tint, alpha), width);
+	}
+
 	/// The drawing, filling its parent.
 	pub fn into_view(self, width: f64, height: f64) -> Element {
 		let Ok(view_box) = ViewBox::new(0.0, 0.0, width as f32, height as f32) else {

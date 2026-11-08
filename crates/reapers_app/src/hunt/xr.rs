@@ -23,9 +23,24 @@ use reapers_world::RoomSurvey;
 
 use super::pose::LivePose;
 
+/// One look at the room through the platform's depth: the grid's distances
+/// along each ray, row by row from the top, and how long it took.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Look {
+	pub columns: usize,
+	pub rows: usize,
+	pub distances: Vec<Option<f64>>,
+	pub millis: i64,
+}
+
 /// What the hunt shares with the task that follows the platform.
 #[derive(Clone, Default)]
 pub struct Shared {
+	/// The last look at the room, for the depth bench.
+	pub last_look: Rc<RefCell<Option<Look>>>,
+	/// Whether the room is looked at whether or not a survey wants it: the
+	/// depth bench.
+	pub probing: Rc<Cell<bool>>,
 	pub live: Rc<RefCell<LivePose>>,
 	/// The room being read, while a sigil is traced.
 	pub survey: Rc<RefCell<Option<RoomSurvey>>>,
@@ -225,11 +240,12 @@ mod platform {
 			let live = shared.live.borrow();
 			(live.pose(), live.fov, live.eye_height)
 		};
-		let wanted = shared
-			.survey
-			.borrow()
-			.as_ref()
-			.is_some_and(|survey| survey.wants(&pose));
+		let wanted = shared.probing.get()
+			|| shared
+				.survey
+				.borrow()
+				.as_ref()
+				.is_some_and(|survey| survey.wants(&pose));
 		let Some(fov) = fov.filter(|_| wanted) else {
 			return;
 		};
@@ -243,6 +259,7 @@ mod platform {
 			rows: LOOK_ROWS,
 		};
 		let origin = frame.viewer.position;
+		let started = crate::platform::now();
 		let mut distances = Vec::with_capacity(LOOK_COLUMNS * LOOK_ROWS);
 		for direction in grid.rays() {
 			let [x, y, z] = to_platform(direction);
@@ -266,6 +283,12 @@ mod platform {
 			};
 			distances.push(hit);
 		}
+		*shared.last_look.borrow_mut() = Some(super::Look {
+			columns: LOOK_COLUMNS,
+			rows: LOOK_ROWS,
+			distances: distances.clone(),
+			millis: crate::platform::now().millis() - started.millis(),
+		});
 		let picture = DepthFrame::from_rays(&grid, &distances);
 		if let Some(survey) = shared.survey.borrow_mut().as_mut() {
 			if let Some(height) = eye_height {

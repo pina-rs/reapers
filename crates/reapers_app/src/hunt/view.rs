@@ -74,6 +74,9 @@ use crate::ui::ledger_row;
 const SKIP_AFTER: f64 = 60.0;
 /// How long a banner stays.
 const BANNER_SECONDS: f64 = 1.3;
+/// How wide the arc a hunt that plays itself in a drawn room is fought in,
+/// either side of straight ahead.
+const AUTOPLAY_ARC: f64 = reapers_rules::radians(80.0);
 /// How long a finished hunt waits, at most, for its husk to come apart
 /// before it is handed to the books.
 const LINGER_SECONDS: f64 = 2.4;
@@ -119,6 +122,9 @@ pub struct HuntState {
 	pub light: Rgb,
 	/// The view's size in layout units.
 	pub size: (f64, f64),
+	/// The room drawn by hand the hunt is played in, with
+	/// `REAPERS_DRAWN_ROOM`.
+	room: Option<reapers_world::DrawnRoom>,
 }
 
 thread_local! {
@@ -176,6 +182,7 @@ impl HuntState {
 			fingerprint: 0,
 			light: light_of(&props.brief),
 			size,
+			room: crate::dev::drawn_room::room(),
 		}
 	}
 
@@ -218,13 +225,32 @@ impl HuntState {
 	/// the player faces. A hunt that plays itself has no sigil to trace.
 	fn begin(&mut self) {
 		follow(&self.shared);
+		let vessel = self.brief.nft.collection.vessel();
+		// A room drawn by hand is read whole at once, as if the platform had
+		// seen all of it.
+		*self.shared.survey.borrow_mut() = Some(
+			self.room
+				.as_ref()
+				.map_or_else(|| RoomSurvey::new(vessel), |room| room.survey(vessel)),
+		);
 		if self.autoplay {
-			self.engage(HuntPlan::OPEN);
+			// A hunt that plays itself has no sigil to trace. A drawn room
+			// has its furniture straight ahead, so that is where its hunt is.
+			let plan = if self.room.is_some() {
+				self.shared
+					.survey
+					.borrow()
+					.as_ref()
+					.map_or(HuntPlan::OPEN, |survey| {
+						survey.plan_within(0.0, AUTOPLAY_ARC)
+					})
+			} else {
+				HuntPlan::OPEN
+			};
+			self.engage(plan);
 			return;
 		}
 		let centre = self.shared.live.borrow().pose().forward.yaw();
-		*self.shared.survey.borrow_mut() =
-			Some(RoomSurvey::new(self.brief.nft.collection.vessel()));
 		self.stage = Stage::Tracing(SigilTrace::new(self.sigil(), centre));
 	}
 
@@ -491,6 +517,9 @@ pub fn hunt_view(props: &HuntViewProps) -> Element {
 	let lens = state.lens();
 	let mut sketch = Sketch::default();
 	veil(&mut sketch, &lens);
+	if let Some(room) = &state.room {
+		crate::dev::drawn_room::draw(&mut sketch, &lens, room);
+	}
 	let mut root = View()
 		.class("relative w-full h-screen overflow-hidden bg-[#07080b]")
 		.test_id("hunt-view")

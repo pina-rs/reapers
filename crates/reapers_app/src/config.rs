@@ -13,7 +13,8 @@
 //! | `REAPERS_DEMO_RIFT=true` | With a server, waives attunement so several clients share a demo rift. Ignored by release builds. |
 //! | `REAPERS_AUTOPLAY=true` | A simulated player fights every hunt and rift. |
 //! | `REAPERS_GALLERY=true` | Debug builds open at the reaper bench. |
-//! | `REAPERS_DEPTH_PROBE=true` | Debug builds open at the depth model's bench. |
+//! | `REAPERS_DEPTH_PROBE=true` | Debug builds open at the depth bench: what the platform's AR measures of the room. |
+//! | `REAPERS_DRAWN_ROOM=true` | Debug builds hunt in a kitchen drawn by hand, read as if the platform saw it. |
 //!
 //! ```sh
 //! REAPERS_SIMNET=true leptoskit dev --platform web
@@ -48,8 +49,11 @@ pub struct BuildFlags {
 	pub autoplay: bool,
 	/// Whether the build opens at the reaper bench.
 	pub gallery: bool,
-	/// Whether the build opens at the depth model's bench.
+	/// Whether the build opens at the depth bench.
 	pub depth_probe: bool,
+	/// Whether hunts are played in a room drawn by hand, read as if the
+	/// platform saw it: for simulators and desks.
+	pub drawn_room: bool,
 	/// Whether this is a release build, which ignores the developers' flags.
 	pub release: bool,
 }
@@ -117,6 +121,7 @@ impl BuildFlags {
 			autoplay: yes(option_env!("REAPERS_AUTOPLAY")),
 			gallery: !release && yes(option_env!("REAPERS_GALLERY")),
 			depth_probe: !release && yes(option_env!("REAPERS_DEPTH_PROBE")),
+			drawn_room: !release && yes(option_env!("REAPERS_DRAWN_ROOM")),
 			release,
 		}
 	}

@@ -407,12 +407,12 @@ impl HuskRig {
 /// The turn about the scene's vertical that faces a husk along `heading`,
 /// a bearing in the hunt's space (radians to the right of straight ahead).
 ///
-/// The models face −Z. A heading of `h` faces the hunt's `(sin h, 0, cos h)`,
-/// which is the scene's `(sin h, 0, −cos h)`, and a right-handed turn of
-/// `−h` about +Y takes −Z there. So a husk coming straight at the player
-/// (a heading of π) turns half round to face the camera.
+/// The models face +Z, as glTF's do. A heading of `h` faces the hunt's
+/// `(sin h, 0, cos h)`, which is the scene's `(sin h, 0, −cos h)`, and a
+/// right-handed turn of `π − h` about +Y takes +Z there. So a husk coming
+/// straight at the player (a heading of π) needs no turn at all.
 pub fn heading_yaw(heading: f64) -> f32 {
-	wrap_angle(-heading) as f32
+	wrap_angle(std::f64::consts::PI - heading) as f32
 }
 
 /// The body's rise, lean, twist and squash, turned about its feet.

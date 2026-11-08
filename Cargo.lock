@@ -4063,6 +4063,8 @@ dependencies = [
  "objc2-core-video",
  "objc2-foundation",
  "objc2-ui-kit",
+ "serde",
+ "serde_json",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -5902,9 +5904,11 @@ dependencies = [
  "leptoskit_plugin_haptics",
  "leptoskit_plugin_http",
  "leptoskit_plugin_linking",
+ "leptoskit_plugin_permissions",
  "leptoskit_plugin_secure_store",
  "leptoskit_plugin_store",
  "leptoskit_plugin_websocket",
+ "leptoskit_xr",
  "solana_kit_leptoskit",
 ]
 
@@ -5917,9 +5921,11 @@ dependencies = [
  "leptoskit_plugin_haptics",
  "leptoskit_plugin_http",
  "leptoskit_plugin_linking",
+ "leptoskit_plugin_permissions",
  "leptoskit_plugin_secure_store",
  "leptoskit_plugin_store",
  "leptoskit_plugin_websocket",
+ "leptoskit_xr",
  "solana_kit_leptoskit",
 ]
 

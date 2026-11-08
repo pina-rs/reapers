@@ -3,14 +3,15 @@
 schema_version = 0
 
 # Reapers: the browser through `leptoskit dev`, and the iOS and Android apps
-# through `leptoskit build --platform ios|android`. The headset (Quest) joins
-# later through leptoskit_xr. The server is its own crate, `reapers_server`,
-# so this project builds no backend of its own.
+# through `leptoskit build --platform ios|android`, and Meta Quest through
+# `leptoskit build --platform quest`, as a panel (see [native.quest]). The
+# server is its own crate, `reapers_server`, so this project builds no
+# backend of its own.
 [app]
 name = "reapers"
 version = "0.1.0"
 default_platform = "web"
-platforms = ["web", "ios", "android"]
+platforms = ["web", "ios", "android", "quest"]
 render = "csr"
 
 # Agents and people alike write builder calls here: the compiler checks them
@@ -43,9 +44,30 @@ viewport_height = 844.0
 # The save (store), the server session's refresh token (secure-store), the
 # server and the cluster's RPC (http), the rifts' live socket (websocket),
 # the fresh seeds and burner keys (crypto), the marketplace and the
-# explorer (linking), a click under the thumb (haptics), and Mobile Wallet
-# Adapter on Android (solana-wallet).
-plugins = ["store", "secure-store", "http", "websocket", "crypto", "linking", "haptics", "solana-wallet"]
+# explorer (linking), a click under the thumb (haptics), Mobile Wallet
+# Adapter on Android (solana-wallet), the room around the player (xr: ARKit,
+# ARCore, OpenXR on Quest, or the rotation sensor) and the camera's
+# permission it needs (permissions).
+plugins = ["store", "secure-store", "http", "websocket", "crypto", "linking", "haptics", "solana-wallet", "xr", "permissions"]
+
+# The rifts' live socket runs as an async plugin, which takes its host
+# configuration here; it needs none.
+[native.plugin-options.websocket]
+
+# The hunt reads the platform's frames at the rules' own rate: more would
+# only be skipped.
+[native.plugin-options.xr]
+max-frame-rate = 30
+
+# On a Quest the game opens as a panel in the player's space: its screens are
+# ordinary leptoskit views, which an immersive session would not show. The
+# hunt's AR then follows the headset through OpenXR where it can; drawing it
+# into the headset's own frames is left to leptoskit_xr's 3D glue (see
+# docs/environment.md).
+[native.quest]
+immersive = false
+hand-tracking = "optional"
+passthrough = true
 
 # The HTTP plugin only talks to these origins: a development server and a
 # local Surfpool on this machine, the Android emulator's alias for it, and

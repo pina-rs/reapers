@@ -165,3 +165,66 @@ fn the_face_close_up_is_filled_by_the_head() {
 		.count();
 	assert_eq!(middle, 400, "the face fills the middle of the close-up");
 }
+
+/// The share of covered pixels lit brighter than anything but a husk's own
+/// glow: its eyes and seals.
+fn glowing(pixels: &[u8]) -> usize {
+	pixels
+		.as_chunks::<4>()
+		.0
+		.iter()
+		.filter(|pixel| {
+			pixel[3] > 200 && u32::from(pixel[0]) + u32::from(pixel[1]) + u32::from(pixel[2]) > 520
+		})
+		.count()
+}
+
+#[test]
+fn a_husk_coming_at_the_player_faces_them() {
+	use reapers_app::hunt::arena::HUNT_FOV;
+	use reapers_app::render::camera::look_at;
+	use reapers_app::render::husk::HuskMood;
+	use reapers_app::render::husk::HuskRig;
+	use reapers_app::render::reaction::HuskPlight;
+	use reapers_app::render::scene::light_hunt;
+	use reapers_rules::HuskPose;
+	use reapers_rules::Vec3;
+	use reapers_rules::market_listings;
+
+	let Some(gpu) = gpu() else {
+		return;
+	};
+	let size = (200, 200);
+	let nft = market_listings()[0];
+	let vessel = nft.collection.vessel();
+	let draw_heading = |heading: f64| {
+		let scene = Scene::new(leptoskit_3d::SceneId(1));
+		light_hunt(&scene, false);
+		let mut rig = HuskRig::spawn(&scene, vessel, &nft);
+		// Two metres straight ahead of the player, at its own height.
+		rig.place(&HuskPose::new(vessel, Vec3::new(0.0, -0.8, 2.0), heading));
+		rig.animate(
+			&scene,
+			1.0 / 30.0,
+			HuskMood::default(),
+			HuskPlight::default(),
+		);
+		scene.push(leptoskit_3d::Op::SetCamera {
+			transform: look_at([0.0; 3], [0.0, -0.3, -1.0], [0.0, 1.0, 0.0]),
+			fov_y: HUNT_FOV as f32,
+			near: 0.05,
+			far: 50.0,
+		});
+		draw(&gpu, &scene, 0.1, size)
+	};
+	let facing = draw_heading(std::f64::consts::PI);
+	let away = draw_heading(0.0);
+	save("husk_facing", &facing, size);
+	save("husk_away", &away, size);
+	assert!(
+		glowing(&facing) > glowing(&away),
+		"the eyes show from the front ({} lit) and not from behind ({} lit)",
+		glowing(&facing),
+		glowing(&away)
+	);
+}
