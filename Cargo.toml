@@ -15,6 +15,12 @@ publish = false
 reapers_receipt = { path = "crates/reapers_receipt" }
 reapers_rules = { path = "crates/reapers_rules" }
 
+# The on-chain program and its tests.
+bs58 = "0.5.1"
+ed25519-dalek = { version = "2.2.0", features = ["rand_core"] }
+sha2 = "0.10.9"
+pina = { version = "0.24.0", default-features = false }
+
 [workspace.lints.rust]
 unsafe_code = "deny"
 unused_must_use = "deny"

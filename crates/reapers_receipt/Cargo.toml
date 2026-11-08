@@ -1,0 +1,22 @@
+[package]
+name = "reapers_receipt"
+description = "The absorption receipt: what the keeper signs and the Reapers program checks."
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# No dependencies, so the on-chain program, the server and the app's Wasm guest
+# can all read and write the same 98 bytes.
+[dependencies]
+
+[dev-dependencies]
+bs58 = { workspace = true }
+ed25519-dalek = { workspace = true }
+sha2 = { workspace = true }
+
+[lints]
+workspace = true
