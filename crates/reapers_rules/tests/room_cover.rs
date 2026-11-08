@@ -1,4 +1,4 @@
-//! The Rust side of `reapers_shared/test/room_cover_test.dart`.
+//! Cover in a surveyed room, and husks that use it.
 
 mod support;
 

@@ -1,6 +1,6 @@
 //! Enums that are saved and sent by name.
 
-/// Gives a fieldless enum the list of its values, its Dart name, a lookup by
+/// Gives a fieldless enum the list of its values, its saved name, a lookup by
 /// that name, its index, and serde as that name: the form saves and the wire
 /// have always used.
 macro_rules! named_enum {

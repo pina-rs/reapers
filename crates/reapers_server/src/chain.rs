@@ -57,7 +57,7 @@ const MAX_ASSET_BYTES: usize = 32 * 1024;
 /// A Solana JSON-RPC endpoint: one request, one bounded reply.
 ///
 /// The keeper's own is Solana Kit's native HTTP transport; the tests answer
-/// with controlled chain responses instead, as the Dart tests did.
+/// with controlled chain responses instead.
 pub trait Rpc: Send + Sync + 'static {
 	/// Posts `request` and receives its reply.
 	fn exchange(&self, request: Request) -> BoxFuture<'_, Result<Reply, TransportError>>;

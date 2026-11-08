@@ -1,4 +1,4 @@
-//! The Rust side of `reapers_shared/test/player_state_test.dart`.
+//! A player's books, and every request a player can make of them.
 
 mod support;
 
@@ -62,7 +62,7 @@ fn save_with(state: &PlayerState, changes: Value) -> PlayerState {
 	serde_json::from_value(json).unwrap()
 }
 
-/// `reaper` with `xp` experience, as Dart's `copyWith(xp:)`.
+/// `reaper` with `xp` experience and nothing else changed.
 fn with_xp(reaper: &ReaperState, xp: i64) -> ReaperState {
 	ReaperState::new(
 		reaper.id().to_owned(),
@@ -275,7 +275,7 @@ mod releasing {
 mod settling_a_hunt {
 	use super::*;
 
-	/// `x` rounded half away from zero, as Dart's `round`.
+	/// `x` rounded half away from zero, as the rules round.
 	fn round(x: f64) -> i64 {
 		x.round() as i64
 	}

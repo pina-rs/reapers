@@ -1,21 +1,23 @@
-//! The Rust rules against the Dart rules.
+//! The rules against the record of what they did before they were Rust.
 //!
-//! `fixtures/generate.dart` asked the Dart rules a few thousand questions
-//! with definite answers and wrote the answers down. Every test here asks
-//! the Rust rules the same questions and expects the same answers, to the
-//! last bit of every double: a hunt the phone played under one and the
-//! server replays under the other must end the same way.
+//! `fixtures/generate.dart` asked the first implementation of the rules a
+//! few thousand questions with definite answers and wrote the answers down
+//! (`fixtures/README.md` says how it ran, and why it no longer can). Every
+//! test here asks the rules the same questions and expects the same
+//! answers, to the last bit of every double: a save, a hunt log or a receipt
+//! written before the port must read and replay the same way.
 //!
-//! One kind of answer is held a little looser by default. Dart took its
-//! sines and arc tangents from the platform; the Rust rules take theirs from
-//! the `libm` crate, so that the server and the Wasm game agree with each
-//! other to the bit. The two libraries part in the last bit now and then,
-//! so a husk's position, or the bearing between two points a few metres
-//! apart, may differ from Dart's by that much ([`DRIFT`]). Everything that
-//! decides a hunt (every input the bot makes, every event, every strike's
-//! damage, every outcome) must still match exactly, and does. Built with
-//! `--features system-math`, which takes those functions from the platform
-//! as Dart did, every answer here must match to the bit.
+//! One kind of answer is held a little looser by default. The first rules
+//! took their sines and arc tangents from the platform; these take theirs
+//! from the `libm` crate, so that the server and the Wasm game agree with
+//! each other to the bit. The two libraries part in the last bit now and
+//! then, so a husk's position, or the bearing between two points a few
+//! metres apart, may differ from the record by that much ([`DRIFT`]).
+//! Everything that decides a hunt (every input the bot makes, every event,
+//! every strike's damage, every outcome) must still match exactly, and
+//! does. Built with `--features system-math`, which takes those functions
+//! from the platform as the first rules did, every answer here must match
+//! to the bit.
 
 #![allow(clippy::float_cmp, reason = "the answers must be identical, not close")]
 #![allow(
@@ -51,8 +53,8 @@ fn bits(value: f64) -> String {
 }
 
 /// How far a double that went through a sine or an arc tangent may stray
-/// from Dart's, relative to its size, while the rules take those functions
-/// from `libm` rather than from the platform as Dart did.
+/// from the record, relative to its size, while the rules take those
+/// functions from `libm` rather than from the platform.
 const DRIFT: f64 = 1e-9;
 
 /// Whether `actual` is `expected`, with every double written as its bits
@@ -541,7 +543,7 @@ fn derived_stats_match() {
 
 // Hunts ----------------------------------------------------------------
 
-/// Plays one fixture hunt in Rust, checking it against what Dart wrote as
+/// Plays one fixture hunt, checking it against what the record wrote as
 /// it goes, so that the first tick the two part ways is the one reported.
 #[allow(clippy::too_many_lines, reason = "one hunt, checked as it is played")]
 fn play_hunt(case: &Value) {
@@ -612,7 +614,7 @@ fn play_hunt(case: &Value) {
 			let pose = sim.pose();
 			let expected = checkpoints
 				.next()
-				.unwrap_or_else(|| panic!("{name}: runs past Dart"));
+				.unwrap_or_else(|| panic!("{name}: runs past the record"));
 			let actual = serde_json::json!({
 				"tick": sim.tick(),
 				"phase": sim.phase().name(),
@@ -636,7 +638,10 @@ fn play_hunt(case: &Value) {
 		}
 	}
 
-	assert!(checkpoints.next().is_none(), "{name}: ends before Dart");
+	assert!(
+		checkpoints.next().is_none(),
+		"{name}: ends before the record"
+	);
 
 	let outcome = sim.outcome();
 	let log = HuntLog {
@@ -926,7 +931,7 @@ fn rifts_play_out_as_they_did_in_dart() {
 			}
 		}
 
-		assert!(frames.next().is_none(), "{name}: ends before Dart");
+		assert!(frames.next().is_none(), "{name}: ends before the record");
 		assert_eq!(
 			table.room.phase().name(),
 			text(&expected["phase"]),
@@ -971,7 +976,7 @@ fn rifts_play_out_as_they_did_in_dart() {
 // The player -----------------------------------------------------------
 
 /// Plays the fixture's scripted session, step by step, and checks each
-/// state the rules return against the one Dart returned.
+/// state the rules return against the one the record holds.
 #[test]
 #[allow(clippy::too_many_lines, reason = "one script, in order")]
 fn a_player_session_matches_step_for_step() {

@@ -24,5 +24,6 @@ workspace = true
 
 [features]
 # Take sines, arc tangents and square roots from the platform instead of
-# `libm`: what the Dart rules did. For comparing against them only.
+# `libm`, as the rules' first implementation did. For comparing against its
+# fixtures only (tests/fixtures/README.md).
 system-math = []

@@ -1,5 +1,4 @@
-//! The Rust side of `reapers_server/test/integration/rift_endpoint_test.dart`:
-//! rifts hosted by the keeper, one reaper and several at once, each paid
+//! Rifts hosted by the keeper, one reaper and several at once, each paid
 //! from their own books, against a real PostgreSQL.
 
 mod support;

@@ -51,7 +51,7 @@ pub struct IllFormedPlan;
 #[derive(Clone, Debug)]
 #[allow(
 	clippy::struct_excessive_bools,
-	reason = "the hunt's flags, as the Dart rules kept them"
+	reason = "the hunt's flags, kept as they replay"
 )]
 pub struct HuntSim {
 	seed: i64,

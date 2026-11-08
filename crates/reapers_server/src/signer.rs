@@ -14,7 +14,7 @@ use solana_kit_core::crypto::Keypair;
 /// The keeper's Ed25519 key.
 ///
 /// It is derived from one secret, `receiptSigningKey`: the SHA-256 of the
-/// secret is the key's seed, as the Dart keeper derived it, so a deployment
+/// secret is the key's seed, as the first keeper derived it, so a deployment
 /// only has to keep a string and the key it had before is the key it has
 /// now. Whoever holds that secret can sign an absorption of anything, so it
 /// is one of the secrets a deployed keeper refuses to start without.

@@ -1,6 +1,6 @@
-//! The Rust side of `reapers_shared/test/hunt_sim_test.dart`.
+//! The hunt, a tick at a time.
 
-#![allow(clippy::float_cmp, reason = "the Dart tests compare these exactly")]
+#![allow(clippy::float_cmp, reason = "these are compared exactly")]
 
 mod support;
 
@@ -18,9 +18,8 @@ macro_rules! count {
 }
 
 /// A module named after `check`, with one test in it for every vessel a lone
-/// reaper hunts, as Dart's loop over `Vessel.values.where((vessel) =>
-/// vessel.isSolo)` makes. Each test hands its vessel to the function
-/// `check`.
+/// reaper hunts (every [`Vessel`] that [`Vessel::is_solo`]). Each test hands
+/// its vessel to the function `check`.
 macro_rules! solo_vessel_tests {
 	($check:ident) => {
 		mod $check {
@@ -92,7 +91,7 @@ fn run_until_within(
 	events
 }
 
-/// [`run_until_within`] with the Dart default limit of 4000 ticks.
+/// [`run_until_within`] with the usual limit of 4000 ticks.
 fn run_until(
 	sim: &mut HuntSim,
 	phase: HuntPhase,

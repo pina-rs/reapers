@@ -37,8 +37,7 @@ impl SeededRandom {
 		f64::from(self.next_u32()) / 4_294_967_296.0
 	}
 
-	/// The next integer in `[0, max)`. A `max` of zero or less gives zero,
-	/// where the Dart rules threw.
+	/// The next integer in `[0, max)`. A `max` of zero or less gives zero.
 	pub fn next_int(&mut self, max: i64) -> i64 {
 		if max <= 0 {
 			return 0;

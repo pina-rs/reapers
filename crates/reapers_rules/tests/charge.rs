@@ -1,4 +1,4 @@
-//! The Rust side of `reapers_shared/test/charge_test.dart`.
+//! Charging a strike, and what a charged strike does.
 
 mod support;
 
@@ -16,9 +16,8 @@ macro_rules! count {
 }
 
 /// A module named after `check`, with one test in it for every vessel a lone
-/// reaper hunts, as Dart's loop over `Vessel.values.where((vessel) =>
-/// vessel.isSolo)` makes. Each test hands its vessel to the function
-/// `check`.
+/// reaper hunts (every [`Vessel`] that [`Vessel::is_solo`]). Each test hands
+/// its vessel to the function `check`.
 macro_rules! solo_vessel_tests {
 	($check:ident) => {
 		mod $check {
@@ -118,7 +117,7 @@ fn charging(vessel: Vessel, seed: i64) -> HuntSim {
 	sim
 }
 
-/// [`charging`] with Dart's defaults: an ape, seed 4.
+/// [`charging`] with the usual ape and seed, 4.
 fn charging_ape() -> HuntSim {
 	charging(Vessel::Ape, 4)
 }

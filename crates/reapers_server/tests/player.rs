@@ -1,6 +1,5 @@
-//! The Rust side of `reapers_server/test/integration/player_endpoint_test.dart`
-//! and `simulation_policy_test.dart`: a signed-in player's books, through
-//! the operations, against a real PostgreSQL.
+//! A signed-in player's books, through the operations, and the simulated
+//! economy that only development and test allow, against a real PostgreSQL.
 
 mod support;
 

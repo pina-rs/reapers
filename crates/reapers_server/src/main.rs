@@ -28,7 +28,7 @@ use reapers_server::tables::MIGRATIONS;
 use sha2::Digest;
 
 /// What a deployed keeper exits with when a secret is missing:
-/// `EX_CONFIG`, as the Dart keeper did.
+/// `EX_CONFIG`, as the keeper always has.
 const MISSING_SECRET: u8 = 78;
 
 /// The database a developer's keeper uses when none is configured.

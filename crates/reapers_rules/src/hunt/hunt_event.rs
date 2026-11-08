@@ -219,7 +219,7 @@ pub enum HuntEvent {
 }
 
 impl HuntEvent {
-	/// The name of the event's kind, as the Dart rules named the class.
+	/// The name of the event's kind, as logs and fixtures name it.
 	pub const fn kind(&self) -> &'static str {
 		match self {
 			Self::GiftStirred(_) => "GiftStirred",

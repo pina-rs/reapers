@@ -110,7 +110,7 @@ impl ReaperClass {
 		self as usize
 	}
 
-	/// Its name, as the Dart rules spelled it.
+	/// Its name, as saves spell it.
 	pub const fn name(self) -> &'static str {
 		match self {
 			Self::Harvester => "harvester",

@@ -26,7 +26,7 @@
 //! | 82..90 | when, in seconds since 1970, signed, little-endian |
 //! | 90..98 | the nonce the feeding was rolled from, little-endian |
 //!
-//! Version 1 (`RPRSABS1`, `AbsorptionReceipt` in `reapers_shared`) had the same
+//! Version 1 (`RPRSABS1`, the first keeper's `AbsorptionReceipt`) had the same
 //! layout but held the SHA-256 of stand-in identifiers in the two address
 //! fields. It can never be posted, and [`Receipt::decode`] refuses it with
 //! [`ReceiptError::Version1`].
@@ -72,7 +72,7 @@ pub mod offset {
 	pub const NONCE: usize = 90;
 }
 
-/// How clean the cut was. The values are `ReapGrade.index` in `reapers_shared`.
+/// How clean the cut was. The values are `ReapGrade::index` in `reapers_rules`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum Grade {
@@ -96,7 +96,7 @@ impl Grade {
 	}
 }
 
-/// How well the reaper fed. The values are `Feeding.index` in `reapers_shared`.
+/// How well the reaper fed. The values are `Feeding::index` in `reapers_rules`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum Feeding {

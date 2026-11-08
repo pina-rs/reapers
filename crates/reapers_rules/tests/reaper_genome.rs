@@ -1,4 +1,4 @@
-//! The Rust side of `reapers_shared/test/reaper_genome_test.dart`.
+//! Reaper genomes: drawing them, writing them, and reading them back.
 
 mod support;
 
@@ -88,8 +88,8 @@ mod reaper_genome_code {
 	use super::*;
 
 	/// `code` with the first of its fields after the version that `matches`
-	/// replaced by `replacement`: Dart's `replaceFirst` with a pattern that
-	/// sits between two dashes.
+	/// replaced by `replacement`: the first field, between two dashes, that
+	/// matches.
 	fn replace_field(code: &str, matches: impl Fn(&str) -> bool, replacement: &str) -> String {
 		let mut fields: Vec<&str> = code.split('-').collect();
 		let index = (1..fields.len())

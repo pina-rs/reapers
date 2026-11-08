@@ -1,6 +1,6 @@
-//! The Rust side of `reapers_shared/test/geo_fix_test.dart`.
+//! Location fixes: their accuracy, their age, and when they are refused.
 
-#![allow(clippy::float_cmp, reason = "the Dart tests compare these exactly")]
+#![allow(clippy::float_cmp, reason = "these are compared exactly")]
 
 mod support;
 
@@ -20,7 +20,7 @@ fn fix() -> GeoFix {
 	}
 }
 
-/// `at` moved `duration` earlier: Dart's `DateTime.subtract`.
+/// `at` moved `duration` earlier.
 fn minus(at: Timestamp, duration: Duration) -> Timestamp {
 	Timestamp::from_micros(at.micros() - i64::try_from(duration.as_micros()).unwrap())
 }

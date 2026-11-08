@@ -1,6 +1,6 @@
-//! The Rust side of `reapers_shared/test/rift_room_test.dart`.
+//! Rift rooms: the circle, the ward, the phases and the verdict.
 
-#![allow(clippy::float_cmp, reason = "the Dart tests compare these exactly")]
+#![allow(clippy::float_cmp, reason = "these are compared exactly")]
 
 mod support;
 
@@ -359,8 +359,8 @@ mod one_fight_shared {
 		assert_eq!(seat.sim.ward(), 1000.0 - 100.0 - 60.0);
 	}
 
-	/// Dart threw a `StateError` here. The Rust rules leave a lone hunt's
-	/// ward alone instead, so this checks that sharing changes nothing.
+	/// The rules once refused this outright. They leave a lone hunt's ward
+	/// alone instead, so this checks that sharing changes nothing.
 	#[test]
 	fn a_lone_hunt_has_no_shared_ward() {
 		let mut sim = default_sim();

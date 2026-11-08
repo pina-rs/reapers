@@ -13,7 +13,7 @@ use reapers_rules::ReaperClass;
 use reapers_rules::Temper;
 use support::SimFor;
 
-/// The table, as the Dart tool printed it.
+/// The table, as `tests/fixtures` holds it.
 pub fn report() -> String {
 	let mut out = String::new();
 

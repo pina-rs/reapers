@@ -355,7 +355,7 @@ impl HuntLog {
 	/// is clear along each slice of the room when that was measured, and
 	/// what stands at the end of each: its height, where to hide behind it,
 	/// and one bit for whether its top is a ledge. Numbers too big for their
-	/// field keep their low bits, as Dart's byte writer did.
+	/// field keep their low bits, as they always have.
 	pub fn encode(&self) -> Vec<u8> {
 		let plan = &self.plan;
 		let mut bytes =

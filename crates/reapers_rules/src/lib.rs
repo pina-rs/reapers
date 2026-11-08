@@ -10,15 +10,16 @@
 //! Every sine and square root is taken through one implementation, so the
 //! server and the game, built for different targets, land on the same bits.
 //!
-//! This is a port of the Dart package `reapers_shared`, and keeps its
-//! numbers, its order of operations and its save format, so that the two
-//! agree on every hunt while both are in use. The tests under `tests/`
-//! check that against fixtures the Dart rules wrote.
+//! The rules were first written in another language, and were ported here
+//! keeping their numbers, their order of operations and their save format,
+//! so that every save, hunt log and receipt written before the port reads
+//! and replays the same way. `tests/conformance.rs` holds them to fixtures
+//! that first implementation wrote.
 
-mod dart;
 mod error;
 mod math;
 mod named;
+mod parse;
 
 pub mod armory;
 pub mod arts;

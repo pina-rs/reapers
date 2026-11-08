@@ -1,4 +1,4 @@
-//! The Rust side of `reapers_shared/test/arts_test.dart`.
+//! The arts: Cinder, Rime and Gale, learned and thrown.
 
 mod support;
 

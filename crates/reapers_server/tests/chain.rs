@@ -1,6 +1,6 @@
-//! The Rust side of `reapers_server/test/solana/solana_gateway_test.dart`,
-//! with the escrow checks the Reapers program adds: the chain as the keeper
-//! reads it, through Solana Kit, against controlled chain responses.
+//! The chain as the keeper reads it: Core decoding, the cluster check,
+//! genome URIs, failures, and the escrows the Reapers program keeps, read
+//! through Solana Kit against controlled chain responses.
 
 mod support;
 

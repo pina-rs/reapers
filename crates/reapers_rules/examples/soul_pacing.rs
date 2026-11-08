@@ -17,7 +17,7 @@ use reapers_rules::Vessel;
 use reapers_rules::Weapon;
 
 /// `value` with `digits` decimals, rounded half away from zero on its exact
-/// value, as Dart's `toStringAsFixed` writes it.
+/// value, the way the table has always been written.
 fn to_fixed(value: f64, digits: usize) -> String {
 	let exact = format!("{value:.1100}");
 	let (whole, fraction) = exact.split_once('.').unwrap();
@@ -36,7 +36,7 @@ fn to_fixed(value: f64, digits: usize) -> String {
 	format!("{sign}{head}.{tail}")
 }
 
-/// The table, as the Dart tool printed it.
+/// The table, as `tests/fixtures` holds it.
 pub fn report() -> String {
 	let mut out = String::new();
 

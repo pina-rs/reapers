@@ -29,7 +29,7 @@ fn idle(sim: &HuntSim, _person: usize) -> HuntBot {
 	)
 }
 
-/// The table, as the Dart tool printed it.
+/// The table, as `tests/fixtures` holds it.
 pub fn report() -> String {
 	let mut out = String::new();
 

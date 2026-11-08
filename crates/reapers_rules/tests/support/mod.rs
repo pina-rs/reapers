@@ -1,4 +1,4 @@
-//! Helpers the rules' tests share: the Rust side of `reapers_shared/test/support`.
+//! Helpers the rules' tests share.
 
 #![allow(dead_code, reason = "each test file uses some of these")]
 
@@ -26,7 +26,7 @@ use reapers_rules::Weapon;
 use reapers_rules::degrees;
 use reapers_rules::radians;
 
-// hunt_bot.dart ---------------------------------------------------------
+// the hunt bot ---------------------------------------------------------
 
 /// What a hunt for one husk is played with, for [`sim_for`].
 #[derive(Clone, Copy, Debug)]
@@ -101,7 +101,7 @@ pub fn wary_on_husk(sim: &HuntSim) -> HuntInput {
 	)
 }
 
-// rooms.dart ------------------------------------------------------------
+// rooms ----------------------------------------------------------------
 
 /// A kitchen: a counter 92 cm high runs across the room ahead, from 35
 /// degrees left to 35 degrees right, with its front 2.2 m away and room to
@@ -139,7 +139,7 @@ pub fn kitchen_with(counter_centimetres: i32, ledge: bool) -> HuntPlan {
 	}
 }
 
-// rift_table.dart -------------------------------------------------------
+// the rift table -------------------------------------------------------
 
 /// A reaper of `reaper_class` at `level`, with their class's weapon at the
 /// best temper that level allows.
@@ -271,7 +271,7 @@ impl RiftTable {
 	}
 }
 
-// sigil_tracer.dart -----------------------------------------------------
+// the sigil tracer -----------------------------------------------------
 
 /// What came of a simulated reaper tracing a sigil.
 #[derive(Clone, Copy, Debug)]

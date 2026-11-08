@@ -1,4 +1,4 @@
-//! The Rust side of `reapers_shared/test/reaper_roster_test.dart`.
+//! A player's roster of reapers.
 
 mod support;
 
@@ -41,8 +41,8 @@ fn refused<T: std::fmt::Debug>(result: RuleResult<T>, refusal: Refusal) {
 	assert_eq!(result.unwrap_err().refusal, refusal);
 }
 
-/// `reaper` with `xp` and `outfit` in place of its own, refused as Dart's
-/// `ReaperState.copyWith` refuses a record no reaper could have.
+/// `reaper` with `xp` and `outfit` in place of its own, refused when it is a
+/// record no reaper could have.
 fn copy_with(reaper: &ReaperState, xp: i64, outfit: Outfit) -> Result<ReaperState, FormatError> {
 	ReaperState::new(
 		reaper.id().to_owned(),
@@ -147,8 +147,8 @@ fn roster_capacity_is_enforced_by_the_shared_rule() {
 fn reaper_progression_is_immutable_and_equipped_gear_must_be_owned() {
 	let pair = pair();
 	let reaper = pair.reapers().first().unwrap();
-	// Dart checks that the collections refuse `clear`. Here they are lent
-	// out only as shared slices, which cannot be changed at all.
+	// The collections cannot be emptied from outside: they are lent out only
+	// as shared slices, which cannot be changed at all.
 	let _: &[Weapon] = reaper.weapons();
 	let _: &[Outfit] = reaper.outfits();
 	let _: &[Absorption] = reaper.codex();

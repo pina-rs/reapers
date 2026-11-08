@@ -1,4 +1,4 @@
-//! The Rust side of `reapers_shared/test/hunt_movement_test.dart`.
+//! How a husk moves through the room its plan describes.
 
 mod support;
 
@@ -517,7 +517,7 @@ mod plans {
 	}
 
 	#[test]
-	#[allow(clippy::float_cmp, reason = "the Dart test expects the exact value")]
+	#[allow(clippy::float_cmp, reason = "the plan must travel exactly")]
 	fn a_surveyed_plan_travels_whole() {
 		let plan = HuntPlan {
 			eye_centimetres: 97,

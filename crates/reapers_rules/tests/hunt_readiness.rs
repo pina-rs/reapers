@@ -1,4 +1,4 @@
-//! The Rust side of `reapers_shared/test/hunt_readiness_test.dart`.
+//! When a hunt is ready to begin.
 
 mod support;
 

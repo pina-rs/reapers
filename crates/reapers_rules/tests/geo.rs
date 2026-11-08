@@ -1,6 +1,6 @@
-//! The Rust side of `reapers_shared/test/geo_test.dart`.
+//! Points on the earth, and bearings and distances between them.
 
-#![allow(clippy::float_cmp, reason = "the Dart tests compare these exactly")]
+#![allow(clippy::float_cmp, reason = "these are compared exactly")]
 
 mod support;
 

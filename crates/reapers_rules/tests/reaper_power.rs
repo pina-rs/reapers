@@ -1,4 +1,4 @@
-//! The Rust side of `reapers_shared/test/reaper_power_test.dart`.
+//! Birth gifts and their awakenings, in the hunt.
 
 use reapers_rules::*;
 
@@ -38,7 +38,7 @@ fn hunt_with(gift: ReaperGift, rank: i64, seed: i64) -> HuntSim {
 	)
 }
 
-/// [`hunt_with`] with Dart's default seed of 19.
+/// [`hunt_with`] with the usual seed, 19.
 fn hunt(gift: ReaperGift, rank: i64) -> HuntSim {
 	hunt_with(gift, rank, 19)
 }
@@ -113,8 +113,7 @@ mod birth_gifts_change_the_fight {
 		);
 	}
 
-	/// One test for every gift, as Dart's loop over `ReaperGift.values`
-	/// makes.
+	/// One test for every gift.
 	mod can_be_activated_through_player_actions {
 		use super::*;
 

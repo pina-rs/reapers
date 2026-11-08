@@ -326,7 +326,7 @@ fn field(field: &str, prefix: &str, limit: u32) -> Result<u32, FormatError> {
 		));
 	};
 
-	match crate::dart::parse_int(digits) {
+	match crate::parse::parse_int(digits) {
 		Some(value) if value >= 0 && value < i64::from(limit) => Ok(value as u32),
 		_ => Err(FormatError::with_input("Out of range", field)),
 	}

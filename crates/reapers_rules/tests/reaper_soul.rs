@@ -1,11 +1,11 @@
-//! The Rust side of `reapers_shared/test/reaper_soul_test.dart`.
+//! A reaper's soul: its gift, its temperament, its memories.
 
 mod support;
 
 use reapers_rules::*;
 
-/// `reaper` with its experience and lost hunts changed, refused as Dart's
-/// `ReaperState.copyWith` refuses a record no reaper could have.
+/// `reaper` with its experience and lost hunts changed, refused when it is a
+/// record no reaper could have.
 fn with_xp_and_losses(reaper: &ReaperState, xp: i64, hunts_lost: i64) -> ReaperState {
 	ReaperState::new(
 		reaper.id().to_owned(),

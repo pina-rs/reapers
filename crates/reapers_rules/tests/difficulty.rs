@@ -1,6 +1,6 @@
-//! The Rust side of `reapers_shared/test/difficulty_test.dart`.
+//! How difficulty changes a hunt.
 
-#![allow(clippy::float_cmp, reason = "the Dart tests compare these exactly")]
+#![allow(clippy::float_cmp, reason = "these are compared exactly")]
 
 mod support;
 
@@ -31,7 +31,7 @@ fn hunt_with(difficulty: Difficulty, seed: i64, vessel: Vessel) -> HuntSim {
 	.unwrap()
 }
 
-/// [`hunt_with`] with Dart's defaults: seed 7, an ape.
+/// [`hunt_with`] with the usual seed, 7, and an ape.
 fn hunt(difficulty: Difficulty) -> HuntSim {
 	hunt_with(difficulty, 7, Vessel::Ape)
 }

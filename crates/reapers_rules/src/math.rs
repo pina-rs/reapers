@@ -1,13 +1,13 @@
-//! The transcendental functions the rules use, and Dart's rounding.
+//! The transcendental functions the rules use, and how they round.
 //!
 //! Every sine, cosine, arc tangent and square root in the rules goes through
 //! here. By default they come from the `libm` crate, which computes them the
 //! same way on every target: the server runs natively and the game runs as
 //! Wasm, and a replay must land on the same bits on both. With the
 //! `system-math` feature they come from the platform's own library instead,
-//! which is what the Dart rules used.
+//! which is what the rules' first implementation used.
 
-#![allow(clippy::float_cmp, reason = "Dart's exact comparisons, kept exact")]
+#![allow(clippy::float_cmp, reason = "the rules compare exactly")]
 
 #[cfg(not(feature = "system-math"))]
 mod imp {
@@ -79,27 +79,27 @@ pub use imp::cos;
 pub use imp::sin;
 pub use imp::sqrt;
 
-/// Pi, as Dart's `math.pi`.
+/// Pi.
 pub const PI: f64 = core::f64::consts::PI;
 
-/// Dart's `double.round()`: half away from zero, to a whole number. Where
-/// Dart would throw on a value that is not finite, this saturates.
+/// Half away from zero, to a whole number, saturating on a value that is
+/// not finite.
 pub fn round(x: f64) -> i64 {
 	imp::round(x) as i64
 }
 
-/// Dart's `double.floor()`, saturating where Dart would throw.
+/// Down to a whole number, saturating on a value that is not finite.
 pub fn floor_int(x: f64) -> i64 {
 	imp::floor(x) as i64
 }
 
-/// Dart's `double.ceil()`, saturating where Dart would throw.
+/// Up to a whole number, saturating on a value that is not finite.
 pub fn ceil_int(x: f64) -> i64 {
 	imp::ceil(x) as i64
 }
 
-/// Dart's `num.clamp` on doubles. Unlike `f64::clamp` it never panics, and,
-/// as in Dart, a NaN comes out as the upper limit.
+/// `x` held between `low` and `high`. Unlike `f64::clamp` it never panics,
+/// and a NaN comes out as the upper limit.
 pub fn clamp(x: f64, low: f64, high: f64) -> f64 {
 	if x < low {
 		low
@@ -110,8 +110,8 @@ pub fn clamp(x: f64, low: f64, high: f64) -> f64 {
 	}
 }
 
-/// Dart's `math.max` on doubles: a NaN on either side wins, and positive
-/// zero beats negative zero.
+/// The larger: a NaN on either side wins, and positive zero beats negative
+/// zero.
 pub fn max(a: f64, b: f64) -> f64 {
 	if a.is_nan() || b.is_nan() {
 		f64::NAN
@@ -122,8 +122,8 @@ pub fn max(a: f64, b: f64) -> f64 {
 	}
 }
 
-/// Dart's `math.min` on doubles: a NaN on either side wins, and negative
-/// zero beats positive zero.
+/// The smaller: a NaN on either side wins, and negative zero beats positive
+/// zero.
 pub fn min(a: f64, b: f64) -> f64 {
 	if a.is_nan() || b.is_nan() {
 		f64::NAN
@@ -134,7 +134,7 @@ pub fn min(a: f64, b: f64) -> f64 {
 	}
 }
 
-/// Dart's `%` on doubles, whose result is never negative.
+/// The remainder of `x` by `divisor`, never negative.
 pub fn modulo(x: f64, divisor: f64) -> f64 {
 	let remainder = x % divisor;
 

@@ -173,7 +173,7 @@ impl Nft {
 	pub fn parse(id: &str) -> Result<Self, FormatError> {
 		let parts: Vec<&str> = id.split(':').collect();
 		let serial = match parts[..] {
-			[_, serial] => crate::dart::parse_int(serial),
+			[_, serial] => crate::parse::parse_int(serial),
 			_ => None,
 		};
 

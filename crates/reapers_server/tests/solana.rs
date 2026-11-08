@@ -1,5 +1,4 @@
-//! The Rust side of `reapers_server/test/integration/solana_endpoint_test.dart`
-//! (wallet proof, account restoration, NFT reaper ownership and growth),
+//! Wallet proof, account restoration, NFT reaper ownership and growth,
 //! and the escrow and v2 receipt the Reapers program adds, against a real
 //! PostgreSQL and controlled chain responses.
 

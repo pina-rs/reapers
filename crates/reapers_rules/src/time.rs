@@ -15,7 +15,7 @@ use crate::error::FormatError;
 
 /// A moment, in microseconds since 1970 began in UTC.
 ///
-/// Saves write it as ISO 8601 text, the way the Dart rules did:
+/// Saves write it as ISO 8601 text, as they always have:
 /// `2026-10-01T12:00:00.000Z`, with three more digits when there are
 /// microseconds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
@@ -46,8 +46,8 @@ impl Timestamp {
 		}
 	}
 
-	/// A moment on the calendar, in UTC. Out-of-range parts roll over, as
-	/// Dart's `DateTime.utc` lets them.
+	/// A moment on the calendar, in UTC. Out-of-range parts roll over into
+	/// the next: month 13 is January of the year after.
 	pub fn utc(year: i64, month: i64, day: i64, hour: i64, minute: i64, second: i64) -> Self {
 		let (year, month) = (
 			year + (month - 1).div_euclid(12),
@@ -107,14 +107,12 @@ impl Timestamp {
 
 	/// Reads ISO 8601 text: a date, optionally a time with fractional
 	/// seconds, and optionally `Z` or an offset. Text with no offset is
-	/// taken as UTC, where Dart would have taken it as the device's local
-	/// time.
+	/// taken as UTC, never as the device's local time.
 	pub fn parse(text: &str) -> Result<Self, FormatError> {
 		parse_iso(text).ok_or_else(|| FormatError::with_input("Invalid date format", text))
 	}
 
-	/// The moment as ISO 8601 text in UTC, as Dart's `toIso8601String`
-	/// writes it.
+	/// The moment as ISO 8601 text in UTC, as saves write it.
 	pub fn to_iso8601(self) -> String {
 		let days = self.micros.div_euclid(MICROS_PER_DAY);
 		let within = self.micros.rem_euclid(MICROS_PER_DAY);

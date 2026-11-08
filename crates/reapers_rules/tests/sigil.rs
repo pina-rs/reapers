@@ -1,6 +1,6 @@
-//! The Rust side of `reapers_shared/test/sigil_test.dart`.
+//! Sigils: how one is laid out, and how a trace follows it.
 
-#![allow(clippy::float_cmp, reason = "the Dart tests compare these exactly")]
+#![allow(clippy::float_cmp, reason = "these are compared exactly")]
 
 mod support;
 
