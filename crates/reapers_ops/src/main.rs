@@ -163,6 +163,23 @@ enum Commands {
 		#[arg(long, default_value = "target/fixtures/mpl_core.so")]
 		out: PathBuf,
 	},
+	/// Start a local Surfpool with the program deployed, initialized with the
+	/// development keeper, and the demo husks minted to a funded player, and
+	/// keep it up until standard input closes: a cluster for the game and the
+	/// server to play on (`REAPERS_CLUSTER=localnet`).
+	Localnet {
+		#[arg(long, default_value = "target/deploy/reapers_program.so")]
+		program: PathBuf,
+		/// The program keypair; the devnet one by default, used only locally.
+		#[arg(long)]
+		program_keypair: Option<PathBuf>,
+		#[arg(long, default_value = "target/fixtures/mpl_core.so")]
+		core: PathBuf,
+		#[arg(long, default_value_t = 8_899)]
+		port: u16,
+		#[arg(long, default_value = "target/localnet")]
+		work_dir: PathBuf,
+	},
 	/// Run the whole runbook against a local Surfpool.
 	Rehearse {
 		#[arg(long, default_value = "target/deploy/reapers_program.so")]
@@ -189,6 +206,28 @@ fn home() -> Result<PathBuf, Error> {
 	std::env::var_os("HOME")
 		.map(PathBuf::from)
 		.ok_or_else(|| "HOME is not set".into())
+}
+
+/// A local Surfpool's settings, with the devnet program keypair when none
+/// is named: it is only the address the program is deployed at.
+fn local_options(
+	program_so: PathBuf,
+	program_keypair: Option<PathBuf>,
+	core_so: PathBuf,
+	port: u16,
+	work_dir: PathBuf,
+) -> Result<rehearse::Options, Error> {
+	let program_keypair = match program_keypair {
+		Some(path) => path,
+		None => home()?.join(".config/solana/reapers/program-devnet-keypair.json"),
+	};
+	Ok(rehearse::Options {
+		program_so,
+		program_keypair,
+		core_so,
+		port,
+		work_dir,
+	})
 }
 
 #[tokio::main]
@@ -361,17 +400,29 @@ async fn run(cli: Cli) -> Result<(), Error> {
 			port,
 			work_dir,
 		} => {
-			let program_keypair = match program_keypair {
-				Some(path) => path,
-				None => home()?.join(".config/solana/reapers/program-devnet-keypair.json"),
-			};
-			rehearse::rehearse(rehearse::Options {
-				program_so: program,
+			rehearse::rehearse(local_options(
+				program,
 				program_keypair,
-				core_so: core,
+				core,
 				port,
 				work_dir,
-			})
+			)?)
+			.await?;
+		}
+		Commands::Localnet {
+			program,
+			program_keypair,
+			core,
+			port,
+			work_dir,
+		} => {
+			rehearse::localnet(local_options(
+				program,
+				program_keypair,
+				core,
+				port,
+				work_dir,
+			)?)
 			.await?;
 		}
 	}

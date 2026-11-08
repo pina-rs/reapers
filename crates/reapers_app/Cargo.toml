@@ -111,6 +111,12 @@ leptoskit_plugin_store = { workspace = true }
 futures = { version = "0.3", features = ["executor"] }
 leptoskit_testing = { workspace = true }
 
+# The end-to-end test (`tests/devnet.rs`): the desktop's HTTP for the
+# game's client, and a runtime for it.
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+tokio = { workspace = true, features = ["rt", "time"] }
+
 [build-dependencies]
 leptoskit_build = { workspace = true }
 

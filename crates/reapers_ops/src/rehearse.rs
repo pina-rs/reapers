@@ -57,11 +57,30 @@ pub fn step(text: &str) {
 	println!("==> {text}");
 }
 
+/// A local Surfpool with the program deployed and initialized, and the
+/// demo husks minted to a player: the first half of the runbook.
+pub struct Localnet {
+	/// Stops Surfpool when dropped.
+	_validator: Validator,
+	pub url: String,
+	pub chain: Chain,
+	/// Pays, and is the upgrade authority and the program's authority.
+	pub deployer_path: PathBuf,
+	/// The development keeper the program trusts.
+	pub keeper: Keypair,
+	pub secret: &'static str,
+	pub player: Keypair,
+	pub player_path: PathBuf,
+	pub manifest_path: PathBuf,
+}
+
+/// Starts Surfpool, loads Core, deploys and initializes the program with the
+/// development keeper, and mints the demo husks to a new, funded player.
 #[allow(
 	clippy::too_many_lines,
 	reason = "the runbook, step by step, reads best in one place"
 )]
-pub async fn rehearse(options: Options) -> Result<(), Error> {
+pub async fn bring_up(options: &Options) -> Result<Localnet, Error> {
 	for (what, path) in [
 		(
 			"the program (run `pina build` in crates/reapers_program)",
@@ -81,7 +100,7 @@ pub async fn rehearse(options: Options) -> Result<(), Error> {
 	let url = format!("http://127.0.0.1:{}", options.port);
 
 	step(&format!("start Surfpool at {url}, offline"));
-	let _validator = Validator(
+	let validator = Validator(
 		Command::new("surfpool")
 			.args(["start", "--offline", "--no-deploy", "--ci", "--yes"])
 			.args(["--port", &options.port.to_string()])
@@ -111,7 +130,7 @@ pub async fn rehearse(options: Options) -> Result<(), Error> {
 	println!("    deployer {}", deployer.address());
 
 	step("deploy with the Solana CLI, as docs/deploy.md does");
-	deploy(&url, &deployer_path, &options)?;
+	deploy(&url, &deployer_path, options)?;
 	let program_account = chain
 		.account(program::program_id())
 		.await?
@@ -175,6 +194,69 @@ pub async fn rehearse(options: Options) -> Result<(), Error> {
 		],
 		&[],
 	)?;
+
+	Ok(Localnet {
+		_validator: validator,
+		url,
+		chain,
+		deployer_path,
+		keeper,
+		secret,
+		player,
+		player_path,
+		manifest_path,
+	})
+}
+
+/// Brings a localnet up, says where everything is, and keeps it up until
+/// standard input closes: Ctrl-D in a terminal, or the process that
+/// started it going away.
+pub async fn localnet(options: Options) -> Result<(), Error> {
+	let up = bring_up(&options).await?;
+	let ready = options.work_dir.join("localnet.json");
+	std::fs::write(
+		&ready,
+		serde_json::to_string_pretty(&serde_json::json!({
+			"url": up.url,
+			"program": program::program_id().to_string(),
+			"keeper": up.keeper.address().to_string(),
+			"player": up.player.address().to_string(),
+			"player_keypair": up.player_path.display().to_string(),
+			"manifest": up.manifest_path.display().to_string(),
+		}))?,
+	)?;
+	step(&format!(
+		"localnet ready at {}: the player {} holds the demo husks; see {}",
+		up.url,
+		up.player.address(),
+		ready.display()
+	));
+	println!("    close standard input (Ctrl-D) to stop it");
+	tokio::task::spawn_blocking(|| {
+		let _ = std::io::copy(&mut std::io::stdin(), &mut std::io::sink());
+	})
+	.await?;
+	step("stop Surfpool");
+	Ok(())
+}
+
+#[allow(
+	clippy::too_many_lines,
+	reason = "the runbook, step by step, reads best in one place"
+)]
+pub async fn rehearse(options: Options) -> Result<(), Error> {
+	let Localnet {
+		_validator,
+		url,
+		chain,
+		deployer_path,
+		keeper,
+		secret,
+		player,
+		player_path,
+		manifest_path,
+	} = bring_up(&options).await?;
+	let deployer_file = deployer_path.display().to_string();
 	let manifest: serde_json::Value =
 		serde_json::from_str(&std::fs::read_to_string(&manifest_path)?)?;
 	let thugbirdz = manifest["collections"]
