@@ -1,0 +1,20 @@
+[package]
+name = "reapers_world"
+description = "Where things are around a Reapers player: the phone's pose, the room it reads, and where a rift stands."
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+# Every sine, arc tangent and square root, computed the same way on every
+# target, as the rules do: the room becomes a hunt's plan, and the game
+# runs as Wasm.
+libm = "0.2.16"
+reapers_rules = { workspace = true }
+
+[lints]
+workspace = true
