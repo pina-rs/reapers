@@ -14,6 +14,7 @@ pub mod backend;
 pub mod brand;
 pub mod chain;
 pub mod config;
+pub mod hunt;
 #[allow(
 	clippy::all,
 	clippy::pedantic,
@@ -25,6 +26,7 @@ pub mod platform;
 pub mod program;
 pub mod receipt;
 pub mod render;
+pub mod rift;
 #[allow(
 	clippy::all,
 	clippy::pedantic,

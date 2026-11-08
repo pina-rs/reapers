@@ -35,7 +35,6 @@ use crate::seams::HuntBrief;
 use crate::seams::HuntReward;
 use crate::seams::HuntViewProps;
 use crate::seams::HuskPortraitProps;
-use crate::seams::autoplay_log;
 use crate::seams::hunt_view;
 use crate::seams::husk_portrait;
 use crate::sound::Score;
@@ -165,14 +164,8 @@ fn show(game: Game, stage: &Stage) -> Element {
 				on_finished: Arc::new(move |log, outcome| settle(game, brief, log, outcome)),
 				on_difficulty,
 			};
-			if props.autoplay {
-				let difficulty = props.difficulty;
-				platform::spawn(async move {
-					if let Some((log, outcome)) = autoplay_log(&brief, difficulty) {
-						settle(game, brief, log, outcome);
-					}
-				});
-			}
+			// With REAPERS_AUTOPLAY the rules' simulated player fights
+			// through the same view, and it reports as a player would.
 			hunt_view(&props)
 		}
 		Stage::Settling(_) => {

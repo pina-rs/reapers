@@ -95,10 +95,11 @@ pub struct HuskRig {
 }
 
 impl HuskRig {
-	/// Queues the ops that bring `nft`'s husk into `scene`, hidden until it
-	/// is placed.
-	pub fn spawn(scene: &Scene, nft: &Nft) -> Self {
-		let vessel = nft.collection.vessel();
+	/// Queues the ops that bring a husk of `vessel` dressed as `nft` into
+	/// `scene`, hidden until it is placed. A creature is one NFT, its
+	/// colours and the thing it wears; a rift's husk is the reliquary stack,
+	/// lit in its first relic's light.
+	pub fn spawn(scene: &Scene, vessel: Vessel, nft: &Nft) -> Self {
 		let look = NftLook::of(nft);
 		let model = scene.load(husk_model(vessel));
 		let root = scene.group();
@@ -206,9 +207,12 @@ impl HuskRig {
 					..MaterialOverride::default()
 				}
 			}
+			// The soft dark patch under a husk that stands on the floor.
 			"shadow" => {
 				return MaterialOverride {
-					opacity: Some((0.7 * (1.0 - self.dissolved)) as f32),
+					color: Some([0.0, 0.0, 0.0, 1.0]),
+					emissive: Some([0.0; 3]),
+					opacity: Some((0.55 * (1.0 - self.dissolved)) as f32),
 					..MaterialOverride::default()
 				};
 			}
@@ -261,10 +265,10 @@ impl HuskRig {
 			self.away = (x * cos + z * sin, -x * sin + z * cos);
 		}
 		self.placed = Some((
-			[at.x as f32, at.y as f32, at.z as f32],
-			// The model faces −z, so a husk whose heading is straight back
-			// at the player (π) needs no turn at all.
-			wrap_angle(pose.heading - std::f64::consts::PI) as f32,
+			// The hunt's space has z ahead of the player; the scene's, as
+			// glTF's, has the viewer looking down −Z.
+			[at.x as f32, at.y as f32, -at.z as f32],
+			heading_yaw(pose.heading),
 		));
 	}
 
@@ -299,6 +303,10 @@ impl HuskRig {
 	/// Advances everything about the husk that is only for show, and queues
 	/// what changed.
 	pub fn animate(&mut self, scene: &Scene, delta: f64, mood: HuskMood, plight: HuskPlight) {
+		// Until it has somewhere to be, a husk is not there at all.
+		if self.placed.is_none() {
+			return;
+		}
 		let reaction = &mut self.reaction;
 		reaction.step(delta, plight);
 		let played = delta * reaction.time_scale();
@@ -396,6 +404,17 @@ impl HuskRig {
 	}
 }
 
+/// The turn about the scene's vertical that faces a husk along `heading`,
+/// a bearing in the hunt's space (radians to the right of straight ahead).
+///
+/// The models face −Z. A heading of `h` faces the hunt's `(sin h, 0, cos h)`,
+/// which is the scene's `(sin h, 0, −cos h)`, and a right-handed turn of
+/// `−h` about +Y takes −Z there. So a husk coming straight at the player
+/// (a heading of π) turns half round to face the camera.
+pub fn heading_yaw(heading: f64) -> f32 {
+	wrap_angle(-heading) as f32
+}
+
 /// The body's rise, lean, twist and squash, turned about its feet.
 fn sway(lift: f64, feet: f64, lean_x: f64, lean_z: f64, twist: f64, squash: f64) -> Transform {
 	let lean = lean_x.hypot(lean_z);
@@ -469,7 +488,7 @@ mod tests {
 	fn a_husk_is_hidden_until_placed_and_then_sends_only_changes() {
 		let scene = Scene::new(leptoskit::scene3d::SceneId(40));
 		let nft = market_listings()[0];
-		let mut rig = HuskRig::spawn(&scene, &nft);
+		let mut rig = HuskRig::spawn(&scene, nft.collection.vessel(), &nft);
 		let ops = scene.take_ops();
 		assert!(
 			ops.iter()

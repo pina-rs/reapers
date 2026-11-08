@@ -32,6 +32,8 @@ web = [
 	"leptoskit_plugin_crypto/web",
 	"leptoskit_plugin_http/browser",
 	"reapers_api/web",
+	"dep:leptoskit_xr",
+	"leptoskit_xr/web",
 ]
 csr = ["web", "leptos/csr"]
 # A native app's Wasm guest: the store, HTTP and linking plugins, and an
@@ -48,6 +50,10 @@ native = [
 	"dep:leptoskit_plugin_secure_store",
 	"leptoskit_plugin_secure_store/guest",
 	"leptoskit_plugin_store/guest",
+	"dep:leptoskit_xr",
+	"leptoskit_xr/guest",
+	"dep:leptoskit_plugin_permissions",
+	"leptoskit_plugin_permissions/guest",
 ]
 ios = ["native", "leptoskit/ios"]
 # Android adds Mobile Wallet Adapter, which only Android wallets speak.
@@ -75,6 +81,10 @@ reapers_api = { workspace = true }
 reapers_program_client = { workspace = true }
 reapers_receipt = { workspace = true }
 reapers_rules = { workspace = true }
+reapers_world = { workspace = true }
+# The platform's AR: its frames, touches and planes, and hit tests against
+# its depth. `web` and `native` choose the browser's WebXR or the host's.
+leptoskit_xr = { version = "=0.3.0", optional = true }
 send_wrapper = "0.6"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -107,6 +117,8 @@ leptoskit_plugin_http = { workspace = true, default-features = false }
 leptoskit_plugin_linking = { workspace = true, optional = true }
 leptoskit_plugin_secure_store = { workspace = true, optional = true }
 leptoskit_plugin_store = { workspace = true }
+# The camera, asked for before a phone's AR starts.
+leptoskit_plugin_permissions = { version = "=0.3.0", optional = true, default-features = false }
 
 [dev-dependencies]
 futures = { version = "0.3", features = ["executor"] }

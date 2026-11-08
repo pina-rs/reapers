@@ -102,6 +102,16 @@ pub fn reduced_motion() -> bool {
 	host::reduced_motion()
 }
 
+/// The screen's size in layout units, width then height: the browser's
+/// window, or the phone screen the native apps are laid out for.
+pub fn viewport() -> (f64, f64) {
+	host::viewport()
+}
+
+/// The phone screen the apps are laid out for (`[native] viewport_width`
+/// and `viewport_height` in leptoskit.toml).
+const PHONE: (f64, f64) = (390.0, 844.0);
+
 /// One HTTP exchange's answer.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HttpReply {
@@ -334,6 +344,15 @@ mod web {
 		web_sys::console::warn_1(&message.into());
 	}
 
+	pub fn viewport() -> (f64, f64) {
+		let size =
+			|value: Result<wasm_bindgen::JsValue, _>| value.ok().and_then(|value| value.as_f64());
+		web_sys::window()
+			.and_then(|window| Some((size(window.inner_width())?, size(window.inner_height())?)))
+			.filter(|(width, height)| *width > 0.0 && *height > 0.0)
+			.unwrap_or(super::PHONE)
+	}
+
 	pub fn reduced_motion() -> bool {
 		web_sys::window()
 			.and_then(|window| {
@@ -512,6 +531,10 @@ mod guest {
 	/// The guest has no console of its own; the host keeps no log of it yet.
 	pub fn log(_message: &str) {}
 
+	pub const fn viewport() -> (f64, f64) {
+		super::PHONE
+	}
+
 	pub async fn post(
 		url: &str,
 		headers: Vec<super::Header>,
@@ -665,6 +688,10 @@ mod local {
 
 	pub fn log(message: &str) {
 		eprintln!("{message}");
+	}
+
+	pub const fn viewport() -> (f64, f64) {
+		super::PHONE
 	}
 
 	#[allow(clippy::unused_async, reason = "every host shares one signature")]

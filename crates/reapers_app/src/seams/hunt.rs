@@ -16,21 +16,6 @@ use reapers_rules::HuntStats;
 use reapers_rules::Nft;
 use reapers_rules::ReaperGift;
 
-use super::HuskPortraitProps;
-use super::husk_portrait;
-use crate::l10n::use_l10n;
-use crate::lookups::difficulty_name;
-use crate::lookups::rarity_name;
-use crate::theme::ASH;
-use crate::theme::BONE;
-use crate::ui::LedgerButton;
-use crate::ui::aside;
-use crate::ui::display;
-use crate::ui::gap;
-use crate::ui::ledger_back;
-use crate::ui::ledger_row;
-use crate::ui::margin;
-
 /// What a hunt is played from: the Flutter `HuntBrief`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct HuntBrief {
@@ -149,84 +134,13 @@ pub fn autoplay_log(brief: &HuntBrief, difficulty: Difficulty) -> Option<(HuntLo
 	))
 }
 
-/// The hunt.
-///
-/// Until `leptoskit_xr` brings the camera and `leptoskit_3d` the husk, this
-/// is the hunt's threshold: the husk, how hard the hunt is, and a reaper
-/// that hunts it by itself, with the rules' own careful player. Its log is
-/// a real one, settled by the same keeper, so everything after the hunt is
-/// the game's own.
+/// The hunt: the threshold, then the husk's sigil traced over the room
+/// while it is read, then the fight, drawn by `leptoskit_3d` over the veil
+/// (or the camera's picture, where the host draws it), with the platform's
+/// pose from `leptoskit_xr` where it has one and a dragging finger where it
+/// does not. With `autoplay`, the rules' own simulated player fights
+/// through the very same view. It calls `on_finished` once, when the husk
+/// has come apart, with the log the keeper replays.
 pub fn hunt_view(props: &HuntViewProps) -> Element {
-	let words = use_l10n();
-	let brief = props.brief;
-	let difficulty = props.difficulty;
-	let finished = props.on_finished.clone();
-	let fight = move || {
-		if let Some((log, outcome)) = autoplay_log(&brief, difficulty) {
-			finished(log, outcome);
-		}
-	};
-
-	let mut column = View()
-		.class("flex-1 w-full max-w-[520px] self-center px-7 pt-2 pb-7")
-		.test_id("hunt-view")
-		.child(ledger_back(None))
-		.child(gap(24))
-		.child(margin(if brief.is_practice() {
-			words.hunt_practice_label()
-		} else {
-			words.hunt_sighted_label()
-		}))
-		.child(gap(10))
-		.child(display(brief.nft.title(), 40, BONE))
-		.child(gap(6))
-		.child(margin(rarity_name(&*words, brief.nft.rarity())))
-		.child(gap(22))
-		.child(
-			View()
-				.class("items-center")
-				.child(husk_portrait(HuskPortraitProps {
-					nft: brief.nft,
-					size: 168,
-					spent: false,
-				})),
-		)
-		.child(gap(22))
-		.child(ledger_row(
-			words.hunt_ward(),
-			brief.nft.rarity().ward().to_string(),
-			false,
-		));
-	// A build that may change the difficulty offers the switch; a release
-	// build only says what it is.
-	column = match props.on_difficulty.clone() {
-		Some(cycle) => {
-			column.child(
-				LedgerButton::new(words.hunt_difficulty())
-					.detail(difficulty_name(&*words, difficulty))
-					.quiet()
-					.test_id("hunt-difficulty")
-					.on_press(move || cycle()),
-			)
-		}
-		None => {
-			column.child(ledger_row(
-				words.hunt_difficulty(),
-				difficulty_name(&*words, difficulty),
-				false,
-			))
-		}
-	};
-	column = column
-		.child(gap(18))
-		.child(aside(words.hunt_how_sigil()).class(format!("text-[{}]", ASH.hex())))
-		.child(gap(22))
-		.child(
-			LedgerButton::new(words.hunt_begin())
-				.test_id("hunt-begin")
-				.on_press(fight),
-		);
-	ScrollView()
-		.class("flex-1 w-full pt-safe pb-safe")
-		.child(column)
+	crate::hunt::view::hunt_view(props)
 }

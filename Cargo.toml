@@ -20,6 +20,7 @@ reapers_api = { path = "crates/reapers_api", default-features = false }
 reapers_db = { path = "crates/reapers_db" }
 reapers_receipt = { path = "crates/reapers_receipt" }
 reapers_rules = { path = "crates/reapers_rules" }
+reapers_world = { path = "crates/reapers_world" }
 
 # The on-chain program and its tests.
 bs58 = "0.5.1"
