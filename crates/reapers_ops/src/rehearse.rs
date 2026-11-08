@@ -55,7 +55,10 @@ fn step(text: &str) {
 	println!("==> {text}");
 }
 
-#[allow(clippy::too_many_lines, reason = "the runbook, step by step, reads best in one place")]
+#[allow(
+	clippy::too_many_lines,
+	reason = "the runbook, step by step, reads best in one place"
+)]
 pub async fn rehearse(options: Options) -> Result<(), Error> {
 	for (what, path) in [
 		(
