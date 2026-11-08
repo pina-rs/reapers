@@ -1,6 +1,8 @@
 //! The whole devnet runbook, on a local Surfpool: deploy with the Solana CLI
 //! exactly as `docs/deploy.md` does, initialize, mint the demo husks, release
 //! one, sign its receipt with a test keeper, absorb it, and check it is gone.
+//! The commands the runbook types are run as they are typed: this tool runs
+//! its own subcommands.
 
 use std::path::Path;
 use std::path::PathBuf;
@@ -51,7 +53,7 @@ impl Drop for Validator {
 	}
 }
 
-fn step(text: &str) {
+pub fn step(text: &str) {
 	println!("==> {text}");
 }
 
@@ -120,19 +122,29 @@ pub async fn rehearse(options: Options) -> Result<(), Error> {
 	println!("    program {} is executable", program::program_id());
 
 	// The development keeper: the key `ReceiptSigner` derives in development.
-	let keeper = crate::keeper_from_secret("reapers-development-receipt-key");
-	step("initialize the config, with the development keeper");
-	let signature = chain
-		.send(
-			&[program::initialize(
-				&deployer.address(),
-				&deployer.address(),
-				&keeper.address(),
-			)],
-			&[&deployer],
-			units::INITIALIZE,
-		)
-		.await?;
+	let secret = "reapers-development-receipt-key";
+	let keeper = crate::keeper_from_secret(secret);
+	let deployer_file = deployer_path.display().to_string();
+	let keeper_address = keeper.address().to_string();
+
+	step("reapers_ops status, before initializing");
+	ops(&["status", "--url", &url], &[])?;
+
+	step("reapers_ops initialize, with the development keeper");
+	ops(
+		&[
+			"initialize",
+			"--url",
+			&url,
+			"--priority-fee",
+			"1",
+			"--upgrade-authority",
+			&deployer_file,
+			"--keeper",
+			&keeper_address,
+		],
+		&[],
+	)?;
 	let config = program::configuration(&chain)
 		.await?
 		.ok_or("the config does not exist after initializing")?;
@@ -140,86 +152,231 @@ pub async fn rehearse(options: Options) -> Result<(), Error> {
 	{
 		return Err("the config does not hold what was initialized".into());
 	}
-	println!("    {signature}");
-	println!(
-		"    config {}: authority {}, keeper {}, paused {}",
-		program::config(),
-		config.authority,
-		config.keeper,
-		config.paused
+
+	step("reapers_ops mint-demo: five collections, eight husks each, to a player");
+	let player_path = options.work_dir.join("player.json");
+	let (seed, player) = random_keypair()?;
+	write_keypair(&player_path, &seed, &player)?;
+	chain.airdrop(player.address(), 10_000_000_000).await?;
+	let manifest_path = options.work_dir.join("demo-husks.json");
+	ops(
+		&[
+			"mint-demo",
+			"--url",
+			&url,
+			"--priority-fee",
+			"1",
+			"--payer",
+			&deployer_file,
+			"--owner",
+			&player.address().to_string(),
+			"--out",
+			&manifest_path.display().to_string(),
+		],
+		&[],
+	)?;
+	let manifest: serde_json::Value =
+		serde_json::from_str(&std::fs::read_to_string(&manifest_path)?)?;
+	let thugbirdz = manifest["collections"]
+		.as_array()
+		.and_then(|collections| {
+			collections
+				.iter()
+				.find(|collection| collection["slug"] == "thugbirdz")
+		})
+		.ok_or("no Thugbirdz collection in the manifest")?;
+	let collection: Address = thugbirdz["address"]
+		.as_str()
+		.ok_or("no collection address")?
+		.parse()?;
+	let assets: Vec<Address> = thugbirdz["assets"]
+		.as_array()
+		.ok_or("no assets")?
+		.iter()
+		.filter_map(|asset| asset.as_str()?.parse().ok())
+		.collect();
+	if assets.len() != usize::from(demo::ASSETS_PER_COLLECTION) {
+		return Err(format!("{} Thugbirdz husks, not 8", assets.len()).into());
+	}
+	let asset = assets[0];
+
+	step("reapers_ops smoke: release one husk and absorb it with the keeper");
+	ops(
+		&[
+			"smoke",
+			"--url",
+			&url,
+			"--priority-fee",
+			"1",
+			"--player",
+			&player_path.display().to_string(),
+			"--asset",
+			&asset.to_string(),
+			"--collection",
+			&collection.to_string(),
+		],
+		&[("SERVERPOD_PASSWORD_receiptSigningKey", secret)],
+	)?;
+	let instructions = absorb(
+		&keeper,
+		&receipt_for(&player.address(), &asset)?,
+		&collection,
 	);
 
-	step("mint the five demo collections, eight husks each, to a player");
-	let (_, player) = random_keypair()?;
-	chain.airdrop(player.address(), 10_000_000_000).await?;
-	let minted = demo::mint_all(
-		&chain,
-		&deployer,
-		&player.address(),
-		"https://reapers.invalid/husks/",
-		|_| {},
-	)
-	.await?;
-	for collection in &minted {
-		println!(
-			"    {} {} ({} husks)",
-			collection.name,
-			collection.address,
-			collection.assets.len()
-		);
+	step("try to absorb the burned husk again, with a fresh receipt from the keeper");
+	match chain
+		.send(&instructions, &[&player], units::ABSORB_CORE)
+		.await
+	{
+		Ok(signature) => {
+			return Err(format!("a replayed receipt was accepted: {signature}").into());
+		}
+		Err(error) => println!("    refused, as it must be: {error}"),
 	}
-	std::fs::write(
-		options.work_dir.join("demo-husks.json"),
-		serde_json::to_string_pretty(&demo::manifest(&url, &minted))?,
-	)?;
 
-	let collection = minted
-		.iter()
-		.find(|collection| collection.slug == "thugbirdz")
-		.ok_or("no Thugbirdz collection")?;
-	let asset = collection.assets[0];
-	let escrow = crate::chain::address(&reapers_program_client::absorb::escrow(&pubkey(&asset)));
-
-	step(&format!("release {asset} into escrow"));
-	let signature = chain
+	step("try to absorb another husk with a receipt from another key");
+	let other = assets[1];
+	chain
 		.send(
 			&[program::release_core(
 				&player.address(),
-				&asset,
-				Some(&collection.address),
+				&other,
+				Some(&collection),
 			)],
 			&[&player],
 			units::RELEASE_CORE,
 		)
 		.await?;
-	let owner = asset_owner(&chain, &asset).await?;
-	if owner != Some((1, escrow)) {
-		return Err(format!("the asset is not in escrow: {owner:?}").into());
+	let impostor = Keypair::from_seed(&[13; 32]);
+	let forged = absorb(
+		&impostor,
+		&receipt_for(&player.address(), &other)?,
+		&collection,
+	);
+	match chain.send(&forged, &[&player], units::ABSORB_CORE).await {
+		Ok(signature) => {
+			return Err(format!("a receipt from another key was accepted: {signature}").into());
+		}
+		Err(error) => println!("    refused, as it must be: {error}"),
 	}
-	println!("    {signature}");
-	println!("    the asset's owner is now the escrow {escrow}");
 
-	step("sign a receipt with the keeper and absorb");
-	let receipt = Receipt {
-		player: player.address().to_bytes(),
+	step("reapers_ops set-paused: releasing stops while paused");
+	let pause = |paused: &'static str| {
+		ops(
+			&[
+				"set-paused",
+				"--url",
+				&url,
+				"--priority-fee",
+				"1",
+				"--authority",
+				&deployer_file,
+				"--paused",
+				paused,
+			],
+			&[],
+		)
+	};
+	pause("true")?;
+	let third = assets[2];
+	match chain
+		.send(
+			&[program::release_core(
+				&player.address(),
+				&third,
+				Some(&collection),
+			)],
+			&[&player],
+			units::RELEASE_CORE,
+		)
+		.await
+	{
+		Ok(signature) => return Err(format!("released while paused: {signature}").into()),
+		Err(error) => {
+			println!(
+				"    refused, as it must be: {}",
+				last_line(&error.to_string())
+			);
+		}
+	}
+	pause("false")?;
+
+	step("reapers_ops status, at the end");
+	ops(&["status", "--url", &url], &[])?;
+
+	step("rehearsal passed");
+	Ok(())
+}
+
+/// The receipt a keeper might sign for `player` absorbing `asset` now.
+fn receipt_for(player: &Address, asset: &Address) -> Result<Receipt, Error> {
+	let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+
+	Ok(Receipt {
+		player: player.to_bytes(),
 		mint: asset.to_bytes(),
 		grade: Grade::Clean,
 		feeding: Feeding::Rich,
 		xp: 63,
 		anima: 20,
-		at: i64::try_from(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs())?,
-		nonce: 0x5eed,
-	};
-	let instructions = absorb(&keeper, &receipt, &collection.address);
+		at: i64::try_from(now)?,
+		nonce: now,
+	})
+}
+
+/// Releases `asset` from `player` into escrow, unless it is there already,
+/// absorbs it with a receipt `keeper` signs, and checks that it is burned and
+/// its escrow closed. Returns the absorbing instructions, so a caller can try
+/// them again.
+pub async fn release_and_absorb(
+	chain: &Chain,
+	player: &Keypair,
+	keeper: &Keypair,
+	asset: &Address,
+	collection: &Address,
+) -> Result<Vec<solana_kit_core::Instruction>, Error> {
+	let escrow = crate::chain::address(&reapers_program_client::absorb::escrow(&pubkey(asset)));
+
+	match asset_owner(chain, asset).await? {
+		Some((1, owner)) if owner == escrow => {
+			step(&format!("{asset} is already in escrow"));
+		}
+		Some((1, owner)) if owner == player.address() => {
+			step(&format!("release {asset} into escrow"));
+			let signature = chain
+				.send(
+					&[program::release_core(
+						&player.address(),
+						asset,
+						Some(collection),
+					)],
+					&[player],
+					units::RELEASE_CORE,
+				)
+				.await?;
+			let owner = asset_owner(chain, asset).await?;
+			if owner != Some((1, escrow)) {
+				return Err(format!("the asset is not in escrow: {owner:?}").into());
+			}
+			println!("    {signature}");
+			println!("    the asset's owner is now the escrow {escrow}");
+		}
+		other => {
+			return Err(format!("{asset} is neither the player's nor in escrow: {other:?}").into());
+		}
+	}
+
+	step("sign a receipt with the keeper and absorb");
+	let instructions = absorb(keeper, &receipt_for(&player.address(), asset)?, collection);
 	let before = chain.balance(player.address()).await?;
 	let signature = chain
-		.send(&instructions, &[&player], units::ABSORB_CORE)
+		.send(&instructions, &[player], units::ABSORB_CORE)
 		.await?;
 	println!("    {signature}");
 
 	step("check the husk is gone and the escrow closed");
 	let tombstone = chain
-		.account(asset)
+		.account(*asset)
 		.await?
 		.ok_or("the asset account vanished entirely")?;
 	if tombstone.data != [0] {
@@ -239,48 +396,34 @@ pub async fn rehearse(options: Options) -> Result<(), Error> {
 		after.saturating_sub(before)
 	);
 
-	step("try to absorb it again with the same receipt");
-	match chain
-		.send(&instructions, &[&player], units::ABSORB_CORE)
-		.await
-	{
-		Ok(signature) => {
-			return Err(format!("a replayed receipt was accepted: {signature}").into());
-		}
-		Err(error) => println!("    refused, as it must be: {error}"),
-	}
+	Ok(instructions)
+}
 
-	step("try to absorb another husk with a receipt from another key");
-	let other = collection.assets[1];
-	chain
-		.send(
-			&[program::release_core(
-				&player.address(),
-				&other,
-				Some(&collection.address),
-			)],
-			&[&player],
-			units::RELEASE_CORE,
+/// Runs this tool's own subcommand, as the runbook would, and indents what it
+/// prints.
+fn ops(args: &[&str], env: &[(&str, &str)]) -> Result<(), Error> {
+	let output = Command::new(std::env::current_exe()?)
+		.args(args)
+		.envs(env.iter().copied())
+		.output()?;
+
+	for line in String::from_utf8_lossy(&output.stdout).lines() {
+		println!("    {line}");
+	}
+	if !output.status.success() {
+		return Err(format!(
+			"reapers_ops {} failed: {}",
+			args.first().unwrap_or(&""),
+			String::from_utf8_lossy(&output.stderr)
 		)
-		.await?;
-	let impostor = Keypair::from_seed(&[13; 32]);
-	let forged = absorb(
-		&impostor,
-		&Receipt {
-			mint: other.to_bytes(),
-			..receipt
-		},
-		&collection.address,
-	);
-	match chain.send(&forged, &[&player], units::ABSORB_CORE).await {
-		Ok(signature) => {
-			return Err(format!("a receipt from another key was accepted: {signature}").into());
-		}
-		Err(error) => println!("    refused, as it must be: {error}"),
+		.into());
 	}
 
-	step("rehearsal passed");
 	Ok(())
+}
+
+fn last_line(text: &str) -> &str {
+	text.lines().last().unwrap_or(text)
 }
 
 async fn wait_until_up(chain: &Chain) -> Result<(), Error> {

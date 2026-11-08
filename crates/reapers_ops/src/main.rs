@@ -138,6 +138,26 @@ enum Commands {
 		#[arg(long, default_value = "demo-husks.json")]
 		out: PathBuf,
 	},
+	/// Release one demo husk and absorb it with the real keeper: the smoke
+	/// test after a deployment. It burns the husk.
+	///
+	/// The keeper secret is read from the environment variable named by
+	/// `--env`, as for `keeper`.
+	Smoke {
+		#[command(flatten)]
+		cluster: Cluster,
+		/// The husk's owner, who releases and absorbs it.
+		#[arg(long)]
+		player: PathBuf,
+		/// The Core asset to burn.
+		#[arg(long)]
+		asset: Address,
+		/// Its collection.
+		#[arg(long)]
+		collection: Address,
+		#[arg(long, default_value = "SERVERPOD_PASSWORD_receiptSigningKey")]
+		env: String,
+	},
 	/// Fetch Metaplex Core from mainnet for the tests and the rehearsal.
 	Fixtures {
 		#[arg(long, default_value = "target/fixtures/mpl_core.so")]
@@ -294,6 +314,31 @@ async fn run(cli: Cli) -> Result<(), Error> {
 				serde_json::to_string_pretty(&demo::manifest(&chain.url, &minted))?,
 			)?;
 			println!("wrote {}", out.display());
+		}
+		Commands::Smoke {
+			cluster,
+			player,
+			asset,
+			collection,
+			env,
+		} => {
+			let chain = cluster.chain()?;
+			let player = read_keypair(&player)?;
+			let secret = std::env::var(&env).map_err(|_| format!("{env} is not set"))?;
+			let keeper = keeper_from_secret(&secret);
+			let config = program::configuration(&chain)
+				.await?
+				.ok_or("the program is not initialized")?;
+			if config.keeper != keeper.address() {
+				return Err(format!(
+					"{env} derives keeper {}, but the program trusts {}",
+					keeper.address(),
+					config.keeper
+				)
+				.into());
+			}
+			rehearse::release_and_absorb(&chain, &player, &keeper, &asset, &collection).await?;
+			rehearse::step("smoke test passed");
 		}
 		Commands::Fixtures { out } => {
 			if let Some(parent) = out.parent() {
