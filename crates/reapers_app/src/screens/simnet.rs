@@ -63,7 +63,7 @@ pub fn page() -> Element {
 
 	let mut entries = vec![aside(words.simnet_intro()), gap(12)];
 	if let Some(rpc) = game.surfpool() {
-		entries.push(surfpool_panel(game, rpc, &wallet));
+		entries.push(surfpool_panel(game, &rpc, &wallet));
 		entries.push(gap(18));
 	} else if let Some(problem) = game.surfpool_problem.get() {
 		entries.push(
@@ -128,6 +128,10 @@ fn transaction_row(game: Game, transaction: &SimnetTransaction) -> Element {
 	Pressable(format!("{instruction}, {subject}, {slot}"))
 		.class("flex-row items-center py-[9px] gap-2")
 		.test_id(format!("simnet-tx-{}", transaction.signature))
+		.on_press(move || {
+			game.overlay
+				.set(Some(Overlay::Transaction(signature.clone())));
+		})
 		.child(
 			View()
 				.class("w-[72px]")
@@ -140,10 +144,6 @@ fn transaction_row(game: Game, transaction: &SimnetTransaction) -> Element {
 				.child(body(slot, 12, ASH)),
 		)
 		.child(figure(short_address(&transaction.signature), 12, ASH))
-		.on_press(move || {
-			game.overlay
-				.set(Some(Overlay::Transaction(signature.clone())))
-		})
 }
 
 /// What happened when a transaction was sent to the local validator.
@@ -394,7 +394,7 @@ fn fund(game: Game, rpc: Rc<SurfpoolRpc>, wallet: String) {
 
 /// The development validator beside the simnet: a real RPC to check, and a
 /// faucet that pays the burner wallet there without touching the game.
-fn surfpool_panel(game: Game, rpc: Rc<SurfpoolRpc>, wallet: &str) -> Element {
+fn surfpool_panel(game: Game, rpc: &Rc<SurfpoolRpc>, wallet: &str) -> Element {
 	let words = use_l10n();
 	let local = local();
 	if local.wallet.get_untracked() != wallet {

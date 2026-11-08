@@ -2,6 +2,9 @@
 //! Flutter namesake. The routes under `src/routes/` are one line each and
 //! call these, so a screen's code reads the same whichever URL shows it.
 
+// A screen is one builder, read top to bottom as the page reads.
+#![allow(clippy::too_many_lines)]
+
 pub mod armory;
 pub mod codex;
 pub mod colophon;

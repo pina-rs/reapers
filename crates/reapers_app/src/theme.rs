@@ -55,17 +55,17 @@ impl Rgb {
 }
 
 /// The page: a blue-black, never a neutral one.
-pub const INK: Rgb = Rgb::from_hex(0x07_08_0B);
+pub const INK: Rgb = Rgb::from_hex(0x0007_080B);
 /// A surface raised off the page.
-pub const INK_RAISED: Rgb = Rgb::from_hex(0x0F_11_16);
+pub const INK_RAISED: Rgb = Rgb::from_hex(0x000F_1116);
 /// Text and rules.
-pub const BONE: Rgb = Rgb::from_hex(0xE9_E4_D4);
+pub const BONE: Rgb = Rgb::from_hex(0x00E9_E4D4);
 /// Text that gives way to other text.
-pub const ASH: Rgb = Rgb::from_hex(0x8E_89_7D);
+pub const ASH: Rgb = Rgb::from_hex(0x008E_897D);
 /// A loss, a refusal, a flinch.
-pub const WOUND: Rgb = Rgb::from_hex(0xD4_55_3F);
+pub const WOUND: Rgb = Rgb::from_hex(0x00D4_553F);
 /// The light of a reaper nobody has bound yet.
-pub const UNBOUND: Rgb = Rgb::from_hex(0xBF_C8_CF);
+pub const UNBOUND: Rgb = Rgb::from_hex(0x00BF_C8CF);
 
 /// Tailwind classes for the fixed colours, so a screen writes `text-bone`
 /// the way the Flutter game wrote `Veil.bone`.

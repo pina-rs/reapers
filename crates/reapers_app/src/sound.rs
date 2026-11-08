@@ -4,7 +4,7 @@
 //! sound itself is a [`ScoreEngine`]'s: the real one comes with
 //! `leptoskit_plugin_audio` (being written beside this), and until it is
 //! handed in the engine is silent, as it is in every test. The recordings
-//! are Kevin MacLeod's, under CC BY 4.0, credited on the colophon page and
+//! are Kevin `MacLeod`'s, under CC BY 4.0, credited on the colophon page and
 //! in `assets/music/CREDITS.md`.
 //!
 //! How a hunt sounds (`huntMix`, `sigilMix` in the Flutter game) belongs to

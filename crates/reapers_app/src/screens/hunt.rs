@@ -87,7 +87,7 @@ pub fn page(sighting_id: i64) -> Element {
 	if let Some(current) =
 		current.filter(|current| brief_of(current).sighting_id == Some(sighting_id))
 	{
-		return show(game, current);
+		return show(game, &current);
 	}
 	let Some(player) = game.player() else {
 		return View();
@@ -112,7 +112,7 @@ pub fn page(sighting_id: i64) -> Element {
 		sighting_id: Some(sighting.id),
 	};
 	stage.set(Some(Stage::Fighting(brief)));
-	show(game, Stage::Fighting(brief))
+	show(game, &Stage::Fighting(brief))
 }
 
 /// A practice hunt: a stray husk, the reaper's own strength, and nothing
@@ -124,16 +124,16 @@ pub fn practice() -> Element {
 		.get()
 		.filter(|current| brief_of(current).is_practice())
 	{
-		return show(game, current);
+		return show(game, &current);
 	}
-	let brief = stray(&game.player());
+	let brief = stray(game.player().as_ref());
 	stage.set(Some(Stage::Fighting(brief)));
-	show(game, Stage::Fighting(brief))
+	show(game, &Stage::Fighting(brief))
 }
 
 /// A stray for a practice hunt, drawn from the time: a practice decides
 /// nothing, so it needs no secure dice.
-fn stray(player: &Option<PlayerState>) -> HuntBrief {
+fn stray(player: Option<&PlayerState>) -> HuntBrief {
 	let strays: Vec<_> = market_listings()
 		.into_iter()
 		.filter(|nft| nft.rarity() <= Rarity::Uncommon)
@@ -145,14 +145,14 @@ fn stray(player: &Option<PlayerState>) -> HuntBrief {
 		loadout: player
 			.as_ref()
 			.filter(|player| player.oath_taken())
-			.map_or(HuntLoadout::BORROWED, PlayerState::loadout),
+			.map_or(HuntLoadout::BORROWED, |player| player.loadout()),
 		sighting_id: None,
 	}
 }
 
-fn show(game: Game, stage: Stage) -> Element {
+fn show(game: Game, stage: &Stage) -> Element {
 	game.play(Score::Hunt);
-	match stage {
+	match *stage {
 		Stage::Fighting(brief) => {
 			let on_difficulty = game
 				.flags
@@ -183,7 +183,7 @@ fn show(game: Game, stage: Stage) -> Element {
 						.class(format!("text-[15px] text-[{}]", ASH.hex())),
 				)
 		}
-		Stage::Done(brief, reward) => result(game, &brief, &reward),
+		Stage::Done(ref brief, ref reward) => result(game, brief, reward),
 	}
 }
 
@@ -416,7 +416,7 @@ fn result(game: Game, brief: &HuntBrief, reward: &HuntReward) -> Element {
 				LedgerButton::new(words.hunt_practice_again())
 					.test_id("hunt-practice-again")
 					.on_press(move || {
-						let brief = stray(&game.player());
+						let brief = stray(game.player().as_ref());
 						stage().set(Some(Stage::Fighting(brief)));
 					}),
 			)

@@ -386,7 +386,7 @@ mod tests {
 	#[test]
 	fn every_refusal_has_words() {
 		for refusal in Refusal::ALL {
-			assert!(!refusal_message(&En, refusal).is_empty(), "{refusal:?}");
+			assert_ne!(refusal_message(&En, refusal), "", "{refusal:?}");
 		}
 	}
 
@@ -394,7 +394,7 @@ mod tests {
 	fn every_gift_says_what_it_does_at_every_strength() {
 		for gift in ReaperGift::ALL {
 			for strength in 1..=4 {
-				assert!(!gift_effect(&En, gift, strength).is_empty());
+				assert_ne!(gift_effect(&En, gift, strength), "");
 			}
 		}
 	}
@@ -402,8 +402,8 @@ mod tests {
 	#[test]
 	fn every_class_has_a_name_and_a_line() {
 		for reaper_class in ReaperClass::ALL {
-			assert!(!class_name(&En, reaper_class).is_empty());
-			assert!(!class_line(&En, reaper_class).is_empty());
+			assert_ne!(class_name(&En, reaper_class), "");
+			assert_ne!(class_line(&En, reaper_class), "");
 		}
 	}
 }

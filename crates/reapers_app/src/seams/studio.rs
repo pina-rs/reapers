@@ -31,7 +31,7 @@ pub struct StudioViewProps {
 /// opens on, standing on the stage.
 pub fn studio_view(props: &StudioViewProps) -> Element {
 	let words = use_l10n();
-	let genome = props.genome.clone();
+	let genome = props.genome;
 	let weapon = reapers_rules::Weapon::new(
 		genome.reaper_class.weapon(),
 		reapers_rules::Temper::Shrouded,
@@ -43,7 +43,7 @@ pub fn studio_view(props: &StudioViewProps) -> Element {
 			View()
 				.class("relative h-[58vh] w-full")
 				.child(reaper_stage(&ReaperStageProps::new(
-					genome.clone(),
+					genome,
 					weapon,
 					reapers_rules::Outfit::Shrouded,
 				)))

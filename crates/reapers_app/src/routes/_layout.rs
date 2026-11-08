@@ -6,5 +6,5 @@ use leptoskit::prelude::*;
 /// Wraps the matched route in the game's frame.
 #[component]
 pub fn Layout(children: Children) -> Element {
-	crate::screens::frame::frame(children)
+	crate::screens::frame::frame(&children)
 }

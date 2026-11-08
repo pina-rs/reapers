@@ -105,6 +105,7 @@ fn nft_row(game: Game, nft: Nft, holding: Holding) -> Element {
 	Pressable(format!("{}, {rarity}, {status}", nft.title()))
 		.class("flex-row items-center gap-[14px] py-[7px]")
 		.test_id(format!("vault-nft-{}", nft.id()))
+		.on_press(move || game.overlay.set(Some(Overlay::Nft(nft))))
 		.child(husk_portrait(HuskPortraitProps {
 			nft,
 			size: 48,
@@ -117,7 +118,6 @@ fn nft_row(game: Game, nft: Nft, holding: Holding) -> Element {
 				.child(crate::ui::label(rarity, 10, ASH)),
 		)
 		.child(figure(status, 13, colour))
-		.on_press(move || game.overlay.set(Some(Overlay::Nft(nft))))
 }
 
 /// One NFT in full: its image, what it is worth, and what can be done with
@@ -144,7 +144,7 @@ pub fn nft_sheet(game: Game, nft: Nft) -> Element {
 					game.change(
 						move |keeper| async move { keeper.acquire(nft).await },
 						|_| {},
-					)
+					);
 				})
 			}
 		}

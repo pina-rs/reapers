@@ -1,6 +1,6 @@
 //! The 98 bytes a keeper signs when a reaper absorbs an NFT.
 //!
-//! TODO(integration): reapers_receipt. The layout belongs to the
+//! TODO(integration): `reapers_receipt`. The layout belongs to the
 //! `reapers_receipt` crate the server and the on-chain program share; it is
 //! not in this checkout yet, so the simnet builds the same bytes here, field
 //! for field from the Dart `AbsorptionReceipt`. Replace [`message`] with the

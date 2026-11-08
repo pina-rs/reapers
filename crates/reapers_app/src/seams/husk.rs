@@ -51,7 +51,10 @@ pub fn husk_portrait(props: HuskPortraitProps) -> Element {
 		))
 		.accessibility_label(nft.title());
 	let picture = if cfg!(all(target_arch = "wasm32", feature = "web")) {
-		Image(portrait_source(nft)).class("absolute inset-0 w-full h-full")
+		// The plate carries the name; the picture is its decoration.
+		Image(portrait_source(nft))
+			.class("absolute inset-0 w-full h-full")
+			.aria_hidden(true)
 	} else {
 		let accent = nft.look().accent;
 		let colour = Color::rgba(

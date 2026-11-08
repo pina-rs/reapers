@@ -38,7 +38,7 @@ impl Hand {
 		self.0 = self.0.wrapping_add(0x6D2B_79F5);
 		let mut t = self.0;
 		t = (t ^ (t >> 15)).wrapping_mul(t | 1);
-		t ^= t.wrapping_add((t ^ (t >> 7)).wrapping_mul(t | 61));
+		t ^= t.wrapping_add((t ^ (t >> 7)).wrapping_mul(t | 0x3D));
 		((t ^ (t >> 14)) as f32) / 4_294_967_296.0
 	}
 

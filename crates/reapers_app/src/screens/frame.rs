@@ -30,7 +30,7 @@ use crate::ui::light;
 use crate::ui::sketch;
 
 /// The frame around `children`, the matched route.
-pub fn frame(children: Children) -> Element {
+pub fn frame(children: &Children) -> Element {
 	let game = Game::get();
 	// The frame is exactly the screen's height and the route scrolls inside
 	// it, so what is laid over it (a sheet, a dialog, a slip) covers the

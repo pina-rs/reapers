@@ -113,7 +113,7 @@ pub struct SimnetAccount {
 }
 
 impl SimnetAccount {
-	pub fn new(role: SimnetRole, address: impl ToString) -> Self {
+	pub fn new(role: SimnetRole, address: &impl ToString) -> Self {
 		Self {
 			role,
 			address: address.to_string(),
@@ -216,6 +216,10 @@ impl SimnetTransaction {
 /// The stored simnet: the wallet's seed, when the chain began, and what has
 /// happened on it.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[allow(
+	clippy::struct_field_names,
+	reason = "the genesis of the chain, as the Flutter save names it"
+)]
 struct Genesis {
 	#[serde(with = "seed")]
 	secret: [u8; 32],
@@ -225,12 +229,15 @@ struct Genesis {
 }
 
 /// The pretend devnet.
+/// Who is told of each transaction as it lands.
+type Listeners = RefCell<Vec<Box<dyn Fn(&SimnetTransaction)>>>;
+
 pub struct SimnetChain {
 	prefs: Rc<dyn Prefs>,
 	clock: Rc<dyn Fn() -> Timestamp>,
 	latency: Duration,
 	state: RefCell<Genesis>,
-	listeners: RefCell<Vec<Box<dyn Fn(&SimnetTransaction)>>>,
+	listeners: Listeners,
 }
 
 /// The name an address is made from, so every device's simnet agrees on it.
@@ -383,7 +390,7 @@ impl SimnetChain {
 			// it, so the ledger still has a signature to show.
 			None => {
 				(
-					self.wallet_key().sign(&self.description(&post, blockhash)),
+					self.wallet_key().sign(&Self::description(&post, blockhash)),
 					None,
 				)
 			}
@@ -517,7 +524,7 @@ impl SimnetChain {
 
 	/// What the airdrop's signature is over: the instruction, its accounts,
 	/// the amount and the chained blockhash.
-	fn description(&self, post: &SimnetPost, blockhash: Hash) -> Vec<u8> {
+	fn description(post: &SimnetPost, blockhash: Hash) -> Vec<u8> {
 		let mut lines = vec![
 			"reapers-simnet/1".to_owned(),
 			post.instruction.name().to_owned(),
@@ -574,6 +581,10 @@ mod iso8601 {
 	use reapers_rules::Timestamp;
 	use serde::Deserialize as _;
 
+	#[allow(
+		clippy::trivially_copy_pass_by_ref,
+		reason = "serde's `with` hands the field by reference"
+	)]
 	pub fn serialize<S: serde::Serializer>(
 		at: &Timestamp,
 		serializer: S,

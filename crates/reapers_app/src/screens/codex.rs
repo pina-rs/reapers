@@ -46,11 +46,12 @@ pub fn page() -> Element {
 	if let Some(reaper) = player.active_reaper() {
 		let open = soul_open();
 		let soul = reaper.soul();
-		let mut soul_block = View().child(
+		let mut soul_block = View().class("w-full").child(
 			Pressable(words.soul_title().to_owned())
 				.class("py-3 gap-1")
 				.test_id("codex-soul")
 				.aria_expanded(open.get())
+				.on_press(move || open.update(|open| *open = !*open))
 				.child(display(words.soul_title(), 24, BONE))
 				.child(body(
 					words.soul_birth_link(
@@ -59,8 +60,7 @@ pub fn page() -> Element {
 					),
 					13,
 					ASH,
-				))
-				.on_press(move || open.update(|open| *open = !*open)),
+				)),
 		);
 		if open.get() {
 			soul_block = soul_block.child(soul_ledger(

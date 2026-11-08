@@ -24,6 +24,7 @@
 
 /// Every build flag, as one value, so tests can make any build they like.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools, reason = "each is one build flag")]
 pub struct BuildFlags {
 	/// The Reapers server, when the build plays against one.
 	pub server_url: Option<&'static str>,

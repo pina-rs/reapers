@@ -213,12 +213,11 @@ impl Game {
 		let keeper: Rc<dyn GameBackend> = match choice {
 			KeeperChoice::Local => Rc::new(LocalBackend::new(prefs)),
 			KeeperChoice::Simnet => {
-				match self.open_simnet(prefs.clone()).await {
-					Ok(chain) => Rc::new(SimnetBackend::new(LocalBackend::new(prefs), chain)),
-					Err(_) => {
-						self.books.set(Books::Unreadable(BooksFailure::Damaged));
-						return;
-					}
+				if let Ok(chain) = self.open_simnet(prefs.clone()).await {
+					Rc::new(SimnetBackend::new(LocalBackend::new(prefs), chain))
+				} else {
+					self.books.set(Books::Unreadable(BooksFailure::Damaged));
+					return;
 				}
 			}
 			// TODO(integration): reapers_api. The coordinator hands
@@ -271,7 +270,7 @@ impl Game {
 					}
 				});
 			}
-			if platform::sleep(Self::SLIP_SHOWN - Self::FINALITY).await
+			if platform::sleep(Self::SLIP_SHOWN.checked_sub(Self::FINALITY).unwrap()).await
 				&& showing(self.slip.get_untracked())
 			{
 				self.slip.set(None);

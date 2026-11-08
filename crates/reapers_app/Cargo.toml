@@ -38,8 +38,10 @@ csr = ["web", "leptos/csr"]
 native = [
 	"leptoskit/guest",
 	"leptoskit_plugin_crypto/guest",
+	"dep:leptoskit_plugin_haptics",
 	"leptoskit_plugin_haptics/guest",
 	"leptoskit_plugin_http/guest",
+	"dep:leptoskit_plugin_linking",
 	"leptoskit_plugin_linking/guest",
 	"leptoskit_plugin_store/guest",
 ]
@@ -63,10 +65,6 @@ futures = { version = "0.3", default-features = false, features = ["std", "async
 leptoskit = { workspace = true }
 leptoskit_l10n = { workspace = true }
 leptoskit_plugin_crypto = { workspace = true }
-leptoskit_plugin_haptics = { workspace = true }
-leptoskit_plugin_http = { workspace = true, default-features = false }
-leptoskit_plugin_linking = { workspace = true }
-leptoskit_plugin_store = { workspace = true }
 leptoskit_router = { workspace = true }
 reactive_graph = "0.3.0-rc0"
 reapers_rules = { workspace = true }
@@ -89,6 +87,14 @@ console_error_panic_hook = { version = "0.1", optional = true }
 wasm-bindgen = { version = "=0.2.129", optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
 web-sys = { version = "0.3", optional = true, features = ["Window", "Navigator", "Request", "RequestInit", "RequestMode", "Response", "Headers", "Location", "Crypto", "MediaQueryList", "console"] }
+
+# What only a browser or a native guest calls: the device's store, HTTP,
+# links and haptics. The browser reaches the last two through `web-sys`.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+leptoskit_plugin_haptics = { workspace = true, optional = true }
+leptoskit_plugin_http = { workspace = true, default-features = false }
+leptoskit_plugin_linking = { workspace = true, optional = true }
+leptoskit_plugin_store = { workspace = true }
 
 [dev-dependencies]
 futures = { version = "0.3", features = ["executor"] }

@@ -23,13 +23,15 @@ use crate::sound::Score;
 use crate::state::Game;
 use crate::ui::ledger_notice;
 
+/// The session, shared between the screen and its reader of frames.
+type Shared = std::rc::Rc<std::cell::RefCell<Box<dyn RiftSession>>>;
+
 /// The rift this screen is seated in.
 #[derive(Clone, Copy)]
 struct Seat {
 	site: RwSignal<Option<RiftSite>>,
 	frame: RwSignal<Option<RiftFrame>>,
-	session:
-		StoredValue<Option<std::rc::Rc<std::cell::RefCell<Box<dyn RiftSession>>>>, LocalStorage>,
+	session: StoredValue<Option<Shared>, LocalStorage>,
 }
 
 fn seat() -> Seat {

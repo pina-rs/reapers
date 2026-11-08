@@ -184,7 +184,7 @@ pub fn page(player: &PlayerState) -> Element {
 			View()
 				.class("relative w-full h-[52vh] min-h-[340px]")
 				.child(reaper_stage(&ReaperStageProps::new(
-					genome.clone(),
+					genome,
 					weapon,
 					player.outfit(),
 				)))
@@ -235,6 +235,7 @@ fn sighted_banner(sighting: &Sighting) -> Element {
 		.class("relative flex-row items-center gap-3 px-4 py-[14px] bg-[#0f1116] max-w-[520px]")
 		.test_id("sanctum-sighted-banner")
 		.aria_live(leptoskit::native::Live::Polite)
+		.on_press(move || open(Hunt { sighting: id }))
 		.child(sketch(seed_for(&sighting.nft.id()), light, 1.0))
 		.child(ledger_pip(true, light))
 		.child(body(
@@ -242,5 +243,4 @@ fn sighted_banner(sighting: &Sighting) -> Element {
 			14,
 			BONE,
 		))
-		.on_press(move || open(Hunt { sighting: id }))
 }

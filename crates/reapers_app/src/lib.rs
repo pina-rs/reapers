@@ -6,6 +6,9 @@
 //! ([`screens`], [`ui`]), and the seams the 3D and camera views plug into
 //! ([`seams`]).
 
+// `Game` is a `Copy` handle of signals, passed by value the way a signal is.
+#![allow(clippy::large_types_passed_by_value)]
+
 pub mod app;
 pub mod backend;
 pub mod brand;

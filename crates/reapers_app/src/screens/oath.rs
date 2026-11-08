@@ -186,7 +186,7 @@ fn drawn(player: &PlayerState) -> Element {
 				.class("absolute inset-0")
 				.child(reaper_stage(&ReaperStageProps {
 					turns_on_its_own: true,
-					..ReaperStageProps::new(genome.clone(), weapon, player.outfit())
+					..ReaperStageProps::new(genome, weapon, player.outfit())
 				})),
 		))
 		// The foot of the stage darkens so the ledger over it stays

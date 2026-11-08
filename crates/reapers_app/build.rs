@@ -40,13 +40,13 @@ fn main() -> Result<(), leptoskit_build::Error> {
 	for (from, to) in MIRRORS {
 		println!("cargo::rerun-if-changed={from}");
 		let from = Path::new(from);
-		if from.is_dir() {
-			if let Err(error) = mirror(from, &Path::new("assets").join(to)) {
-				println!(
-					"cargo::warning=could not mirror {}: {error}",
-					from.display()
-				);
-			}
+		if from.is_dir()
+			&& let Err(error) = mirror(from, &Path::new("assets").join(to))
+		{
+			println!(
+				"cargo::warning=could not mirror {}: {error}",
+				from.display()
+			);
 		}
 	}
 	leptoskit_build::platforms()

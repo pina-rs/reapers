@@ -9586,38 +9586,3 @@ dependencies = [
  "quote",
  "syn 2.0.119",
 ]
-
-[[patch.unused]]
-name = "leptoskit_gtk"
-version = "0.3.0"
-source = "git+https://github.com/leptoskit/leptoskit?rev=53ca7405fac9fb680cd7468429cf09d9b004e76e#53ca7405fac9fb680cd7468429cf09d9b004e76e"
-
-[[patch.unused]]
-name = "leptoskit_l10n_codegen"
-version = "0.3.0"
-source = "git+https://github.com/leptoskit/leptoskit?rev=53ca7405fac9fb680cd7468429cf09d9b004e76e#53ca7405fac9fb680cd7468429cf09d9b004e76e"
-
-[[patch.unused]]
-name = "leptoskit_router_codegen"
-version = "0.3.0"
-source = "git+https://github.com/leptoskit/leptoskit?rev=53ca7405fac9fb680cd7468429cf09d9b004e76e#53ca7405fac9fb680cd7468429cf09d9b004e76e"
-
-[[patch.unused]]
-name = "leptoskit_testing_library"
-version = "0.3.0"
-source = "git+https://github.com/leptoskit/leptoskit?rev=53ca7405fac9fb680cd7468429cf09d9b004e76e#53ca7405fac9fb680cd7468429cf09d9b004e76e"
-
-[[patch.unused]]
-name = "leptoskit_tui"
-version = "0.3.0"
-source = "git+https://github.com/leptoskit/leptoskit?rev=53ca7405fac9fb680cd7468429cf09d9b004e76e#53ca7405fac9fb680cd7468429cf09d9b004e76e"
-
-[[patch.unused]]
-name = "leptoskit_use"
-version = "0.3.0"
-source = "git+https://github.com/leptoskit/leptoskit?rev=53ca7405fac9fb680cd7468429cf09d9b004e76e#53ca7405fac9fb680cd7468429cf09d9b004e76e"
-
-[[patch.unused]]
-name = "leptoskit_windows"
-version = "0.3.0"
-source = "git+https://github.com/leptoskit/leptoskit?rev=53ca7405fac9fb680cd7468429cf09d9b004e76e#53ca7405fac9fb680cd7468429cf09d9b004e76e"

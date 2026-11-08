@@ -92,7 +92,10 @@ fn is_local_network(host: &str) -> bool {
 	if matches!(
 		host,
 		"localhost" | "127.0.0.1" | "[::1]" | "::1" | "10.0.2.2" | "host.docker.internal"
-	) || host.ends_with(".local")
+	) || host
+		.rsplit('.')
+		.next()
+		.is_some_and(|domain| domain.eq_ignore_ascii_case("local"))
 	{
 		return true;
 	}
@@ -635,6 +638,10 @@ mod iso8601 {
 	use reapers_rules::Timestamp;
 	use serde::Deserialize as _;
 
+	#[allow(
+		clippy::trivially_copy_pass_by_ref,
+		reason = "serde's `with` hands the field by reference"
+	)]
 	pub fn serialize<S: serde::Serializer>(
 		at: &Timestamp,
 		serializer: S,
@@ -957,7 +964,7 @@ mod tests {
 			block_on(faucet.fund(WALLET)).unwrap_err().failure,
 			SurfpoolFailure::Unreachable
 		);
-		assert!(prefs.keys().is_empty());
+		assert_eq!(prefs.keys(), Vec::<String>::new());
 	}
 
 	#[test]

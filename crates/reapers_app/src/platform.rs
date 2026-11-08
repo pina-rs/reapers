@@ -357,7 +357,7 @@ mod web {
 		reason = "the guest's store is async, and both share one signature"
 	)]
 	pub async fn store_get(key: &str) -> Result<Option<Value>, PlatformError> {
-		with_store(|store| store.get(key).map(|value| value.cloned()))
+		with_store(|store| store.get(key).map(Option::<&Value>::cloned))
 	}
 
 	#[allow(

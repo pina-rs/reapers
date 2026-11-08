@@ -43,6 +43,10 @@ pub trait RiftSession {
 /// Settles the books once the rift is sealed.
 pub type OnSealed = Rc<dyn Fn(RiftReward) -> LocalBoxFuture<'static, KeeperResult<()>>>;
 
+#[allow(
+	clippy::struct_field_names,
+	reason = "the room in the room is the rules' one"
+)]
 struct Room {
 	room: RiftRoom,
 	seat: usize,

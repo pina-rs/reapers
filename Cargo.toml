@@ -89,7 +89,6 @@ leptoskit_plugin_linking = { version = "=0.3.0" }
 leptoskit_plugin_store = { version = "=0.3.0" }
 leptoskit_router = { version = "=0.3.0" }
 leptoskit_testing = { version = "=0.3.0" }
-leptoskit_testing_library = { version = "=0.3.0" }
 
 # Solana Kit, at the revision that depends on leptoskit 0.3.0.
 solana_kit_leptoskit = { git = "https://github.com/pina-rs/solana_kit", rev = "17912ee644d2898c9de3ecded026274ada8761e7" }
@@ -144,9 +143,7 @@ leptoskit_codepush = { git = "https://github.com/leptoskit/leptoskit", rev = "53
 leptoskit_config = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_devtools = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_devtools_protocol = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
-leptoskit_gtk = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_l10n = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
-leptoskit_l10n_codegen = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_macros = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_native = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_plugin = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
@@ -160,18 +157,12 @@ leptoskit_query = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7
 leptoskit_rive = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_rive_runtime = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_router = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
-leptoskit_router_codegen = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_router_macros = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_rpc = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
-leptoskit_rpc_codegen = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_rpc_macros = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_testing = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
-leptoskit_testing_library = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
-leptoskit_tui = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_uikit = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
-leptoskit_use = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_wasm = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
-leptoskit_windows = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_yoga = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_axum = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_db = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }

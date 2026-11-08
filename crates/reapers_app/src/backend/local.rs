@@ -353,7 +353,7 @@ mod tests {
 		);
 
 		let released = block_on(keeper.release(nft)).unwrap();
-		assert!(released.vault().is_empty());
+		assert_eq!(released.vault(), []);
 		assert_eq!(released.sightings().len(), 1);
 		assert_eq!(released.sightings()[0].nft, nft);
 	}

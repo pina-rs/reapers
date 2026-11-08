@@ -107,6 +107,10 @@ A simnet build may also set `--dart-define=REAPERS_SURFPOOL_URL=http://localhost
 
 **Autoplay.** `--dart-define=REAPERS_AUTOPLAY=true` has a simulated player fight every hunt and rift. It is how the game can be watched on a simulator, which has no gyroscope.
 
+## The leptoskit port
+
+The game is being ported to Rust on leptoskit, as `crates/reapers_app`: one tree of screens for the browser and the iOS and Android apps' Wasm guest, playing by `crates/reapers_rules`. Its keepers are the same three (the device, the simnet, the server) behind one `GameBackend`, its strings are `locales/en.arb`, and the simnet's purchases, escrows and burns are real signed Solana transactions. The 3D and camera views are seams with props contracts (`src/seams/`) that the `leptoskit_3d` and `leptoskit_xr` port fills in. [crates/reapers_app/README.md](../crates/reapers_app/README.md) has the build flags, the layout and what each platform still lacks.
+
 ## Art
 
 There are no hand-made model files. Every reaper, weapon and husk is built by a Python script run inside headless Blender, driven by `dart tool/build_art.dart`. The husk scripts read their dimensions and seal positions from the shared `Vessel` enum, and fail the build if a creature does not fit them, so the model and the hit-testing cannot disagree. The same build renders every NFT's portrait from its creature and its look. See `art/blender/README.md`.

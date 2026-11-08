@@ -62,7 +62,7 @@ impl SimnetBackend {
 	}
 
 	fn wallet(&self) -> SimnetAccount {
-		SimnetAccount::new(SimnetRole::Wallet, self.chain.wallet())
+		SimnetAccount::new(SimnetRole::Wallet, &self.chain.wallet())
 	}
 }
 
@@ -93,7 +93,7 @@ impl GameBackend for SimnetBackend {
 				..SimnetPost::new(
 					SimnetInstruction::Airdrop,
 					vec![
-						SimnetAccount::new(SimnetRole::Faucet, SimnetChain::faucet()),
+						SimnetAccount::new(SimnetRole::Faucet, &SimnetChain::faucet()),
 						self.wallet(),
 					],
 				)
@@ -116,8 +116,8 @@ impl GameBackend for SimnetBackend {
 					SimnetInstruction::Buy,
 					vec![
 						self.wallet(),
-						SimnetAccount::new(SimnetRole::Market, SimnetChain::market()),
-						SimnetAccount::new(SimnetRole::Mint, nft.mock_mint()),
+						SimnetAccount::new(SimnetRole::Market, &SimnetChain::market()),
+						SimnetAccount::new(SimnetRole::Mint, &nft.mock_mint()),
 					],
 				)
 			})
@@ -134,9 +134,9 @@ impl GameBackend for SimnetBackend {
 					SimnetInstruction::Escrow,
 					vec![
 						self.wallet(),
-						SimnetAccount::new(SimnetRole::Mint, nft.mock_mint()),
-						SimnetAccount::new(SimnetRole::Escrow, SimnetChain::escrow_for(nft)),
-						SimnetAccount::new(SimnetRole::Program, SimnetChain::program()),
+						SimnetAccount::new(SimnetRole::Mint, &nft.mock_mint()),
+						SimnetAccount::new(SimnetRole::Escrow, &SimnetChain::escrow_for(nft)),
+						SimnetAccount::new(SimnetRole::Program, &SimnetChain::program()),
 					],
 				)
 			})
@@ -174,10 +174,10 @@ impl GameBackend for SimnetBackend {
 					SimnetInstruction::Burn,
 					vec![
 						self.wallet(),
-						SimnetAccount::new(SimnetRole::Mint, nft.mock_mint()),
-						SimnetAccount::new(SimnetRole::Escrow, SimnetChain::escrow_for(nft)),
-						SimnetAccount::new(SimnetRole::Program, SimnetChain::program()),
-						SimnetAccount::new(SimnetRole::Keeper, SimnetChain::keeper()),
+						SimnetAccount::new(SimnetRole::Mint, &nft.mock_mint()),
+						SimnetAccount::new(SimnetRole::Escrow, &SimnetChain::escrow_for(nft)),
+						SimnetAccount::new(SimnetRole::Program, &SimnetChain::program()),
+						SimnetAccount::new(SimnetRole::Keeper, &SimnetChain::keeper()),
 					],
 				)
 			})
@@ -483,7 +483,7 @@ mod tests {
 		block_on(keeper.forget()).unwrap();
 
 		assert_ne!(chain.wallet(), before);
-		assert!(chain.transactions().is_empty());
+		assert_eq!(chain.transactions(), []);
 		assert!(!block_on(keeper.load()).unwrap().oath_taken());
 		assert_eq!(
 			block_on(world.prefs.get(LocalBackend::DEFAULT_STORAGE_KEY)).unwrap(),

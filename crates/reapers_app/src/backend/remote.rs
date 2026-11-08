@@ -7,7 +7,7 @@
 //!
 //! What it speaks to is [`ReapersApi`]: one method per endpoint of the Dart
 //! server (`PlayerEndpoint`, `SolanaEndpoint`, `RiftEndpoint`), in the
-//! rules' types. TODO(integration): reapers_api. The Rust server's client
+//! rules' types. TODO(integration): `reapers_api`. The Rust server's client
 //! lives in `reapers_api`, written beside this in another branch; the
 //! coordinator implements [`ReapersApi`] over it (a thin adapter of a dozen
 //! calls) and hands it to [`RemoteBackend::new`]. Until then a server build

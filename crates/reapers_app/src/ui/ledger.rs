@@ -107,8 +107,8 @@ pub fn ledger_back(label_text: Option<&str>) -> Element {
 	Pressable(label_text.unwrap_or(words.common_back()).to_owned())
 		.class("min-w-[48px] min-h-[48px] justify-center self-start")
 		.test_id("ledger-back")
-		.child(label(&text, 13, BONE))
 		.on_press(crate::screens::back)
+		.child(label(&text, 13, BONE))
 }
 
 /// One line of a ledger: a name on the left, a figure on the right, and a
@@ -207,8 +207,7 @@ pub fn ledger_notice(
 	View()
 		.class("flex-1 min-h-screen justify-center p-7 gap-[14px]")
 		.child(display(title, 40, BONE))
-		.child(body(text, 15, ASH))
-		.child(View().class("h-[14px]"))
+		.child(body(text, 15, ASH).class("mb-[14px]"))
 		.child(
 			LedgerButton::new(action)
 				.test_id("notice-action")
@@ -234,13 +233,10 @@ pub fn ledger_page(
 		.class(format!(
 			"w-full {CONTENT_WIDTH} self-center px-6 pt-2 pb-10"
 		))
-		.child(top)
-		.child(View().class("h-[18px]"))
+		.child(top.class("mb-[18px]"))
 		.child(margin(overline));
 	if let Some(title) = title {
-		column = column
-			.child(View().class("h-[10px]"))
-			.child(display(title, 34, BONE));
+		column = column.child(display(title, 34, BONE).class("mt-[10px]"));
 	}
 	ScrollView()
 		.class("flex-1 w-full pt-safe pb-safe")

@@ -111,8 +111,8 @@ pub fn page() -> Element {
 			))
 			.test_id(id.to_owned())
 			.aria_selected(chosen)
-			.child(label(name, 13, if chosen { BONE } else { ASH }))
 			.on_press(move || fitting.tab.set(which))
+			.child(label(name, 13, if chosen { BONE } else { ASH }))
 	};
 
 	let rows: Vec<Element> = match tab {
@@ -233,10 +233,10 @@ pub fn page() -> Element {
 	reason = "one row, laid out from its parts"
 )]
 fn armory_row(
-	id: String,
+	id: &str,
 	title: &str,
 	detail: String,
-	action: String,
+	action: &str,
 	tried: bool,
 	on_try: impl Fn() + Send + Sync + 'static,
 	on_action: Option<Box<dyn Fn() + Send + Sync>>,
@@ -248,27 +248,27 @@ fn armory_row(
 	} else {
 		ASH
 	};
-	let action_button = Pressable(action.clone())
+	let action_button = Pressable(action.to_owned())
 		.class("min-h-[48px] min-w-[96px] items-end justify-center")
-		.child(label(&action, 12, action_colour));
+		.child(label(action, 12, action_colour));
 	let action_button = match on_action {
-		Some(on_action) => action_button.on_press(move || on_action()),
+		Some(on_action) => action_button.on_press(on_action),
 		None => action_button.enabled(false),
 	};
 	View()
 		.class("flex-row items-center gap-[14px] py-1")
-		.test_id(id)
+		.test_id(id.to_owned())
 		.child(
 			Pressable(title.to_owned())
 				.class("flex-1 flex-row items-center gap-[14px]")
+				.on_press(on_try)
 				.child(ledger_pip(tried, light))
 				.child(
 					View()
 						.class("flex-1 gap-[2px]")
 						.child(body(title, 15, BONE))
 						.child(body(detail, 12, ASH)),
-				)
-				.on_press(on_try),
+				),
 		)
 		.child(action_button)
 }
@@ -289,13 +289,13 @@ fn weapon_row(
 		game.change(
 			move |keeper| async move { keeper.buy_weapon(weapon).await },
 			|_| {},
-		)
+		);
 	};
 	let wield = move || {
 		game.change(
 			move |keeper| async move { keeper.wield(weapon).await },
 			|_| {},
-		)
+		);
 	};
 	let (action, on_action): (String, Option<Box<dyn Fn() + Send + Sync>>) =
 		if player.weapon() == Some(weapon) {
@@ -313,10 +313,10 @@ fn weapon_row(
 			(words.armory_anima(price), Some(Box::new(buy)))
 		};
 	armory_row(
-		format!("armory-weapon-{}", weapon.id()),
+		&format!("armory-weapon-{}", weapon.id()),
 		temper_name(&*words, weapon.temper),
 		words.armory_strike(&strike),
-		action,
+		&action,
 		tried,
 		move || fitting().weapon.set(Some(weapon)),
 		on_action,
@@ -339,13 +339,13 @@ fn outfit_row(
 		game.change(
 			move |keeper| async move { keeper.buy_outfit(outfit).await },
 			|_| {},
-		)
+		);
 	};
 	let wear = move || {
 		game.change(
 			move |keeper| async move { keeper.wear(outfit).await },
 			|_| {},
-		)
+		);
 	};
 	let (action, on_action): (String, Option<Box<dyn Fn() + Send + Sync>>) =
 		if player.outfit() == outfit {
@@ -361,10 +361,10 @@ fn outfit_row(
 			(words.armory_anima(outfit.price()), Some(Box::new(buy)))
 		};
 	View().class("pt-2").child(armory_row(
-		format!("armory-outfit-{}", outfit.name()),
+		&format!("armory-outfit-{}", outfit.name()),
 		outfit_name(&*words, outfit),
 		outfit_line(&*words, outfit).to_owned(),
-		action,
+		&action,
 		tried,
 		move || fitting().outfit.set(Some(outfit)),
 		on_action,
@@ -417,7 +417,7 @@ fn art_row(game: Game, art: Art, reaper: &ReaperState, light: Rgb) -> Element {
 			game.change(
 				move |keeper| async move { keeper.attune(art).await },
 				|_| {},
-			)
+			);
 		})
 	} else {
 		action_button.enabled(false)

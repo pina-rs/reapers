@@ -281,7 +281,10 @@ fn the_simnet_build_posts_the_airdrop_and_shows_it_in_the_explorer() {
 		harness.has("threshold"),
 		"starting over leaves a new player at the threshold"
 	);
-	assert!(harness.game.ledger.get_untracked().is_empty());
+	assert_eq!(
+		harness.game.ledger.get_untracked(),
+		[] as [reapers_app::simnet::SimnetTransaction; 0]
+	);
 }
 
 #[test]
