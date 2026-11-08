@@ -1,5 +1,9 @@
 name: Checks
 
+# The same `cargo xtask check` a person runs before `cargo xtask merge`, on
+# every pull request and every push to main. A mirror of the local gate,
+# never a replacement for it.
+
 on:
   push:
     branches: [main]
@@ -13,44 +17,105 @@ concurrency:
   group: checks-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CARGO_TERM_COLOR: always
+  # Incremental builds only cost cache space on a runner that starts cold.
+  CARGO_INCREMENTAL: 0
+  # Agave (the Solana CLI): cargo-build-sbf and its platform tools, and
+  # `solana program dump` for Metaplex Core. 4.1.0 brings platform-tools
+  # v1.54, what the program's size in docs/program.md was measured with.
+  AGAVE_VERSION: v4.1.0
+  # The program's build tool. Keep in step with `pina` in Cargo.toml.
+  PINA_VERSION: 0.24.0
+  # The leptoskit CLI, at the revision the workspace patches leptoskit to.
+  LEPTOSKIT_REV: 53ca7405fac9fb680cd7468429cf09d9b004e76e
+  # The server's tests start their own cluster with these.
+  POSTGRES_MAJOR: 17
+
 jobs:
   checks:
-    name: Format, analyse and test
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+    name: cargo xtask check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
     steps:
       - name: Check out
-        uses: actions/checkout@v6
-
-      - name: Set up the pinned Flutter
-        uses: subosito/flutter-action@v2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          channel: stable
-          flutter-version-file: .fvmrc
-          cache: true
+          persist-credentials: false
 
-      # Flutter's Linux toolchain, and the native build tools the asset hooks
-      # reach for while a test bundle is compiled.
-      - name: Install Linux build dependencies
+      # The workspace's debug, Wasm and SBF builds together outgrow the
+      # runner's free space; these preinstalled toolchains are never used.
+      - name: Make room on the disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      # rustup reads rust-toolchain.toml: the pinned nightly, its
+      # components, and the Wasm and mobile targets.
+      - name: Install the pinned Rust toolchain
+        run: |
+          rustup toolchain install
+          rustc --version
+          cargo --version
+
+      - name: Install PostgreSQL ${{ env.POSTGRES_MAJOR }}
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends \
-            clang \
-            cmake \
-            ninja-build \
-            pkg-config \
-            libgtk-3-dev \
-            liblzma-dev
+          sudo apt-get install --yes --no-install-recommends postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install --yes --no-install-recommends "postgresql-${POSTGRES_MAJOR}"
+          # The package starts a cluster of its own; the tests need none.
+          sudo systemctl disable --now postgresql
+          echo "REAPERS_PG_BIN=/usr/lib/postgresql/${POSTGRES_MAJOR}/bin" >> "$GITHUB_ENV"
 
-      - name: Resolve the workspace
-        run: flutter pub get
+      - name: Cache Agave and the platform tools
+        id: agave-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.local/share/solana
+            ~/.cache/solana
+          key: agave-${{ runner.os }}-${{ env.AGAVE_VERSION }}
 
-      # The server tests start an embedded PostgreSQL. It needs a passwords
-      # file, and the committed example holds local placeholders only.
-      - name: Create the local server passwords
-        run: >-
-          cp reapers_server/config/passwords.example.yaml
-          reapers_server/config/passwords.yaml
+      - name: Install Agave
+        if: steps.agave-cache.outputs.cache-hit != 'true'
+        run: sh -c "$(curl --proto '=https' --tlsv1.2 -sSfL "https://release.anza.xyz/${AGAVE_VERSION}/install")"
+
+      - name: Put Agave on the PATH
+        run: |
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/share/solana/install/active_release/bin/solana" --version
+
+      - name: Cache pina and the leptoskit CLI
+        id: tools-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/bin/pina
+            ~/.cargo/bin/leptoskit
+          key: cargo-tools-${{ runner.os }}-pina-${{ env.PINA_VERSION }}-leptoskit-${{ env.LEPTOSKIT_REV }}-${{ hashFiles('rust-toolchain.toml') }}
+
+      - name: Install pina and the leptoskit CLI
+        if: steps.tools-cache.outputs.cache-hit != 'true'
+        run: |
+          cargo install pina_cli --version "$PINA_VERSION" --locked
+          cargo install leptoskit_cli --locked --git https://github.com/leptoskit/leptoskit --rev "$LEPTOSKIT_REV"
+
+      # Metaplex Core from mainnet, for the program's tests. It is fetched
+      # once and kept, rather than asked of a public RPC on every run.
+      - name: Cache Metaplex Core
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target/fixtures/mpl_core.so
+          key: mpl-core-CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d
+
+      - name: Cache the build
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          # The tools have their own cache, keyed by their versions.
+          cache-bin: false
+          # Only main writes the cache, so a pull request cannot fill it.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Run every check
-        run: dart tool/check.dart
+        run: cargo xtask check
