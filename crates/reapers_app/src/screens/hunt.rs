@@ -349,6 +349,11 @@ fn result(game: Game, brief: &HuntBrief, reward: &HuntReward) -> Element {
 						words.hunt_receipt_unsigned()
 					} else if game.keeper_kind.get() == Some(KeeperKind::Simnet) {
 						words.hunt_receipt_simnet()
+					} else if game.cluster().is_some()
+						&& game.ledger.get().last().is_some_and(|transaction| {
+							transaction.instruction == crate::simnet::SimnetInstruction::Burn
+						}) {
+						words.hunt_receipt_cluster()
 					} else {
 						words.hunt_receipt_signed()
 					},

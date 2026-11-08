@@ -91,9 +91,12 @@ fn run(game: Game, panel: Panel, action: impl AsyncFnOnce() -> Result<(), Keeper
 		let result = action().await;
 		panel.busy.set(false);
 		if let Err(error) = result {
-			panel.failure.set(Some(match error.refusal() {
-				Some(refusal) => refusal_message(game_words(), refusal).to_owned(),
-				None => game_words().common_unreachable().to_owned(),
+			panel.failure.set(Some(match (&error, error.refusal()) {
+				(KeeperError::Chain(failure), _) => {
+					crate::lookups::chain_failure_message(game_words(), failure).to_owned()
+				}
+				(_, Some(refusal)) => refusal_message(game_words(), refusal).to_owned(),
+				(_, None) => game_words().common_unreachable().to_owned(),
 			}));
 		} else {
 			game.reload().await;

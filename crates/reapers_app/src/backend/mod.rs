@@ -5,12 +5,14 @@
 //! [`KeeperError::Unavailable`] when the keeper could not be reached. There
 //! are three keepers: the device itself ([`LocalBackend`]), the device
 //! posting to its simnet ([`crate::simnet::SimnetBackend`]), and the Reapers
-//! server ([`RemoteBackend`]), which judges every request with the same
-//! rules crate.
+//! server ([`RemoteBackend`] over [`ServerApi`]), which judges every request
+//! with the same rules crate, and on a cluster build moves real husks with
+//! the player's wallet.
 
 mod local;
 mod remote;
 mod rift_session;
+mod server;
 
 use async_trait::async_trait;
 pub use local::DeviceDice;
@@ -29,15 +31,19 @@ use reapers_rules::Refusal;
 use reapers_rules::RiftSite;
 use reapers_rules::RuleBreach;
 use reapers_rules::Weapon;
+pub use remote::ApiError;
+pub use remote::ApiResult;
 pub use remote::ChainStatus;
 pub use remote::ReapersApi;
 pub use remote::RemoteBackend;
-pub use remote::UnwiredApi;
 pub use remote::WalletChallenge;
 pub use rift_session::LocalRiftSession;
 pub use rift_session::RiftFrames;
 pub use rift_session::RiftSession;
+pub use server::ServerApi;
 
+use crate::chain::ChainFailure;
+use crate::chain::WalletHusk;
 use crate::platform::PlatformError;
 use crate::wallet::WalletProver;
 
@@ -59,6 +65,10 @@ pub enum KeeperError {
 	/// keeper answering in a format this build does not know.
 	#[error("the books are damaged: {0}")]
 	Damaged(String),
+
+	/// The cluster, or the wallet, did not do its part.
+	#[error(transparent)]
+	Chain(#[from] ChainFailure),
 }
 
 impl KeeperError {
@@ -70,7 +80,7 @@ impl KeeperError {
 	pub const fn refusal(&self) -> Option<Refusal> {
 		match self {
 			Self::Refused(breach) => Some(breach.refusal),
-			Self::Unavailable(_) | Self::Damaged(_) => None,
+			Self::Unavailable(_) | Self::Damaged(_) | Self::Chain(_) => None,
 		}
 	}
 }
@@ -157,6 +167,12 @@ pub trait GameBackend {
 		_prover: &dyn WalletProver,
 	) -> KeeperResult<()> {
 		Err(KeeperError::unavailable("this keeper links no wallet"))
+	}
+
+	/// The demo husks the linked wallet holds, has in escrow, or has burned,
+	/// on a cluster build. Every other keeper has none.
+	async fn wallet_husks(&self) -> KeeperResult<Vec<WalletHusk>> {
+		Ok(Vec::new())
 	}
 
 	/// Imports the reaper NFT at `asset`, owned by the linked wallet.

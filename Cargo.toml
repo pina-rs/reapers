@@ -86,6 +86,8 @@ leptoskit_plugin_crypto = { version = "=0.3.0" }
 leptoskit_plugin_haptics = { version = "=0.3.0" }
 leptoskit_plugin_http = { version = "=0.3.0" }
 leptoskit_plugin_linking = { version = "=0.3.0" }
+leptoskit_plugin_secure_store = { version = "=0.3.0" }
+leptoskit_plugin_websocket = { version = "=0.3.0", default-features = false }
 leptoskit_plugin_store = { version = "=0.3.0" }
 leptoskit_router = { version = "=0.3.0" }
 leptoskit_testing = { version = "=0.3.0" }
@@ -152,6 +154,8 @@ leptoskit_plugin_filesystem = { git = "https://github.com/leptoskit/leptoskit", 
 leptoskit_plugin_haptics = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_plugin_http = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_plugin_linking = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
+leptoskit_plugin_secure_store = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
+leptoskit_plugin_websocket = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_plugin_store = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_query = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }
 leptoskit_rive = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405fac9fb680cd7468429cf09d9b004e76e" }

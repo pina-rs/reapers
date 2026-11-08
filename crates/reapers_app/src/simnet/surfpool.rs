@@ -709,9 +709,10 @@ mod tests {
 
 	#[async_trait(?Send)]
 	impl HttpTransport for Script {
-		async fn post_json(
+		async fn post(
 			&self,
 			_url: &str,
+			_headers: Vec<crate::platform::Header>,
 			body: Vec<u8>,
 			_timeout: Duration,
 		) -> Result<HttpReply, PlatformError> {

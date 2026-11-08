@@ -277,6 +277,27 @@ pub fn transaction_sheet(game: Game, signature: &str) -> Element {
 				}),
 		);
 	}
+	// A transaction the wallet sent to devnet can be looked up there.
+	if game
+		.cluster()
+		.is_some_and(|cluster| cluster.name == crate::chain::ClusterName::Devnet)
+	{
+		let url = format!(
+			"https://explorer.solana.com/tx/{}?cluster=devnet",
+			transaction.signature
+		);
+		entries.push(gap(18));
+		entries.push(
+			LedgerButton::new(words.chain_explorer())
+				.test_id("chain-explorer")
+				.on_press(move || {
+					let url = url.clone();
+					crate::platform::spawn(async move {
+						let _ = crate::platform::open_url(&url).await;
+					});
+				}),
+		);
+	}
 	sheet(game, entries)
 }
 

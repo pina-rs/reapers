@@ -31,6 +31,7 @@ web = [
 	"leptoskit_router/web",
 	"leptoskit_plugin_crypto/web",
 	"leptoskit_plugin_http/browser",
+	"reapers_api/web",
 ]
 csr = ["web", "leptos/csr"]
 # A native app's Wasm guest: the store, HTTP and linking plugins, and an
@@ -38,11 +39,14 @@ csr = ["web", "leptos/csr"]
 native = [
 	"leptoskit/guest",
 	"leptoskit_plugin_crypto/guest",
+	"reapers_api/guest",
 	"dep:leptoskit_plugin_haptics",
 	"leptoskit_plugin_haptics/guest",
 	"leptoskit_plugin_http/guest",
 	"dep:leptoskit_plugin_linking",
 	"leptoskit_plugin_linking/guest",
+	"dep:leptoskit_plugin_secure_store",
+	"leptoskit_plugin_secure_store/guest",
 	"leptoskit_plugin_store/guest",
 ]
 ios = ["native", "leptoskit/ios"]
@@ -67,6 +71,7 @@ leptoskit_l10n = { workspace = true }
 leptoskit_plugin_crypto = { workspace = true }
 leptoskit_router = { workspace = true }
 reactive_graph = "0.3.0-rc0"
+reapers_api = { workspace = true }
 reapers_program_client = { workspace = true }
 reapers_receipt = { workspace = true }
 reapers_rules = { workspace = true }
@@ -81,6 +86,7 @@ leptoskit_bridge = { workspace = true, optional = true, features = ["guest"] }
 solana_kit_system = { workspace = true }
 solana-instruction = { workspace = true }
 solana-pubkey = { workspace = true }
+num-traits = { workspace = true }
 thiserror = "2"
 
 # The browser renderer and its glue.
@@ -90,7 +96,7 @@ console_error_panic_hook = { version = "0.1", optional = true }
 # The embedded wasm-bindgen CLI accepts exactly its matching library version.
 wasm-bindgen = { version = "=0.2.129", optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
-web-sys = { version = "0.3", optional = true, features = ["Window", "Navigator", "Request", "RequestInit", "RequestMode", "Response", "Headers", "Location", "Crypto", "MediaQueryList", "console"] }
+web-sys = { version = "0.3", optional = true, features = ["Window", "Navigator", "Request", "RequestInit", "RequestMode", "Response", "Headers", "Location", "Crypto", "MediaQueryList", "console", "CustomEvent", "CustomEventInit", "Event", "EventTarget"] }
 
 # What only a browser or a native guest calls: the device's store, HTTP,
 # links and haptics. The browser reaches the last two through `web-sys`.
@@ -98,6 +104,7 @@ web-sys = { version = "0.3", optional = true, features = ["Window", "Navigator",
 leptoskit_plugin_haptics = { workspace = true, optional = true }
 leptoskit_plugin_http = { workspace = true, default-features = false }
 leptoskit_plugin_linking = { workspace = true, optional = true }
+leptoskit_plugin_secure_store = { workspace = true, optional = true }
 leptoskit_plugin_store = { workspace = true }
 
 [dev-dependencies]

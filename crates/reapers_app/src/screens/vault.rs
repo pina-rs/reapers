@@ -1,7 +1,9 @@
 //! The vault and the market in one ledger: every NFT of every collection,
 //! and where each one stands with this player.
 //!
-//! Buying here is a stand-in. See docs/nfts.md for what replaces it.
+//! Buying here is a stand-in. See docs/nfts.md for what replaces it. On a
+//! cluster build, a husk the linked wallet holds as a real demo Core asset
+//! is released from the wallet instead: the wallet signs its escrow.
 
 use leptoskit::prelude::*;
 use reapers_rules::Nft;
@@ -10,7 +12,10 @@ use reapers_rules::PlayerState;
 use reapers_rules::market_listings;
 
 use super::home;
+use crate::chain::HuskPlace;
+use crate::chain::WalletHusk;
 use crate::l10n::use_l10n;
+use crate::lookups::cluster_name;
 use crate::lookups::rarity_name;
 use crate::seams::HuskPortraitProps;
 use crate::seams::husk_portrait;
@@ -41,9 +46,26 @@ enum Holding {
 	Held,
 	Loose,
 	Absorbed,
+	/// A real demo husk the linked wallet holds, on a cluster build.
+	InWallet,
+	/// A real demo husk the wallet released into escrow, not yet loose.
+	Escrowed,
 }
 
-fn holding_of(player: &PlayerState, nft: Nft) -> Holding {
+fn holding_of(player: &PlayerState, husks: &[WalletHusk], nft: Nft) -> Holding {
+	let place = husks
+		.iter()
+		.find(|husk| husk.nft == nft)
+		.map(|husk| husk.place);
+	let loose = player
+		.sightings()
+		.iter()
+		.any(|sighting| sighting.nft == nft);
+	match place {
+		Some(HuskPlace::InWallet) => return Holding::InWallet,
+		Some(HuskPlace::Escrowed) if !loose => return Holding::Escrowed,
+		_ => {}
+	}
 	if player.vault().contains(&nft) {
 		Holding::Held
 	} else if player
@@ -66,7 +88,13 @@ pub fn page() -> Element {
 	let Some(player) = game.player() else {
 		return View();
 	};
+	let husks = game.wallet_husks.get();
 	let mut entries = vec![aside(words.vault_stand_in())];
+	if let Some(cluster) = game.cluster() {
+		entries.push(aside(
+			words.vault_cluster(cluster_name(&*words, cluster.name)),
+		));
+	}
 	for collection in NftCollection::ALL {
 		entries.push(ledger_heading(
 			collection.title(),
@@ -79,7 +107,7 @@ pub fn page() -> Element {
 			.into_iter()
 			.filter(|nft| nft.collection == collection)
 		{
-			entries.push(nft_row(game, nft, holding_of(&player, nft)));
+			entries.push(nft_row(game, nft, holding_of(&player, &husks, nft)));
 		}
 	}
 	ledger_page(
@@ -100,6 +128,8 @@ fn nft_row(game: Game, nft: Nft, holding: Holding) -> Element {
 		Holding::Held => (words.vault_held().to_owned(), light()),
 		Holding::Loose => (words.vault_loose().to_owned(), light()),
 		Holding::Absorbed => (words.vault_absorbed().to_owned(), ASH),
+		Holding::InWallet => (words.vault_in_wallet().to_owned(), light()),
+		Holding::Escrowed => (words.vault_in_escrow().to_owned(), light()),
 	};
 	let rarity = rarity_name(&*words, nft.rarity());
 	Pressable(format!("{}, {rarity}, {status}", nft.title()))
@@ -127,10 +157,26 @@ pub fn nft_sheet(game: Game, nft: Nft) -> Element {
 	let Some(player) = game.player() else {
 		return View();
 	};
-	let holding = holding_of(&player, nft);
+	let husks = game.wallet_husks.get();
+	let holding = holding_of(&player, &husks, nft);
 	let rarity = nft.rarity();
 	let busy = game.busy.get();
-	let mint = nft.mock_mint();
+	let mint = husks
+		.iter()
+		.find(|husk| husk.nft == nft)
+		.map_or_else(|| nft.mock_mint(), |husk| husk.asset.to_string());
+	let release = move || {
+		game.change(
+			move |keeper| async move { keeper.release(nft).await },
+			move |done| {
+				game.refresh_husks();
+				if done {
+					game.overlay.set(None);
+					home();
+				}
+			},
+		);
+	};
 
 	let action = match holding {
 		Holding::Listed => {
@@ -157,18 +203,29 @@ pub fn nft_sheet(game: Game, nft: Nft) -> Element {
 					button.disabled()
 				} else {
 					// Releasing sends the player back to watch for the husk.
-					button.on_press(move || {
-						game.change(
-							move |keeper| async move { keeper.release(nft).await },
-							move |done| {
-								if done {
-									game.overlay.set(None);
-									home();
-								}
-							},
-						);
-					})
+					button.on_press(release)
 				})
+		}
+		Holding::InWallet | Holding::Escrowed => {
+			let (text, note, id) = if holding == Holding::InWallet {
+				(
+					words.vault_release_wallet(),
+					words.vault_release_wallet_note(),
+					"vault-release-wallet",
+				)
+			} else {
+				(
+					words.vault_release_escrowed(),
+					words.vault_release_escrowed_note(),
+					"vault-release-escrowed",
+				)
+			};
+			let button = LedgerButton::new(text).test_id(id);
+			View().class("gap-3").child(aside(note)).child(if busy {
+				button.disabled()
+			} else {
+				button.on_press(release)
+			})
 		}
 		Holding::Loose => LedgerButton::new(words.vault_loose()).disabled(),
 		Holding::Absorbed => LedgerButton::new(words.vault_absorbed()).disabled(),

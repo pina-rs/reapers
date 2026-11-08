@@ -38,13 +38,18 @@ use crate::backend::KeeperKind;
 use crate::backend::KeeperResult;
 use crate::backend::LocalBackend;
 use crate::backend::RemoteBackend;
-use crate::backend::UnwiredApi;
+use crate::backend::ServerApi;
+use crate::chain::ChainFailure;
+use crate::chain::Cluster;
+use crate::chain::ClusterName;
+use crate::chain::WalletHusk;
 use crate::config::BuildFlags;
 use crate::config::ConfigError;
 use crate::config::KeeperChoice;
 use crate::platform;
 use crate::platform::DeviceHttp;
 use crate::platform::DevicePrefs;
+use crate::platform::DeviceSecrets;
 use crate::platform::Prefs;
 use crate::simnet::SimnetBackend;
 use crate::simnet::SimnetChain;
@@ -75,11 +80,14 @@ pub enum BooksFailure {
 	Misbuilt(ConfigError),
 }
 
-/// What a confirmation slip says about a simnet transaction.
+/// What a confirmation slip says about a transaction: one on the simnet,
+/// or one the wallet sent to a real cluster.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Slip {
 	pub transaction: SimnetTransaction,
 	pub finalized: bool,
+	/// The real cluster it landed on; `None` on the simnet.
+	pub cluster: Option<ClusterName>,
 }
 
 /// Something laid over the current screen: a sheet or a notice.
@@ -95,6 +103,8 @@ pub enum Overlay {
 	Transaction(String),
 	/// Asks before the simnet starts over.
 	ConfirmReset,
+	/// The cluster, or the wallet, did not do its part.
+	ChainFailed(ChainFailure),
 }
 
 /// Everything the screens share.
@@ -104,8 +114,12 @@ pub struct Game {
 	pub books: RwSignal<Books>,
 	/// Which keeper holds the books, once one is chosen.
 	pub keeper_kind: RwSignal<Option<KeeperKind>>,
-	/// Every simnet transaction, oldest first. Empty without a simnet.
+	/// Every simnet transaction, oldest first; on a cluster build, every
+	/// transaction the wallet sent this session. Empty otherwise.
 	pub ledger: RwSignal<Vec<SimnetTransaction>>,
+	/// On a cluster build, the demo husks the linked wallet holds, has in
+	/// escrow or has burned, as last read.
+	pub wallet_husks: RwSignal<Vec<WalletHusk>>,
 	/// The slip for the transaction that just landed.
 	pub slip: RwSignal<Option<Slip>>,
 	pub overlay: RwSignal<Option<Overlay>>,
@@ -128,6 +142,7 @@ pub struct Game {
 	prefs: StoredValue<Rc<dyn Prefs>, LocalStorage>,
 	simnet: StoredValue<Option<Rc<SimnetChain>>, LocalStorage>,
 	surfpool: StoredValue<Option<Rc<SurfpoolRpc>>, LocalStorage>,
+	cluster: StoredValue<Option<Rc<Cluster>>, LocalStorage>,
 	soundtrack: StoredValue<Rc<Soundtrack>, LocalStorage>,
 	waiting: StoredValue<RefCell<BTreeSet<i64>>, LocalStorage>,
 }
@@ -151,6 +166,7 @@ impl Game {
 			books: RwSignal::new(Books::Opening),
 			keeper_kind: RwSignal::new(None),
 			ledger: RwSignal::new(Vec::new()),
+			wallet_husks: RwSignal::new(Vec::new()),
 			slip: RwSignal::new(None),
 			overlay: RwSignal::new(None),
 			busy: RwSignal::new(false),
@@ -168,6 +184,7 @@ impl Game {
 			prefs: StoredValue::new_local(prefs),
 			simnet: StoredValue::new_local(None),
 			surfpool: StoredValue::new_local(None),
+			cluster: StoredValue::new_local(None),
 			soundtrack: StoredValue::new_local(Rc::new(Soundtrack::silent())),
 			waiting: StoredValue::new_local(RefCell::new(BTreeSet::new())),
 		}
@@ -220,9 +237,18 @@ impl Game {
 					return;
 				}
 			}
-			// TODO(integration): reapers_api. The coordinator hands
-			// `RemoteBackend::new` the reapers_api client for `url` here.
-			KeeperChoice::Server(_url) => Rc::new(RemoteBackend::new(UnwiredApi)),
+			KeeperChoice::Server(url, cluster) => {
+				let api = ServerApi::new(url, Rc::new(DeviceHttp), Rc::new(DeviceSecrets));
+				match cluster {
+					Some((name, rpc)) => {
+						Rc::new(RemoteBackend::new(api).with_cluster(
+							self.open_cluster(name, rpc),
+							crate::wallet::device_wallet().into(),
+						))
+					}
+					None => Rc::new(RemoteBackend::new(api)),
+				}
+			}
 		};
 		self.keeper_kind.set(Some(keeper.kind()));
 		self.keeper.set_value(Some(keeper));
@@ -233,7 +259,7 @@ impl Game {
 		let chain =
 			Rc::new(SimnetChain::open(prefs, Rc::new(platform::now), SimnetChain::LATENCY).await?);
 		self.ledger.set(chain.transactions());
-		chain.subscribe(move |transaction| self.posted(transaction.clone()));
+		chain.subscribe(move |transaction| self.posted(transaction.clone(), None));
 		self.simnet.set_value(Some(chain.clone()));
 
 		if let Some(url) = self.flags.surfpool_url {
@@ -245,15 +271,55 @@ impl Game {
 		Ok(chain)
 	}
 
+	/// The cluster real husks live on: what the wallet sends there lands in
+	/// the ledger and on a slip, and a burn that failed after its hunt was
+	/// settled is put in front of the player.
+	fn open_cluster(self, name: ClusterName, rpc: &str) -> Rc<Cluster> {
+		let cluster = Rc::new(Cluster::new(name, rpc, Rc::new(DeviceHttp)));
+		cluster.subscribe(move |transaction| {
+			self.posted(transaction.clone(), Some(name));
+			self.refresh_husks();
+		});
+		cluster.on_failure(move |failure| {
+			platform::log(&failure.to_string());
+			self.overlay
+				.set(Some(Overlay::ChainFailed(failure.clone())));
+		});
+		self.cluster.set_value(Some(cluster.clone()));
+		cluster
+	}
+
+	/// Reads the wallet's demo husks again, on a cluster build.
+	pub fn refresh_husks(self) {
+		if self.cluster.get_value().is_none() {
+			return;
+		}
+		let Some(keeper) = self.keeper() else {
+			return;
+		};
+		platform::spawn(async move {
+			match keeper.wallet_husks().await {
+				Ok(husks) => self.wallet_husks.set(husks),
+				Err(error) => platform::log(&error.to_string()),
+			}
+		});
+	}
+
+	/// The cluster real husks live on, in a build that has one.
+	pub fn cluster(&self) -> Option<Rc<Cluster>> {
+		self.cluster.get_value()
+	}
+
 	/// A transaction landed: add it to the ledger and slip it in front of
 	/// the player wherever they are.
-	fn posted(self, transaction: SimnetTransaction) {
+	fn posted(self, transaction: SimnetTransaction, cluster: Option<ClusterName>) {
 		let signature = transaction.signature.clone();
 		self.ledger
 			.update(|ledger| ledger.push(transaction.clone()));
 		self.slip.set(Some(Slip {
 			transaction,
 			finalized: false,
+			cluster,
 		}));
 		platform::spawn(async move {
 			let showing = |slip: Option<Slip>| {
@@ -288,8 +354,11 @@ impl Game {
 			Err(KeeperError::Damaged(_) | KeeperError::Refused(_)) => {
 				Books::Unreadable(BooksFailure::Damaged)
 			}
-			Err(KeeperError::Unavailable(_)) => Books::Unreadable(BooksFailure::Unreachable),
+			Err(KeeperError::Unavailable(_) | KeeperError::Chain(_)) => {
+				Books::Unreadable(BooksFailure::Unreachable)
+			}
 		});
+		self.refresh_husks();
 	}
 
 	/// Tries the keeper again after the books could not be read.
@@ -424,9 +493,13 @@ impl Game {
 
 	/// Puts `error` in front of the player.
 	pub fn explain(self, error: &KeeperError) {
-		self.overlay.set(Some(match error.refusal() {
-			Some(refusal) => Overlay::Refused(refusal),
-			None => Overlay::Unreachable,
+		if let KeeperError::Unavailable(reason) = error {
+			platform::log(reason);
+		}
+		self.overlay.set(Some(match error {
+			KeeperError::Refused(breach) => Overlay::Refused(breach.refusal),
+			KeeperError::Chain(failure) => Overlay::ChainFailed(failure.clone()),
+			KeeperError::Unavailable(_) | KeeperError::Damaged(_) => Overlay::Unreachable,
 		}));
 	}
 
@@ -538,7 +611,7 @@ mod tests {
 	}
 
 	#[test]
-	fn an_unwired_server_is_unreachable_and_can_be_retried() {
+	fn a_server_this_host_cannot_reach_is_unreachable_and_can_be_retried() {
 		Owner::new().with(|| {
 			let game = game(BuildFlags {
 				server_url: Some("http://localhost:8080/"),

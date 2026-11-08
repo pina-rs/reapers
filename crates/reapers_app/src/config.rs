@@ -6,6 +6,8 @@
 //! | Variable | Effect |
 //! | --- | --- |
 //! | `REAPERS_SERVER_URL=http://localhost:8080/` | Play against the server. Without it the game is fully offline. |
+//! | `REAPERS_CLUSTER=devnet` | With a server, real demo husks on devnet (or `localnet`, a validator on this machine), moved by the player's wallet. |
+//! | `REAPERS_SOLANA_RPC_URL=https://…` | With a cluster, the RPC the game sends through. Defaults to the cluster's public one. |
 //! | `REAPERS_SIMNET=true` | The offline game on a pretend devnet: a burner wallet and a signed transaction for every airdrop, purchase, escrow and burn. |
 //! | `REAPERS_SURFPOOL_URL=http://localhost:8899` | With the simnet, a real local Solana RPC in the explorer. |
 //! | `REAPERS_DEMO_RIFT=true` | With a server, waives attunement so several clients share a demo rift. Ignored by release builds. |
@@ -16,11 +18,15 @@
 //! ```sh
 //! REAPERS_SIMNET=true leptoskit dev --platform web
 //! REAPERS_SERVER_URL=http://10.0.2.2:8080/ leptoskit build --platform android
+//! REAPERS_SERVER_URL=https://keeper.example/ REAPERS_CLUSTER=devnet leptoskit build --platform web
 //! ```
 //!
 //! A combination that cannot work (the simnet with a server, a demo rift
-//! without one, a Surfpool without the simnet) is refused when the keeper is
-//! chosen, with the reason, instead of starting a game that half works.
+//! without one, a Surfpool without the simnet, a cluster without a server)
+//! is refused when the keeper is chosen, with the reason, instead of
+//! starting a game that half works.
+
+use crate::chain::ClusterName;
 
 /// Every build flag, as one value, so tests can make any build they like.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -28,6 +34,10 @@
 pub struct BuildFlags {
 	/// The Reapers server, when the build plays against one.
 	pub server_url: Option<&'static str>,
+	/// The cluster real husks live on, by name: `devnet` or `localnet`.
+	pub cluster: Option<&'static str>,
+	/// The cluster's RPC, when not its public one.
+	pub solana_rpc_url: Option<&'static str>,
 	/// Whether the build rehearses the chain on the device.
 	pub simnet: bool,
 	/// A real Solana JSON-RPC for the simnet's explorer.
@@ -51,8 +61,9 @@ pub enum KeeperChoice {
 	Local,
 	/// The device, posting each step the chain would take to the simnet.
 	Simnet,
-	/// The Reapers server at this URL.
-	Server(&'static str),
+	/// The Reapers server at this URL, with the cluster real husks live on
+	/// and its RPC, when the build plays on one.
+	Server(&'static str, Option<(ClusterName, &'static str)>),
 }
 
 /// A build whose flags cannot make a working game.
@@ -66,6 +77,14 @@ pub enum ConfigError {
 	SurfpoolWithoutSimnet,
 	#[error("REAPERS_SIMNET plays offline: build it without REAPERS_SERVER_URL.")]
 	SimnetWithServer,
+	#[error(
+		"REAPERS_CLUSTER needs REAPERS_SERVER_URL: the server keeps the books and signs the burns."
+	)]
+	ClusterWithoutServer,
+	#[error("REAPERS_CLUSTER is `devnet` or `localnet`.")]
+	UnknownCluster,
+	#[error("REAPERS_SOLANA_RPC_URL belongs to a cluster: add REAPERS_CLUSTER.")]
+	RpcWithoutCluster,
 }
 
 /// Reads a yes from a flag's text.
@@ -90,6 +109,8 @@ impl BuildFlags {
 		let release = !cfg!(debug_assertions);
 		Self {
 			server_url: text(option_env!("REAPERS_SERVER_URL")),
+			cluster: text(option_env!("REAPERS_CLUSTER")),
+			solana_rpc_url: text(option_env!("REAPERS_SOLANA_RPC_URL")),
 			simnet: yes(option_env!("REAPERS_SIMNET")),
 			surfpool_url: text(option_env!("REAPERS_SURFPOOL_URL")),
 			demo_rift: !release && yes(option_env!("REAPERS_DEMO_RIFT")),
@@ -119,9 +140,19 @@ impl BuildFlags {
 				None => Ok(KeeperChoice::Simnet),
 			};
 		}
-		Ok(self
-			.server_url
-			.map_or(KeeperChoice::Local, KeeperChoice::Server))
+		let cluster = match self.cluster {
+			Some(name) => {
+				let name = ClusterName::from_name(name).ok_or(ConfigError::UnknownCluster)?;
+				Some((name, self.solana_rpc_url.unwrap_or(name.default_rpc())))
+			}
+			None if self.solana_rpc_url.is_some() => return Err(ConfigError::RpcWithoutCluster),
+			None => None,
+		};
+		match (self.server_url, cluster) {
+			(Some(url), cluster) => Ok(KeeperChoice::Server(url, cluster)),
+			(None, Some(_)) => Err(ConfigError::ClusterWithoutServer),
+			(None, None) => Ok(KeeperChoice::Local),
+		}
 	}
 
 	/// Whether hunts may be made easier from their threshold: every build but
@@ -148,7 +179,59 @@ mod tests {
 		};
 		assert_eq!(
 			flags.keeper(),
-			Ok(KeeperChoice::Server("http://localhost:8080/"))
+			Ok(KeeperChoice::Server("http://localhost:8080/", None))
+		);
+	}
+
+	#[test]
+	fn a_cluster_plays_against_the_server_on_its_rpc() {
+		let flags = BuildFlags {
+			server_url: Some("http://localhost:8080/"),
+			cluster: Some("devnet"),
+			..BuildFlags::default()
+		};
+		assert_eq!(
+			flags.keeper(),
+			Ok(KeeperChoice::Server(
+				"http://localhost:8080/",
+				Some((ClusterName::Devnet, "https://api.devnet.solana.com"))
+			))
+		);
+		assert_eq!(
+			BuildFlags {
+				cluster: Some("localnet"),
+				solana_rpc_url: Some("http://127.0.0.1:18899"),
+				..flags
+			}
+			.keeper(),
+			Ok(KeeperChoice::Server(
+				"http://localhost:8080/",
+				Some((ClusterName::Localnet, "http://127.0.0.1:18899"))
+			))
+		);
+		assert_eq!(
+			BuildFlags {
+				cluster: Some("mainnet"),
+				..flags
+			}
+			.keeper(),
+			Err(ConfigError::UnknownCluster)
+		);
+		assert_eq!(
+			BuildFlags {
+				server_url: None,
+				..flags
+			}
+			.keeper(),
+			Err(ConfigError::ClusterWithoutServer)
+		);
+		assert_eq!(
+			BuildFlags {
+				solana_rpc_url: Some("http://127.0.0.1:8899"),
+				..BuildFlags::default()
+			}
+			.keeper(),
+			Err(ConfigError::RpcWithoutCluster)
 		);
 	}
 
@@ -183,7 +266,7 @@ mod tests {
 				..demo
 			}
 			.keeper(),
-			Ok(KeeperChoice::Server("http://localhost:8080/"))
+			Ok(KeeperChoice::Server("http://localhost:8080/", None))
 		);
 	}
 

@@ -97,6 +97,48 @@ pub trait Messages: Send + Sync {
 	fn art_rime(&self) -> &'static str;
 	/// `Ice, thrown straight. It freezes a husk where it stands with every seal in view open, and your next blow shatters it. It breaks on anything in the way.`
 	fn art_rime_line(&self) -> &'static str;
+	/// `The keeper's receipt could not be read, so the husk was not burned.`
+	fn chain_bad_receipt(&self) -> &'static str;
+	/// `Your wallet did not sign. Nothing was sent.`
+	fn chain_declined(&self) -> &'static str;
+	/// The overline of a slip for a transaction on Solana's devnet.
+	///
+	/// `Devnet`
+	fn chain_devnet(&self) -> &'static str;
+	/// `The husk is no longer in escrow.`
+	fn chain_escrow_empty(&self) -> &'static str;
+	/// `Open in Solana Explorer`
+	fn chain_explorer(&self) -> &'static str;
+	/// `The chain did not move`
+	fn chain_failed_title(&self) -> &'static str;
+	/// The overline of a slip for a transaction on a validator on the developer's machine.
+	///
+	/// `Localnet`
+	fn chain_localnet(&self) -> &'static str;
+	/// `Connect a Solana wallet first. Your wallet signs every release and every burn.`
+	fn chain_no_wallet(&self) -> &'static str;
+	/// `That is not a husk the Reapers program accepts.`
+	fn chain_not_an_nft(&self) -> &'static str;
+	/// `The transaction was sent but is not final yet. Look at your husks again in a moment before trying again.`
+	fn chain_not_finalized(&self) -> &'static str;
+	/// `Your wallet does not own that husk.`
+	fn chain_not_owner(&self) -> &'static str;
+	/// `Releasing and burning husks are paused for now.`
+	fn chain_paused(&self) -> &'static str;
+	/// `The Reapers program refused the transaction. Nothing changed.`
+	fn chain_program_refused(&self) -> &'static str;
+	/// `The cluster refused the transaction. Nothing changed.`
+	fn chain_rejected(&self) -> &'static str;
+	/// `The cluster could not be reached. Try again in a moment.`
+	fn chain_unreachable(&self) -> &'static str;
+	/// `The receipt names another husk, so this one was not burned.`
+	fn chain_wrong_husk(&self) -> &'static str;
+	/// `The receipt was not signed by the keeper the Reapers program trusts, so the husk was not burned.`
+	fn chain_wrong_keeper(&self) -> &'static str;
+	/// `The receipt is made out to another wallet, so the husk was not burned.`
+	fn chain_wrong_player(&self) -> &'static str;
+	/// `Your wallet signed as another account than the one you linked. Nothing was sent.`
+	fn chain_wrong_wallet(&self) -> &'static str;
 	/// `Chooser`
 	fn class_chooser(&self) -> &'static str;
 	/// `The one who picks who falls, then strikes once.`
@@ -455,6 +497,8 @@ pub trait Messages: Send + Sync {
 	fn hunt_reaped_label(&self) -> &'static str;
 	/// `Receipt`
 	fn hunt_receipt(&self) -> &'static str;
+	/// `Burned by your wallet`
+	fn hunt_receipt_cluster(&self) -> &'static str;
 	/// `Signed by the keeper`
 	fn hunt_receipt_signed(&self) -> &'static str;
 	/// `Burned on the simnet`
@@ -593,7 +637,7 @@ pub trait Messages: Send + Sync {
 	fn ledger_nft_rifts_body(&self) -> &'static str;
 	/// `Then: a shared veil`
 	fn ledger_nft_rifts_title(&self) -> &'static str;
-	/// `Real husk purchases, escrow and burning are not implemented. Production blocks their simulated substitutes. The browser studio connects no wallet. iOS wallet transport, distribution and production operations still need decisions and engineering.`
+	/// `Real husk purchases are not implemented; a devnet build escrows and burns real demo husks with the player's wallet, and production blocks the simulated substitutes. iOS wallet transport, distribution and production operations still need decisions and engineering.`
 	fn ledger_nft_status(&self) -> &'static str;
 	/// `NFT future`
 	fn ledger_nfts(&self) -> &'static str;
@@ -1021,7 +1065,7 @@ pub trait Messages: Send + Sync {
 	fn roster_title(&self) -> &'static str;
 	/// `NFT imports are unavailable until a reaper collection is configured. Your starter remains yours.`
 	fn roster_unconfigured(&self) -> &'static str;
-	/// `Connect on an Android phone with a Solana wallet installed.`
+	/// `Connect on an Android phone with a Solana wallet installed, or in a browser with a Solana wallet extension.`
 	fn roster_wallet_unsupported(&self) -> &'static str;
 	/// `Armory`
 	fn sanctum_armory(&self) -> &'static str;
@@ -1441,8 +1485,14 @@ pub trait Messages: Send + Sync {
 	fn vault_absorbed(&self) -> &'static str;
 	/// `Buy`
 	fn vault_buy(&self) -> &'static str;
+	/// `Husks in your linked wallet are real Core assets on {cluster}. Releasing one is a transaction your wallet signs; absorbing it, the burn.`
+	fn vault_cluster(&self, cluster: &str) -> String;
 	/// `Held`
 	fn vault_held(&self) -> &'static str;
+	/// `In escrow`
+	fn vault_in_escrow(&self) -> &'static str;
+	/// `In your wallet`
+	fn vault_in_wallet(&self) -> &'static str;
 	/// `Loose`
 	fn vault_loose(&self) -> &'static str;
 	/// `Mint`
@@ -1451,8 +1501,16 @@ pub trait Messages: Send + Sync {
 	fn vault_overline(&self) -> &'static str;
 	/// `Release into the veil`
 	fn vault_release(&self) -> &'static str;
+	/// `Loose it into the veil`
+	fn vault_release_escrowed(&self) -> &'static str;
+	/// `This husk is already in the Reapers program's escrow. Releasing it tells the keeper, and it surfaces in the veil.`
+	fn vault_release_escrowed_note(&self) -> &'static str;
 	/// `Releasing cannot be undone. The NFT becomes a husk, and you will have to hunt it down.`
 	fn vault_release_note(&self) -> &'static str;
+	/// `Release from your wallet`
+	fn vault_release_wallet(&self) -> &'static str;
+	/// `Your wallet signs a transaction that moves this husk into the Reapers program's escrow. Once the cluster has finalized it, the husk is loose in the veil; absorb it, and your wallet signs its burn.`
+	fn vault_release_wallet_note(&self) -> &'static str;
 	/// `A simulated market. No real SOL changes hands and no real NFT is touched. The collections are real ones from Solana's first wave; the creatures are our own models of them, and nothing here is licensed yet.`
 	fn vault_stand_in(&self) -> &'static str;
 	/// `What you hold, and what is for sale.`
@@ -1609,6 +1667,82 @@ impl Messages for En {
 
 	fn art_rime_line(&self) -> &'static str {
 		"Ice, thrown straight. It freezes a husk where it stands with every seal in view open, and your next blow shatters it. It breaks on anything in the way."
+	}
+
+	fn chain_bad_receipt(&self) -> &'static str {
+		"The keeper's receipt could not be read, so the husk was not burned."
+	}
+
+	fn chain_declined(&self) -> &'static str {
+		"Your wallet did not sign. Nothing was sent."
+	}
+
+	fn chain_devnet(&self) -> &'static str {
+		"Devnet"
+	}
+
+	fn chain_escrow_empty(&self) -> &'static str {
+		"The husk is no longer in escrow."
+	}
+
+	fn chain_explorer(&self) -> &'static str {
+		"Open in Solana Explorer"
+	}
+
+	fn chain_failed_title(&self) -> &'static str {
+		"The chain did not move"
+	}
+
+	fn chain_localnet(&self) -> &'static str {
+		"Localnet"
+	}
+
+	fn chain_no_wallet(&self) -> &'static str {
+		"Connect a Solana wallet first. Your wallet signs every release and every burn."
+	}
+
+	fn chain_not_an_nft(&self) -> &'static str {
+		"That is not a husk the Reapers program accepts."
+	}
+
+	fn chain_not_finalized(&self) -> &'static str {
+		"The transaction was sent but is not final yet. Look at your husks again in a moment before trying again."
+	}
+
+	fn chain_not_owner(&self) -> &'static str {
+		"Your wallet does not own that husk."
+	}
+
+	fn chain_paused(&self) -> &'static str {
+		"Releasing and burning husks are paused for now."
+	}
+
+	fn chain_program_refused(&self) -> &'static str {
+		"The Reapers program refused the transaction. Nothing changed."
+	}
+
+	fn chain_rejected(&self) -> &'static str {
+		"The cluster refused the transaction. Nothing changed."
+	}
+
+	fn chain_unreachable(&self) -> &'static str {
+		"The cluster could not be reached. Try again in a moment."
+	}
+
+	fn chain_wrong_husk(&self) -> &'static str {
+		"The receipt names another husk, so this one was not burned."
+	}
+
+	fn chain_wrong_keeper(&self) -> &'static str {
+		"The receipt was not signed by the keeper the Reapers program trusts, so the husk was not burned."
+	}
+
+	fn chain_wrong_player(&self) -> &'static str {
+		"The receipt is made out to another wallet, so the husk was not burned."
+	}
+
+	fn chain_wrong_wallet(&self) -> &'static str {
+		"Your wallet signed as another account than the one you linked. Nothing was sent."
 	}
 
 	fn class_chooser(&self) -> &'static str {
@@ -2346,6 +2480,10 @@ impl Messages for En {
 		"Receipt"
 	}
 
+	fn hunt_receipt_cluster(&self) -> &'static str {
+		"Burned by your wallet"
+	}
+
 	fn hunt_receipt_signed(&self) -> &'static str {
 		"Signed by the keeper"
 	}
@@ -2618,7 +2756,7 @@ impl Messages for En {
 	}
 
 	fn ledger_nft_status(&self) -> &'static str {
-		"Real husk purchases, escrow and burning are not implemented. Production blocks their simulated substitutes. The browser studio connects no wallet. iOS wallet transport, distribution and production operations still need decisions and engineering."
+		"Real husk purchases are not implemented; a devnet build escrows and burns real demo husks with the player's wallet, and production blocks the simulated substitutes. iOS wallet transport, distribution and production operations still need decisions and engineering."
 	}
 
 	fn ledger_nfts(&self) -> &'static str {
@@ -3480,7 +3618,7 @@ impl Messages for En {
 	}
 
 	fn roster_wallet_unsupported(&self) -> &'static str {
-		"Connect on an Android phone with a Solana wallet installed."
+		"Connect on an Android phone with a Solana wallet installed, or in a browser with a Solana wallet extension."
 	}
 
 	fn sanctum_armory(&self) -> &'static str {
@@ -4321,8 +4459,22 @@ impl Messages for En {
 		"Buy"
 	}
 
+	fn vault_cluster(&self, cluster: &str) -> String {
+		format!(
+			"Husks in your linked wallet are real Core assets on {cluster}. Releasing one is a transaction your wallet signs; absorbing it, the burn."
+		)
+	}
+
 	fn vault_held(&self) -> &'static str {
 		"Held"
+	}
+
+	fn vault_in_escrow(&self) -> &'static str {
+		"In escrow"
+	}
+
+	fn vault_in_wallet(&self) -> &'static str {
+		"In your wallet"
 	}
 
 	fn vault_loose(&self) -> &'static str {
@@ -4341,8 +4493,24 @@ impl Messages for En {
 		"Release into the veil"
 	}
 
+	fn vault_release_escrowed(&self) -> &'static str {
+		"Loose it into the veil"
+	}
+
+	fn vault_release_escrowed_note(&self) -> &'static str {
+		"This husk is already in the Reapers program's escrow. Releasing it tells the keeper, and it surfaces in the veil."
+	}
+
 	fn vault_release_note(&self) -> &'static str {
 		"Releasing cannot be undone. The NFT becomes a husk, and you will have to hunt it down."
+	}
+
+	fn vault_release_wallet(&self) -> &'static str {
+		"Release from your wallet"
+	}
+
+	fn vault_release_wallet_note(&self) -> &'static str {
+		"Your wallet signs a transaction that moves this husk into the Reapers program's escrow. Once the cluster has finalized it, the husk is loose in the veil; absorb it, and your wallet signs its burn."
 	}
 
 	fn vault_stand_in(&self) -> &'static str {

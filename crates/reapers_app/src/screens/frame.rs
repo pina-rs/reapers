@@ -8,6 +8,8 @@ use super::simnet;
 use super::vault;
 use crate::brand::reapers_mark;
 use crate::l10n::use_l10n;
+use crate::lookups::chain_failure_message;
+use crate::lookups::cluster_name;
 use crate::lookups::refusal_message;
 use crate::lookups::simnet_instruction_name;
 use crate::state::Game;
@@ -81,6 +83,13 @@ fn overlay_view(game: Game, overlay: Overlay) -> Element {
 		Overlay::Nft(nft) => vault::nft_sheet(game, nft),
 		Overlay::Transaction(signature) => simnet::transaction_sheet(game, &signature),
 		Overlay::ConfirmReset => simnet::reset_dialog(game),
+		Overlay::ChainFailed(failure) => {
+			notice(
+				game,
+				words.chain_failed_title(),
+				chain_failure_message(&*words, &failure),
+			)
+		}
 	}
 }
 
@@ -140,7 +149,13 @@ fn slip_view(slip: &Slip) -> Element {
 			View()
 				.class("flex-1 gap-1")
 				.child(label(
-					&format!("{} · {instruction}", words.simnet_overline()),
+					&format!(
+						"{} · {instruction}",
+						slip.cluster.map_or_else(
+							|| words.simnet_overline(),
+							|cluster| cluster_name(&*words, cluster)
+						)
+					),
 					11,
 					light(),
 				))

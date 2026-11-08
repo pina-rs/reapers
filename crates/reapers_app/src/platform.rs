@@ -109,18 +109,39 @@ pub struct HttpReply {
 	pub body: Vec<u8>,
 }
 
-/// Something that sends a JSON body to a URL and returns the reply.
+/// One request header: its name, in lower case, and its value.
+pub type Header = (&'static str, String);
+
+/// Something that posts a body to a URL and returns the reply.
 ///
-/// The Surfpool client and the server client take one, so their tests hand
-/// in a fake and the game hands in [`DeviceHttp`].
+/// The Solana RPC clients and the server client take one, so their tests
+/// hand in a fake or a desktop client and the game hands in [`DeviceHttp`].
 #[async_trait(?Send)]
 pub trait HttpTransport {
+	/// Posts `body` to `url` with `headers`.
+	async fn post(
+		&self,
+		url: &str,
+		headers: Vec<Header>,
+		body: Vec<u8>,
+		timeout: Duration,
+	) -> Result<HttpReply, PlatformError>;
+
+	/// Posts a JSON `body` to `url`.
 	async fn post_json(
 		&self,
 		url: &str,
 		body: Vec<u8>,
 		timeout: Duration,
-	) -> Result<HttpReply, PlatformError>;
+	) -> Result<HttpReply, PlatformError> {
+		self.post(
+			url,
+			vec![("content-type", "application/json".to_owned())],
+			body,
+			timeout,
+		)
+		.await
+	}
 }
 
 /// The host's own HTTP: `fetch` in a browser, the HTTP plugin in an app.
@@ -129,13 +150,14 @@ pub struct DeviceHttp;
 
 #[async_trait(?Send)]
 impl HttpTransport for DeviceHttp {
-	async fn post_json(
+	async fn post(
 		&self,
 		url: &str,
+		headers: Vec<Header>,
 		body: Vec<u8>,
 		timeout: Duration,
 	) -> Result<HttpReply, PlatformError> {
-		host::post_json(url, body, timeout).await
+		host::post(url, headers, body, timeout).await
 	}
 }
 
@@ -199,6 +221,29 @@ impl Prefs for DevicePrefs {
 
 	async fn remove(&self, key: &str) -> Result<(), PlatformError> {
 		host::store_set(key, None).await
+	}
+}
+
+/// Where the game keeps a secret it must remember between launches: the
+/// server session's refresh token. A native app keeps it in the platform's
+/// secure store (the Keychain, the Android Keystore); a browser has none,
+/// so it stays in `localStorage` beside the save, as a web page's session
+/// does.
+#[derive(Debug, Default)]
+pub struct DeviceSecrets;
+
+#[async_trait(?Send)]
+impl Prefs for DeviceSecrets {
+	async fn get(&self, key: &str) -> Result<Option<Value>, PlatformError> {
+		host::secret_get(key).await
+	}
+
+	async fn set(&self, key: &str, value: Value) -> Result<(), PlatformError> {
+		host::secret_set(key, Some(value)).await
+	}
+
+	async fn remove(&self, key: &str) -> Result<(), PlatformError> {
+		host::secret_set(key, None).await
 	}
 }
 
@@ -300,8 +345,9 @@ mod web {
 			.is_some_and(|query| query.matches())
 	}
 
-	pub async fn post_json(
+	pub async fn post(
 		url: &str,
+		headers: Vec<super::Header>,
 		body: Vec<u8>,
 		timeout: Duration,
 	) -> Result<HttpReply, PlatformError> {
@@ -320,10 +366,15 @@ mod web {
 			.execute(Request {
 				method: Method::Post,
 				url: url.to_owned(),
-				headers: vec![Header {
-					name: "content-type".into(),
-					value: b"application/json".to_vec(),
-				}],
+				headers: headers
+					.into_iter()
+					.map(|(name, value)| {
+						Header {
+							name: name.into(),
+							value: value.into_bytes(),
+						}
+					})
+					.collect(),
 				body,
 			})
 			.await
@@ -332,6 +383,15 @@ mod web {
 			status: reply.status,
 			body: reply.body,
 		})
+	}
+
+	/// A browser has no secure store: secrets stay in `localStorage`.
+	pub async fn secret_get(key: &str) -> Result<Option<Value>, PlatformError> {
+		store_get(key).await
+	}
+
+	pub async fn secret_set(key: &str, value: Option<Value>) -> Result<(), PlatformError> {
+		store_set(key, value).await
 	}
 
 	thread_local! {
@@ -452,8 +512,9 @@ mod guest {
 	/// The guest has no console of its own; the host keeps no log of it yet.
 	pub fn log(_message: &str) {}
 
-	pub async fn post_json(
+	pub async fn post(
 		url: &str,
+		headers: Vec<super::Header>,
 		body: Vec<u8>,
 		_timeout: Duration,
 	) -> Result<HttpReply, PlatformError> {
@@ -467,10 +528,15 @@ mod guest {
 			.execute(Request {
 				method: Method::Post,
 				url: url.to_owned(),
-				headers: vec![Header {
-					name: "content-type".into(),
-					value: b"application/json".to_vec(),
-				}],
+				headers: headers
+					.into_iter()
+					.map(|(name, value)| {
+						Header {
+							name: name.into(),
+							value: value.into_bytes(),
+						}
+					})
+					.collect(),
 				body,
 			})
 			.await
@@ -479,6 +545,37 @@ mod guest {
 			status: reply.status,
 			body: reply.body,
 		})
+	}
+
+	fn secure_store() -> Result<leptoskit_plugin_secure_store::guest::SecureStore, PlatformError> {
+		leptoskit_plugin_secure_store::guest::SecureStore::new().map_err(failed)
+	}
+
+	fn secret_key(key: &str) -> Result<leptoskit_plugin_secure_store::Key<'_>, PlatformError> {
+		leptoskit_plugin_secure_store::Key::new("reapers", key).map_err(failed)
+	}
+
+	/// The platform's secure store: the Keychain, the Android Keystore.
+	pub async fn secret_get(key: &str) -> Result<Option<Value>, PlatformError> {
+		let Some(bytes) = secure_store()?
+			.get(secret_key(key)?)
+			.await
+			.map_err(failed)?
+		else {
+			return Ok(None);
+		};
+		serde_json::from_slice(&bytes).map(Some).map_err(failed)
+	}
+
+	pub async fn secret_set(key: &str, value: Option<Value>) -> Result<(), PlatformError> {
+		let store = secure_store()?;
+		match value {
+			Some(value) => {
+				let bytes = serde_json::to_vec(&value).map_err(failed)?;
+				store.set(secret_key(key)?, &bytes).await.map_err(failed)
+			}
+			None => store.delete(secret_key(key)?).await.map_err(failed),
+		}
 	}
 
 	fn store() -> Result<leptoskit_plugin_store::guest::Store, PlatformError> {
@@ -571,12 +668,23 @@ mod local {
 	}
 
 	#[allow(clippy::unused_async, reason = "every host shares one signature")]
-	pub async fn post_json(
+	pub async fn post(
 		_url: &str,
+		_headers: Vec<super::Header>,
 		_body: Vec<u8>,
 		_timeout: Duration,
 	) -> Result<HttpReply, PlatformError> {
 		Err(PlatformError::Unavailable("http"))
+	}
+
+	#[allow(clippy::unused_async, reason = "every host shares one signature")]
+	pub async fn secret_get(_key: &str) -> Result<Option<Value>, PlatformError> {
+		Err(PlatformError::Unavailable("secure store"))
+	}
+
+	#[allow(clippy::unused_async, reason = "every host shares one signature")]
+	pub async fn secret_set(_key: &str, _value: Option<Value>) -> Result<(), PlatformError> {
+		Err(PlatformError::Unavailable("secure store"))
 	}
 
 	#[allow(clippy::unused_async, reason = "every host shares one signature")]

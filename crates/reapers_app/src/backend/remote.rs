@@ -5,13 +5,15 @@
 //! [`RemoteBackend`] only carries requests there and turns the answers back
 //! into the rules' types.
 //!
-//! What it speaks to is [`ReapersApi`]: one method per endpoint of the Dart
-//! server (`PlayerEndpoint`, `SolanaEndpoint`, `RiftEndpoint`), in the
-//! rules' types. TODO(integration): `reapers_api`. The Rust server's client
-//! lives in `reapers_api`, written beside this in another branch; the
-//! coordinator implements [`ReapersApi`] over it (a thin adapter of a dozen
-//! calls) and hands it to [`RemoteBackend::new`]. Until then a server build
-//! gets [`UnwiredApi`], which answers every call as unreachable.
+//! What it speaks to is [`ReapersApi`]: one method per operation of
+//! `reapers_api`, in the rules' types. [`super::ServerApi`] is the real one;
+//! the tests hand in their own.
+//!
+//! On a cluster build ([`Self::with_cluster`]) the keeper also moves real
+//! husks with the player's wallet: releasing a demo husk the wallet holds
+//! signs and sends `ReleaseCore`, waits for it to be finalized and then
+//! tells the server which escrow it went into; settling a hunt that
+//! absorbed one has the wallet sign and send the burn the server built.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -20,6 +22,9 @@ use async_trait::async_trait;
 use futures::StreamExt as _;
 use futures::channel::mpsc;
 use futures::stream::LocalBoxStream;
+use reapers_api::chain::Husks;
+use reapers_api::player::ChainReceipt;
+use reapers_api::player::SettledHunt;
 use reapers_rules::Art;
 use reapers_rules::GeoFix;
 use reapers_rules::HuntLog;
@@ -39,6 +44,10 @@ use super::KeeperKind;
 use super::KeeperResult;
 use super::RiftFrames;
 use super::RiftSession;
+use crate::chain::ChainFailure;
+use crate::chain::Cluster;
+use crate::chain::HuskPlace;
+use crate::chain::WalletHusk;
 use crate::wallet::WalletProver;
 
 /// How the server answered a call that did not succeed.
@@ -72,6 +81,10 @@ pub struct ChainStatus {
 	pub collection: Option<String>,
 	/// Where the collection can be bought.
 	pub marketplace_uri: Option<String>,
+	/// The Reapers program husks are escrowed with, when one is configured.
+	pub program: Option<String>,
+	/// The demo husk collections, and the Core asset each husk stands for.
+	pub husks: Vec<Husks>,
 }
 
 impl ChainStatus {
@@ -110,9 +123,10 @@ pub trait ReapersApi {
 	async fn take_oath(&self) -> ApiResult<PlayerState>;
 	async fn select_reaper(&self, id: &str) -> ApiResult<PlayerState>;
 	async fn acquire(&self, nft_id: &str) -> ApiResult<PlayerState>;
-	async fn release(&self, nft_id: &str) -> ApiResult<PlayerState>;
+	/// `escrow` is the real husk's mint, when the wallet escrowed it.
+	async fn release(&self, nft_id: &str, escrow: Option<&str>) -> ApiResult<PlayerState>;
 	/// `log` is [`HuntLog::encode`]'s bytes.
-	async fn settle_hunt(&self, sighting_id: i64, log: Vec<u8>) -> ApiResult<HuntSettlement>;
+	async fn settle_hunt(&self, sighting_id: i64, log: Vec<u8>) -> ApiResult<SettledHunt>;
 	async fn buy_weapon(&self, weapon_id: &str) -> ApiResult<PlayerState>;
 	async fn wield(&self, weapon_id: &str) -> ApiResult<PlayerState>;
 	async fn buy_outfit(&self, outfit: &str) -> ApiResult<PlayerState>;
@@ -137,99 +151,15 @@ pub trait ReapersApi {
 	) -> ApiResult<LocalBoxStream<'static, ApiResult<RiftFrame>>>;
 }
 
-/// A server build before `reapers_api` is wired in: every call is
-/// unreachable, and the game says so.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct UnwiredApi;
-
-const UNWIRED: &str = "TODO(integration): reapers_api is not wired into this build";
-
-#[async_trait(?Send)]
-impl ReapersApi for UnwiredApi {
-	async fn sign_in(&self) -> ApiResult<()> {
-		Err(ApiError::Unavailable(UNWIRED.into()))
-	}
-
-	async fn load(&self) -> ApiResult<PlayerState> {
-		Err(ApiError::Unavailable(UNWIRED.into()))
-	}
-
-	async fn update_location(&self, _fix: Option<GeoFix>) -> ApiResult<()> {
-		Err(ApiError::Unavailable(UNWIRED.into()))
-	}
-
-	async fn take_oath(&self) -> ApiResult<PlayerState> {
-		Err(ApiError::Unavailable(UNWIRED.into()))
-	}
-
-	async fn select_reaper(&self, _id: &str) -> ApiResult<PlayerState> {
-		Err(ApiError::Unavailable(UNWIRED.into()))
-	}
-
-	async fn acquire(&self, _nft_id: &str) -> ApiResult<PlayerState> {
-		Err(ApiError::Unavailable(UNWIRED.into()))
-	}
-
-	async fn release(&self, _nft_id: &str) -> ApiResult<PlayerState> {
-		Err(ApiError::Unavailable(UNWIRED.into()))
-	}
-
-	async fn settle_hunt(&self, _sighting_id: i64, _log: Vec<u8>) -> ApiResult<HuntSettlement> {
-		Err(ApiError::Unavailable(UNWIRED.into()))
-	}
-
-	async fn buy_weapon(&self, _weapon_id: &str) -> ApiResult<PlayerState> {
-		Err(ApiError::Unavailable(UNWIRED.into()))
-	}
-
-	async fn wield(&self, _weapon_id: &str) -> ApiResult<PlayerState> {
-		Err(ApiError::Unavailable(UNWIRED.into()))
-	}
-
-	async fn buy_outfit(&self, _outfit: &str) -> ApiResult<PlayerState> {
-		Err(ApiError::Unavailable(UNWIRED.into()))
-	}
-
-	async fn wear(&self, _outfit: &str) -> ApiResult<PlayerState> {
-		Err(ApiError::Unavailable(UNWIRED.into()))
-	}
-
-	async fn attune(&self, _art: &str) -> ApiResult<PlayerState> {
-		Err(ApiError::Unavailable(UNWIRED.into()))
-	}
-
-	async fn chain_status(&self) -> ApiResult<ChainStatus> {
-		Err(ApiError::Unavailable(UNWIRED.into()))
-	}
-
-	async fn import_reaper(&self, _asset: &str) -> ApiResult<PlayerState> {
-		Err(ApiError::Unavailable(UNWIRED.into()))
-	}
-
-	async fn challenge(&self, _address: &str) -> ApiResult<WalletChallenge> {
-		Err(ApiError::Unavailable(UNWIRED.into()))
-	}
-
-	async fn login(&self, _challenge_id: &str, _signature: &str) -> ApiResult<()> {
-		Err(ApiError::Unavailable(UNWIRED.into()))
-	}
-
-	async fn enter_rift(
-		&self,
-		_site: &str,
-		_demo: bool,
-		_reports: LocalBoxStream<'static, RiftReport>,
-	) -> ApiResult<LocalBoxStream<'static, ApiResult<RiftFrame>>> {
-		Err(ApiError::Unavailable(UNWIRED.into()))
-	}
-}
-
 /// The server's keeper, over any [`ReapersApi`].
 pub struct RemoteBackend<A> {
 	api: Rc<A>,
 	/// Whether this install has signed in. A failed sign-in is tried again
 	/// on the next request.
 	signed_in: RefCell<bool>,
+	/// The cluster real husks live on, and the wallet that moves them, on
+	/// a cluster build.
+	cluster: Option<(Rc<Cluster>, Rc<dyn WalletProver>)>,
 }
 
 impl<A: ReapersApi + 'static> RemoteBackend<A> {
@@ -237,7 +167,15 @@ impl<A: ReapersApi + 'static> RemoteBackend<A> {
 		Self {
 			api: Rc::new(api),
 			signed_in: RefCell::new(false),
+			cluster: None,
 		}
+	}
+
+	/// The same keeper, moving real husks on `cluster` with `wallet`.
+	#[must_use]
+	pub fn with_cluster(mut self, cluster: Rc<Cluster>, wallet: Rc<dyn WalletProver>) -> Self {
+		self.cluster = Some((cluster, wallet));
+		self
 	}
 
 	/// Sends one request, signing in as a guest first when needed.
@@ -277,6 +215,15 @@ fn answer(error: ApiError) -> KeeperError {
 	}
 }
 
+/// The linked wallet's address, when the server knows one.
+fn linked(status: &ChainStatus) -> KeeperResult<solana_kit_core::Address> {
+	status
+		.wallet
+		.as_deref()
+		.and_then(|wallet| wallet.parse().ok())
+		.ok_or(KeeperError::Chain(ChainFailure::NoWallet))
+}
+
 #[async_trait(?Send)]
 impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 	fn kind(&self) -> KeeperKind {
@@ -303,14 +250,76 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 		self.ask(async |api| api.acquire(&nft.id()).await).await
 	}
 
+	/// Releases `nft`. On a cluster build, a demo husk the wallet holds is
+	/// released for real: bought into the vault if it is not there yet (the
+	/// stand-in market's price), moved into the program's escrow by the
+	/// wallet, and only once that is finalized released to the server with
+	/// its escrow. One the wallet already escrowed skips the chain.
 	async fn release(&self, nft: Nft) -> KeeperResult<PlayerState> {
-		self.ask(async |api| api.release(&nft.id()).await).await
+		let Some((cluster, wallet)) = &self.cluster else {
+			return self
+				.ask(async |api| api.release(&nft.id(), None).await)
+				.await;
+		};
+		let status = self.ask(async |api| api.chain_status().await).await?;
+		let held = match status.wallet.as_deref() {
+			Some(_) => {
+				let address = linked(&status)?;
+				cluster
+					.wallet_husks(&status.husks, &address)
+					.await?
+					.into_iter()
+					.find(|husk| husk.nft == nft && husk.place != HuskPlace::Burned)
+					.map(|husk| (address, husk))
+			}
+			None => None,
+		};
+		let Some((address, husk)) = held else {
+			return self
+				.ask(async |api| api.release(&nft.id(), None).await)
+				.await;
+		};
+		let player = self.ask(async |api| api.load().await).await?;
+		if !player.vault().contains(&nft) {
+			self.ask(async |api| api.acquire(&nft.id()).await).await?;
+		}
+		if husk.place == HuskPlace::InWallet {
+			cluster
+				.release(&status, wallet.as_ref(), &address, &husk)
+				.await?;
+		}
+		let mint = husk.asset.to_string();
+		self.ask(async |api| api.release(&nft.id(), Some(&mint)).await)
+			.await
 	}
 
+	/// Settles the hunt. On a cluster build, a hunt that absorbed an
+	/// escrowed husk comes back with the burn the server built, which the
+	/// wallet signs and sends here. The books are settled either way: a
+	/// burn that fails is put in front of the player, and the husk stays in
+	/// escrow.
 	async fn settle_hunt(&self, sighting_id: i64, log: &HuntLog) -> KeeperResult<HuntSettlement> {
 		let bytes = log.encode();
-		self.ask(async |api| api.settle_hunt(sighting_id, bytes).await)
-			.await
+		let settled = self
+			.ask(async |api| api.settle_hunt(sighting_id, bytes).await)
+			.await?;
+		if let (Some((cluster, wallet)), Some(receipt)) = (&self.cluster, &settled.receipt) {
+			let nft = settled
+				.settlement
+				.state
+				.codex()
+				.last()
+				.map(|absorption| absorption.nft);
+			if let Some(nft) = nft
+				&& let Err(error) = self.burn(cluster, wallet.as_ref(), nft, receipt).await
+			{
+				cluster.fail(&match error {
+					KeeperError::Chain(failure) => failure,
+					other => ChainFailure::Unreachable(other.to_string()),
+				});
+			}
+		}
+		Ok(settled.settlement)
 	}
 
 	async fn buy_weapon(&self, weapon: Weapon) -> KeeperResult<PlayerState> {
@@ -367,6 +376,61 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 
 	async fn import_reaper(&self, asset: &str) -> KeeperResult<PlayerState> {
 		self.ask(async |api| api.import_reaper(asset).await).await
+	}
+
+	async fn wallet_husks(&self) -> KeeperResult<Vec<WalletHusk>> {
+		let Some((cluster, _)) = &self.cluster else {
+			return Ok(Vec::new());
+		};
+		let status = self.ask(async |api| api.chain_status().await).await?;
+		if status.wallet.is_none() {
+			return Ok(Vec::new());
+		}
+		Ok(cluster
+			.wallet_husks(&status.husks, &linked(&status)?)
+			.await?)
+	}
+}
+
+impl<A: ReapersApi + 'static> RemoteBackend<A> {
+	/// Has the wallet sign and send the burn `receipt` carries.
+	async fn burn(
+		&self,
+		cluster: &Cluster,
+		wallet: &dyn WalletProver,
+		nft: Nft,
+		receipt: &ChainReceipt,
+	) -> KeeperResult<()> {
+		use base64::Engine as _;
+		use base64::engine::general_purpose::STANDARD;
+
+		let Some(transaction) = &receipt.transaction else {
+			return Err(ChainFailure::Rejected("the server built no burn".into()).into());
+		};
+		let status = self.ask(async |api| api.chain_status().await).await?;
+		let address = linked(&status)?;
+		if receipt.wallet != address.to_string() {
+			return Err(ChainFailure::WrongWallet.into());
+		}
+		let message = STANDARD
+			.decode(&receipt.message)
+			.map_err(|error| ChainFailure::Rejected(error.to_string()))?;
+		let signature = STANDARD
+			.decode(&receipt.signature)
+			.map_err(|error| ChainFailure::Rejected(error.to_string()))?;
+		cluster
+			.absorb(
+				&status,
+				wallet,
+				&address,
+				nft,
+				transaction,
+				&message,
+				&signature,
+				&receipt.keeper,
+			)
+			.await?;
+		Ok(())
 	}
 }
 
@@ -450,11 +514,11 @@ mod tests {
 			unimplemented!()
 		}
 
-		async fn release(&self, _nft_id: &str) -> ApiResult<PlayerState> {
+		async fn release(&self, _nft_id: &str, _escrow: Option<&str>) -> ApiResult<PlayerState> {
 			unimplemented!()
 		}
 
-		async fn settle_hunt(&self, _sighting_id: i64, _log: Vec<u8>) -> ApiResult<HuntSettlement> {
+		async fn settle_hunt(&self, _sighting_id: i64, _log: Vec<u8>) -> ApiResult<SettledHunt> {
 			unimplemented!()
 		}
 
@@ -539,15 +603,6 @@ mod tests {
 	}
 
 	#[test]
-	fn the_unwired_server_is_unreachable() {
-		let keeper = RemoteBackend::new(UnwiredApi);
-		assert!(matches!(
-			block_on(keeper.load()),
-			Err(KeeperError::Unavailable(_))
-		));
-	}
-
-	#[test]
 	fn an_invalid_identity_turns_wallets_off() {
 		let status = ChainStatus {
 			chain: "solana:devnet".into(),
@@ -556,6 +611,8 @@ mod tests {
 			lamports: None,
 			collection: None,
 			marketplace_uri: None,
+			program: None,
+			husks: Vec::new(),
 		};
 		assert!(!status.wallets_enabled());
 		assert!(

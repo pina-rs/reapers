@@ -4,6 +4,7 @@
 //! turn an enum into the player's language. Every match is exhaustive, so a
 //! new class or weapon cannot ship without its name.
 
+use reapers_program_client::errors::ReapersProgramError;
 use reapers_rules::Art;
 use reapers_rules::Aura;
 use reapers_rules::ClassPerk;
@@ -23,6 +24,8 @@ use reapers_rules::Temper;
 use reapers_rules::Temperament;
 use reapers_rules::WeaponKind;
 
+use crate::chain::ChainFailure;
+use crate::chain::ClusterName;
 use crate::l10n::Messages;
 use crate::simnet::SimnetInstruction;
 use crate::simnet::SimnetRole;
@@ -375,6 +378,48 @@ pub fn gift_effect(words: &dyn Messages, gift: ReaperGift, strength: i64) -> Str
 		ReaperGift::Refrain => {
 			words.gift_refrain_effect(&seconds(SoulRules::REFRAIN_TICKS_PER_STRENGTH * strength))
 		}
+	}
+}
+
+/// What the player is told when the cluster or their wallet did not do its
+/// part. The program's own errors are named one by one, so a new one
+/// cannot ship without words.
+pub fn chain_failure_message(words: &dyn Messages, value: &ChainFailure) -> &'static str {
+	match value {
+		ChainFailure::NoWallet => words.chain_no_wallet(),
+		ChainFailure::Declined => words.chain_declined(),
+		ChainFailure::WrongWallet => words.chain_wrong_wallet(),
+		ChainFailure::Rejected(_) => words.chain_rejected(),
+		ChainFailure::Unreachable(_) => words.chain_unreachable(),
+		ChainFailure::NotFinalized(_) => words.chain_not_finalized(),
+		ChainFailure::Program(error) => program_error_message(words, error),
+	}
+}
+
+pub fn program_error_message(words: &dyn Messages, value: &ReapersProgramError) -> &'static str {
+	match value {
+		ReapersProgramError::Paused => words.chain_paused(),
+		ReapersProgramError::NotOwner => words.chain_not_owner(),
+		ReapersProgramError::NotAnNft
+		| ReapersProgramError::UnsupportedExtension
+		| ReapersProgramError::SupplyNotFixed => words.chain_not_an_nft(),
+		ReapersProgramError::MissingReceipt
+		| ReapersProgramError::UnsupportedReceiptInstruction
+		| ReapersProgramError::MalformedReceipt => words.chain_bad_receipt(),
+		ReapersProgramError::WrongKeeper => words.chain_wrong_keeper(),
+		ReapersProgramError::WrongPlayer => words.chain_wrong_player(),
+		ReapersProgramError::WrongHusk => words.chain_wrong_husk(),
+		ReapersProgramError::EscrowEmpty => words.chain_escrow_empty(),
+		ReapersProgramError::NotAuthority
+		| ReapersProgramError::NotUpgradeAuthority
+		| ReapersProgramError::WrongKind => words.chain_program_refused(),
+	}
+}
+
+pub fn cluster_name(words: &dyn Messages, value: ClusterName) -> &'static str {
+	match value {
+		ClusterName::Devnet => words.chain_devnet(),
+		ClusterName::Localnet => words.chain_localnet(),
 	}
 }
 

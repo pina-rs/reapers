@@ -12,6 +12,7 @@
 pub mod app;
 pub mod backend;
 pub mod brand;
+pub mod chain;
 pub mod config;
 #[allow(
 	clippy::all,

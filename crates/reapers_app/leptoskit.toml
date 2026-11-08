@@ -40,16 +40,18 @@ update_contract = "mobile-v1"
 package_id = "com.reapers.app"
 viewport_width = 390.0
 viewport_height = 844.0
-# The save (store), the server and the simnet's local validator (http), the
-# fresh seeds and burner keys (crypto), the marketplace (linking), a
-# click under the thumb (haptics), and Mobile
-# Wallet Adapter on Android (solana-wallet).
-plugins = ["store", "http", "crypto", "linking", "haptics", "solana-wallet"]
+# The save (store), the server session's refresh token (secure-store), the
+# server and the cluster's RPC (http), the rifts' live socket (websocket),
+# the fresh seeds and burner keys (crypto), the marketplace and the
+# explorer (linking), a click under the thumb (haptics), and Mobile Wallet
+# Adapter on Android (solana-wallet).
+plugins = ["store", "secure-store", "http", "websocket", "crypto", "linking", "haptics", "solana-wallet"]
 
 # The HTTP plugin only talks to these origins: a development server and a
-# local Surfpool on this machine, and the Android emulator's alias for it.
-# A build for a deployed server adds its origin here and sets
-# REAPERS_SERVER_URL when it builds.
+# local Surfpool on this machine, the Android emulator's alias for it, and
+# devnet's public RPC for a REAPERS_CLUSTER=devnet build. A build for a
+# deployed server adds its origin here and sets REAPERS_SERVER_URL when it
+# builds; one with its own RPC adds that.
 [native.plugin-options.http]
 origins = [
 	"http://127.0.0.1:8080",
@@ -58,6 +60,7 @@ origins = [
 	"http://127.0.0.1:8899",
 	"http://localhost:8899",
 	"http://10.0.2.2:8899",
+	"https://api.devnet.solana.com",
 ]
 
 # Screens are files under src/routes; `leptoskit build` writes src/routes.rs.

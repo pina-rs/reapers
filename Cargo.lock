@@ -3299,6 +3299,7 @@ source = "git+https://github.com/leptoskit/leptoskit?rev=53ca7405fac9fb680cd7468
 dependencies = [
  "bytes",
  "thiserror 2.0.21",
+ "tokio-util",
 ]
 
 [[package]]
@@ -3660,6 +3661,8 @@ dependencies = [
  "gloo-timers",
  "js-sys",
  "leptoskit_bridge",
+ "serde",
+ "serde_json",
  "thiserror 2.0.21",
  "tokio",
  "tokio-tungstenite 0.30.0",
@@ -5403,9 +5406,11 @@ dependencies = [
  "leptoskit_plugin_haptics",
  "leptoskit_plugin_http",
  "leptoskit_plugin_linking",
+ "leptoskit_plugin_secure_store",
  "leptoskit_plugin_store",
  "leptoskit_router",
  "leptoskit_testing",
+ "num-traits",
  "reactive_graph",
  "reapers_api",
  "reapers_program_client",
@@ -5436,7 +5441,9 @@ dependencies = [
  "leptoskit_plugin_haptics",
  "leptoskit_plugin_http",
  "leptoskit_plugin_linking",
+ "leptoskit_plugin_secure_store",
  "leptoskit_plugin_store",
+ "leptoskit_plugin_websocket",
  "solana_kit_leptoskit",
 ]
 
@@ -5449,7 +5456,9 @@ dependencies = [
  "leptoskit_plugin_haptics",
  "leptoskit_plugin_http",
  "leptoskit_plugin_linking",
+ "leptoskit_plugin_secure_store",
  "leptoskit_plugin_store",
+ "leptoskit_plugin_websocket",
  "solana_kit_leptoskit",
 ]
 
@@ -8164,6 +8173,7 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-sink",
+ "futures-util",
  "libc",
  "pin-project-lite",
  "tokio",
