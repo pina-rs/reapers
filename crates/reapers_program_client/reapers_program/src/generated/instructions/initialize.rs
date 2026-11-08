@@ -22,17 +22,13 @@ pub struct Initialize {
 }
 
 impl Initialize {
-	pub fn new(
-		upgrade_authority: solana_pubkey::Pubkey,
-		program_data: solana_pubkey::Pubkey,
-	) -> Self {
+	pub fn new(upgrade_authority: solana_pubkey::Pubkey, program_data: solana_pubkey::Pubkey) -> Self {
 		Self {
 			upgrade_authority,
 			config: solana_pubkey::Pubkey::find_program_address(
 				&["config".as_bytes()],
 				&crate::REAPERS_PROGRAM_ID,
-			)
-			.0,
+			).0,
 			program_data,
 			system_program: solana_pubkey::pubkey!("11111111111111111111111111111111"),
 		}
@@ -49,19 +45,10 @@ impl Initialize {
 		remaining_accounts: &[solana_instruction::AccountMeta],
 	) -> solana_instruction::Instruction {
 		let mut accounts = Vec::with_capacity(4 + remaining_accounts.len());
-		accounts.push(solana_instruction::AccountMeta::new(
-			self.upgrade_authority,
-			true,
-		));
+		accounts.push(solana_instruction::AccountMeta::new(self.upgrade_authority, true));
 		accounts.push(solana_instruction::AccountMeta::new(self.config, false));
-		accounts.push(solana_instruction::AccountMeta::new_readonly(
-			self.program_data,
-			false,
-		));
-		accounts.push(solana_instruction::AccountMeta::new_readonly(
-			self.system_program,
-			false,
-		));
+		accounts.push(solana_instruction::AccountMeta::new_readonly(self.program_data, false));
+		accounts.push(solana_instruction::AccountMeta::new_readonly(self.system_program, false));
 		accounts.extend_from_slice(remaining_accounts);
 		solana_instruction::Instruction {
 			program_id: crate::REAPERS_PROGRAM_ID,
@@ -77,16 +64,14 @@ pub struct InitializeInstructionData {
 }
 
 impl InitializeInstructionData {
-	pub fn new(
-		configure: impl FnOnce(&mut InitializeInstructionWireZc),
-	) -> Result<Self, solana_program_error::ProgramError> {
+	pub fn new(configure: impl FnOnce(&mut InitializeInstructionWireZc)) -> Result<Self, solana_program_error::ProgramError> {
 		let mut bytes = vec![0u8; core::mem::size_of::<InitializeInstructionWireZc>()];
 		<InitializeInstructionWire as pina::PinaPodFixed>::initialize(&mut bytes, |data| {
 			configure(data);
 			data.discriminator = INITIALIZE_DISCRIMINATOR;
 			Ok(())
 		})
-		.map_err(|_| solana_program_error::ProgramError::InvalidInstructionData)?;
+			.map_err(|_| solana_program_error::ProgramError::InvalidInstructionData)?;
 		Ok(Self { bytes })
 	}
 }

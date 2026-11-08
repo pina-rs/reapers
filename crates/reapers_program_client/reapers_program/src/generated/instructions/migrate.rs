@@ -60,8 +60,7 @@ impl Migrate {
 			));
 		}
 		accounts.push(solana_instruction::AccountMeta::new_readonly(
-			self.system_program
-				.unwrap_or(solana_pubkey::Pubkey::new_from_array([0; 32])),
+			self.system_program.unwrap_or(solana_pubkey::Pubkey::new_from_array([0; 32])),
 			false,
 		));
 		if let Some(config) = self.config {

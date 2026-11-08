@@ -8,22 +8,22 @@
 	clippy::too_many_arguments
 )]
 
-pub(crate) mod r#absorb_core;
-pub(crate) mod r#absorb_token;
 pub(crate) mod r#initialize;
-pub(crate) mod r#migrate;
+pub(crate) mod r#set_keeper;
+pub(crate) mod r#set_authority;
+pub(crate) mod r#set_paused;
 pub(crate) mod r#release_core;
 pub(crate) mod r#release_token;
-pub(crate) mod r#set_authority;
-pub(crate) mod r#set_keeper;
-pub(crate) mod r#set_paused;
+pub(crate) mod r#absorb_core;
+pub(crate) mod r#absorb_token;
+pub(crate) mod r#migrate;
 
-pub use self::r#absorb_core::*;
-pub use self::r#absorb_token::*;
 pub use self::r#initialize::*;
-pub use self::r#migrate::*;
+pub use self::r#set_keeper::*;
+pub use self::r#set_authority::*;
+pub use self::r#set_paused::*;
 pub use self::r#release_core::*;
 pub use self::r#release_token::*;
-pub use self::r#set_authority::*;
-pub use self::r#set_keeper::*;
-pub use self::r#set_paused::*;
+pub use self::r#absorb_core::*;
+pub use self::r#absorb_token::*;
+pub use self::r#migrate::*;

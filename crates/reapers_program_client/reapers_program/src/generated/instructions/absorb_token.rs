@@ -23,25 +23,17 @@ pub struct AbsorbToken {
 }
 
 impl AbsorbToken {
-	pub fn new(
-		player: solana_pubkey::Pubkey,
-		mint: solana_pubkey::Pubkey,
-		vault: solana_pubkey::Pubkey,
-		token_program: solana_pubkey::Pubkey,
-		instructions_sysvar: solana_pubkey::Pubkey,
-	) -> Self {
+	pub fn new(player: solana_pubkey::Pubkey, mint: solana_pubkey::Pubkey, vault: solana_pubkey::Pubkey, token_program: solana_pubkey::Pubkey, instructions_sysvar: solana_pubkey::Pubkey) -> Self {
 		Self {
 			player,
 			config: solana_pubkey::Pubkey::find_program_address(
 				&["config".as_bytes()],
 				&crate::REAPERS_PROGRAM_ID,
-			)
-			.0,
+			).0,
 			escrow: solana_pubkey::Pubkey::find_program_address(
 				&["escrow".as_bytes(), mint.as_ref()],
 				&crate::REAPERS_PROGRAM_ID,
-			)
-			.0,
+			).0,
 			mint,
 			vault,
 			token_program,
@@ -61,21 +53,12 @@ impl AbsorbToken {
 	) -> solana_instruction::Instruction {
 		let mut accounts = Vec::with_capacity(7 + remaining_accounts.len());
 		accounts.push(solana_instruction::AccountMeta::new(self.player, true));
-		accounts.push(solana_instruction::AccountMeta::new_readonly(
-			self.config,
-			false,
-		));
+		accounts.push(solana_instruction::AccountMeta::new_readonly(self.config, false));
 		accounts.push(solana_instruction::AccountMeta::new(self.escrow, false));
 		accounts.push(solana_instruction::AccountMeta::new(self.mint, false));
 		accounts.push(solana_instruction::AccountMeta::new(self.vault, false));
-		accounts.push(solana_instruction::AccountMeta::new_readonly(
-			self.token_program,
-			false,
-		));
-		accounts.push(solana_instruction::AccountMeta::new_readonly(
-			self.instructions_sysvar,
-			false,
-		));
+		accounts.push(solana_instruction::AccountMeta::new_readonly(self.token_program, false));
+		accounts.push(solana_instruction::AccountMeta::new_readonly(self.instructions_sysvar, false));
 		accounts.extend_from_slice(remaining_accounts);
 		solana_instruction::Instruction {
 			program_id: crate::REAPERS_PROGRAM_ID,
@@ -91,16 +74,14 @@ pub struct AbsorbTokenInstructionData {
 }
 
 impl AbsorbTokenInstructionData {
-	pub fn new(
-		configure: impl FnOnce(&mut AbsorbTokenInstructionWireZc),
-	) -> Result<Self, solana_program_error::ProgramError> {
+	pub fn new(configure: impl FnOnce(&mut AbsorbTokenInstructionWireZc)) -> Result<Self, solana_program_error::ProgramError> {
 		let mut bytes = vec![0u8; core::mem::size_of::<AbsorbTokenInstructionWireZc>()];
 		<AbsorbTokenInstructionWire as pina::PinaPodFixed>::initialize(&mut bytes, |data| {
 			configure(data);
 			data.discriminator = ABSORB_TOKEN_DISCRIMINATOR;
 			Ok(())
 		})
-		.map_err(|_| solana_program_error::ProgramError::InvalidInstructionData)?;
+			.map_err(|_| solana_program_error::ProgramError::InvalidInstructionData)?;
 		Ok(Self { bytes })
 	}
 }

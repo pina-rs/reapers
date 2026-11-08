@@ -61,18 +61,14 @@ impl core::fmt::Display for HuskReleasedVersionError {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		match self {
 			Self::InvalidData => write!(f, "invalid HuskReleased event data"),
-			Self::Stale { stored } => {
-				write!(
-					f,
-					"event migration version mismatch: expected 0, received {stored} (an earlier version emitted it; decode it with the event generated for that version)"
-				)
-			}
-			Self::Future { stored } => {
-				write!(
-					f,
-					"event migration version mismatch: expected 0, received {stored} (a later version emitted it; decode it with the event generated for that version, or regenerate this client)"
-				)
-			}
+			Self::Stale { stored } => write!(
+				f,
+				"event migration version mismatch: expected 0, received {stored} (an earlier version emitted it; decode it with the event generated for that version)"
+			),
+			Self::Future { stored } => write!(
+				f,
+				"event migration version mismatch: expected 0, received {stored} (a later version emitted it; decode it with the event generated for that version, or regenerate this client)"
+			),
 		}
 	}
 }
@@ -81,16 +77,16 @@ impl std::error::Error for HuskReleasedVersionError {}
 
 impl HuskReleased {
 	/// Decode one event record and tell stale logs apart from future ones. The failure message mirrors the generated JavaScript decoder.
-	pub fn try_from_bytes(data: &[u8]) -> Result<&HuskReleasedZc, HuskReleasedVersionError> {
+	pub fn try_from_bytes(
+		data: &[u8],
+	) -> Result<&HuskReleasedZc, HuskReleasedVersionError> {
 		let event = <Self as pina::PinaPodFixed>::read_exact(data)
 			.map_err(|_| HuskReleasedVersionError::InvalidData)?;
 		if event.discriminator != HUSK_RELEASED_DISCRIMINATOR {
 			return Err(HuskReleasedVersionError::InvalidData);
 		}
 		if event.migration_version > HUSK_RELEASED_MIGRATION_VERSION {
-			return Err(HuskReleasedVersionError::Future {
-				stored: event.migration_version,
-			});
+			return Err(HuskReleasedVersionError::Future { stored: event.migration_version });
 		}
 		Ok(event)
 	}

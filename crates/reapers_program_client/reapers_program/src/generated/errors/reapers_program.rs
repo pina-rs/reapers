@@ -69,6 +69,10 @@ pub enum ReapersProgramError {
 	/// 13 - The escrow does not hold the husk.
 	#[error("The escrow does not hold the husk.")]
 	EscrowEmpty = 0xD,
+	/// The mint could still mint or freeze: its supply is not fixed.
+	/// 14 - The mint could still mint or freeze: its supply is not fixed.
+	#[error("The mint could still mint or freeze: its supply is not fixed.")]
+	SupplyNotFixed = 0xE,
 }
 
 impl From<ReapersProgramError> for solana_program_error::ProgramError {

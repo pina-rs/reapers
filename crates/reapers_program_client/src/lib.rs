@@ -10,6 +10,8 @@
 //! Generated decoders check discriminators, not owners: compare an account's
 //! owner with [`REAPERS_PROGRAM_ID`] before trusting what it decodes to.
 
+// Kept exactly as `pina generate` writes it.
+#[rustfmt::skip]
 #[path = "../reapers_program/src/generated/mod.rs"]
 #[allow(
 	clippy::all,
@@ -20,5 +22,5 @@ pub mod generated;
 
 pub mod absorb;
 
-pub use generated::*;
 pub use generated::programs::REAPERS_PROGRAM_ID;
+pub use generated::*;

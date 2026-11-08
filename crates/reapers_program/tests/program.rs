@@ -280,9 +280,8 @@ impl World {
 		extensions: &[(u16, Vec<u8>)],
 	) -> (Pubkey, Pubkey) {
 		let mint = self.fresh();
+		// No mint or freeze authority: the supply is fixed.
 		let mut data = vec![0; 82];
-		data[0..4].copy_from_slice(&1u32.to_le_bytes());
-		data[4..36].copy_from_slice(self.admin.as_ref());
 		data[36..44].copy_from_slice(&supply.to_le_bytes());
 		data[44] = decimals;
 		data[45] = 1;
@@ -342,6 +341,26 @@ fn receipt(player: Pubkey, mint: Pubkey) -> Receipt {
 		at: 1_793_836_800,
 		nonce: 7,
 	}
+}
+
+/// Gives `mint` a mint authority and a freeze authority.
+fn set_authorities(world: &mut World, mint: &Pubkey, mint_authority: Pubkey, freeze: Pubkey) {
+	let account = world.accounts.get_mut(mint).unwrap();
+	account.data[0..4].copy_from_slice(&1u32.to_le_bytes());
+	account.data[4..36].copy_from_slice(mint_authority.as_ref());
+	account.data[46..50].copy_from_slice(&1u32.to_le_bytes());
+	account.data[50..82].copy_from_slice(freeze.as_ref());
+}
+
+/// A classic NFT's master edition, which Token Metadata makes its mint's mint
+/// and freeze authority.
+fn master_edition(mint: &Pubkey) -> Pubkey {
+	let metadata = Pubkey::from_str_const("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
+	Pubkey::find_program_address(
+		&[b"metadata", metadata.as_ref(), mint.as_ref(), b"edition"],
+		&metadata,
+	)
+	.0
 }
 
 fn borsh_string(data: &mut Vec<u8>, value: &str) {
@@ -775,9 +794,67 @@ fn a_token_account_the_player_only_holds_a_delegation_on_is_refused() {
 	);
 }
 
+#[test]
+fn a_token_metadata_nft_whose_master_edition_holds_the_authorities_is_released() {
+	let mut world = World::new();
+	world.initialize();
+	let player = world.wallet();
+	let (mint, holding) = world.token_nft(player, TOKEN, 1, 0, &[]);
+	let edition = master_edition(&mint);
+	set_authorities(&mut world, &mint, edition, edition);
+
+	world.ok(&[release_token(player, mint, holding, TOKEN)]);
+}
+
+/// A mint that can still mint could make a burned husk again, release it
+/// again and replay its receipt. One that can freeze could lock the vault.
+#[test]
+fn a_mint_whose_supply_is_not_fixed_is_refused() {
+	let mut world = World::new();
+	world.initialize();
+	let player = world.wallet();
+	let creator = world.wallet();
+
+	let (mint, holding) = world.token_nft(player, TOKEN, 1, 0, &[]);
+	set_authorities(&mut world, &mint, creator, master_edition(&mint));
+	assert_fails_with(
+		&world.send(&[release_token(player, mint, holding, TOKEN)]),
+		ReapersError::SupplyNotFixed,
+	);
+
+	let (mint, holding) = world.token_nft(player, TOKEN, 1, 0, &[]);
+	set_authorities(&mut world, &mint, master_edition(&mint), creator);
+	assert_fails_with(
+		&world.send(&[release_token(player, mint, holding, TOKEN)]),
+		ReapersError::SupplyNotFixed,
+	);
+}
+
 /// Token-2022 extension type numbers.
 const METADATA_POINTER: u16 = 18;
 const PERMANENT_DELEGATE: u16 = 12;
+const MINT_CLOSE_AUTHORITY: u16 = 3;
+
+/// A mint its creator could close and make again at the same address could
+/// bring a burned husk back.
+#[test]
+fn a_token_2022_mint_that_can_be_closed_is_refused() {
+	let mut world = World::new();
+	world.initialize();
+	let player = world.wallet();
+	let (mint, holding) = world.token_nft(
+		player,
+		TOKEN_2022,
+		1,
+		0,
+		&[(MINT_CLOSE_AUTHORITY, pk(9).to_bytes().to_vec())],
+	);
+
+	assert_fails_with(
+		&world.send(&[release_token(player, mint, holding, TOKEN_2022)]),
+		ReapersError::UnsupportedExtension,
+	);
+}
 
 #[test]
 fn a_token_2022_nft_with_a_metadata_pointer_is_released() {

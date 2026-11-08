@@ -8,7 +8,6 @@
 	clippy::too_many_arguments
 )]
 
-use solana_pubkey::Pubkey;
-use solana_pubkey::pubkey;
+use solana_pubkey::{pubkey, Pubkey};
 
 pub const REAPERS_PROGRAM_ID: Pubkey = pubkey!("HuskN1zeKqNaWUZbxwymyoW3S8CxMNneycZWDoXc98XP");

@@ -55,15 +55,20 @@ pub const ESCROW_SEED: &[u8] = b"escrow";
 pub const BPF_LOADER_UPGRADEABLE_ID: Address =
 	address!("BPFLoaderUpgradeab1e11111111111111111111111");
 
-/// Token-2022 extensions a husk's mint may carry. Each one describes the NFT
-/// and none of them can move, freeze or burn it behind the escrow's back.
-pub const ALLOWED_MINT_EXTENSIONS: [ExtensionType; 5] = [
-	ExtensionType::MintCloseAuthority,
+/// Token-2022 extensions a husk's mint may carry. Each one describes the NFT,
+/// and none of them can move, freeze or burn it behind the escrow's back, or
+/// let the mint be closed and made again at the same address.
+pub const ALLOWED_MINT_EXTENSIONS: [ExtensionType; 4] = [
 	ExtensionType::MetadataPointer,
 	ExtensionType::TokenMetadata,
 	ExtensionType::GroupMemberPointer,
 	ExtensionType::TokenGroupMember,
 ];
+
+/// The Metaplex Token Metadata program. A classic NFT's mint and freeze
+/// authority is its master edition, an account of this program that never
+/// mints more of its own mint.
+pub const TOKEN_METADATA_ID: Address = address!("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
 
 const TOKEN_PROGRAM_IDS: [Address; 2] = [token::ID, token_2022::ID];
 
@@ -138,6 +143,8 @@ pub enum ReapersError {
 	WrongKind = 12,
 	/// The escrow does not hold the husk.
 	EscrowEmpty = 13,
+	/// The mint could still mint or freeze: its supply is not fixed.
+	SupplyNotFixed = 14,
 }
 
 // ---------------------------------------------------------------------------
@@ -499,6 +506,13 @@ impl<'a> ProcessAccountInfos<'a> for ReleaseTokenAccounts<'a> {
 		if mint.supply() != 1 || mint.decimals() != 0 {
 			return Err(ReapersError::NotAnNft.into());
 		}
+		// Fixed for good, or a burned husk could be minted again, released
+		// again and absorbed again with its old receipt.
+		assert_fixed_supply(
+			self.mint.address(),
+			mint.mint_authority(),
+			mint.freeze_authority(),
+		)?;
 		drop(mint);
 
 		// Owned by the player, not merely delegated to them.
@@ -556,6 +570,38 @@ impl<'a> ProcessAccountInfos<'a> for ReleaseTokenAccounts<'a> {
 
 		emit_released(self.player.address(), &mint_address, kind)
 	}
+}
+
+/// Checks that nobody can mint more of `mint` or freeze its tokens: each
+/// authority is absent, or is the mint's Token Metadata master edition.
+fn assert_fixed_supply(
+	mint: &Address,
+	mint_authority: Option<&Address>,
+	freeze_authority: Option<&Address>,
+) -> ProgramResult {
+	if mint_authority.is_none() && freeze_authority.is_none() {
+		return Ok(());
+	}
+
+	let Some((edition, _)) = try_find_program_address(
+		&[
+			b"metadata",
+			TOKEN_METADATA_ID.as_ref(),
+			mint.as_ref(),
+			b"edition",
+		],
+		&TOKEN_METADATA_ID,
+	) else {
+		return Err(ReapersError::SupplyNotFixed.into());
+	};
+
+	for authority in [mint_authority, freeze_authority].into_iter().flatten() {
+		if authority != &edition {
+			return Err(ReapersError::SupplyNotFixed.into());
+		}
+	}
+
+	Ok(())
 }
 
 /// Creates the escrow for `mint`, released by `player`. Fails if the husk

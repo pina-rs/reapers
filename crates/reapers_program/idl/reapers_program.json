@@ -1450,6 +1450,15 @@
         "docs": [
           "The escrow does not hold the husk."
         ]
+      },
+      {
+        "kind": "errorNode",
+        "name": "supplyNotFixed",
+        "code": 14,
+        "message": "The mint could still mint or freeze: its supply is not fixed.",
+        "docs": [
+          "The mint could still mint or freeze: its supply is not fixed."
+        ]
       }
     ]
   }

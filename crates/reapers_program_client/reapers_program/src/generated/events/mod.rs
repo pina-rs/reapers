@@ -8,8 +8,8 @@
 	clippy::too_many_arguments
 )]
 
-pub(crate) mod r#husk_absorbed;
 pub(crate) mod r#husk_released;
+pub(crate) mod r#husk_absorbed;
 
-pub use self::r#husk_absorbed::*;
 pub use self::r#husk_released::*;
+pub use self::r#husk_absorbed::*;
