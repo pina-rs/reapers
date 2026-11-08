@@ -3,3 +3,9 @@
 /android/.gradle
 /android/**/build
 /android/local.properties
+# Mirrored by build.rs from the repository's assets and the Flutter game's.
+/assets/nfts
+/assets/music
+/assets/models
+/assets/fonts
+/assets/branding

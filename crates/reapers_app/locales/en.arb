@@ -1068,6 +1068,27 @@
   "simnetReceiptBody": "The burn carries the 98-byte receipt the keeper signed. On a real cluster the program asks Solana's Ed25519 program to check it before it burns the NFT. This is that check, run on the phone.",
   "simnetReceiptPasses": "Ed25519 check passes",
   "simnetReceiptFails": "Ed25519 check fails",
+  "simnetWire": "Solana transaction",
+  "@simnetWire": {
+    "description": "Label of the row in a simnet transaction sheet that shows the signed Solana wire transaction."
+  },
+  "simnetWireValue": "{bytes} bytes, signed",
+  "@simnetWireValue": {
+    "description": "Size of a signed Solana wire transaction in the simnet explorer.",
+    "placeholders": { "bytes": { "type": "int" } }
+  },
+  "simnetWireNone": "None: a faucet pays an airdrop",
+  "@simnetWireNone": {
+    "description": "Shown instead of a wire transaction for an airdrop, which no wallet signs."
+  },
+  "simnetSendLocal": "Send to the local validator",
+  "@simnetSendLocal": {
+    "description": "Button in a simnet transaction sheet that signs the transaction again over the local validator's blockhash and sends it there."
+  },
+  "simnetSentLocal": "Confirmed on the local validator",
+  "@simnetSentLocal": {
+    "description": "Shown once a transaction sent to the local validator has confirmed."
+  },
   "simnetReset": "Start over",
   "simnetResetDetail": "New wallet",
   "simnetResetBody": "This makes a new burner wallet and a new reaper for the next player. The simnet ledger and everything this reaper has done are forgotten. The offline game's save is not touched.",

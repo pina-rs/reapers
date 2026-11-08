@@ -54,6 +54,11 @@ pub enum KeeperError {
 	/// never shown as it is.
 	#[error("the keeper is unavailable: {0}")]
 	Unavailable(String),
+
+	/// The books were read and are not a player: a damaged save, or a
+	/// keeper answering in a format this build does not know.
+	#[error("the books are damaged: {0}")]
+	Damaged(String),
 }
 
 impl KeeperError {
@@ -65,7 +70,7 @@ impl KeeperError {
 	pub const fn refusal(&self) -> Option<Refusal> {
 		match self {
 			Self::Refused(breach) => Some(breach.refusal),
-			Self::Unavailable(_) => None,
+			Self::Unavailable(_) | Self::Damaged(_) => None,
 		}
 	}
 }

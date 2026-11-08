@@ -91,6 +91,12 @@ pub async fn open_url(url: &str) -> Result<(), PlatformError> {
 	host::open_url(url).await
 }
 
+/// Writes `message` to the developer's log: the browser's console, the
+/// standard error of a test. A player never reads it.
+pub fn log(message: &str) {
+	host::log(message);
+}
+
 /// Whether the person has asked their device for less motion.
 pub fn reduced_motion() -> bool {
 	host::reduced_motion()
@@ -277,6 +283,10 @@ mod web {
 			.open_with_url_and_target(url, "_blank")
 			.map_err(|_| PlatformError::Failed("the browser refused to open the link".into()))?;
 		Ok(())
+	}
+
+	pub fn log(message: &str) {
+		web_sys::console::warn_1(&message.into());
 	}
 
 	pub fn reduced_motion() -> bool {
@@ -501,6 +511,7 @@ mod local {
 	use std::time::Duration;
 
 	use futures::executor::LocalPool;
+	use futures::executor::LocalSpawner;
 	use futures::task::LocalSpawnExt as _;
 	use serde_json::Value;
 
@@ -509,6 +520,9 @@ mod local {
 
 	thread_local! {
 		static POOL: RefCell<LocalPool> = RefCell::new(LocalPool::new());
+		// Taken once, so a task that spawns another while the pool runs it
+		// need not borrow the pool.
+		static SPAWNER: LocalSpawner = POOL.with_borrow(LocalPool::spawner);
 	}
 
 	pub fn now_millis() -> i64 {
@@ -518,8 +532,8 @@ mod local {
 	}
 
 	pub fn spawn(task: impl Future<Output = ()> + 'static) {
-		POOL.with_borrow(|pool| {
-			let _ = pool.spawner().spawn_local(task);
+		SPAWNER.with(|spawner| {
+			let _ = spawner.spawn_local(task);
 		});
 	}
 
@@ -549,6 +563,10 @@ mod local {
 
 	pub fn reduced_motion() -> bool {
 		false
+	}
+
+	pub fn log(message: &str) {
+		eprintln!("{message}");
 	}
 
 	#[allow(clippy::unused_async, reason = "every host shares one signature")]

@@ -1,0 +1,64 @@
+/* The web shell of the funeral ledger: the page's ink, and the two faces
+   leptoskit has no utility for. Display type is a heading (`Heading`), set in
+   Fraunces at its sharpest cut; everything else is DM Sans. Both are under
+   the SIL Open Font License; see fonts/. */
+
+@font-face {
+  font-family: "Fraunces";
+  src: url("fonts/Fraunces.ttf") format("truetype");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DM Sans";
+  src: url("fonts/DMSans.ttf") format("truetype");
+  font-weight: 100 1000;
+  font-display: swap;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: #07080b;
+  color: #e9e4d4;
+  color-scheme: dark;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+body,
+body * {
+  font-family: "DM Sans", system-ui, sans-serif !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: "Fraunces", Georgia, serif !important;
+  font-variation-settings: "SOFT" 0, "WONK" 1;
+  letter-spacing: -0.022em;
+  line-height: 0.98;
+}
+
+/* Every button's own focus ring is replaced by the reaper's light on its
+   hand-drawn outline, as in the Flutter game; keyboard focus still shows. */
+button:focus-visible,
+a:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 2px;
+}
+
+::selection {
+  background: #e9e4d4;
+  color: #07080b;
+}

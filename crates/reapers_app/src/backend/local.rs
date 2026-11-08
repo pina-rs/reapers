@@ -182,9 +182,12 @@ impl GameBackend for LocalBackend {
 			None => Ok(PlayerState::initial()),
 			// The Flutter game stored the JSON as text; read either.
 			Some(serde_json::Value::String(text)) => {
-				serde_json::from_str(&text).map_err(KeeperError::unavailable)
+				serde_json::from_str(&text).map_err(|error| KeeperError::Damaged(error.to_string()))
 			}
-			Some(value) => serde_json::from_value(value).map_err(KeeperError::unavailable),
+			Some(value) => {
+				serde_json::from_value(value)
+					.map_err(|error| KeeperError::Damaged(error.to_string()))
+			}
 		}
 	}
 
@@ -366,6 +369,20 @@ mod tests {
 		))
 		.unwrap();
 		assert_eq!(block_on(keeper.load()).unwrap(), bound);
+	}
+
+	#[test]
+	fn a_damaged_save_is_told_apart_from_an_unreachable_keeper() {
+		let (prefs, keeper) = keeper();
+		block_on(prefs.set(
+			LocalBackend::DEFAULT_STORAGE_KEY,
+			serde_json::json!({ "schema": "nonsense" }),
+		))
+		.unwrap();
+		assert!(matches!(
+			block_on(keeper.load()),
+			Err(KeeperError::Damaged(_))
+		));
 	}
 
 	#[test]

@@ -1187,6 +1187,14 @@ pub trait Messages: Send + Sync {
 	fn simnet_role_program(&self) -> &'static str;
 	/// `Wallet`
 	fn simnet_role_wallet(&self) -> &'static str;
+	/// Button in a simnet transaction sheet that signs the transaction again over the local validator's blockhash and sends it there.
+	///
+	/// `Send to the local validator`
+	fn simnet_send_local(&self) -> &'static str;
+	/// Shown once a transaction sent to the local validator has confirmed.
+	///
+	/// `Confirmed on the local validator`
+	fn simnet_sent_local(&self) -> &'static str;
 	/// `Signature`
 	fn simnet_signature(&self) -> &'static str;
 	/// `Slot`
@@ -1201,6 +1209,18 @@ pub trait Messages: Send + Sync {
 	fn simnet_transactions(&self) -> &'static str;
 	/// `Burner wallet`
 	fn simnet_wallet(&self) -> &'static str;
+	/// Label of the row in a simnet transaction sheet that shows the signed Solana wire transaction.
+	///
+	/// `Solana transaction`
+	fn simnet_wire(&self) -> &'static str;
+	/// Shown instead of a wire transaction for an airdrop, which no wallet signs.
+	///
+	/// `None: a faucet pays an airdrop`
+	fn simnet_wire_none(&self) -> &'static str;
+	/// Size of a signed Solana wire transaction in the simnet explorer.
+	///
+	/// `{bytes} bytes, signed`
+	fn simnet_wire_value(&self, bytes: i64) -> String;
 	/// `Born with a gift`
 	fn soul_birth(&self) -> &'static str;
 	/// `{gift} · {temperament}`
@@ -3813,6 +3833,14 @@ impl Messages for En {
 		"Wallet"
 	}
 
+	fn simnet_send_local(&self) -> &'static str {
+		"Send to the local validator"
+	}
+
+	fn simnet_sent_local(&self) -> &'static str {
+		"Confirmed on the local validator"
+	}
+
 	fn simnet_signature(&self) -> &'static str {
 		"Signature"
 	}
@@ -3839,6 +3867,18 @@ impl Messages for En {
 
 	fn simnet_wallet(&self) -> &'static str {
 		"Burner wallet"
+	}
+
+	fn simnet_wire(&self) -> &'static str {
+		"Solana transaction"
+	}
+
+	fn simnet_wire_none(&self) -> &'static str {
+		"None: a faucet pays an airdrop"
+	}
+
+	fn simnet_wire_value(&self, bytes: i64) -> String {
+		format!("{bytes} bytes, signed")
 	}
 
 	fn soul_birth(&self) -> &'static str {

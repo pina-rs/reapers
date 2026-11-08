@@ -41,8 +41,6 @@ native = [
 	"leptoskit_plugin_http/guest",
 	"leptoskit_plugin_linking/guest",
 	"leptoskit_plugin_store/guest",
-	"dep:futures-executor",
-	"dep:any_spawner",
 ]
 ios = ["native", "leptoskit/ios"]
 # Android adds Mobile Wallet Adapter, which only Android wallets speak.
@@ -88,11 +86,7 @@ js-sys = { version = "0.3", optional = true }
 # The embedded wasm-bindgen CLI accepts exactly its matching library version.
 wasm-bindgen = { version = "=0.2.129", optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
-web-sys = { version = "0.3", optional = true, features = ["Window", "Navigator", "Request", "RequestInit", "RequestMode", "Response", "Headers", "Location", "Crypto", "MediaQueryList"] }
-
-# The native guest has no executor of its own.
-any_spawner = { version = "0.3", features = ["futures-executor"], optional = true }
-futures-executor = { version = "0.3", optional = true }
+web-sys = { version = "0.3", optional = true, features = ["Window", "Navigator", "Request", "RequestInit", "RequestMode", "Response", "Headers", "Location", "Crypto", "MediaQueryList", "console"] }
 
 [dev-dependencies]
 futures = { version = "0.3", features = ["executor"] }
