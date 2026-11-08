@@ -1,2 +1,3 @@
 # The migrations, in the order they apply. `reapers-migration` adds to it.
 20261108T005921_init
+20261108T024612_absorbed_husks

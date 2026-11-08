@@ -237,6 +237,8 @@ pub struct ChainState {
 	pub genesis: String,
 	pub balance: u64,
 	pub accounts: HashMap<String, Value>,
+	/// What `getLatestBlockhash` answers.
+	pub blockhash: String,
 	pub fail: bool,
 	/// Every request, by method name, with its parameters.
 	pub calls: Vec<(String, Value)>,
@@ -259,6 +261,7 @@ impl Default for Chain {
 				.to_owned(),
 				balance: 2_000_000_000,
 				accounts: HashMap::new(),
+				blockhash: "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG".to_owned(),
 				fail: false,
 				calls: Vec::new(),
 			})),
@@ -320,7 +323,7 @@ impl Chain {
 				json!({
 					"context": context,
 					"value": {
-						"blockhash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+						"blockhash": state.blockhash,
 						"lastValidBlockHeight": 1000,
 					},
 				})

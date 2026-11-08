@@ -17,6 +17,7 @@ use leptoskit_db::Id;
 use leptoskit_db::Json;
 use leptoskit_db::Timestamp;
 use leptoskit_db::table;
+use reapers_rules::Absorption;
 use reapers_rules::GeoFix;
 use reapers_rules::PlayerState;
 use reapers_rules::ReaperState;
@@ -100,10 +101,12 @@ pub struct ReaperRecord {
 }
 
 /// A loose husk that was escrowed on-chain when it was released: which mint
-/// it is, and which wallet released it.
+/// it is, and which wallet released it, and, once a hunt absorbed it, the
+/// absorption its receipt was signed for.
 ///
 /// A mint is bound to one husk at most, so one escrow cannot earn two
-/// receipts.
+/// receipts. The absorption is kept so the same receipt can be built again
+/// when the wallet's burn did not land: never a new one.
 #[table(name = "husk_escrows", unique(account_id, sighting_id))]
 pub struct HuskEscrow {
 	pub id: Id<Self>,
@@ -120,6 +123,13 @@ pub struct HuskEscrow {
 	/// The wallet that released it.
 	#[db(max_len = 44)]
 	pub wallet: String,
+	/// The husk, as the rules name it (`degenApes:1`), once a hunt absorbed
+	/// it.
+	#[db(max_len = 64)]
+	pub nft: Option<String>,
+	/// The absorption as the codex holds it, keeper's signature included,
+	/// once a hunt absorbed the husk.
+	pub absorption: Option<Json<Absorption>>,
 	#[db(created_at)]
 	pub created_at: Timestamp,
 }

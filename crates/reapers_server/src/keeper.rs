@@ -15,6 +15,7 @@ use leptoskit_auth::Account;
 use leptoskit_auth::SignedIn;
 use leptoskit_db::Db;
 use leptoskit_db::Id;
+use leptoskit_db::Json;
 use leptoskit_rpc as rpc;
 use reapers_api::chain::Chain;
 use reapers_api::chain::Challenge;
@@ -24,6 +25,7 @@ use reapers_api::player::ChainReceipt;
 use reapers_api::player::KeeperKey;
 use reapers_api::player::SettledHunt;
 use reapers_api::refused;
+use reapers_rules::Absorption;
 use reapers_rules::Art;
 use reapers_rules::Difficulty;
 use reapers_rules::GeoFix;
@@ -312,6 +314,8 @@ impl Keeper {
 				mint_key: format!("{}:{mint}", self.gateway.config().chain),
 				mint: mint.to_string(),
 				wallet,
+				nft: None,
+				absorption: None,
 			}
 			.insert(tx)
 			.await
@@ -422,7 +426,17 @@ impl Keeper {
 			return Err(rpc::Error::server("the hunt was not settled"));
 		};
 		let receipt = match (receipt, &bound) {
-			(Some(receipt), Some(_)) => Some(self.chain_receipt(receipt).await),
+			(Some(receipt), Some(bound)) => {
+				// Kept with the binding, so the same receipt can be built
+				// again if the wallet's burn does not land.
+				HuskEscrow::update()
+					.filter(|row| row.id.eq(bound.id))
+					.set(|row| row.nft, Some(receipt.absorption.nft.id()))
+					.set(|row| row.absorption, Some(Json(receipt.absorption.clone())))
+					.run(tx)
+					.await?;
+				Some(self.chain_receipt(receipt).await)
+			}
 			_ => None,
 		};
 
@@ -473,7 +487,78 @@ impl Keeper {
 
 		settlement.state = judged.state.sign_absorption(absorption.nft, &encoded);
 
-		Ok((settlement, Some(SignedReceipt { receipt, signature })))
+		Ok((
+			settlement,
+			Some(SignedReceipt {
+				receipt,
+				signature,
+				absorption: absorption.signed_with(encoded),
+			}),
+		))
+	}
+
+	/// The burn of the absorbed husk `nft` names, again: the receipt its
+	/// hunt was settled with, rebuilt from the absorption kept with its
+	/// escrow binding, in a transaction with a fresh blockhash.
+	///
+	/// The keeper signs exactly what it signed then. Its signature is
+	/// deterministic, so the receipt rebuilt from the same fields must carry
+	/// the signature the codex holds; one that does not (the keeper's key
+	/// has changed) is a server error, never a new receipt.
+	async fn absorb_transaction(
+		&self,
+		account: Id<Account>,
+		nft: &str,
+	) -> rpc::Result<ChainReceipt> {
+		self.simulation()?;
+
+		let bound = HuskEscrow::query()
+			.filter(|escrow| escrow.account_id.eq(account) & escrow.nft.eq(nft))
+			.order_by(|escrow| escrow.created_at.desc())
+			.first(&self.db)
+			.await?;
+		let Some((bound, Json(absorption))) = bound.and_then(|bound| {
+			bound
+				.absorption
+				.clone()
+				.map(|absorption| (bound, absorption))
+		}) else {
+			return Err(refused(Refusal::NotInVault));
+		};
+		let wallet = books::wallet_of(&self.db, account).await?;
+
+		// Burned only by the wallet that released it, while the escrow it
+		// was released into still holds it.
+		if wallet.as_deref() != Some(bound.wallet.as_str()) {
+			return Err(refused(Refusal::WalletUnproven));
+		}
+
+		let (wallet, mint) = self.escrowed(&self.db, account, &bound.mint).await?;
+		let player = player_bytes(account, Some(&wallet));
+		let Some(receipt) = receipt::of(player, *mint.as_bytes(), &absorption) else {
+			return Err(rpc::Error::server("an absorption does not fit its receipt"));
+		};
+		let signature = self.signer.sign(&receipt.encode());
+
+		if absorption.signature.as_deref() != Some(STANDARD.encode(signature.as_bytes()).as_str()) {
+			return Err(rpc::Error::server(
+				"the receipt no longer carries the signature it was settled with",
+			));
+		}
+
+		let chain_receipt = self
+			.chain_receipt(SignedReceipt {
+				receipt,
+				signature,
+				absorption,
+			})
+			.await;
+
+		if chain_receipt.transaction.is_none() {
+			return Err(refused(Refusal::ChainUnavailable));
+		}
+
+		Ok(chain_receipt)
 	}
 
 	/// The receipt as the wallet takes it to the chain, with the absorb
@@ -662,10 +747,12 @@ impl Keeper {
 	}
 }
 
-/// What a signed absorption carries to the chain.
+/// What a signed absorption carries to the chain, and the codex entry it
+/// was signed for.
 struct SignedReceipt {
 	receipt: Receipt,
 	signature: solana_kit_core::Signature,
+	absorption: Absorption,
 }
 
 /// The 32 bytes a receipt names its player by: their proved wallet, or,
@@ -836,6 +923,14 @@ impl reapers_api::keeper::Keeper for Shared {
 		log: String,
 	) -> BoxFuture<'a, rpc::Result<SettledHunt>> {
 		Box::pin(async move { self.0.settle_hunt(cx, sighting, &log).await })
+	}
+
+	fn absorb_transaction<'a>(
+		&'a self,
+		cx: &'a rpc::ActionCx,
+		nft: String,
+	) -> BoxFuture<'a, rpc::Result<ChainReceipt>> {
+		Box::pin(async move { self.0.absorb_transaction(me(cx.identity())?, &nft).await })
 	}
 
 	fn update_location<'a>(

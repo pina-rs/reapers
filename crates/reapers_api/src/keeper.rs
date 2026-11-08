@@ -18,6 +18,7 @@ use reapers_rules::RiftReport;
 
 use crate::chain::Chain;
 use crate::chain::Challenge;
+use crate::player::ChainReceipt;
 use crate::player::KeeperKey;
 use crate::player::SettledHunt;
 
@@ -60,6 +61,14 @@ pub trait Keeper: Send + Sync + 'static {
 		sighting: i64,
 		log: String,
 	) -> BoxFuture<'a, rpc::Result<SettledHunt>>;
+
+	/// The burn of an absorbed, still escrowed husk again; see
+	/// [`crate::player::absorb_transaction`].
+	fn absorb_transaction<'a>(
+		&'a self,
+		cx: &'a rpc::ActionCx,
+		nft: String,
+	) -> BoxFuture<'a, rpc::Result<ChainReceipt>>;
 
 	/// Keeps or clears the player's latest location.
 	fn update_location<'a>(

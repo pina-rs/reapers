@@ -97,6 +97,21 @@ pub async fn settle_hunt(
 	keeper(cx.identity())?.settle_hunt(cx, sighting, log).await
 }
 
+/// The burn of the absorbed husk `nft` names (`degenApes:1`) again, for
+/// when the wallet's first one did not land: the same receipt the hunt was
+/// settled with, its signature the one in the codex, in a transaction with
+/// a fresh blockhash.
+///
+/// Only for a husk this player released from escrow and a hunt absorbed,
+/// while the escrow still holds it, checked at a finalized slot. A husk
+/// whose escrow is gone, burned or never there, is refused as
+/// `notInVault`. The keeper signs nothing the settlement did not: an action
+/// rather than a mutation, since nothing in the books changes.
+#[rpc::action]
+pub async fn absorb_transaction(cx: &rpc::ActionCx, nft: String) -> rpc::Result<ChainReceipt> {
+	keeper(cx.identity())?.absorb_transaction(cx, nft).await
+}
+
 /// The key absorption receipts are signed with.
 #[rpc::query]
 pub async fn receipt_key(cx: &rpc::QueryCx) -> rpc::Result<KeeperKey> {

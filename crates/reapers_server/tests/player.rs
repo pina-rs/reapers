@@ -879,6 +879,12 @@ async fn deployed_keepers_refuse_the_invented_nft_economy() {
 			Refusal::MarketUnavailable,
 		);
 		assert_refused(
+			world
+				.call(player, AbsorbTransaction { nft: SAINT.into() })
+				.await,
+			Refusal::MarketUnavailable,
+		);
+		assert_refused(
 			std::sync::Arc::clone(&world.keeper)
 				.enter_rift(player, "londonBridge", false)
 				.await

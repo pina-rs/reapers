@@ -15,11 +15,13 @@ use reapers_api::auth::WalletSignIn;
 use reapers_api::chain::ChainStatus;
 use reapers_api::chain::ImportReaper;
 use reapers_api::chain::WalletChallenge;
+use reapers_api::player::AbsorbTransaction;
 use reapers_api::player::Acquire;
 use reapers_api::player::Load;
 use reapers_api::player::Release;
 use reapers_api::player::SelectReaper;
 use reapers_api::player::SettleHunt;
+use reapers_api::player::SettledHunt;
 use reapers_api::player::TakeOath;
 use reapers_rules::HuntBot;
 use reapers_rules::HuntLog;
@@ -42,8 +44,10 @@ use reapers_server::sign_in::sign_in_wallet;
 use reapers_server::tables::HuskEscrow;
 use reapers_server::tables::ReaperRecord;
 use solana_kit_core::Address;
+use solana_kit_core::Hash;
 use solana_kit_core::Signature;
 use solana_kit_core::crypto::Keypair;
+use solana_kit_core::transaction::Lifetime;
 use solana_kit_core::transaction::Transaction;
 use solana_kit_mpl_core::UpdateAuthority;
 use support::*;
@@ -785,6 +789,234 @@ async fn a_husk_that_left_its_escrow_cannot_be_settled() {
 		Refusal::NotInVault,
 	);
 	assert_eq!(world.stored(player).await, before);
+}
+
+/// `holder`'s saint, released into its escrow on the chain and absorbed by
+/// a hunt the careful bot played.
+async fn absorbed_from_escrow(world: &World, wallet: &Wallet) -> (Id<Account>, SettledHunt) {
+	let player = holder(world, wallet).await;
+
+	escrow_on_chain(&world.chain, wallet.address(), mint());
+
+	let released = world
+		.call(
+			player,
+			Release {
+				nft: SAINT.into(),
+				escrow: Some(mint().to_string()),
+			},
+		)
+		.await
+		.unwrap();
+	let sighting = released.sightings()[0];
+
+	world.surface_everything(player).await;
+
+	let before = world.call(player, Load {}).await.unwrap();
+	let settled = world
+		.call(
+			player,
+			SettleHunt {
+				sighting: sighting.id,
+				log: packed(&play(&before, &sighting)),
+			},
+		)
+		.await
+		.unwrap();
+
+	assert!(settled.settlement.outcome.absorbed(), "the bot reaps it");
+	(player, settled)
+}
+
+/// The blockhash `transaction` (standard base64) was built with.
+fn blockhash_of(transaction: &str) -> Hash {
+	let transaction = Transaction::decode(&STANDARD.decode(transaction).unwrap()).unwrap();
+
+	match transaction.message().lifetime() {
+		Lifetime::Blockhash { blockhash, .. } | Lifetime::Unresolved(blockhash) => blockhash,
+		Lifetime::DurableNonce(_) => panic!("a burn is built on a blockhash"),
+	}
+}
+
+#[tokio::test]
+async fn a_burn_that_did_not_land_is_built_again_with_the_same_receipt() {
+	let world = World::new().await;
+	let wallet = Wallet::new(1);
+	let (player, settled) = absorbed_from_escrow(&world, &wallet).await;
+	let first = settled.receipt.expect("a receipt for the chain");
+	let entry = settled.settlement.state.codex()[0].clone();
+	let stored = HuskEscrow::query().all(&world.db).await.unwrap();
+
+	assert_eq!(stored.len(), 1);
+	assert_eq!(stored[0].nft.as_deref(), Some(SAINT));
+	assert_eq!(
+		stored[0]
+			.absorption
+			.as_ref()
+			.map(|absorption| &absorption.0),
+		Some(&entry),
+		"the codex entry is kept with its binding"
+	);
+
+	// The first transaction's blockhash expires; the chain moves on.
+	let fresh = Hash::from_bytes([42; 32]);
+
+	world
+		.chain
+		.with(|state| state.blockhash = fresh.to_string());
+
+	let books = world.stored(player).await;
+	let again = world
+		.call(player, AbsorbTransaction { nft: SAINT.into() })
+		.await
+		.expect("the burn, again");
+
+	assert_eq!(
+		again.message, first.message,
+		"byte for byte the same receipt"
+	);
+	assert_eq!(again.signature, first.signature, "and the same signature");
+	assert_eq!(entry.signature.as_deref(), Some(again.signature.as_str()));
+	assert_eq!(again.keeper, first.keeper);
+	assert_eq!(again.wallet, wallet.address().to_string());
+	assert_eq!(again.mint, mint().to_string());
+	assert_eq!(world.stored(player).await, books, "the books are untouched");
+
+	let first_transaction = first.transaction.expect("the first burn");
+	let transaction = again.transaction.expect("a fresh burn");
+
+	assert_ne!(blockhash_of(&first_transaction), fresh);
+	assert_eq!(blockhash_of(&transaction), fresh, "on a fresh blockhash");
+
+	let decoded = Transaction::decode(&STANDARD.decode(&transaction).unwrap()).unwrap();
+	let original = Transaction::decode(&STANDARD.decode(&first_transaction).unwrap()).unwrap();
+
+	assert_eq!(
+		decoded.message().instructions(),
+		original.message().instructions(),
+		"the same check and the same burn"
+	);
+	assert_eq!(decoded.message().signers(), &[wallet.address()]);
+	assert!(
+		decoded.message().instructions()[0]
+			.data()
+			.ends_with(&STANDARD.decode(&first.message).unwrap())
+	);
+	assert!(decoded.sign(&wallet.0).unwrap().verify().is_ok());
+}
+
+#[tokio::test]
+async fn the_keeper_signs_no_other_numbers_than_the_settlement_did() {
+	let world = World::new().await;
+	let wallet = Wallet::new(1);
+	let (player, settled) = absorbed_from_escrow(&world, &wallet).await;
+	let mut changed = settled.settlement.state.codex()[0].clone();
+
+	changed.xp += 1;
+	HuskEscrow::update()
+		.set(|row| row.absorption, Some(leptoskit_db::Json(changed)))
+		.run(&world.db)
+		.await
+		.unwrap();
+
+	let error = world
+		.call(player, AbsorbTransaction { nft: SAINT.into() })
+		.await
+		.expect_err("a receipt the settlement did not sign");
+
+	assert_eq!(error.status(), 500, "{error:?}");
+}
+
+#[tokio::test]
+async fn a_burned_husk_is_not_built_again() {
+	let world = World::new().await;
+	let wallet = Wallet::new(1);
+	let (player, _) = absorbed_from_escrow(&world, &wallet).await;
+	let (address, _) = escrow::address_of(&mint());
+
+	// The burn landed: the program closed the escrow.
+	world.chain.remove(&address.to_string());
+
+	assert_refused(
+		world
+			.call(player, AbsorbTransaction { nft: SAINT.into() })
+			.await,
+		Refusal::NotInVault,
+	);
+}
+
+#[tokio::test]
+async fn only_the_player_whose_hunt_absorbed_the_husk_can_burn_it_again() {
+	let world = World::new().await;
+	let wallet = Wallet::new(1);
+	let (player, _) = absorbed_from_escrow(&world, &wallet).await;
+	let stranger = holder(&world, &Wallet::new(2)).await;
+
+	assert_refused(
+		world
+			.call(stranger, AbsorbTransaction { nft: SAINT.into() })
+			.await,
+		Refusal::NotInVault,
+	);
+	assert_refused(
+		world
+			.call(
+				player,
+				AbsorbTransaction {
+					nft: "degenApes:2".into(),
+				},
+			)
+			.await,
+		Refusal::NotInVault,
+	);
+	world
+		.call(player, AbsorbTransaction { nft: SAINT.into() })
+		.await
+		.expect("the player's own");
+}
+
+#[tokio::test]
+async fn a_husk_never_escrowed_has_no_burn_to_finish() {
+	let world = World::new().await;
+	let wallet = Wallet::new(1);
+	let player = holder(&world, &wallet).await;
+	let released = world
+		.call(
+			player,
+			Release {
+				nft: SAINT.into(),
+				escrow: None,
+			},
+		)
+		.await
+		.unwrap();
+	let sighting = released.sightings()[0];
+
+	world.surface_everything(player).await;
+
+	let before = world.call(player, Load {}).await.unwrap();
+	let settled = world
+		.call(
+			player,
+			SettleHunt {
+				sighting: sighting.id,
+				log: packed(&play(&before, &sighting)),
+			},
+		)
+		.await
+		.unwrap();
+
+	assert!(settled.receipt.is_none());
+	assert!(
+		settled.settlement.state.codex()[0].signature.is_some(),
+		"the codex entry is signed all the same"
+	);
+	assert_refused(
+		world
+			.call(player, AbsorbTransaction { nft: SAINT.into() })
+			.await,
+		Refusal::NotInVault,
+	);
 }
 
 /// The settings tests read by, with a demo manifest whose `degenApes`
