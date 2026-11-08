@@ -36,7 +36,7 @@ Before every NFT-bearing game mutation, the server refreshes ownership and locks
 - No collection, mint, marketplace listing or purchase transaction is fabricated. No live wallet transaction has been exercised without deployment settings and a test collection.
 - Growth follows the NFT through server records, not metadata updates or a new on-chain progression program. Birth traits remain fixed.
 - Solo hunt rewards are replayed. NFT reapers cannot enter rifts until rift replay is built, preventing trusted client reports from earning tradable growth.
-- The five hunted husk collections, prices and burns remain simulated. The signed receipt is still not submitted on-chain. Escrow, real token acquisition and a verified burn program are outstanding; [nfts.md](nfts.md) describes them.
+- The five hunted husk collections, prices and burns remain simulated in the game. The escrow and burn program exists ([program.md](program.md)) and has a devnet runbook ([deploy.md](deploy.md)) that mints demo husks, but the game and server do not call it, and the server still signs version 1 receipts, which cannot be posted. Real token acquisition is outstanding; [nfts.md](nfts.md) describes it.
 - Tests use real SDK codecs, RPC transports, Ed25519 signatures and Serverpod's embedded database, with controlled chain responses. They verify proof failures, account restoration, ownership transfer and growth persistence; they do not prove a live marketplace trade.
 
 ## The simnet
@@ -77,7 +77,7 @@ fvm flutter run --dart-define=REAPERS_SIMNET=true \
 What this does not do:
 
 - It does **not** broadcast `SimnetChain`'s signed descriptions. They are receipts in a rehearsal format, not Solana wire transactions.
-- It does **not** buy, escrow or burn an NFT. No Reapers program is deployed; those steps stay demo receipts in the simnet ledger, and the validator is never told they happened.
+- It does **not** buy, escrow or burn an NFT. The simnet does not use the Reapers program; those steps stay demo receipts in the simnet ledger, and the validator is never told they happened.
 - It does **not** coordinate players or rifts. Surfpool is a validator. Shared enemies are the server's `RiftHall`, as described below and in [gameplay.md](gameplay.md#rifts).
 
 Public hosts need HTTPS. Cleartext HTTP is allowed only for loopback, an emulator's host alias (`10.0.2.2`) and private LAN addresses, which is where a developer's Surfpool runs.
@@ -97,5 +97,5 @@ The flag is ignored by release builds, and `RiftEndpoint.enterDemo` goes through
 
 The demo and the simnet are separate launches: `REAPERS_SIMNET` plays offline and refuses `REAPERS_SERVER_URL`, while `REAPERS_DEMO_RIFT` needs a server and refuses the simnet. A build sets one, never both. The simnet's Surfpool validator, where one is configured, is not part of a demo rift.
 
-The simnet lives in `reapers_flutter/lib/simnet/`: `SimnetChain` is the wallet and the ledger, `SimnetBackend` posts to it around a `LocalBackend`, `SurfpoolRpc` speaks to an optional local validator, `SimnetToasts` is the slip and `SimnetScreen` the explorer. Replacing it with devnet means sending the same four instructions to a deployed program through Solana Kit, with the wallet behind Mobile Wallet Adapter and the receipt signed by the server.
+The simnet lives in `reapers_flutter/lib/simnet/`: `SimnetChain` is the wallet and the ledger, `SimnetBackend` posts to it around a `LocalBackend`, `SurfpoolRpc` speaks to an optional local validator, `SimnetToasts` is the slip and `SimnetScreen` the explorer. Replacing it with devnet means sending the real instructions to the Reapers program ([program.md](program.md)) through Solana Kit, with the wallet behind Mobile Wallet Adapter and the receipt signed by the server: the simnet's **Escrow** is `ReleaseCore` or `ReleaseToken`, and its **Burn** is the keeper's Ed25519 instruction followed by `AbsorbCore` or `AbsorbToken`. **Airdrop** and **Buy** have no program instruction; buying happens in a marketplace. The real escrow address is `["escrow", mint]`, with the mint's own 32 bytes where the simnet hashes its stand-in string.
 

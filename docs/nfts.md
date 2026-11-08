@@ -2,7 +2,7 @@
 
 Reaper ownership now connects to Solana through Solana Kit: Android wallet proof, real balances and verified Metaplex Core imports. Each NFT reaper has canonical off-chain progression that follows its asset when traded. Buying happens in a configured external marketplace and is followed by an ownership check; the game does not invent listings or hold keys. See [solana.md](solana.md).
 
-The hunted husks are still stand-ins. Their collections, prices, releases, receipts and burns below remain the prototype simulation; no escrow or burn program is deployed.
+The hunted husks in the game are still stand-ins. Their collections, prices, releases, receipts and burns below remain the prototype simulation. The on-chain program that escrows a released husk and burns it on the keeper's receipt now exists, in `crates/reapers_program` ([program.md](program.md)), and is deployed to devnet with demo husks by the runbook in [deploy.md](deploy.md). The game and the server do not use it yet.
 
 ## The collections are real. Everything else about them is simulated.
 
@@ -40,7 +40,7 @@ What that means, and does not:
 | Buying | Subtracts the price and adds the item to the vault. | `PlayerState.acquire` |
 | Releasing | Moves the item from the vault into the veil as a husk. | `PlayerState.release` |
 | Absorbing | Removes the husk, rolls the feeding and writes the codex. | `PlayerState.settleHunt` |
-| The receipt | A real signature, by a development key, that is posted nowhere. | `AbsorptionReceipt` in `reapers_shared`, `ReceiptSigner` in `reapers_server` |
+| The receipt | A real signature, by a development key, that is posted nowhere. Version 2, with real addresses, is defined and checked on-chain, but the server still signs version 1. | `AbsorptionReceipt` in `reapers_shared`, `ReceiptSigner` in `reapers_server`, `crates/reapers_receipt` |
 | The chain | In a simnet build, a pretend devnet on the phone posts each purchase, escrow and burn as a signed receipt. A configured Surfpool endpoint is a real local validator beside it, used only for RPC health and an airdrop; those receipts are not broadcast. See [solana.md](solana.md#the-simnet). | `reapers_flutter/lib/simnet/` |
 | Anima | A plain counter. It is not a token and is not meant to become one. | `PlayerState.anima` |
 
@@ -69,9 +69,9 @@ When a reaper absorbs an NFT, the server decides three things the player cannot:
 - **The receipt is kept** with the absorption in the player's codex, so it can be posted, or posted again, later.
 - **Offline play signs nothing.** The phone rolls its own feeding and the codex entry carries no signature. An offline absorption could never be posted on-chain, which is right.
 
-What is not built: anything that posts a receipt. The intended shape is that the same transaction that burns the escrowed NFT carries the receipt, and the program refuses the burn unless the signature checks, the mint and player match, and the nonce has not been seen.
+The program that checks a receipt is built ([program.md](program.md)). The transaction that burns an escrowed husk carries the receipt in an Ed25519 instruction just before the burn, and the program refuses the burn unless the signature is the keeper's, over a version 2 receipt, and the player and the husk match the escrow. It keeps no record of nonces: a receipt names one husk, a husk has one escrow, and after the burn the escrow is closed and the husk cannot come back, so there is nothing left for the receipt to match. What is not built: the server signing version 2 receipts, and the game posting them.
 
-Two stand-ins inside the message itself: until players have wallets and NFTs have real mints, the two 32-byte address fields hold the SHA-256 of the stand-in identifiers. When the real addresses exist they go in as they are and the tag's version goes up.
+Two stand-ins inside the version 1 message: until players have wallets and NFTs have real mints, the two 32-byte address fields hold the SHA-256 of the stand-in identifiers. Version 2 (`RPRSABS2`, `crates/reapers_receipt`) is the same layout with the player's wallet and the husk's real mint or asset address in those fields; it is the only version the program accepts.
 
 ## Where the real thing plugs in
 
@@ -80,11 +80,11 @@ The game talks to one interface, `GameBackend` (`reapers_flutter/lib/src/backend
 1. **Wallet.** Sign in with a wallet (Mobile Wallet Adapter on Android, a deep-link wallet on iOS) and link it to the guest account the server already creates on first launch. `PlayerState.lamports` goes away: the wallet's balance is read, never stored.
 2. **Catalogue.** `NftCollection` becomes data instead of an enum: a list of supported collections (verified collection address, creature, rarity mapping) kept by the server. An NFT's look is then read from its real traits instead of drawn from a palette: `NftLook.of` is the one place that changes.
 3. **Acquire.** Today the server just debits the mock wallet. For real it either lists floor items through a marketplace API and hands the wallet a transaction to sign, or simply reads the wallet's holdings and lets the player bring NFTs they already own. The second is far less work and has no custody risk; start there.
-4. **Release and absorb.** Release becomes a transfer into a program-owned escrow. A hunt the server has replayed and judged absorbed produces a signed receipt, and the burn transaction carries it; a husk that escapes stays in escrow, still huntable. This is the one piece that needs an on-chain program, and the only thing it should trust is the server's receipt key.
+4. **Release and absorb.** Release becomes a transfer into a program-owned escrow. A hunt the server has replayed and judged absorbed produces a signed receipt, and the burn transaction carries it; a husk that escapes stays in escrow, still huntable. This is the one piece that needs an on-chain program, and the only thing it trusts is the server's receipt key. The program is written ([program.md](program.md)); the game and server do not call it yet.
 
 The server already replays every lone hunt from its recorded inputs before it pays (`PlayerState.judgeHunt`), which is the property a burn needs: the chain acts on the server's verdict, never on the phone's claim.
 
-The implemented Dart stack uses `solana_kit`, its typed RPC API and Metaplex Core codecs, plus its Mobile Wallet Adapter packages. The wallet and reaper-ownership seams above are implemented; real husk acquisition, escrow and burning remain work for the future. Wallet connection on iOS requires a separate adapter before it is offered there.
+The implemented Dart stack uses `solana_kit`, its typed RPC API and Metaplex Core codecs, plus its Mobile Wallet Adapter packages. The wallet and reaper-ownership seams above are implemented, and so is the escrow and burn program. Real husk acquisition, and the game and server using that program, remain work for the future. Wallet connection on iOS requires a separate adapter before it is offered there.
 
 ## What has to be true before real money
 
