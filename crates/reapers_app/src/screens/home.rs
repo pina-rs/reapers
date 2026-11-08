@@ -6,8 +6,6 @@ use leptoskit::prelude::*;
 use super::sanctum;
 use super::threshold;
 use crate::l10n::use_l10n;
-use crate::seams::StudioViewProps;
-use crate::seams::studio_view;
 use crate::state::Books;
 use crate::state::BooksFailure;
 use crate::state::Game;
@@ -22,14 +20,10 @@ pub fn page() -> Element {
 		Books::Unreadable(failure) => unreadable(game, &failure),
 		// A debug build may open at a bench instead: the gallery, which
 		// steps the studio through every reaper and outfit
-		// (REAPERS_GALLERY), or the depth model's (REAPERS_DEPTH_PROBE),
-		// which opens the studio's seam until it is built.
+		// (REAPERS_GALLERY), or the depth bench, which shows what the
+		// platform's AR measures of the room (REAPERS_DEPTH_PROBE).
 		Books::Open(player) if game.flags.gallery => crate::studio::gallery(player.genome()),
-		Books::Open(player) if game.flags.depth_probe => {
-			studio_view(&StudioViewProps {
-				genome: player.genome(),
-			})
-		}
+		Books::Open(_) if game.flags.depth_probe => crate::dev::probe::page(),
 		Books::Open(player) if player.oath_taken() => sanctum::page(&player),
 		Books::Open(_) => threshold::page(),
 	}
