@@ -1,6 +1,6 @@
 # reapers_server
 
-The Reapers keeper, in Rust: the port of the Serverpod keeper in `reapers_server/` at the repository root. It keeps each player's books in PostgreSQL, replays every hunt with `reapers_rules` before it pays, hosts rifts, proves wallets, checks NFT reapers on the chain, and signs the absorption receipts the Reapers program burns husks with.
+The Reapers keeper: the server. It keeps each player's books in PostgreSQL, replays every hunt with `reapers_rules` before it pays, hosts rifts, proves wallets, checks NFT reapers on the chain, and signs the absorption receipts the Reapers program burns husks with.
 
 It is built on leptoskit's server crates: `leptoskit_rpc` for the operations and the live socket, `leptoskit_db` for the tables, `leptoskit_auth` for accounts and sessions, and `leptoskit_axum` for serving. Every operation is declared once, in `crates/reapers_api`, which the game builds for Wasm too. The tables and their migrations are `crates/reapers_db`.
 
@@ -90,9 +90,9 @@ The tests need PostgreSQL's `initdb`, `pg_ctl` and `createdb` on `PATH`, or in `
 
 | File              | What it covers                                                                                                          |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `tests/player.rs` | The Dart `player_endpoint_test` and `simulation_policy_test`: books, location, replays, receipts, the armory, concurrency |
-| `tests/solana.rs` | The Dart `solana_endpoint_test`: wallet proof, replay and expiry, restoring an account, ownership transfer; and escrows, and building a burn that did not land again |
-| `tests/chain.rs`  | The Dart `solana_gateway_test`: Core decoding, the cluster check, genome URIs, failures; and escrow accounts            |
-| `tests/rift.rs`   | The Dart `rift_endpoint_test`: one reaper, two at once, demo circles, standings                                         |
+| `tests/player.rs` | Books, location, replays, receipts, the armory, concurrency, and the simulated economy's gate |
+| `tests/solana.rs` | Wallet proof, replay and expiry, restoring an account, ownership transfer; and escrows, and building a burn that did not land again |
+| `tests/chain.rs`  | Core decoding, the cluster check, genome URIs, failures; and escrow accounts            |
+| `tests/rift.rs`   | One reaper, two at once, demo circles, standings                                         |
 | `tests/http.rs`   | The router: guest and wallet sign-in, bearer calls, leptoskit_auth refreshing guest sessions, refusals on the wire     |
 | `tests/process.rs`| The binary refusing to start without its secrets, and the migrations matching the tables                               |

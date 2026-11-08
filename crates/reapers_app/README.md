@@ -1,6 +1,6 @@
 # reapers_app
 
-The Reapers game on [leptoskit](https://github.com/leptoskit/leptoskit): one tree of screens that renders in the browser and, as a Wasm guest, in the iOS and Android apps. It is the port of `reapers_flutter`, minus the 3D and camera views, which plug into the seams described below.
+The Reapers game on [leptoskit](https://github.com/leptoskit/leptoskit): one tree of screens that renders in the browser and, as a Wasm guest, in the iOS and Android apps. Every screen is here; the 3D and camera views plug into the seams described below.
 
 Every rule is `reapers_rules`'; this crate keeps the books, draws the ledger, and talks to the device, the simnet and the server.
 
@@ -17,11 +17,13 @@ leptoskit build --platform ios           # the iOS app (Xcode)
 leptoskit build --platform android       # the Android app (SDK, NDK, CMake)
 ```
 
-`build.rs` mirrors the repository's `assets/{nfts,music,models}` and the Flutter game's fonts and mark into `assets/` before leptoskit bundles it; those mirrors are git-ignored.
+`build.rs` mirrors the repository's `assets/{nfts,music,models,fonts,branding}` into `assets/` before leptoskit bundles it; those mirrors are git-ignored.
+
+`leptoskit dev --platform ios` runs the app in every booted iOS Simulator, and `--platform android` on every attached Android phone or emulator, swapping each rebuilt guest in without reinstalling.
 
 ## Build flags
 
-The Flutter game's `--dart-define`s are environment variables of `leptoskit build` and `leptoskit dev`, read when the app is compiled (`src/config.rs`):
+The build flags are environment variables of `leptoskit build` and `leptoskit dev`, read when the app is compiled (`src/config.rs`):
 
 | Variable | Effect |
 | --- | --- |
@@ -65,7 +67,7 @@ REAPERS_SERVER_URL=http://127.0.0.1:8080/ REAPERS_CLUSTER=localnet leptoskit dev
 
 | Path | What it is |
 | --- | --- |
-| `src/backend/` | `GameBackend`, the seam every screen asks: `LocalBackend` (the device's store, the Flutter save's key and JSON), `RemoteBackend` over `ReapersApi`, `ServerApi` (the server's client over `reapers_api`), and the rifts' sessions. |
+| `src/backend/` | `GameBackend`, the seam every screen asks: `LocalBackend` (the device's store, under the save's long-standing key and JSON), `RemoteBackend` over `ReapersApi`, `ServerApi` (the server's client over `reapers_api`), and the rifts' sessions. |
 | `src/chain.rs` | A real cluster: the wallet's demo husks, releasing with `ReleaseCore`, and signing and sending the server's burn. |
 | `src/program.rs`, `src/receipt.rs` | The Reapers program's instructions from `reapers_program_client`, and the receipt from `reapers_receipt`. |
 | `src/simnet/` | `SimnetChain` (burner wallet, ledger, real wire transactions, the program's own release and burn), `SimnetBackend`, and the Surfpool client and faucet. |

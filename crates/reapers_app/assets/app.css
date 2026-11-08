@@ -51,7 +51,7 @@ h6 {
 }
 
 /* Every button's own focus ring is replaced by the reaper's light on its
-   hand-drawn outline, as in the Flutter game; keyboard focus still shows. */
+   hand-drawn outline; keyboard focus still shows. */
 button:focus-visible,
 a:focus-visible {
   outline: 1px solid currentColor;

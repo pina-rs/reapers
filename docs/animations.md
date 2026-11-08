@@ -40,15 +40,15 @@ Large hats, rigid capes and fixed finger poses limit close-up realism. There is 
 
 ## Build and review
 
-`ReaperMotion` in `reapers_shared` owns clip IDs, durations, loop flags, contact fractions and weapon capabilities. `tool/build_art.dart` writes those timings to `art/build/motions.json`; `art/blender/lib/motion.py` authors the poses and bakes them at 30 FPS into matching NLA tracks. Both renderers play the exported GLB clips. Neither reimplements joint animation. `ReaperPlayback` owns playback and seeking; cloth morphs use that same clock and preserve genome traits.
+`ReaperMotion` in `reapers_rules` owns clip IDs, durations, loop flags, contact fractions and weapon capabilities. `cargo xtask build-art` writes those timings to `art/build/motions.json`; `art/blender/lib/motion.py` authors the poses and bakes them at 30 FPS into matching NLA tracks. The renderer plays the exported GLB clips and never reimplements joint animation; cloth morphs follow the same clock and preserve genome traits.
 
 ```sh
-fvm dart tool/build_art.dart reapers
+cargo xtask build-art reapers
 
-# Rebuild one class after changing its geometry or choreography.
-fvm dart tool/build_art.dart --specs-only
+# Rebuild one class after changing its geometry or choreography, for review.
+cargo xtask build-art --specs-only
 blender --background --python-exit-code 1 --python art/blender/reapers.py -- \
-  --out reapers_flutter/assets/models --only mourner
+  --out art/build/models --only mourner
 
 # Review an exported clip at its contact point, from three angles.
 blender --background --python-exit-code 1 --python art/blender/review_motions.py -- \
@@ -56,9 +56,9 @@ blender --background --python-exit-code 1 --python art/blender/review_motions.py
   --out art/build/previews/finisher_reap.png
 ```
 
-Commit the source and all rebuilt models together. Fully relaunch the app after changing a GLB. Hot reload cannot update compiled model assets. Reduced-motion settings stop automatic character motion as well as rotation; manual timeline scrubbing remains available.
+Only `cargo xtask build-art` writes `assets/models`, compressed; a model built by hand into `art/build/models` is for review. Commit the source and all rebuilt models together, and rebuild the app after changing one: its `build.rs` mirrors `assets/models` into the bundle. Reduced-motion settings stop automatic character motion as well as rotation; manual timeline scrubbing remains available.
 
-The asset tests read all six committed GLBs, checking the complete clip catalogue, joint tracks, durations, finite samples and loop seams. Playback tests cover one-shot completion, replay, pause, seeking and speed. Studio widget tests exercise controls with and without reduced motion.
+`cargo xtask check` checks that every shipped model comes from a script and was packed by the pinned gltfpack. The checks of the clip catalogue itself (every clip, its joint tracks, durations, finite samples and loop seams) and of playback (one-shot completion, replay, pause, seeking and speed) come back with the renderer on `leptoskit_3d`.
 
 ## Gesture references
 

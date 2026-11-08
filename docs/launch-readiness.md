@@ -1,4 +1,7 @@
-# Launch readiness — 5 October 2026
+# Launch readiness — 8 November 2026
+
+First written on 5 October 2026; revised for the move to one Rust workspace
+([decisions.md](decisions.md#2026-11-08-one-rust-workspace)).
 
 **The studio and development game can be reviewed now. A public game with
 real NFT acquisition and burning is not ready to launch tomorrow.** Treat the
@@ -8,34 +11,40 @@ distinction as a release contract, not a warning hidden in a roadmap.
 
 - Bound Sigil is selected for launcher icons, notification icons and the
   native/animated arrival. All four image masters are retained.
-- Android/iOS game and responsive browser studio; no desktop application.
+- One leptoskit app for the browser, Android and iOS; no desktop application.
+  Every screen is built; the 3D views and the camera hunt are seams with 2D
+  stand-ins until `leptoskit_3d` and `leptoskit_xr` fill them.
 - Six offices, 18 birth gifts, four temperaments, original gift lore, individual
   soul memories and three earned awakenings. Shared deterministic rules drive
   gameplay, preview, settlement and persistence.
 - Per-reaper roster, XP, equipment, codex and memories. Canonical Core ownership
   is verified through Solana Kit before online mutations and growth follows
   ownership transfers. Wallet challenges prove an exact, expiring message.
-- Foreground location permission, quality/age validation, expiry, clear-on-stop
-  and latest-only serial uploads. Camera/depth processing stays on the device.
+- Location fixes with quality and age validation, expiry and latest-only
+  storage on the server. Camera and depth processing stays on the device.
 - Combat-log version mismatch is explained as an update requirement. The parser
   refuses impossible aim ranges and stops overlong logs before replay.
 - Staging/production refuse the simulated NFT purchase, release, settlement
   and rift endpoints. Prototype transactions cannot masquerade as confirmed chain work.
-- Android release tasks require a real keystore supplied through Monosecret.
-  They cannot silently sign with the debug key.
+- An on-chain program that escrows a released husk and burns it against the
+  keeper's receipt, with a devnet runbook and a rehearsal on a local Surfpool.
+  On devnet and a localnet the game releases and burns real demo husks with
+  the player's wallet.
 - Research, source links, design decisions and initial values are committed
   beside the implementation. See [identity research](research/reaper-identity-and-growth.md).
 
-Tests and build evidence are recorded in the [delivery report](verification/reaper-identities.md). They establish
-the exercised behaviours, not store approval, production deployment or hardware
-comfort. The local browser preview is not a publicly hosted launch.
+`cargo xtask check`, run on every merge and in CI, is the build and test
+evidence. It establishes the exercised behaviours, not store approval,
+production deployment or hardware comfort. A local browser build is not a
+publicly hosted launch.
 
 ## Engineering still required for the real NFT game
 
 | Work | Concrete missing behaviour | Dependency |
 | --- | --- | --- |
+| 3D and the camera hunt | Reapers, husks and the studio drawn on `leptoskit_3d`; the hunt on `leptoskit_xr`'s camera, pose and platform depth, with the room read into a `HuntPlan`. Until then a hunt is fought by the rules' own player. | `leptoskit_3d` and `leptoskit_xr`; a Seeker and an iPhone for device testing. |
 | Husk acquisition | Read supported real NFTs already owned by a proved wallet, with verified collection/trait mapping. Prototype `Nft.mockMint` and fixed prices are not usable. | Approved collections and rights. Start with bring-your-own NFTs rather than marketplace custody. |
-| Release and absorption | Escrow the real NFT before releasing a husk; verify a hunt; post and confirm a receipt-bound, replay-protected burn; handle rejected/expired transactions and recovery without duplicate rewards. | Chosen asset standards, audited escrow program and deployed addresses. An unaudited program and its devnet runbook exist ([program.md](program.md), [deploy.md](deploy.md)); no mainnet program is deployed. |
+| Release and absorption | Escrow, a receipt-bound burn and finishing a burn that did not land work on devnet for the demo husks. Still needed: real collections, rejected and expired transactions under load, and recovery tested against a deployed server. | Chosen asset standards, an audit of the program and deployed addresses. The unaudited program and its devnet runbook exist ([program.md](program.md), [deploy.md](deploy.md)); no mainnet program is deployed. |
 | iOS wallet transport | An explicitly supported wallet's sign-message flow, secure return handling, lifecycle recovery and device tests. MWA cannot provide this. | Wallet choice and an iOS distribution plan compatible with NFT functionality. |
 | NFT rifts | Replay or authoritatively simulate group results before granting transferable growth. | Server architecture and load testing. NFT reapers remain refused entry. |
 | Account lifecycle | Guest recovery, account deletion and a retention policy that distinguishes personal data from transferable asset history. | Product/retention decisions and published privacy/contact details. |
@@ -64,8 +73,9 @@ receiving credentials. Do not remove the production simulation gate to ship.
    powers can fit the intended store/distribution route. Apple review is a
    product constraint, not an adapter bug; see the current rules below.
 6. **Online infrastructure:** backend domain/hosting account, production RPC
-   provider, backup location and restore owner, five deployment secrets listed
-   in `reapers_server/lib/server.dart`, and receipt-signing custody/rotation.
+   provider, backup location and restore owner, the deployment secrets and
+   settings `crates/reapers_server/readme.md` lists, and receipt-signing
+   custody/rotation.
 7. **Public policies:** company/contact address, privacy and terms URLs, data
    retention/deletion decisions, support/removal-request process for real rift
    locations and target age/markets. We cannot invent the operator's identity.
@@ -95,27 +105,26 @@ Android message signing is implemented; iOS parity requires a different
 transport. The browser studio intentionally connects no wallet.
 [Solana Mobile MWA documentation](https://docs.solanamobile.com/developers/mobile-wallet-adapter).
 
-## Android release signing
+## Release signing
 
-Resolve these four values together through the project's Monosecret setup
-around one release build, for example `msr --reason "Sign Reapers release"
-fvm flutter build appbundle` in `reapers_flutter`:
-
-- `REAPERS_ANDROID_KEYSTORE`: absolute path to the private upload keystore.
-- `REAPERS_ANDROID_STORE_PASSWORD`: its store password.
-- `REAPERS_ANDROID_KEY_ALIAS`: the upload-key alias.
-- `REAPERS_ANDROID_KEY_PASSWORD`: its key password.
-
-No secret was read or created for this change. Missing values or a missing
-keystore fail the release task with their names, never their contents. Debug
-builds need none. iOS simulator builds do not establish App Store signing.
+The leptoskit app's release builds (`leptoskit build --release --platform
+android|ios`) have no store signing configured in this repository yet. The
+first game's Android release task refused to sign without a real upload
+keystore, so it could never silently ship with the debug key; the leptoskit
+host must keep that property when its signing is set up. Supply the
+keystore, its passwords and alias, and the iOS provisioning through
+Monosecret around the one build that needs them (for example `msr --reason
+"Sign Reapers release" leptoskit build --release --platform android`), and
+never commit them. iOS simulator builds do not establish App Store signing.
 
 ## Deployment order
 
-Deploy server and clients with combat rules version 5 together. Back up the
-database before deployment. JSON records lazily accept absent soul memory
-without resetting growth; no table schema changes are needed for this feature.
-Do not share a development database with production. Start the server with
-`serverpod start` when reviewing live integration; agents do not start it.
-The Serverpod MCP connection was unavailable in this session, so live reload,
-live migrations and deployment were not represented as completed.
+Deploy the server and the clients with the same combat-log version together;
+an older client receives an update refusal. Back up the database before
+deployment. The keeper applies pending migrations when it starts, so a
+deployment is a migration: run it against a copy first. Saved books lazily
+accept absent soul memory without resetting growth. Do not share a
+development database with production. The Rust keeper replaces the first
+one with a database of its own (`crates/reapers_db`); players' books from the
+first keeper's database are not migrated, so a deployment that has players
+needs that import written first.

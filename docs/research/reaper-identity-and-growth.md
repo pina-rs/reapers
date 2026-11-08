@@ -111,8 +111,8 @@ pacing report; collect actual playtest feedback before claiming balance.
 No new tracking service or personal-data collection is needed for these tests.
 The committed [soul pacing trials](soul-pacing-trials.md) contain 1,152
 reproducible encounters across all 72 birth builds, comparing birth strength
-with level-20 potential. Rebuild them in `reapers_shared` with
-`fvm dart tool/soul_pacing.dart`. The scenario and bot limits are stated in the
+with level-20 potential. Rebuild them with
+`cargo run --release -p reapers_rules --example soul_pacing`. The scenario and bot limits are stated in the
 report; this one rare-husk scenario is evidence of reachable play and growth,
 not a comprehensive balance claim.
 
@@ -184,14 +184,14 @@ should react to these recorded deeds rather than add a disconnected biography.
 
 | Responsibility | Source |
 | --- | --- |
-| Birth mapping, gifts, dispositions, rank thresholds | `reapers_shared/lib/src/reaper_soul.dart` |
-| Derived combat values | `reapers_shared/lib/src/hunt/hunt_stats.dart` |
-| Trigger execution and replay observations | `reapers_shared/lib/src/hunt/hunt_sim.dart` |
-| Settlement, one reward per husk, per-reaper persistence | `reapers_shared/lib/src/player_state.dart`, `reaper_state.dart` |
-| Canonical NFT record and transfer | `reapers_server/lib/src/solana/reaper_ledger.dart` |
-| All player-facing prose | `reapers_flutter/lib/l10n/app_en.arb` |
-| Shared presentation | `reapers_flutter/lib/widgets/soul_ledger.dart` |
-| Unsaved experimentation | `reapers_flutter/lib/studio/reaper_studio.dart` |
+| Birth mapping, gifts, dispositions, rank thresholds | `crates/reapers_rules/src/reaper_soul.rs` |
+| Derived combat values | `crates/reapers_rules/src/hunt/hunt_stats.rs` |
+| Trigger execution and replay observations | `crates/reapers_rules/src/hunt/hunt_sim.rs` |
+| Settlement, one reward per husk, per-reaper persistence | `crates/reapers_rules/src/player_state.rs`, `reaper_state.rs` |
+| Canonical NFT record and transfer | `crates/reapers_server/src/books.rs` |
+| All player-facing prose | `crates/reapers_app/locales/en.arb` |
+| Shared presentation | `crates/reapers_app/src/screens/soul.rs` |
+| Unsaved experimentation | the studio seam, `crates/reapers_app/src/seams/studio.rs` ([preview.md](../preview.md)) |
 | Rules and initial balance values | [gameplay.md](../gameplay.md) |
 | Launch dependencies and decision owners | [launch-readiness.md](../launch-readiness.md) |
 

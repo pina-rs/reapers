@@ -1,13 +1,34 @@
 # Reapers art sources
 
-Every 3D model in the game is built by the scripts in this folder. There are no hand-edited model files: change a script, rebuild, and commit the script together with the model it produced.
+Every 3D model in the game is built by the scripts in this folder. There are no hand-edited model files: change a script, rebuild, and commit the script together with the models it produced.
 
 ```sh
-dart tool/build_art.dart              # build every model into reapers_flutter/assets/models
-dart tool/build_art.dart --preview    # also render review sheets into art/build/previews
+cargo xtask build-art                 # build every model into assets/models, and every portrait into assets/nfts
+cargo xtask build-art husks           # build one script: reapers, weapons or husks
+cargo xtask build-art --preview       # also render review sheets into art/build/previews
+cargo xtask build-art --specs-only    # write art/build/vessels.json and motions.json, and stop
 ```
 
-Blender's authoring API is Python, so these scripts are Python. They only ever run inside Blender; `tool/build_art.dart` is what runs them.
+Blender's authoring API is Python, so these scripts are Python. They only ever run inside Blender; `cargo xtask build-art` (`crates/xtask/src/art.rs`) is what runs them.
+
+## What the build does
+
+1. It writes the numbers the scripts shape the models to, from `reapers_rules`: every vessel's gait, half-width, half-height, seals and the look of every NFT that wears it (`art/build/vessels.json`), and every reaper clip's name and timing (`art/build/motions.json`).
+2. It runs Blender 5.1 on each script. Blender writes full-size models into `art/build/models`, and the husks script renders every NFT's portrait into `art/build/portraits`.
+3. It compresses each model with gltfpack 0.25 into `assets/models`: `gltfpack -i <model> -o <packed> -cc -kn -km -ke`, which is meshopt compression with quantized attributes, keeping every named node (`-kn`), material (`-km`) and extra (`-ke`) the game looks things up by. All of them together went from 72 MB to 12 MB, with every node, morph target and clip kept. The build checks that each packed model names gltfpack 0.25 as its generator.
+4. It turns each portrait into WebP in `assets/nfts`, with ImageMagick (`magick`, quality 80).
+
+Nothing under `art/build` is committed: it is the full-size, rebuildable output, and what the review scripts read.
+
+### The tools
+
+| Tool | Version | Where to get it |
+| --- | --- | --- |
+| Blender | 5.1 | [blender.org](https://www.blender.org/download/). A different release may triangulate or export differently. |
+| gltfpack | 0.25 | The `gltfpack-<platform>.zip` asset of [meshoptimizer v0.25](https://github.com/zeux/meshoptimizer/releases/tag/v0.25); put `gltfpack` on the PATH. |
+| ImageMagick | 7 | Any package manager; it provides `magick`. |
+
+The versions are pinned in `crates/xtask/src/art.rs` (`BLENDER_RELEASE`, `GLTFPACK_VERSION`), and the build refuses any other. Changing one is an upgrade done on purpose: change the constant, rebuild every model, and commit them together.
 
 ## Layout
 
@@ -25,11 +46,11 @@ Blender's authoring API is Python, so these scripts are Python. They only ever r
 | `reaper_classes/<class>.py` | One module per reaper class. `build()` returns the model's root. |
 | `creature_kinds/<vessel>.py` | One module per husk creature. `build(spec)` returns the model's root. |
 | `weapon_kinds/<kind>.py` | One module per weapon kind. `build()` returns the weapon's root. |
-| `reapers.py`, `weapons.py`, `husks.py` | The drivers `tool/build_art.dart` runs. |
+| `reapers.py`, `weapons.py`, `husks.py` | The drivers `cargo xtask build-art` runs. |
 
 ## Building one thing while you work
 
-The drivers take `--only`, so one class or weapon can be rebuilt and reviewed without touching the game's assets:
+The drivers take `--only`, so one class or weapon can be rebuilt and reviewed without touching the game's assets. Write the specs first (`cargo xtask build-art --specs-only`), then:
 
 ```sh
 blender --background --python-exit-code 1 --python art/blender/reapers.py -- \
@@ -47,7 +68,7 @@ A class's review sheets are `art/build/previews/reaper_<class>_0.png` to `_2.png
 - **Two forms share one character.** Spirits float with quiet arms and trailing cloth. Humanoids have articulated legs and planted walking steps; their long robes hang outside the hips and stride, while short tunics expose the knees.
 - **Landmarks.** `lib/figure.py` holds the shared heights: shoulders 1.64, neck 1.73, head centre 1.88. A class that hunches carries all of them forward (toward -Y) by the same amount.
 - **Masks, not colours.** Every mesh that should react to an outfit must be passed through `finish()`. It paints the four mask channels the game's shader reads (grime, char, wear, hollow) and stores each vertex's rest position in the two UV channels. Parts that are pure light (`accent`) or pure dark (`void`) are not finished.
-- **Materials are names.** The game throws the Blender material away and keeps its name, which picks a surface in `reapers_flutter/lib/render/reaper_look.dart`. Use only these: `cloth`, `cloth_alt`, `bone`, `metal`, `wood`, `rope`, `feather`, `gold`, `paper`, `accent`, `void`.
+- **Materials are names.** The game throws the Blender material away and keeps its name, which picks a surface in the renderer's reaper look. Use only these: `cloth`, `cloth_alt`, `bone`, `metal`, `wood`, `rope`, `feather`, `gold`, `paper`, `accent`, `void`.
 - **One light per reaper.** `accent` is the only thing that glows: eyes, a blade edge, a lantern flame, a bell's mouth. Keep it small.
 - **Triangles.** About 110,000 for a whole class file, with all its variants. About 6,000 for a weapon.
 
@@ -73,7 +94,7 @@ reaper                      the root; an empty named "reaper"
 
 Before export, `lib/motion.py` inserts a `motion` pivot at waist height and a separate `spine` pivot for the chest, preserving rest positions. Each of the 32 states has a spirit clip and a `humanoid_` clip, for 64 clips on fifteen pivots. The exported model uses rigid parts, with overlapping sleeve sections at the elbows. The Hollow's head lantern follows its left wrist. The Mourner's concealed second arm emerges for gestures. See [the animation guide](../../docs/animations.md) for clip names, class differences and review commands.
 
-The reaper driver reads `art/build/motions.json`, written by `fvm dart tool/build_art.dart --specs-only`. Rebuild that spec before invoking Blender directly after changing the shared animation catalogue.
+The reaper driver reads `art/build/motions.json`, written from `ReaperMotion` in `reapers_rules` by `cargo xtask build-art --specs-only`. Rebuild that spec before invoking Blender directly after changing the shared animation catalogue.
 
 `lib/body.py` adds a spectral torso and arms, mutually exclusive `spirit_form` and `humanoid_form` groups, and shaped thighs, kneecaps, calves and feet. `lib/locomotion.py` solves the humanoid hip/knee/ankle chain from world-space foot targets before baking. Spirit travel keeps the arms steady, with speed expressed through lean and hover. Garment targets `short_robe`, `humanoid_robe` and `humanoid_tunic` are mutually exclusive: humanoid fits add clearance around the pelvis and legs without pulling the cloth into the hip joints. Both renderers select these targets through `reaperClothWeights`. Clothing controls are independent of the genome; the original spirit tailoring remains the basis shape.
 
@@ -101,12 +122,12 @@ The classes come from [the design research](../../docs/research/dark-games-and-a
 
 A husk is what is left of an NFT. Every supported collection has a creature of its own: an ape for a collection of apes, a llama for a collection of llamas. The creature is our own model. It follows the spirit of a collection (its animal, its attitude, the kind of thing it wears) and copies none of its artwork, logos or named traits.
 
-One model serves every NFT of a collection. What tells one NFT from another is its look: three colours, the colour of its eyes, and at most one thing it wears. The looks are defined in `reapers_shared/lib/src/nft_look.dart` and reach the build through `art/build/vessels.json`.
+One model serves every NFT of a collection. What tells one NFT from another is its look: three colours, the colour of its eyes, and at most one thing it wears. The looks are defined in `crates/reapers_rules/src/nft_look.rs` and reach the build through `art/build/vessels.json`.
 
 ### Building one while you work
 
 ```sh
-dart run tool/build_art.dart --specs-only     # write art/build/vessels.json
+cargo xtask build-art --specs-only           # write art/build/vessels.json
 
 blender --background --python-exit-code 1 --python art/blender/husks.py -- \
   --out art/build/models --specs art/build/vessels.json \
@@ -170,7 +191,7 @@ How far each part moves, so that parts can be shaped not to pass through each ot
 
 When a husk is struck, frightened or reaped the whole body moves on top of all of this: it rocks up to about 9° away from a blow and twists about its feet, cowers lower as its ward fails, and is dragged up to a third of its height off the floor by the reap. Parts that only just clear each other at rest will cross then, so leave room.
 
-The numbers live in `reapers_flutter/lib/render/husk_rig.dart`.
+These numbers are the rig's ranges as the first game played them. The husk rig on `leptoskit_3d` must keep within them, and when it changes one, this table changes with it.
 
 Two more nodes are required on every creature: `trait_1` and `trait_2`, pivots that each hold one thing the creature can wear (a cap, a crown, a chain). The game shows at most one. Parent them to `head` if the thing is worn on the head, so it follows when the head turns. Keep them generic: no brand, logo, team, band or real person.
 

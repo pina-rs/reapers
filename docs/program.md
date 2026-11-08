@@ -116,7 +116,7 @@ An event proves nothing by itself: any program can log the same bytes. Attribute
 | 82..90 | when, in seconds since 1970, signed, little-endian |
 | 90..98 | the nonce the feeding was rolled from, little-endian |
 
-It is version 1's layout (`AbsorptionReceipt` in `reapers_shared`) with real addresses where version 1 had the SHA-256 of stand-ins. A version 1 receipt is refused by name. The crate's tests hold a fixed vector of the bytes and of the development keeper's signature over them; another signer must reproduce both.
+It is version 1's layout (the first keeper's `AbsorptionReceipt`) with real addresses where version 1 had the SHA-256 of stand-ins. A version 1 receipt is refused by name. The crate's tests hold a fixed vector of the bytes and of the development keeper's signature over them; another signer must reproduce both.
 
 An absorption is one transaction:
 

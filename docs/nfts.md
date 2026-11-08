@@ -31,18 +31,18 @@ What that means, and does not:
 
 | In the game | What it is today | Where it lives |
 | --- | --- | --- |
-| Collections | The five above, eight invented items each. | `NftCollection` in `reapers_shared/lib/src/nft_catalogue.dart` |
-| An NFT's look | Three colours, an eye colour and one worn thing, drawn from a palette for its collection. | `NftLook` in `reapers_shared/lib/src/nft_look.dart` |
-| NFT pictures | 40 portraits rendered by Blender from our own models. | `art/blender/husks.py`, `reapers_flutter/assets/nfts/` |
-| Mint addresses | A string with the shape of a Solana address, derived from the item's id. It belongs to no account. | `Nft.mockMint` |
-| The market | Every item of every collection is always for sale at a price fixed by its rarity. | `marketListings`, `Rarity.lamports` |
-| The wallet | A number. Every player starts with 3 SOL of it, which is enough to buy the whole market. | `PlayerState.lamports` |
-| Buying | Subtracts the price and adds the item to the vault. | `PlayerState.acquire` |
-| Releasing | Moves the item from the vault into the veil as a husk. | `PlayerState.release` |
-| Absorbing | Removes the husk, rolls the feeding and writes the codex. | `PlayerState.settleHunt` |
-| The receipt | A real signature, by a development key, that is posted nowhere. Version 2, with real addresses, is defined and checked on-chain, but the server still signs version 1. | `AbsorptionReceipt` in `reapers_shared`, `ReceiptSigner` in `reapers_server`, `crates/reapers_receipt` |
-| The chain | In a simnet build, a pretend devnet on the phone posts each purchase, escrow and burn as a signed receipt. A configured Surfpool endpoint is a real local validator beside it, used only for RPC health and an airdrop; those receipts are not broadcast. See [solana.md](solana.md#the-simnet). | `reapers_flutter/lib/simnet/` |
-| Anima | A plain counter. It is not a token and is not meant to become one. | `PlayerState.anima` |
+| Collections | The five above, eight invented items each. | `NftCollection` in `crates/reapers_rules/src/nft_catalogue.rs` |
+| An NFT's look | Three colours, an eye colour and one worn thing, drawn from a palette for its collection. | `NftLook` in `crates/reapers_rules/src/nft_look.rs` |
+| NFT pictures | 40 portraits rendered by Blender from our own models. | `art/blender/husks.py`, `assets/nfts/` |
+| Mint addresses | A string with the shape of a Solana address, derived from the item's id. It belongs to no account. | `Nft::mock_mint` |
+| The market | Every item of every collection is always for sale at a price fixed by its rarity. | `market_listings`, `Rarity::lamports` |
+| The wallet | A number. Every player starts with 3 SOL of it, which is enough to buy the whole market. | `PlayerState::lamports` |
+| Buying | Subtracts the price and adds the item to the vault. | `PlayerState::acquire` |
+| Releasing | Moves the item from the vault into the veil as a husk. | `PlayerState::release` |
+| Absorbing | Removes the husk, rolls the feeding and writes the codex. | `PlayerState::settle_hunt` |
+| The receipt | A real signature, by a development key: the 98-byte version 2 receipt the program checks. For a stand-in husk it names the SHA-256 of the invented mint and is posted nowhere; for a demo husk escrowed on a cluster it names the real asset and the wallet posts it with the burn. | `crates/reapers_receipt`, `ReceiptSigner` in `crates/reapers_server` |
+| The chain | In a simnet build, a pretend devnet on the device posts each purchase, escrow and burn as a signed Solana transaction. A configured Surfpool endpoint is a real local validator beside it, for RPC health and an airdrop. A cluster build escrows and burns real demo husks on devnet or a localnet. See [solana.md](solana.md#the-simnet). | `crates/reapers_app/src/simnet/`, `crates/reapers_app/src/chain.rs` |
+| Anima | A plain counter. It is not a token and is not meant to become one. | `PlayerState::anima` |
 
 ## The design the stand-ins assume
 
@@ -75,16 +75,16 @@ Two stand-ins inside the version 1 message: until players have wallets and NFTs 
 
 ## Where the real thing plugs in
 
-The game talks to one interface, `GameBackend` (`reapers_flutter/lib/src/backend/game_backend.dart`), and the server applies the same shared rules. The chain work lands in four places:
+The game talks to one interface, `GameBackend` (`crates/reapers_app/src/backend/mod.rs`), and the server applies the same shared rules. The chain work lands in four places:
 
-1. **Wallet.** Sign in with a wallet (Mobile Wallet Adapter on Android, a deep-link wallet on iOS) and link it to the guest account the server already creates on first launch. `PlayerState.lamports` goes away: the wallet's balance is read, never stored.
-2. **Catalogue.** `NftCollection` becomes data instead of an enum: a list of supported collections (verified collection address, creature, rarity mapping) kept by the server. An NFT's look is then read from its real traits instead of drawn from a palette: `NftLook.of` is the one place that changes.
+1. **Wallet.** Sign in with a wallet (Mobile Wallet Adapter on Android, a deep-link wallet on iOS) and link it to the guest account the server already creates on first launch. `PlayerState::lamports` goes away: the wallet's balance is read, never stored.
+2. **Catalogue.** `NftCollection` becomes data instead of an enum: a list of supported collections (verified collection address, creature, rarity mapping) kept by the server. An NFT's look is then read from its real traits instead of drawn from a palette: `NftLook::of` is the one place that changes.
 3. **Acquire.** Today the server just debits the mock wallet. For real it either lists floor items through a marketplace API and hands the wallet a transaction to sign, or simply reads the wallet's holdings and lets the player bring NFTs they already own. The second is far less work and has no custody risk; start there.
-4. **Release and absorb.** Release becomes a transfer into a program-owned escrow. A hunt the server has replayed and judged absorbed produces a signed receipt, and the burn transaction carries it; a husk that escapes stays in escrow, still huntable. This is the one piece that needs an on-chain program, and the only thing it trusts is the server's receipt key. The program is written ([program.md](program.md)); the game and server do not call it yet.
+4. **Release and absorb.** Release becomes a transfer into a program-owned escrow. A hunt the server has replayed and judged absorbed produces a signed receipt, and the burn transaction carries it; a husk that escapes stays in escrow, still huntable. This is the one piece that needs an on-chain program, and the only thing it trusts is the server's receipt key. The program is written ([program.md](program.md)), and on devnet and a localnet the game and server use it for the demo husks.
 
-The server already replays every lone hunt from its recorded inputs before it pays (`PlayerState.judgeHunt`), which is the property a burn needs: the chain acts on the server's verdict, never on the phone's claim.
+The server already replays every lone hunt from its recorded inputs before it pays (`PlayerState::judge_hunt`), which is the property a burn needs: the chain acts on the server's verdict, never on the phone's claim.
 
-The implemented Dart stack uses `solana_kit`, its typed RPC API and Metaplex Core codecs, plus its Mobile Wallet Adapter packages. The wallet and reaper-ownership seams above are implemented, and so is the escrow and burn program. Real husk acquisition, and the game and server using that program, remain work for the future. Wallet connection on iOS requires a separate adapter before it is offered there.
+The game and the server use Solana Kit's Rust crates: its typed RPC API and Metaplex Core codecs, and its Mobile Wallet Adapter session on Android. The wallet and reaper-ownership seams above are implemented, and so is the escrow and burn program, which a cluster build uses for the demo husks. Real husk acquisition remains work for the future. Wallet connection on iOS requires a separate adapter before it is offered there.
 
 ## What has to be true before real money
 

@@ -1,8 +1,8 @@
 # How Reapers plays
 
-This is the rulebook as the code plays it. Every number here lives in `reapers_shared`, which both the game and the server run, so this file and the code can be checked against each other. Where a number is a first guess that needs playtesting on real phones, it says so.
+This is the rulebook as the code plays it. Every number here lives in `reapers_rules`, which both the game and the server run, so this file and the code can be checked against each other. Where a number is a first guess that needs playtesting on real phones, it says so.
 
-The rules are being ported to Rust, as `crates/reapers_rules`. The port plays by the same numbers, and its conformance tests replay what the Dart rules did, hunt by hunt, against fixtures the Dart rules wrote. A number changed in one has to change in the other until the Dart is retired.
+The rules' conformance tests replay, hunt by hunt and to the bit, fixtures written by the rules' first implementation (`crates/reapers_rules/tests/fixtures`), so saves and hunt logs from before the port still play the same way. A number changed on purpose changes its test too.
 
 ## The loop
 
@@ -67,16 +67,16 @@ Tracing the sigil is also how the phone reads the room. The lights hang where th
 
 The arc the husk will keep to is the sigil's, out to its outermost lights and 15° beyond on either side (half of what the camera takes in across): 120° for a common husk, 190° for an epic one.
 
-**A phone that can see** (a camera, motion sensors, and the depth model: the Seeker and other Android phones today) takes a picture about twice a second while you trace, whenever the phone turns slower than 0.7 rad/s, which is what holding on a light does. From those pictures it learns:
+**A phone that can see** (a camera and the platform's own depth: ARCore's Depth API on Android, ARKit's scene depth on an iPhone with LiDAR) reads the room while you trace, whenever the phone turns slower than 0.7 rad/s, which is what holding on a light does. From what it sees it learns:
 
 - **How far below the phone the floor is.** The screen shows it as it is found. Sit down and it comes up to meet you.
 - **How far the way is clear in each slice** of a circle cut into 72 slices of 5°: to the sofa, the table leg, the wall. A small dial in the corner shows them, spokes as long as the way is clear and red where it is tight: so little clear floor that the husk can only stand there as close as it ever comes. A thin arc round the dial is the arc the husk will keep to.
 
-No room is too small: where there is little clear floor the husk stands closer, and it does not refuse to appear. A slice inside the arc that no picture showed is left open.
+No room is too small: where there is little clear floor the husk stands closer, and it does not refuse to appear. A slice inside the arc that the phone never saw is left open.
 
 The floor is whatever level surface lies lowest in what you show it. Point at nothing but a table top, and the husk will stand on the table.
 
-**A phone that cannot see** (a simulator, a refused camera, an iPhone until the depth model is tried on one) traces the same sigil and learns nothing about the floor or the furniture.
+**A phone that cannot see** (a refused camera, a phone without platform depth such as the Seeker, the browser) traces the same sigil and learns nothing about the floor or the furniture. [environment.md](environment.md) says where the depth comes from.
 
 Either way the result is the hunt's plan:
 
@@ -402,7 +402,7 @@ Its ward, its worth and its sigil come from its rarity (see [Drawing it out](#dr
 
 The body of a rift is not a creature: it is the reliquary stack, a tower of cubes 10 m tall and 17 m away, each face wearing one of the collection's portraits. It does not move. Four seals at the seams.
 
-A level-one reaper takes a common husk in about half a minute and cannot take an epic one. `dart reapers_shared/tool/pacing.dart` prints the whole table for every class and level, and so does `cargo run --release -p reapers_rules --example pacing`.
+A level-one reaper takes a common husk in about half a minute and cannot take an epic one. `cargo run --release -p reapers_rules --example pacing` prints the whole table for every class and level.
 
 Why these five, and the hundred or so they were chosen from, is in [research/solana-collections.md](research/solana-collections.md).
 
@@ -419,7 +419,7 @@ A rift is a whole dead collection piled into one body. It takes a circle of four
 - **Sealing.** When the ward breaks everyone has one reap window (8 seconds for the room). Half the reapers still standing, rounded up, must make their cut, and at least one cut must be a person's: shades can break a ward but only the living can shut a rift.
 - **Pay.** 220 experience and 90 anima for a clean cut and a fair share of the work. Your share of the ward scales that from 60% (did nothing) to 100% (a quarter of the ward or more). The cut scales it like a reap grade; no cut is ×0.75 and cast out is ×0.5. Leave early and you are paid nothing. A failed rift costs nothing.
 
-`dart reapers_shared/tool/rift_pacing.dart` prints how rifts go for circles of different sizes and levels, and so does `cargo run --release -p reapers_rules --example rift_pacing`.
+`cargo run --release -p reapers_rules --example rift_pacing` prints how rifts go for circles of different sizes and levels.
 
 A development demo build (`REAPERS_DEMO_RIFT`) waives only the collection gate so several people can meet one enemy before they own its dead. The fight, the ward, the shrieks, the cuts and the pay are the same rules above; each player is paid once from their own books. The flag is ignored by release builds, and staging and production servers refuse the demo endpoint.
 

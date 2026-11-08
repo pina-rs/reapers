@@ -1,29 +1,29 @@
 # Reaper studio
 
-The standalone preview runs on web, Android and iOS. It uses the game's actual models, looks and shared progression rules. It opens no save, server, wallet or camera. Nothing done in it alters an owned reaper. Desktop apps are outside the supported targets.
+The studio is where a reaper can be looked at and played with without a game: the actual models, looks and shared progression rules, with no save, server, wallet or camera opened. Nothing done in it alters an owned reaper. It runs wherever the game runs: the browser, iOS and Android.
+
+## Open it
+
+The studio is the app's `/studio` route. It opens on the player's reaper, or on one the shuffle draws for a player who has none, and it is under **Reaper studio** in the sanctum.
 
 ```sh
-cd reapers_flutter
-fvm flutter run -d chrome -t lib/main_preview.dart
+cd crates/reapers_app
+leptoskit dev --platform web                   # then open http://127.0.0.1:3010/studio
+REAPERS_GALLERY=true leptoskit dev --platform web   # a debug build that opens at the bench
+leptoskit dev --platform ios                   # or android: the same route in the app
 ```
 
-To run on an Android or iOS device or simulator, substitute its device ID for `chrome`. The same screen is under **Reaper studio** in the sanctum and in **Your reapers**. `serverpod start` also knows a non-automatic `studio` Flutter target.
+For a static build to put on any web host, `leptoskit build --release --platform web` writes `crates/reapers_app/dist`; publish the whole directory.
 
-The Android SDK needs CMake 3.31.4 for the rendering dependency's native plugin, even though the mobile portrait uses Flutter GPU. Install that SDK component when setting up a fresh Android toolchain.
+## Where it stands
 
-Build a static browser preview for any web host:
+The studio is one of the app's seams: `studio_view` in `crates/reapers_app/src/seams/studio.rs`, given only the genome it opens on (`StudioViewProps`). Today it is the 2D stand-in: the reaper's silhouette, its calling and name, a word about the studio, and the way back. The studio on `leptoskit_3d` replaces that function's body and nothing else, and brings back the studio the first game had, described below as the contract it is built to. Its strings, the Book of Becoming's included, are already in `locales/en.arb`.
 
-```sh
-fvm flutter build web -t lib/main_preview.dart
-```
+## What it holds
 
-Publish the complete `build/web` directory, including its local WebGL bindings. The browser needs WebGL 2. Mobile uses Flutter GPU; web uses a separate WebGL renderer so native GPU code does not enter the browser build. Both load the same GLBs and `reaper.fmat` surface arithmetic. Lighting differs between renderers; web does not promise identical pixels or the mobile camera hunt.
+**Animations · 32 states** opens movement, reaction, meme, combat and finisher previews on the current specimen. Select a clip, play or pause, replay, scrub the timeline, or change speed. Attacks have an **Inspect contact pose** shortcut. Weapon-specific finishers explain which held object they need. With reduced motion enabled, scrub by hand. The full [animation catalogue and rig guide](animations.md) covers the 32 states, class adaptations and current limits.
 
-For a predictable local address, run `fvm flutter run -d web-server --web-hostname=127.0.0.1 --web-port=8088 -t lib/main_preview.dart` inside `reapers_flutter`, then open [the studio](http://127.0.0.1:8088). Asking the agent to “run the reaper studio” refers to this preview.
-
-**Animations · 32 states** opens movement, reaction, meme, combat and finisher previews on the current specimen. Select a clip, play or pause, replay, scrub the timeline, or change speed. Attacks have an **Inspect contact pose** shortcut. Weapon-specific finishers explain which held object they need. With reduced motion enabled, scrub manually. The full [animation catalogue and rig guide](animations.md) covers the 32 states, class adaptations and current limits.
-
-**Appearance** lets you try all six callings, head and shoulder variants, robe cuts, colourways, omens and auras. Select **Spirit** or **Humanoid**, choose a long robe, short tunic or no robe, and swap any of the six held objects. Turn off **Hold an object** for empty hands. These wardrobe and form choices are unsaved previews; mint metadata and class equipment rules remain unchanged. Sliders change stature, gauntness, gaze and tatter. Drag to turn the model, or start its rotation with the portrait button. Copy genome preserves birth traits only.
+**Appearance** lets you try all six callings, head and shoulder variants, robe cuts, colourways, omens and auras. Select **Spirit** or **Humanoid**, choose a long robe, short tunic or no robe, and swap any of the six held objects. Turn off **Hold an object** for empty hands. These wardrobe and form choices are unsaved previews; mint metadata and class equipment rules are unchanged. Sliders change stature, gauntness, gaze and tatter. Drag to turn the model, or start its rotation with the portrait button. Copy genome preserves birth traits only.
 
 For facial animation, select a reaction or meme and use **Inspect expression**. It pauses the clip and moves into a face close-up. Use **Full figure** to return to the body. The [animation guide](animations.md#faces-and-appearance) describes each expression and the rigs.
 
@@ -31,16 +31,8 @@ For facial animation, select a reaction or meme and use **Inspect expression**. 
 
 **Soul** shows the specimen's permanent birth gift, its temperament and its original lore. Try the three gifts of a calling, inspect every awakening's concrete effect, scrub levels and add illustrative successful hunts along **Unseen**, **Stillness** and **Rhythm**. A level-thirty reaper with no remembered deeds still has its birth power: awakening requires both level and the gift's favoured memory. Real memories come from server-replayed hunt inputs, with at most one mark per path per successful hunt. Preview controls cannot change the books. See [the rules](gameplay.md) and [identity research](research/reaper-identity-and-growth.md).
 
-**The Book of Becoming** opens from the book button in the studio. Its four chapters explain evolution, chance, the NFT future and the reasons behind the rules. Explore all gifts and temperaments, level and memory gates, exact feeding odds and unsaved random examples. Bookmark `/#/decisions` on the standalone web host; refreshing that link opens the book. Planned commerce and publicly verifiable randomness are labelled as future work. The durable knowledge base is [decisions.md](decisions.md).
+**The Book of Becoming** opens from the book button in the studio. Its four chapters explain evolution, chance, the NFT future and the reasons behind the rules. Explore all gifts and temperaments, level and memory gates, exact feeding odds and unsaved random examples. Planned commerce and publicly verifiable randomness are labelled as future work. The durable record is [decisions.md](decisions.md).
 
-Run the renderer and soul journey in separate phone app containers, preserving the normal install and its saves:
+Every number the studio shows comes from `reapers_rules`: `Progression`, the armory's prices and gates, `HuntStats` for strikes, `SoulRules` for awakenings and `Feeding` for the odds. It keeps no second calculator.
 
-```sh
-fvm dart tool/test_studio.dart android <device-id>
-fvm dart tool/test_studio.dart ios <simulator-id>
-fvm dart tool/test_studio.dart android <device-id> decisions
-```
-
-Run these commands from the repository root. The helper temporarily isolates the application identifier, restores the project afterwards, and saves screenshots under `.impeccable/review/`.
-
-The preview neither buys gear nor charges currency. Its absorption count resets when it closes. The account roster is separate: it contains the starter and verified NFTs, with independent earned growth. Purchases and ownership setup are described in [solana.md](solana.md).
+The studio neither buys gear nor charges currency. Its absorption count resets when it closes. The account roster is separate: it holds the starter and verified NFT reapers, with independent earned growth. Purchases and ownership setup are described in [solana.md](solana.md).

@@ -1,6 +1,6 @@
 # Wallets and reaper NFTs
 
-Reapers uses Solana Kit: the Dart SDK in the Flutter game and Serverpod keeper, and the Rust one in `crates/` (pinned to one revision in the root `Cargo.toml`). The game uses Kit's addresses, transactions and Mobile Wallet Adapter; the server uses typed RPC, Ed25519 proof verification and Kit's Metaplex Core decoder. No wallet secret enters the game or the server: the player's wallet signs everything that moves a husk, and the server signs only receipts.
+Reapers uses Solana Kit's Rust SDK in the game, the server and the tools, pinned to one revision in the root `Cargo.toml`. The game uses Kit's addresses, transactions and Mobile Wallet Adapter; the server uses typed RPC, Ed25519 proof verification and Kit's Metaplex Core decoder. No wallet secret enters the game or the server: the player's wallet signs everything that moves a husk, and the server signs only receipts.
 
 ## Deployment settings
 
@@ -20,11 +20,11 @@ Each imported asset must be a non-executable account owned by the Core program, 
 
 For Android deployment, associate the chosen identity domain with the app's package and signing certificate through `/.well-known/assetlinks.json`, and configure its matching App Links in the manifest. These depend on the final domain and release certificate. Wallet identity verification follows the [Mobile Wallet Adapter specification](https://solana-mobile.github.io/mobile-wallet-adapter/spec/spec.html#native-dapp); supplying a URI alone does not establish that association.
 
-The generated migration adds wallet identities, challenges and canonical reaper records. Apply pending migrations through the running Serverpod service before enabling imports. It does not modify the existing player table or discard saves.
+The keeper's migrations (`crates/reapers_db`) hold wallet identities, challenges and canonical reaper records beside the players' books, and the keeper applies them when it starts.
 
 ## Player flow
 
-Use an online game build and open **Your reapers**. Connect a wallet: Mobile Wallet Adapter on Android, or, in the Rust game's web build, a browser wallet through the Wallet Standard. The wallet signs a domain-, chain- and guest-bound two-minute challenge authorizing sign-in only. The server verifies the exact Ed25519 proof, consumes it once and issues its normal auth tokens. Wrong signatures, another guest's challenge, expiry and replay are rejected. The first proof links the guest account; proving a known wallet restores its account without combining two saves.
+Use an online game build and open **Your reapers**. Connect a wallet: Mobile Wallet Adapter on Android, or a browser wallet through the Wallet Standard. The wallet signs a domain-, chain- and guest-bound two-minute challenge authorizing sign-in only. The server verifies the exact Ed25519 proof, consumes it once and issues its normal auth tokens. Wrong signatures, another guest's challenge, expiry and replay are rejected. The first proof links the guest account; proving a known wallet restores its account without combining two saves.
 
 The displayed SOL balance comes from that wallet's real finalized RPC balance. The existing husk market's three starting SOL are simulated and remain separate.
 
@@ -34,12 +34,12 @@ Before every NFT-bearing game mutation, the server refreshes ownership and locks
 
 ## Current boundaries
 
-- Wallet connection is implemented on Android and, in the Rust game, in the browser. iOS shows an explicit unavailable state.
+- Wallet connection is implemented on Android and in the browser. iOS shows an explicit unavailable state.
 - No collection, mint, marketplace listing or purchase transaction is fabricated. No live wallet transaction has been exercised without deployment settings and a test collection.
 - Growth follows the NFT through server records, not metadata updates or a new on-chain progression program. Birth traits remain fixed.
 - Solo hunt rewards are replayed. NFT reapers cannot enter rifts until rift replay is built, preventing trusted client reports from earning tradable growth.
-- The five hunted husk collections' prices stay simulated. A cluster build of the Rust game escrows and burns the real demo husks with the program ([program.md](program.md), and "Devnet" below); everywhere else, releases and burns stay simulated. Real token acquisition is outstanding; [nfts.md](nfts.md) describes it.
-- Tests use real SDK codecs, RPC transports, Ed25519 signatures and Serverpod's embedded database, with controlled chain responses. They verify proof failures, account restoration, ownership transfer and growth persistence; they do not prove a live marketplace trade.
+- The five hunted husk collections' prices stay simulated. A cluster build escrows and burns the real demo husks with the program ([program.md](program.md), and "Devnet" below); everywhere else, releases and burns stay simulated. Real token acquisition is outstanding; [nfts.md](nfts.md) describes it.
+- Tests use real SDK codecs, RPC transports, Ed25519 signatures and a PostgreSQL cluster each test binary starts, with controlled chain responses. They verify proof failures, account restoration, ownership transfer and growth persistence; they do not prove a live marketplace trade.
 
 ## Devnet
 
@@ -59,7 +59,7 @@ The slip shows each transaction as it lands, and the transaction sheet links to 
 
 ## The simnet
 
-A build with `--dart-define=REAPERS_SIMNET=true` plays the offline game on a pretend devnet that lives on the phone, so the chain's part can be shown before any program is deployed. It needs no server and no network; it cannot be combined with `REAPERS_SERVER_URL`, and its keeper refuses to open if both are set.
+A build with `REAPERS_SIMNET=true` plays the offline game on a pretend devnet that lives on the device, so the chain's part can be shown before any program is deployed. It needs no server and no network; it cannot be combined with `REAPERS_SERVER_URL`, and its keeper refuses to open if both are set.
 
 | Step in the game | Simnet transaction | Accounts |
 | --- | --- | --- |
@@ -72,8 +72,8 @@ A husk that gets away posts nothing: it stays in escrow, still huntable. Weapons
 
 What is real and what is not:
 
-- **The wallet** is a real Ed25519 key pair, generated on the phone and kept in plain preferences. Its address is a valid Solana address. It is a burner: it holds nothing and must never be used anywhere else.
-- **Each transaction** but the airdrop is a real Solana wire transaction signed by that wallet. In the Rust game the release and the burn are the program client's own `ReleaseCore` and `AbsorbCore`, exactly what devnet takes; only the husk is a stand-in, the SHA-256 of the NFT's invented mint, which no cluster holds. Its blockhash is chained from the previous transaction, so no cluster would accept it as it stands.
+- **The wallet** is a real Ed25519 key pair, generated on the device and kept, unencrypted, in the game's own store. Its address is a valid Solana address. It is a burner: it holds nothing and must never be used anywhere else.
+- **Each transaction** but the airdrop is a real Solana wire transaction signed by that wallet. The release and the burn are the program client's own `ReleaseCore` and `AbsorbCore`, exactly what devnet takes; only the husk is a stand-in, the SHA-256 of the NFT's invented mint, which no cluster holds. Its blockhash is chained from the previous transaction, so no cluster would accept it as it stands.
 - **The escrow** is the real program's address for that stand-in, `["escrow", sha256(mint)]` under the Reapers program. The market and faucet addresses are made from names; nobody holds their keys.
 - **The burn's receipt** is the same 98-byte version 2 receipt (`reapers_receipt`) the server signs, with the burner wallet as the player. It is signed by a simnet keeper key derived from a public name, so it proves only that the layout and the check work. The ledger runs the Ed25519 check a program would make before burning, and a receipt changed after signing fails it.
 - **Slots** count 400 ms from when the wallet was made. Confirmation takes 650 ms; the slip shows the transaction finalized 1.4 s later.
@@ -85,17 +85,15 @@ A simnet build may also name a real Solana JSON-RPC endpoint, usually a local [S
 
 ```sh
 surfpool start --offline --no-deploy
-cd reapers_flutter
-fvm flutter run --dart-define=REAPERS_SIMNET=true \
-  --dart-define=REAPERS_SURFPOOL_URL=http://localhost:8899
+cd crates/reapers_app
+REAPERS_SIMNET=true REAPERS_SURFPOOL_URL=http://localhost:8899 leptoskit dev --platform web
 ```
 
 `REAPERS_SURFPOOL_URL` is optional. Without it the simnet is exactly as before: no network. With it, **Simnet ledger** shows the endpoint, `getHealth`, `getGenesisHash` and the burner wallet's real `getBalance`, and offers `requestAirdrop` for one SOL. Those are standard Solana RPC calls. The returned signature is saved per burner wallet and genesis before checking confirmation. After a confirmation timeout or app restart, **Check** resumes that signature instead of requesting another airdrop. A confirmed payment disables the action. If the faucet response itself is lost, or saving its signature fails, a retry can still request another payment. A different genesis permits a new airdrop. The local network SOL is not the game's simulated SOL.
 
 What this does not do:
 
-- It does **not** broadcast `SimnetChain`'s signed descriptions. They are receipts in a rehearsal format, not Solana wire transactions.
-- It does **not** buy, escrow or burn an NFT. **Send** puts a simnet release or burn on the validator, where it fails: its husk is a stand-in no cluster holds. A cluster build (`REAPERS_CLUSTER=localnet`) is the way to play real husks on a local validator.
+- It does **not** broadcast the ledger's transactions by itself, and it does **not** buy, escrow or burn an NFT. **Send** puts a simnet release or burn on the validator, where it fails: its husk is a stand-in no cluster holds. A cluster build (`REAPERS_CLUSTER=localnet`) is the way to play real husks on a local validator.
 - It does **not** coordinate players or rifts. Surfpool is a validator. Shared enemies are the server's `RiftHall`, as described below and in [gameplay.md](gameplay.md#rifts).
 
 Public hosts need HTTPS. Cleartext HTTP is allowed only for loopback, an emulator's host alias (`10.0.2.2`) and private LAN addresses, which is where a developer's Surfpool runs.
@@ -105,15 +103,15 @@ Public hosts need HTTPS. Cleartext HTTP is allowed only for loopback, an emulato
 A development build can waive the collection attunement so several real people join one demo rift:
 
 ```sh
-fvm flutter run --dart-define=REAPERS_SERVER_URL=http://localhost:8080/ \
-  --dart-define=REAPERS_DEMO_RIFT=true
+cd crates/reapers_app
+REAPERS_SERVER_URL=http://127.0.0.1:8080/ REAPERS_DEMO_RIFT=true leptoskit dev --platform web
 ```
 
 Every client that joins the same gathering on the same development or test server shares one server-hosted `RiftRoom`: one seed, one ward, one roster, one timetable of shrieks. Open the rift on each client before pressing ready, so all are present when the count begins. Each seat reports its own fight, and the server pays each player's own books exactly once when the rift is sealed. Empty seats are the ordinary shades. Demo circles are kept apart from ordinary ones, so the flag cannot mix strangers into a real circle.
 
-The flag is ignored by release builds, and `RiftEndpoint.enterDemo` goes through the same development/test gate as the rest of the simulated economy: staging and production refuse it. The rewards are simulated experience and anima, not a chain payout. Nothing in the demo needs a wallet or sends a transaction.
+The flag is ignored by release builds, and `enter_rift` with `demo` goes through the same development/test gate as the rest of the simulated economy: staging and production refuse it. The rewards are simulated experience and anima, not a chain payout. Nothing in the demo needs a wallet or sends a transaction.
 
 The demo and the simnet are separate launches: `REAPERS_SIMNET` plays offline and refuses `REAPERS_SERVER_URL`, while `REAPERS_DEMO_RIFT` needs a server and refuses the simnet. A build sets one, never both. The simnet's Surfpool validator, where one is configured, is not part of a demo rift.
 
-The simnet lives in `reapers_flutter/lib/simnet/` and, in the Rust game, `crates/reapers_app/src/simnet/`: `SimnetChain` is the wallet and the ledger, `SimnetBackend` posts to it around a `LocalBackend`, `SurfpoolRpc` speaks to an optional local validator, and the slip and the explorer show it. A cluster build replaces it with the real thing ("Devnet" above): the same `ReleaseCore` and burn, signed by the player's wallet, with the receipt signed by the server, at `["escrow", mint]` with the asset's own 32 bytes. **Airdrop** and **Buy** have no program instruction; buying happens in a marketplace.
+The simnet lives in `crates/reapers_app/src/simnet/`: `SimnetChain` is the wallet and the ledger, `SimnetBackend` posts to it around a `LocalBackend`, `SurfpoolRpc` speaks to an optional local validator, and the slip and the explorer show it. A cluster build replaces it with the real thing ("Devnet" above): the same `ReleaseCore` and burn, signed by the player's wallet, with the receipt signed by the server, at `["escrow", mint]` with the asset's own 32 bytes. **Airdrop** and **Buy** have no program instruction; buying happens in a marketplace.
 

@@ -54,7 +54,7 @@ The linked walk video's player failed during research. Its published written bre
 ## Reproduce the review
 
 ```sh
-fvm dart tool/build_art.dart reapers
+cargo xtask build-art reapers
 blender --background --python-exit-code 1 --python art/blender/review_catalogue.py -- --class harvester --form humanoid --out art/build/motion-review/humanoid
 blender --background --python-exit-code 1 --python art/blender/review_catalogue.py -- --class harvester --form spirit --out art/build/motion-review/spirit
 ```
