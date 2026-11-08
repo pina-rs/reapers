@@ -67,6 +67,7 @@ art/build/
 
 # Rust
 /target/
+crates/reapers_server/config/passwords.toml
 **/*.rs.bk
 
 # Solana keys are never committed: deploy keypairs live outside the repository.

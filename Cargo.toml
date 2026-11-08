@@ -12,6 +12,8 @@ rust-version = "1.95.0"
 publish = false
 
 [workspace.dependencies]
+reapers_api = { path = "crates/reapers_api", default-features = false }
+reapers_db = { path = "crates/reapers_db" }
 reapers_receipt = { path = "crates/reapers_receipt" }
 reapers_rules = { path = "crates/reapers_rules" }
 
@@ -46,6 +48,29 @@ solana-instruction = "4"
 solana-instruction-error = "3"
 solana-pubkey = { version = "4.1", features = ["curve25519"] }
 
+# leptoskit's server crates. Named at their crates.io version so that every
+# crate in the graph asks for the same one, and taken from git by the patch
+# below, so `solana_kit_leptoskit`'s `=0.3.0` resolves to the same source.
+leptoskit_auth = { version = "0.3.0", default-features = false }
+leptoskit_axum = { version = "0.3.0", default-features = false }
+leptoskit_db = { version = "0.3.0", default-features = false }
+leptoskit_db_schema = { version = "0.3.0", default-features = false }
+leptoskit_rpc = { version = "0.3.0", default-features = false }
+
+# Solana Kit. Its crates.io releases are still empty name reservations
+# (0.0.0), so the SDK comes from git, pinned.
+
+axum = "0.8"
+base64 = { version = "0.22", default-features = false }
+chrono = { version = "0.4", default-features = false }
+futures = { version = "0.3", default-features = false }
+http = "1"
+schemars = "1.2"
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+toml = "0.9"
+tower = "0.5"
+url = "2"
+
 [workspace.lints.rust]
 unsafe_code = "deny"
 # The on-chain program is also compiled for `target_os = "solana"`.
@@ -77,3 +102,18 @@ strip = true
 # compute units, where "z" costs about 15% more. See docs/program.md.
 [profile.release.package.reapers_program]
 opt-level = 2
+
+# Every leptoskit crate in the graph, from the one revision.
+[patch.crates-io]
+leptoskit_auth = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405" }
+leptoskit_axum = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405" }
+leptoskit_bridge = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405" }
+leptoskit_codepush = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405" }
+leptoskit_config = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405" }
+leptoskit_db = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405" }
+leptoskit_db_macros = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405" }
+leptoskit_db_schema = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405" }
+leptoskit_query = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405" }
+leptoskit_rpc = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405" }
+leptoskit_rpc_codegen = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405" }
+leptoskit_rpc_macros = { git = "https://github.com/leptoskit/leptoskit", rev = "53ca7405" }
