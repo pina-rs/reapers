@@ -39,6 +39,7 @@ pub mod seams;
 pub mod simnet;
 pub mod sound;
 pub mod state;
+pub mod studio;
 pub mod theme;
 pub mod ui;
 pub mod wallet;

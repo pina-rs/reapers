@@ -783,6 +783,10 @@ pub trait Messages: Send + Sync {
 	fn motion_meme(&self) -> &'static str;
 	/// `Movement`
 	fn motion_movement(&self) -> &'static str;
+	/// Shown in the studio where the Flutter studio had a timeline and an 'Inspect contact pose' button, which leptoskit_3d cannot honour: it has no seek.
+	///
+	/// `Clips play on the renderer's own clock here, so the timeline cannot be scrubbed and a contact pose cannot be held. Pausing returns a clip to its first frame; play starts it again.`
+	fn motion_no_seek(&self) -> &'static str;
 	/// `Plays once`
 	fn motion_once(&self) -> &'static str;
 	/// `Parry`
@@ -803,6 +807,8 @@ pub trait Messages: Send + Sync {
 	fn motion_reaction(&self) -> &'static str;
 	/// `Reduced motion is enabled. Scrub the timeline to inspect each pose.`
 	fn motion_reduced(&self) -> &'static str;
+	/// `Reduced motion is enabled. Each clip is held at its first frame.`
+	fn motion_reduced_held(&self) -> &'static str;
 	/// `Replay`
 	fn motion_replay(&self) -> &'static str;
 	/// `Run`
@@ -1373,10 +1379,30 @@ pub trait Messages: Send + Sync {
 	fn studio_form_help(&self) -> &'static str;
 	/// `Full figure`
 	fn studio_full_figure(&self) -> &'static str;
+	/// The heading of the developer's gallery bench (REAPERS_GALLERY), which steps through each calling in each outfit.
+	///
+	/// `Every reaper, every outfit`
+	fn studio_gallery(&self) -> &'static str;
+	/// `Next`
+	fn studio_gallery_next(&self) -> &'static str;
+	/// `{calling} · {outfit} · {index} of {count}`
+	fn studio_gallery_position(
+		&self,
+		calling: &str,
+		outfit: &str,
+		index: i64,
+		count: i64,
+	) -> String;
+	/// `Previous`
+	fn studio_gallery_previous(&self) -> &'static str;
 	/// `Gauntness`
 	fn studio_gauntness(&self) -> &'static str;
 	/// `Gaze`
 	fn studio_gaze(&self) -> &'static str;
+	/// Labels the read-only field that shows the specimen's genome code, for copying by hand where the device has no clipboard.
+	///
+	/// `Genome`
+	fn studio_genome(&self) -> &'static str;
 	/// `Growth`
 	fn studio_growth(&self) -> &'static str;
 	/// `Compared with a new reaper of this calling, carrying its starting weapon. Levels strengthen strikes; they do not widen the capture window.`
@@ -3055,6 +3081,10 @@ impl Messages for En {
 		"Movement"
 	}
 
+	fn motion_no_seek(&self) -> &'static str {
+		"Clips play on the renderer's own clock here, so the timeline cannot be scrubbed and a contact pose cannot be held. Pausing returns a clip to its first frame; play starts it again."
+	}
+
 	fn motion_once(&self) -> &'static str {
 		"Plays once"
 	}
@@ -3093,6 +3123,10 @@ impl Messages for En {
 
 	fn motion_reduced(&self) -> &'static str {
 		"Reduced motion is enabled. Scrub the timeline to inspect each pose."
+	}
+
+	fn motion_reduced_held(&self) -> &'static str {
+		"Reduced motion is enabled. Each clip is held at its first frame."
 	}
 
 	fn motion_replay(&self) -> &'static str {
@@ -4239,12 +4273,38 @@ impl Messages for En {
 		"Full figure"
 	}
 
+	fn studio_gallery(&self) -> &'static str {
+		"Every reaper, every outfit"
+	}
+
+	fn studio_gallery_next(&self) -> &'static str {
+		"Next"
+	}
+
+	fn studio_gallery_position(
+		&self,
+		calling: &str,
+		outfit: &str,
+		index: i64,
+		count: i64,
+	) -> String {
+		format!("{calling} · {outfit} · {index} of {count}")
+	}
+
+	fn studio_gallery_previous(&self) -> &'static str {
+		"Previous"
+	}
+
 	fn studio_gauntness(&self) -> &'static str {
 		"Gauntness"
 	}
 
 	fn studio_gaze(&self) -> &'static str {
 		"Gaze"
+	}
+
+	fn studio_genome(&self) -> &'static str {
+		"Genome"
 	}
 
 	fn studio_growth(&self) -> &'static str {

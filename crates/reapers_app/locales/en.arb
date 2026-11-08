@@ -1139,5 +1139,23 @@
   "codexUnburned": "Not yet burned",
   "@codexUnburned": { "description": "A codex entry whose husk was absorbed but is still in the Reapers program's escrow, because its burn did not land." },
   "codexFinishBurn": "Finish the burn",
-  "codexFinishBurnNote": "You reaped this husk, but its burn did not land, so it is still in the Reapers program's escrow. Your wallet signs the same receipt again; nothing is paid twice."
+  "codexFinishBurnNote": "You reaped this husk, but its burn did not land, so it is still in the Reapers program's escrow. Your wallet signs the same receipt again; nothing is paid twice.",
+  "motionNoSeek": "Clips play on the renderer's own clock here, so the timeline cannot be scrubbed and a contact pose cannot be held. Pausing returns a clip to its first frame; play starts it again.",
+  "@motionNoSeek": { "description": "Shown in the studio where the Flutter studio had a timeline and an 'Inspect contact pose' button, which leptoskit_3d cannot honour: it has no seek." },
+  "motionReducedHeld": "Reduced motion is enabled. Each clip is held at its first frame.",
+  "studioGenome": "Genome",
+  "@studioGenome": { "description": "Labels the read-only field that shows the specimen's genome code, for copying by hand where the device has no clipboard." },
+  "studioGallery": "Every reaper, every outfit",
+  "@studioGallery": { "description": "The heading of the developer's gallery bench (REAPERS_GALLERY), which steps through each calling in each outfit." },
+  "studioGalleryPosition": "{calling} · {outfit} · {index} of {count}",
+  "@studioGalleryPosition": {
+    "placeholders": {
+      "calling": { "type": "String" },
+      "outfit": { "type": "String" },
+      "index": { "type": "int" },
+      "count": { "type": "int" }
+    }
+  },
+  "studioGalleryNext": "Next",
+  "studioGalleryPrevious": "Previous"
 }
