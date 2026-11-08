@@ -1,0 +1,28 @@
+[package]
+name = "reapers_rules"
+description = "Every rule, catalogue and number of Reapers, shared by the game and the server."
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+# Every sine, arc tangent and square root the rules take, computed the same
+# way on every target: the server natively and the game as Wasm must agree.
+libm = "0.2.16"
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+thiserror = { version = "2", default-features = false }
+
+[dev-dependencies]
+serde_json = "1"
+
+[lints]
+workspace = true
+
+[features]
+# Take sines, arc tangents and square roots from the platform instead of
+# `libm`: what the Dart rules did. For comparing against them only.
+system-math = []
