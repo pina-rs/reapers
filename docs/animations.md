@@ -38,6 +38,18 @@ The same local rotations fit all head, mantle and hem variants. The heavier Ferr
 
 Large hats, rigid capes and fixed finger poses limit close-up realism. There is no cloth collision simulation or hand IK. Review a new silhouette at extreme poses before adding it to the catalogue.
 
+## In the leptoskit game
+
+The Rust game (`crates/reapers_app`) plays the same 64 clips from the same GLBs through `leptoskit_3d`, which samples and blends them on the host. Neither side reimplements a joint.
+
+- **Which clip.** `render::appearance::ReaperAppearance::clip_name` picks the spirit or `humanoid_` performance. `render::playback::ReaperPlayback` keeps the Flutter clock (select, toggle, replay, speed, and the loop and one-shot rules) and tells the host what to play: gaits loop and everything else plays once and holds its last frame, which every clip authors as rest. Each state crossfades in: a gait over 0.35 s, a step such as a jump or a dodge over 0.15 s, a strike or a finisher over 0.1 s, a reaction or a meme over 0.25 s.
+- **The weapon.** The weapons model follows `socket_weapon` with every weapon but the held one hidden, and weapon-free performances hide it while they play.
+- **The cloth.** The robe's genome morphs (gauntness and tatter), its fit for the form and the cut, and its sway are set on the worn robe alone, from the same clock, a few times a second.
+- **Faces.** The clips carry their faces. To inspect an expression the studio holds the reaction's morph target (joy, sorrow, anger, fear, smirk or awe) with a weight, which overrides what the clip sets, and moves the camera to the face.
+- **What it cannot do.** The host plays a clip on its own clock and cannot seek one, so the studio cannot scrub the timeline or hold the exact contact frame; a paused clip shows its first frame. The face camera aims where the face stands at rest, not where the animated face is: the host does not report a part's place.
+
+`cargo test -p reapers_app` checks that every one of the 64 clips, the six face targets and the eight cloth targets exist in all six models, and `tests/render.rs` draws all six reapers and a face close-up headless.
+
 ## Build and review
 
 `ReaperMotion` in `reapers_rules` owns clip IDs, durations, loop flags, contact fractions and weapon capabilities. `cargo xtask build-art` writes those timings to `art/build/motions.json`; `art/blender/lib/motion.py` authors the poses and bakes them at 30 FPS into matching NLA tracks. The renderer plays the exported GLB clips and never reimplements joint animation; cloth morphs follow the same clock and preserve genome traits.

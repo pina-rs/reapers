@@ -4,22 +4,38 @@ The aim: a husk should live in the room you are standing in. One that walks shou
 
 This page says how the game does that, where the depth comes from, what was learned doing it from the camera alone, what it still cannot do, and what would come next.
 
-## Depth comes from the platform
+## In the leptoskit game
 
-The camera hunt reads the room through `leptoskit_xr`, from the depth the phone's own AR framework measures:
+The Rust game (`crates/reapers_app`) reads the room differently from the Flutter one, though it keeps every number of the map itself. There is no depth model in it. Depth now comes from the phone's own AR, through `leptoskit_xr`:
 
-- **Android:** ARCore's Depth API, on phones Google certifies for ARCore.
-- **iPhone:** ARKit's scene depth, on iPhones and iPads with a LiDAR scanner.
+1. **Following the phone.** A hunt asks the platform for `PhoneAr` (ARKit, ARCore) with planes and depth, and falls back to `Orientation` (the rotation sensor) where there is no AR, and to a dragged finger where there is neither (`hunt/pose.rs`, `hunt/xr.rs`). The browser asks only for `Orientation`: its `immersive-ar` would take the page away from the game's own canvas.
+2. **Depth without the picture.** The game's Wasm never sees the platform's depth picture; it can only cast a ray and be told how far along it the depth was. So, about once a second while the sigil is traced and the phone is steady, it casts a grid of 12 by 16 rays through the view against the platform's depth, and `reapers_world::DepthFrame::from_rays` turns their distances along each ray into a depth picture (`RayGrid` says what that many rays can and cannot see).
+3. **The floor is measured, not found.** The platform's planes give the floor: the lowest plane facing up, or one it calls the floor. Its height under the phone goes to `RoomMap::measure_floor`, and every picture is then scaled to it. The platform's metres are real, unlike the model's, so nothing is divided out.
+4. **The rest is unchanged.** `RoomMap`, `OcclusionMap`, the cover, the ledges and `sigil_plan` are the Flutter arithmetic, ported to `crates/reapers_world` with no camera, sensor or clock in it, and tested there against the same rooms drawn by hand.
+5. **Hiding the husk.** The Flutter game cut the husk away pixel by pixel with a shader. `leptoskit_3d` draws only its own materials, so the game fades the whole husk when the occlusion map says its middle is behind something. Where the host composites the scene over the camera with the platform's depth (`leptoskit_xr::host::scene3d::draw`), real depth hides it exactly; see below for where that is not yet the case.
 
-Decided on 8 November 2026, with the move to Rust ([decisions.md](decisions.md#2026-11-08-one-rust-workspace)). Until then the game bundled its own depth model (Depth Anything V2 small, 27 MB) and estimated depth from single camera pictures; that model, its build and its licence file are gone from the repository. The platform's depth is measured rather than guessed, costs nothing to ship, keeps up with the phone as it moves, and comes with the phone's pose, so a husk can stay put when the player takes a step.
+What runs where:
 
-What it costs: **a phone without platform depth does not read the room.** That includes the Seeker, which has no ARCore (below), iPhones without LiDAR, and the browser. On those the hunt plays in `HuntPlan::OPEN`, an unsurveyed room: the husk keeps to the distances its vessel prefers, with no floor measured and nothing to hide behind. The rules handle both; only the plan differs. Everything learned reading rooms from the camera alone is kept below, as the place to start if a model-based reading is brought back as a fallback for those phones.
+| Where | Pose | Room read | Behind the husk |
+| --- | --- | --- | --- |
+| iPhone with LiDAR (ARKit) | 6DoF, platform | yes: depth rays and planes | the veil (see below) |
+| Android with ARCore and its Depth API | 6DoF, platform | yes | the veil |
+| Android without ARCore (the Seeker) | rotation sensor | no: the sigil's arc alone | the veil |
+| Browser on a phone | `deviceorientation` | no | the veil |
+| Desktop browser, simulator | a dragged finger | no, or the drawn room | the veil |
 
-The hunt view is one of the app's seams (`hunt_view`, in `crates/reapers_app/src/seams`), and is being built on `leptoskit_xr` and `leptoskit_3d`. Until it is, a hunt is fought by the rules' own careful player in the open, and its log is settled like any other.
+**Not yet on a device.** Nothing above has run on a phone: there was none to hand when it was written. Two things are known gaps:
 
-## What the hunt does with the room
+- **The camera's picture.** The generated iOS and Android hosts draw a `Scene3d` view over the app's own views and do not yet hand it the XR session's camera picture and depth (`Backdrop::Camera` draws as transparent there). Until a host does, the hunt is fought over the veil, as on a simulator, with the husk placed in the real room by the platform's tracking. `leptoskit_xr::host::scene3d::draw` is the piece that would draw it.
+- **The Seeker.** It has no ARCore, and the game no longer carries a depth model, so on the Seeker the room is not read at all and a husk keeps to the sigil's arc in the open. Putting the model back would mean running it in a host plugin, where the camera's picture is.
 
-These are the rules and the plan, in `reapers_rules`, whatever reads the room:
+`REAPERS_DRAWN_ROOM=true` (debug builds) plays every hunt in the drawn kitchen, read as if the platform had seen it, with its edges drawn where the camera's picture would be. `REAPERS_DEPTH_PROBE=true` opens the depth bench: what the platform reports, and the last grid of rays as a picture, nearest brightest, with how long the look took.
+
+The sections below describe the Flutter game, which read the room from the camera's picture with a depth model. Its measurements are kept because they are what the map's numbers were tuned on.
+
+## What is built (Flutter)
+
+On a phone with a camera and motion sensors, the Flutter hunt saw the room:
 
 1. A hunt opens with "Something is nearby", and the husk's sigil hangs in the air around you: a few lights to rest the ring on, one after another.
 2. The lights are where the camera needs to look: over the floor for a husk that walks, at head height for one that flies, spread across the arc the husk will keep to. Holding still on each one gives the phone a steady look there.
@@ -29,6 +45,42 @@ These are the rules and the plan, in `reapers_rules`, whatever reads the room:
 6. A husk uses the furniture: it leaps onto a counter or a table, and ducks behind one where there is room beyond it. Whatever stands in front of it hides it on screen.
 
 Nothing leaves the phone but the plan. What the hunt keeps of your room is a few hundred bytes: the height of your eye, one distance for each of 72 directions, and for each, the height of what stands there, where to hide behind it, and whether its top is a ledge.
+
+Three things were decided on 2 October 2026 and shape all of this:
+
+- **A depth model is bundled with the game.**
+- **The Seeker comes first.** It has no ARCore, so the camera picture is all there is to go on.
+- **The floor is measured, not assumed.** The game no longer takes you to be standing.
+
+## How it works (Flutter)
+
+### The model
+
+- **What:** Depth Anything V2, the small model, in the version its authors fine-tuned on indoor scenes to answer in metres. It looks at one ordinary picture and says how far away each part of it is.
+- **Where from:** the authors' own repository, `depth-anything/Depth-Anything-V2-Metric-Indoor-Small-hf`, at a pinned revision.
+- **Licence:** Apache-2.0. The small model is the only size released under it; the larger ones are non-commercial. The licence text ships with the model in `reapers_flutter/assets/depth/`.
+- **Size:** 27 MB in the build, after its weights are stored as 8-bit numbers. At full precision it is 99 MB.
+- **Speed on the Seeker:** about half a second a picture on two cores, leaving the rest to draw the game. The full-precision model took 0.87 s.
+- **How it is built:** `dart tool/build_depth_model.dart`. The conversion script is Python, because the model's tooling is. The result is committed, so nobody needs to run it to build the game.
+
+It runs through ONNX Runtime (the `flutter_onnxruntime` plugin), off the thread the game draws on.
+
+### The lens
+
+The phone is asked for its camera's focal length and sensor size. The Seeker answers 5.24 mm on a 7.68 × 5.76 mm sensor, which is a view 72.5° tall when held upright. The game had been drawing husks through an assumed 62° lens, so they slid against the room as the phone turned. They are now drawn through the camera's own.
+
+Only Android answers so far. On anything else the 62° guess stands.
+
+### The floor
+
+Each picture becomes a cloud of points around you, and gravity says which way is down. The floor is the lowest level surface that is a fair share of the level surface in the picture: lower than the table tops, and bigger than the stray points a depth model always leaves below it.
+
+Every other length in that picture is then measured in multiples of its own floor depth. Only the floor depth, taken across all the pictures, is trusted in metres. That matters for two reasons:
+
+- A depth model reads a whole picture long or short together. Measuring against each picture's own floor keeps one picture's furniture in step with the next one's.
+- It puts a husk's feet on the floor the camera shows even when the model's metres are wrong. If everything reads 20% long, the floor is 20% lower and the sofa 20% farther, and a husk standing in front of that sofa covers exactly the same patch of the picture. Only its size is out, by the same 20%.
+
+Once three pictures agree where the floor is, a picture that puts it more than a quarter away from them is set aside. That is what a picture of a table top with no floor in it looks like.
 
 ### What stands in the way
 
@@ -132,7 +184,9 @@ In the order I would do them:
 
 ## The Seeker's GPU
 
-On 3 October 2026, driving the first game on the Seeker against a running server, the text started drawing with letters missing and NFT pictures came out as noise, and stayed that way until the game was restarted. The phone's log said why: the renderer's Vulkan backend had waited too long on the GPU, and MediaTek's driver had declared the GPU lost and reset it. Anything uploaded before the reset (the atlas the letters are drawn from, the pictures) was broken after it, and the driver went on timing out every ten seconds for as long as the game ran, taking the phone's own status bar with it.
+`leptoskit_3d` makes the same choice for the Rust game: on Android it draws with OpenGL ES unless the manifest asks for Vulkan, for this reason. The environment map it lights with is baked once per device and shared by every scene.
+
+On 3 October 2026, driving the game on the Seeker against a running server, the text started drawing with letters missing and NFT pictures came out as noise, and stayed that way until the game was restarted. The phone's log said why: Impeller's Vulkan backend had waited too long on the GPU, and MediaTek's driver had declared the GPU lost and reset it. Anything uploaded before the reset (the atlas the letters are drawn from, the pictures) was broken after it, and the driver went on timing out every ten seconds for as long as the game ran, taking the phone's own status bar with it.
 
 Three things set it off, found one at a time by opening and leaving hunts while reading the log:
 
@@ -140,7 +194,7 @@ Three things set it off, found one at a time by opening and leaving hunts while 
 - **Drawing at the screen's full density.** The Seeker's screen is three physical pixels to the point, and its GPU (a two-core Mali-G615) drew the lit, bloomed sanctum at about 30 frames a second. The 3D was then drawn at no more than two pixels to the point, which is as sharp at arm's length; the sanctum ran at about 45.
 - **Closing the camera.** Even with both of those fixed, the reset came a tenth of a second after the camera hardware closed, every few hunts. That was between the camera plugin, the engine and the driver, not the game.
 
-The first game drew Android through OpenGL ES instead of Vulkan for that reason. There, the same moments were at worst a slow frame: eight hunts opened and closed and a minute idle gave no resets, no timeouts and no stalls at all. OpenGL ES has its own reported freezes on some MediaTek/Mali phones when an app goes to the background while a picture is being read back from the GPU; nothing like it happened here.
+So the Flutter game's Android build drew through Impeller's OpenGL ES backend instead (`io.flutter.embedding.android.ImpellerBackend` in the manifest). There, the same moments are at worst a slow frame: eight hunts opened and closed and a minute idle gave no resets, no timeouts and no stalls at all. iPhones draw through Metal and are untouched.
 
 For the leptoskit app, the same three rules hold for whatever draws the 3D and the camera on Android: bake an environment map once and share it, never per scene; cap the 3D at two pixels to the point; and before trusting a backend, open and close hunts on the Seeker while reading its log. If Vulkan resets again, OpenGL ES is what held.
 

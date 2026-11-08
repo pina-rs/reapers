@@ -1,23 +1,24 @@
 # reapers_app
 
-The Reapers game on [leptoskit](https://github.com/leptoskit/leptoskit): one tree of screens that renders in the browser and, as a Wasm guest, in the iOS and Android apps. Every screen is here; the 3D and camera views plug into the seams described below.
+The Reapers game on [leptoskit](https://github.com/leptoskit/leptoskit): one tree of screens that renders in the browser and, as a Wasm guest, in the iOS, Android and Meta Quest apps. The reapers, the husks and the hunt are drawn in 3D by `leptoskit_3d`, and the room around the player comes from `leptoskit_xr`; both plug into the seams described below.
 
 Every rule is `reapers_rules`'; this crate keeps the books, draws the ledger, and talks to the device, the simnet and the server.
 
 ## Run it
 
-You need the leptoskit CLI at the revision the workspace pins (`53ca7405`):
+You need the leptoskit CLI at the revision the workspace pins (`bc629fb8`, the `reapers/integration` branch):
 
 ```sh
-cargo install --locked --git https://github.com/leptoskit/leptoskit --rev 53ca7405 leptoskit_cli
+cargo install --locked --git https://github.com/leptoskit/leptoskit --rev bc629fb8 leptoskit_cli
 cd crates/reapers_app
 leptoskit dev --platform web             # the browser, live
 leptoskit build --platform web           # dist/, for any static host
 leptoskit build --platform ios           # the iOS app (Xcode)
 leptoskit build --platform android       # the Android app (SDK, NDK, CMake)
+leptoskit build --platform quest         # the Meta Quest app, as a panel (the Android SDK)
 ```
 
-`build.rs` mirrors the repository's `assets/{nfts,music,models,fonts,branding}` into `assets/` before leptoskit bundles it; those mirrors are git-ignored.
+`build.rs` mirrors the repository's `assets/{nfts,music,models,fonts,branding}` into `assets/` before leptoskit bundles it; those mirrors are git-ignored. The models' copies leave out the vertex colours: the art build paints mask channels into them for a custom shader, and `leptoskit_3d` would draw them as colours. leptoskit serves `assets/` to the browser at `/assets/` and bundles it into the native apps.
 
 `leptoskit dev --platform ios` runs the app in every booted iOS Simulator, and `--platform android` on every attached Android phone or emulator, swapping each rebuilt guest in without reinstalling.
 
@@ -33,8 +34,10 @@ The build flags are environment variables of `leptoskit build` and `leptoskit de
 | `REAPERS_SIMNET=true` | The offline game on a pretend devnet: a burner wallet, and a signed Solana transaction for every purchase, escrow and burn. |
 | `REAPERS_SURFPOOL_URL=http://localhost:8899` | With the simnet, a real local Solana RPC in the explorer: health, balance, a faucet, and sending a simnet transaction there. |
 | `REAPERS_DEMO_RIFT=true` | With a server, waives attunement for a shared demo rift. Ignored by release builds. |
-| `REAPERS_AUTOPLAY=true` | A simulated player fights every hunt. |
-| `REAPERS_GALLERY=true`, `REAPERS_DEPTH_PROBE=true` | Debug builds open at the bench (the studio seam for now). |
+| `REAPERS_AUTOPLAY=true` | The rules' simulated player, with a person's limits, fights every hunt and rift through the real view. |
+| `REAPERS_GALLERY=true` | Debug builds open at the gallery: every reaper and outfit. |
+| `REAPERS_DEPTH_PROBE=true` | Debug builds open at the depth bench: what the platform's AR measures of the room. |
+| `REAPERS_DRAWN_ROOM=true` | Debug builds hunt in a kitchen drawn by hand, read as if the platform saw it. |
 
 ```sh
 REAPERS_SIMNET=true leptoskit dev --platform web
@@ -76,21 +79,40 @@ REAPERS_SERVER_URL=http://127.0.0.1:8080/ REAPERS_CLUSTER=localnet leptoskit dev
 | `src/screens/`, `src/routes/` | The screens, and the file routes that show them (`routes.rs` is generated). |
 | `src/ui/`, `src/theme.rs` | The funeral-ledger kit: hand-drawn boxes, rows, meters, pips, sheets and dialogs. |
 | `src/seams/` | Where the 3D and camera views plug in. |
+| `src/render/` | 3D on `leptoskit_3d`: the reaper rig, its look and appearance, cloth and playback, the stage, the husk rig and how it reacts, and the scenes, ticker and pointer they share. |
+| `src/hunt/` | The hunt: the arena, the controller that keeps the log, the pose (`leptoskit_xr`, or a finger), the HUD and what is drawn over the scene. |
+| `src/rift/` | A seat in a rift, in the hunt's arena. |
+| `src/studio/` | The reaper studio and the gallery. |
+| `src/dev/` | The depth bench and the drawn room. |
+| `../reapers_world` | Where things are around the player, with no camera in it: the pose, the room read from depth, and where a rift stands. |
 | `locales/en.arb` | Every string a player reads; `src/l10n.rs` is generated from it. |
 
 ## Seams
 
-Each seam is a function of one props struct, with a 2D stand-in honouring it. The 3D port replaces the function bodies and nothing else.
+Each seam is a function of one props struct. The screens around them only ever call the seam.
 
-| Seam | Props | Contract |
+| Seam | Props | What it is now |
 | --- | --- | --- |
-| `reaper_stage` | `ReaperStageProps { genome, weapon, outfit, turns_on_its_own, focus_face }` | Fills its box on transparent ground; the reaper stands centred, seen from chest height, lit with `theme::reaper_light`. |
-| `husk_portrait` | `HuskPortraitProps { nft, size, spent }` | A `size`-square plate of the NFT's portrait, faded when `spent`. |
-| `hunt_view` | `HuntViewProps { brief, difficulty, autoplay, on_finished, on_difficulty }` | Owns the hunt from the threshold to its last tick; records a `HuntLog` from `HuntSim::new(brief…, plan, difficulty)` and calls `on_finished(log, outcome)` once. The route settles it with the keeper and shows the result. |
-| `rift_view` | `RiftViewProps { site, frame, report, on_leave, autoplay }` | Runs this reaper's `HuntSim` in rift mode against the frames and reports whole standings. |
+| `reaper_stage` | `ReaperStageProps { genome, weapon, outfit, turns_on_its_own, focus_face }` | The class's model on a `Scene3d`, on transparent ground, seen from chest height and lit as the sanctum was. Each line that shows a stage keeps its own scene and sends only what changed. Its silhouette stands in while the model loads, and for good where 3D cannot draw. |
+| `husk_portrait` | `HuskPortraitProps { nft, size, spent }` | The bundled WebP plate in the browser; the husk's outline in its colour in the native apps, whose hosts cannot yet name a bundled image. |
+| `hunt_view` | `HuntViewProps { brief, difficulty, autoplay, on_finished, on_difficulty }` | The whole hunt: the threshold, the sigil traced while the room is read, and the fight on `HuntSim::new(brief…, plan, difficulty)`. It calls `on_finished(log, outcome)` once, after the husk has come apart, with the log it recorded. |
+| `rift_view` | `RiftViewProps { site, frame, report, on_leave, autoplay }` | The circle gathering over the husk at rest, then this reaper's `RiftSeat` fought in the hunt's arena against the frames, reporting whole standings. |
 | `studio_view` | `StudioViewProps { genome }` | The studio; opens no save, server, wallet or camera. |
 
-The stand-in hunt lets the rules' own careful player fight, so a hunt settles end to end before the camera exists.
+### The 3D
+
+A scene lives on the host (the page's renderer, or the native app's), which loads the models, animates them on its own display clock and draws them; the game says what is in it with ops (`leptoskit_3d::client::Scene`). Screens are drawn afresh whenever what they read changes, so no render makes a scene: `render::scene` keeps one per place that shows one. Everything the game moves itself (a stage turning, a robe stirring, a hunt's tick) runs on one ticker, at the rules' thirty a second, only while it is on screen.
+
+What `leptoskit_3d` cannot do, and what the port does instead:
+
+- **No custom shaders.** The Flutter game drew every reaper surface with `reaper.fmat`. A look here is a material override per part (tint, a light of its own, a rim); `render/parts.rs` lists each model's parts by material, kept whole by a test that reads the models. The burn front, the hollowing and the sketched outline are gone; the hollowed outfit still loses its void parts.
+- **No seeking a clip.** The host plays clips on its own clock, with crossfades. The studio plays, replays and changes speed, and holds a reaction's face with morph weights; it cannot hold an exact frame.
+- **No moving a model's own parts.** The husks are rigid parts on pivots with no clips. The rig moves the creature whole (a step's rise and fall, the lean and twist of a blow, the reap dragging it up) where the Flutter rig also swung each leg and turned the head.
+- **No per-material textures.** A rift's reliquary stack shows its frames, not the collection's portraits.
+
+### The room
+
+`hunt_view` and `rift_view` follow the phone through `leptoskit_xr`: `PhoneAr` with planes and depth on phones with ARKit or ARCore, the rotation sensor on phones without, and a dragged finger in a browser or a simulator. Taps strike along their ray. While the sigil is traced, the room is read by casting a grid of rays against the platform's depth and taking the floor from its planes (`reapers_world`). See [docs/environment.md](../../docs/environment.md), which also says what has not yet run on a device.
 
 ## The server
 
@@ -98,16 +120,17 @@ The stand-in hunt lets the rules' own careful player fight, so a hunt settles en
 
 The web game is served from its own origin and signs in as a native app does, with a bearer token rather than a cookie, so the server must name its origin as `REAPERS_ORIGIN` to answer it across origins.
 
-## Integration points
-
-- Music: `sound::Soundtrack` takes a `ScoreEngine`; `leptoskit_plugin_audio` provides the real one.
 
 ## Tests
 
 ```sh
 cargo test -p reapers_app                                           # the screens, keepers and clients
 cargo test -p reapers_app --test devnet -- --ignored --nocapture    # the cluster flow, end to end
+cargo test -p reapers_app --test render -- --nocapture              # reapers and a husk drawn headless (skips without a GPU)
+cargo test -p reapers_world                                         # the pose, the room and a rift's place
 ```
+
+`tests/render.rs` writes what it drew under `target/tmp/`.
 
 The second builds the server and `reapers_ops`, starts PostgreSQL, a localnet and the server, and runs the game's backend through the whole devnet flow against them; `docs/deploy.md` says what it needs, and how to point it at devnet.
 
@@ -116,5 +139,7 @@ The second builds the server and `reapers_ops`, starts PostgreSQL, a localnet an
 - Wallets: the browser reaches its wallets through the Wallet Standard (`src/wallet/browser.rs`), written as `leptoskit_auth`'s web client does it. `solana_kit_browser`'s wallet would do, but at the pinned Solana Kit revision it requires wasm-bindgen 0.2.128 and leptoskit's CLI embeds 0.2.129, and one build holds only one.
 
 - Fonts: leptoskit has no font-family utility. The web shell sets display type (headings) in Fraunces and the rest in DM Sans (`assets/app.css`); native apps use the system face.
-- Native images: the mobile hosts bundle only the guest, and `Image` takes `file://` paths the guest cannot name, so portraits and the mark are drawn as vectors there.
+- Native images: `Image` takes `file://` paths the guest cannot name, so portraits and the mark are drawn as vectors there.
+- Meta Quest: `leptoskit build --platform quest` packages the Android app for Horizon OS as a panel (`[native.quest] immersive = false`): the screens are ordinary views, which an immersive session would not show. The hunt follows the headset through OpenXR where the `xr` plugin offers it; drawing the hunt into the headset's own frames needs a host that runs `leptoskit_xr::host::scene3d::draw`, which the generated host does not yet.
+- The iOS app's `Info.plist` is app-owned (`ios/Info.plist`): ARKit needs its camera usage text.
 - No gradients, no fixed positioning: scrims fall in steps, and the frame is the screen's height with the route scrolling inside it, so overlays cover the screen.
