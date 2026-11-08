@@ -13,6 +13,7 @@ These are public server environment values, not secrets:
 | `REAPERS_WALLET_IDENTITY_URI` | Your HTTPS app identity with a trailing slash. Required with a collection. The placeholder `https://reapers.invalid/` disables wallet connection. |
 | `REAPERS_REAPER_COLLECTION` | Verified Metaplex Core collection address. Without it, NFT import is unavailable. |
 | `REAPERS_REAPER_MARKET_URL` | HTTPS page where users can buy or trade this collection. Omit to disable the marketplace action. |
+| `REAPERS_PROGRAM_ID` | The Reapers program husks are escrowed with and burned by. Read by the Rust keeper only. Without it, a release that names an escrowed mint is refused. |
 
 Each imported asset must be a non-executable account owned by the Core program, decode as AssetV1, belong to that collection and be owned by the proved wallet. Its URI must be exactly the identity URI resolved against `reapers/<genome code>.json`; the genome parser validates every trait. The server does not fetch arbitrary metadata URLs. It freezes that genome on first import, and refuses later collection or genome changes. Publish matching metadata before minting; this code does not mint a collection.
 
