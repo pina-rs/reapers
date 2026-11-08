@@ -47,7 +47,10 @@ ops fixtures                                # Metaplex Core, for the tests: targ
 cargo test -p reapers_receipt -p reapers_program -p reapers_program_client -p reapers_ops
 (cd crates/reapers_program && pina test)    # the program on an isolated Surfnet
 ops rehearse                                # the whole runbook on a local Surfpool
+cargo test -p reapers_app --test devnet -- --ignored --nocapture   # the game's flow on a localnet
 ```
+
+The last is the game's own flow, end to end (step 8), on a localnet it brings up itself: PostgreSQL under `target/tmp`, `reapers_ops localnet` (Surfpool with the program, initialized with the development keeper, and the demo husks minted to a funded player), and the server on it as `solana:localnet`. It needs PostgreSQL's `initdb`, `pg_ctl` and `createdb` on `PATH` (or in `REAPERS_PG_BIN`) besides what the rehearsal needs, and must end with `==> passed`.
 
 `ops rehearse` starts an offline Surfpool on port 18899, loads Metaplex Core into it, deploys with the Solana CLI exactly as step 3 does, then runs `status`, `initialize`, `mint-demo`, `smoke` and `set-paused` as below, and tries a replayed and a forged receipt. It must end with `==> rehearsal passed`. Its keys and the minted addresses are left in `target/rehearsal/`.
 
@@ -134,7 +137,7 @@ echo $KEEPER
 
 `ops keeper` reads the secret from the environment and prints only the public key.
 
-Initialize. Only the upgrade authority can, so this has to come before the upgrade authority is handed on (step 9):
+Initialize. Only the upgrade authority can, so this has to come before the upgrade authority is handed on (step 10):
 
 ```sh
 ops initialize --url devnet --upgrade-authority $DEPLOYER --keeper $KEEPER
@@ -170,13 +173,43 @@ ops smoke --url devnet --player $DEPLOYER --asset $ASSET --collection $COLLECTIO
 
 It checks first that the keeper derived from `REAPERS_SECRET_receiptSigningKey` is the one the program trusts. It must end with `==> smoke test passed`, after saying the asset is a one-byte tombstone and the escrow is closed. Look the asset up in the explorer: it is owned by Core and holds one byte.
 
-The server does not yet sign version 2 receipts or post them; this test signs from your machine with the same secret. Clear it from the shell afterwards:
+This test signs the receipt from your machine with the same secret the server uses; step 8 has the server sign it. Clear it from the shell afterwards:
 
 ```sh
 unset REAPERS_SECRET_receiptSigningKey
 ```
 
-## 8. Upgrading
+## 8. The game, end to end
+
+Once the server runs against devnet, play the whole flow through the game's own backend, as the browser and the apps run it: sign in as a guest, take the oath, prove a wallet, release one of its demo husks with `ReleaseCore`, wait for it to surface, settle a hunt the rules' bot played, have the wallet sign the burn the server built, and check the husk is burned. It burns one husk of the wallet's.
+
+The server needs, besides its secrets (`REAPERS_SECRET_receiptSigningKey` being the devnet keeper's of step 5):
+
+```sh
+REAPERS_RUN_MODE=development                       # the stand-in market buys the husk into the books
+REAPERS_SOLANA_CHAIN=solana:devnet
+REAPERS_PROGRAM_ID=$PROGRAM
+REAPERS_DEMO_HUSKS=target/deploy/demo-husks-devnet.json
+REAPERS_WALLET_IDENTITY_URI=https://<the game's domain>/
+REAPERS_ORIGIN=https://<the web game's origin>     # for the web build
+```
+
+The wallet is a keypair file that owns demo husks (the `--owner` of step 6) and holds a little SOL. Then:
+
+```sh
+REAPERS_E2E_SERVER_URL=https://<the server>/ \
+REAPERS_E2E_WALLET=$KEYS/devnet-player.json \
+cargo test -p reapers_app --test devnet -- --ignored --nocapture
+```
+
+`REAPERS_E2E_RPC_URL` names another RPC than devnet's public one. It must end with `==> passed`, after printing the escrow's and the burn's signatures; look the burn up in the explorer. The web game built for devnet is:
+
+```sh
+cd crates/reapers_app
+REAPERS_SERVER_URL=https://<the server>/ REAPERS_CLUSTER=devnet leptoskit build --platform web
+```
+
+## 9. Upgrading
 
 Build, rehearse (step 1), then deploy again with the same command as step 3. With an existing program it writes a new buffer and swaps it in; the program id does not change, and the program keypair is not needed, only the upgrade authority:
 
@@ -203,7 +236,7 @@ A larger program needs a larger data account; the CLI extends it automatically u
 
 An upgrade that changes an account, instruction or event layout must go through `pina migrations create` first; `pina migrations check` must pass before building. `pina rehearse --network devnet --build` replays the deployed program's recent transactions against the new build before you upgrade.
 
-## 9. The upgrade authority
+## 10. The upgrade authority
 
 Whoever holds it can replace the program. On devnet the deployer is fine. Before anything holds value, move it to a key that lives somewhere safer, or a multisig.
 
@@ -222,7 +255,7 @@ solana program show $PROGRAM --url devnet --keypair $DEPLOYER   # Authority: the
 
 Check the address twice before using `--skip-new-upgrade-authority-signer-check`: a wrong one cannot be undone. Never pass `--final` to a deploy or to `set-upgrade-authority`; it makes the program immutable.
 
-## 10. Running it
+## 11. Running it
 
 | To | Run |
 | --- | --- |
@@ -235,6 +268,23 @@ Check the address twice before using `--skip-new-upgrade-authority-signer-check`
 Rotating the keeper makes every receipt the old key signed useless at once, including ones a player has not yet posted: the server must sign those again with the new key. If the keeper secret leaks, pause first, rotate, then resume.
 
 The program's authority (in the config) and the upgrade authority (in the loader) are different keys that start out the same. Handing one on does not hand on the other. `set-authority` needs both the old and the new key to sign.
+
+## The game on a localnet
+
+To play the devnet flow on this machine, in a browser with a wallet extension pointed at the local validator:
+
+```sh
+ops localnet --port 8899                    # keeps Surfpool up until Ctrl-D; writes target/localnet/
+REAPERS_RUN_MODE=development REAPERS_ORIGIN=http://127.0.0.1:3010 \
+REAPERS_SOLANA_CHAIN=solana:localnet REAPERS_SOLANA_RPC_URL=http://127.0.0.1:8899 \
+REAPERS_WALLET_IDENTITY_URI=https://reapers.localhost/ REAPERS_PROGRAM_ID=$PROGRAM \
+REAPERS_DEMO_HUSKS=target/localnet/demo-husks.json \
+REAPERS_SECRET_receiptSigningKey=reapers-development-receipt-key \
+cargo run -p reapers_server
+(cd crates/reapers_app && REAPERS_SERVER_URL=http://127.0.0.1:8080/ REAPERS_CLUSTER=localnet leptoskit dev --platform web)
+```
+
+The demo husks belong to the player in `target/localnet/player.json`; import that key into the wallet, or mint more to your own with `ops mint-demo --url http://127.0.0.1:8899 --payer target/localnet/deployer.json --owner <ADDRESS> --out target/localnet/demo-husks.json`, and restart the server on the new manifest. The server needs PostgreSQL as `crates/reapers_server/readme.md` says.
 
 ## When something goes wrong
 
