@@ -133,8 +133,13 @@ impl Gateway {
 	}
 
 	/// Checks the RPC is the configured cluster, on every operation rather
-	/// than trusting a URL or a cached answer.
+	/// than trusting a URL or a cached answer. A localnet has no genesis to
+	/// check: it is whatever validator the developer started on this machine.
 	async fn check_cluster(&self) -> Result<(), Refusal> {
+		if self.config.is_localnet() {
+			return Ok(());
+		}
+
 		let genesis = self.call(GenesisHash).await?;
 
 		if genesis.to_string() == self.config.genesis_hash() {

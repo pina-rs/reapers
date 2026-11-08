@@ -26,6 +26,11 @@ use support::*;
 use tower::ServiceExt;
 
 async fn keeper() -> Router {
+	keeper_for(None).await
+}
+
+/// A keeper whose pages are served from `origin`, when there is one.
+async fn keeper_for(origin: Option<&str>) -> Router {
 	let db = database().await;
 	let reapers = reapers_server::server::start(
 		&db,
@@ -35,7 +40,7 @@ async fn keeper() -> Router {
 			gateway: Gateway::new(solana(), Chain::default()),
 			signer: ReceiptSigner::development(),
 			hall: quick_hall(),
-			origin: None,
+			origin: origin.map(str::to_owned),
 		},
 	)
 	.expect("the keeper starts");
@@ -282,4 +287,54 @@ async fn the_receipt_key_is_public_to_any_player() {
 		ReceiptSigner::development().address().to_string()
 	);
 	assert_eq!(key["development"], true);
+}
+
+#[tokio::test]
+async fn the_web_game_on_its_own_origin_may_call_the_keeper() {
+	const ORIGIN: &str = "http://127.0.0.1:3010";
+
+	let router = keeper_for(Some(ORIGIN)).await;
+	let preflight = router
+		.clone()
+		.oneshot(
+			Request::options("/api/load")
+				.header("origin", ORIGIN)
+				.header("access-control-request-method", "POST")
+				.header(
+					"access-control-request-headers",
+					"authorization,content-type,idempotency-key",
+				)
+				.body(Body::empty())
+				.expect("a request"),
+		)
+		.await
+		.expect("an answer");
+	let allowed = |name: &str| {
+		preflight
+			.headers()
+			.get(name)
+			.and_then(|value| value.to_str().ok())
+			.map(str::to_owned)
+	};
+
+	assert!(preflight.status().is_success());
+	assert_eq!(
+		allowed("access-control-allow-origin").as_deref(),
+		Some(ORIGIN)
+	);
+	assert!(
+		allowed("access-control-allow-headers")
+			.is_some_and(|headers| headers.contains("authorization"))
+	);
+
+	let signed_in = guest(&router).await;
+	let (status, _) = post(
+		&router,
+		"/api/load",
+		Some(&signed_in.access_token),
+		json!({}),
+	)
+	.await;
+
+	assert_eq!(status, StatusCode::OK);
 }

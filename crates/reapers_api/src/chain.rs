@@ -61,11 +61,30 @@ pub struct Chain {
 	/// is configured.
 	pub program: Option<String>,
 
+	/// The demo husk collections, when the keeper has a manifest of them:
+	/// which real Core asset each husk of the rules stands for. A husk
+	/// released with an escrow must be escrowed as its own asset.
+	#[serde(default)]
+	pub husks: Vec<Husks>,
+
 	/// The player's proved wallet, if they have one.
 	pub wallet: Option<String>,
 
 	/// That wallet's finalized balance, in lamports.
 	pub lamports: Option<u64>,
+}
+
+/// One demo husk collection on the chain.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct Husks {
+	/// The rules' collection it stands for, by name, such as `thugbirdz`.
+	pub collection: String,
+
+	/// Its Metaplex Core collection.
+	pub address: String,
+
+	/// Its assets in order: the first is the husk numbered 1.
+	pub assets: Vec<String>,
 }
 
 /// A message for a wallet to sign, proving it to the keeper.

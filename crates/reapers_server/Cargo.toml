@@ -37,6 +37,7 @@ solana-pubkey = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }
 toml = { workspace = true }
+tower-http = { version = "0.6", features = ["cors"] }
 url = { workspace = true }
 
 [dev-dependencies]

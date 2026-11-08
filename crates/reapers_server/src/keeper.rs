@@ -18,6 +18,7 @@ use leptoskit_db::Id;
 use leptoskit_rpc as rpc;
 use reapers_api::chain::Chain;
 use reapers_api::chain::Challenge;
+use reapers_api::chain::Husks;
 use reapers_api::keeper::Change;
 use reapers_api::player::ChainReceipt;
 use reapers_api::player::KeeperKey;
@@ -288,7 +289,10 @@ impl Keeper {
 		let seed = seed()?;
 		let now = now();
 		let bound = match escrow {
-			Some(mint) => Some(self.escrowed(tx, account, &mint).await?),
+			Some(mint) => {
+				self.demo_husk(nft, &mint)?;
+				Some(self.escrowed(tx, account, &mint).await?)
+			}
 			None => None,
 		};
 		let mut sighting = None;
@@ -321,6 +325,28 @@ impl Keeper {
 		}
 
 		Ok(state)
+	}
+
+	/// With a demo husk manifest, checks `mint` is the asset the husk `nft`
+	/// stands for, so a cheap asset cannot be burned for a rare husk's pay.
+	/// Without one, any escrowed mint may stand for any husk.
+	fn demo_husk(&self, nft: &str, mint: &str) -> rpc::Result<()> {
+		let config = self.gateway.config();
+
+		if config.husks.is_empty() {
+			return Ok(());
+		}
+
+		let asset = Nft::parse(nft)
+			.ok()
+			.and_then(|nft| config.husk_asset(nft))
+			.map(|asset| asset.to_string());
+
+		if asset.as_deref() == Some(mint) {
+			Ok(())
+		} else {
+			Err(refused(Refusal::NotInVault))
+		}
 	}
 
 	/// Checks `mint` is escrowed with the program by `account`'s proved
@@ -508,6 +534,17 @@ impl Keeper {
 			collection: config.collection.map(|address| address.to_string()),
 			marketplace_uri: config.marketplace_uri.as_ref().map(ToString::to_string),
 			program: config.program.map(|address| address.to_string()),
+			husks: config
+				.husks
+				.iter()
+				.map(|husks| {
+					Husks {
+						collection: husks.collection.name().to_owned(),
+						address: husks.address.to_string(),
+						assets: husks.assets.iter().map(ToString::to_string).collect(),
+					}
+				})
+				.collect(),
 			wallet,
 			lamports,
 		})

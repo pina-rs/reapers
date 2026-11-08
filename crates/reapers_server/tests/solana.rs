@@ -786,3 +786,57 @@ async fn a_husk_that_left_its_escrow_cannot_be_settled() {
 	);
 	assert_eq!(world.stored(player).await, before);
 }
+
+/// The settings tests read by, with a demo manifest whose `degenApes`
+/// collection holds `assets`, in order.
+fn with_husks(assets: Vec<Address>) -> reapers_server::config::SolanaConfig {
+	solana().with_husks(vec![reapers_server::config::HuskCollection {
+		collection: reapers_rules::NftCollection::DegenApes,
+		address: husk_collection(),
+		assets,
+	}])
+}
+
+#[tokio::test]
+async fn with_a_demo_manifest_a_husk_is_escrowed_as_its_own_asset() {
+	let other = Address::from_bytes([7; 32]);
+	let mut assets = vec![mint()];
+	assets.extend((2..=8).map(|n| Address::from_bytes([40 + n; 32])));
+	let world = World::reading(RunMode::Test, quick_hall(), with_husks(assets)).await;
+	let wallet = Wallet::new(1);
+	let player = holder(&world, &wallet).await;
+
+	escrow_on_chain(&world.chain, wallet.address(), other);
+	escrow_on_chain(&world.chain, wallet.address(), mint());
+
+	let status = world.call(player, ChainStatus {}).await.unwrap();
+
+	assert_eq!(status.husks.len(), 1);
+	assert_eq!(status.husks[0].collection, "degenApes");
+	assert_eq!(status.husks[0].assets[0], mint().to_string());
+
+	assert_refused(
+		world
+			.call(
+				player,
+				Release {
+					nft: SAINT.into(),
+					escrow: Some(other.to_string()),
+				},
+			)
+			.await,
+		Refusal::NotInVault,
+	);
+	assert!(HuskEscrow::query().all(&world.db).await.unwrap().is_empty());
+
+	world
+		.call(
+			player,
+			Release {
+				nft: SAINT.into(),
+				escrow: Some(mint().to_string()),
+			},
+		)
+		.await
+		.expect("its own asset is accepted");
+}

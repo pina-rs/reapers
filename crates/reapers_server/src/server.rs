@@ -7,11 +7,19 @@
 //! | `GET /live`        | The live socket: the rift streams                                  |
 //! | `/auth/guest`      | A new guest account and its session                                |
 //! | `/auth/wallet`     | Wallet sign-in: link a guest, or restore the wallet's account      |
-//! | `/auth/…`          | leptoskit_auth's own routes, such as `/auth/refresh`               |
+//! | `/auth/…`          | `leptoskit_auth`'s own routes, such as `/auth/refresh`             |
+//!
+//! With an origin, the routes also answer that origin's pages across
+//! origins (CORS), with the bearer token in a header and no cookie: the web
+//! game is served from its own host, and signs in as a native app does.
 
 use std::sync::Arc;
 
 use axum::Router;
+use axum::http::HeaderName;
+use axum::http::HeaderValue;
+use axum::http::Method;
+use axum::http::header;
 use futures::future::BoxFuture;
 use leptoskit_auth::Auth;
 use leptoskit_auth::AuthError;
@@ -27,6 +35,7 @@ use leptoskit_rpc::Identity;
 use leptoskit_rpc::server::IdentityLease;
 use leptoskit_rpc::server::Live;
 use reapers_api::keeper::KeeperHandle;
+use tower_http::cors::CorsLayer;
 
 use crate::chain::Gateway;
 use crate::config::RunMode;
@@ -104,8 +113,13 @@ pub fn start(db: &Db, keys: Keys, options: Options) -> Result<Reapers, AuthError
 		.merge(sign_in::router(Arc::clone(&keeper)))
 		.merge(auth.router())
 		.merge(live.router())
-		// Last, so it wraps every route: it finds each request's session.
+		// It finds each request's session.
 		.layer(auth.layer());
+	// Outermost, so a preflight is answered before anything asks who it is.
+	let router = match options.origin.as_deref().map(cors).transpose()? {
+		Some(cors) => router.layer(cors),
+		None => router,
+	};
 
 	Ok(Reapers {
 		router,
@@ -113,6 +127,25 @@ pub fn start(db: &Db, keys: Keys, options: Options) -> Result<Reapers, AuthError
 		auth,
 		keeper,
 	})
+}
+
+/// Lets the pages of `origin` call the keeper: its operations and sign-in
+/// routes, with the headers the game's client sends. No credentials: the
+/// web game sends its token as a bearer header, never a cookie.
+fn cors(origin: &str) -> Result<CorsLayer, AuthError> {
+	let origin = HeaderValue::from_str(origin.trim_end_matches('/'))
+		.map_err(|_| AuthError::Config(format!("REAPERS_ORIGIN: not an origin: {origin}")))?;
+
+	Ok(CorsLayer::new()
+		.allow_origin(origin)
+		.allow_methods([Method::GET, Method::POST])
+		.allow_headers([
+			header::ACCEPT,
+			header::AUTHORIZATION,
+			header::CONTENT_TYPE,
+			HeaderName::from_static("idempotency-key"),
+		])
+		.max_age(std::time::Duration::from_secs(600)))
 }
 
 /// The keeper sends no mail: players sign in as guests and with wallets,

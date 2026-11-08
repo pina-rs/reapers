@@ -12,6 +12,8 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::path::Path;
 
+use reapers_rules::Nft;
+use reapers_rules::NftCollection;
 use reapers_rules::Refusal;
 use solana_kit_core::Address;
 use url::Url;
@@ -105,12 +107,96 @@ pub const GENESIS_HASHES: [(&str, &str); 2] = [
 	),
 ];
 
+/// A developer's own validator, such as Surfpool: any genesis, an RPC on
+/// this machine, and only for a keeper that runs the simulated economy.
+pub const LOCALNET: &str = "solana:localnet";
+
 /// The genesis hash `chain` must answer.
 pub fn genesis_hash(chain: &str) -> Option<&'static str> {
 	GENESIS_HASHES
 		.iter()
 		.find(|(name, _)| *name == chain)
 		.map(|(_, hash)| *hash)
+}
+
+/// Whether `url` names this machine: the only place a localnet RPC may be,
+/// and the only one reached over plain HTTP.
+fn is_loopback(url: &Url) -> bool {
+	match url.host() {
+		Some(url::Host::Domain(host)) => host == "localhost",
+		Some(url::Host::Ipv4(address)) => address.is_loopback(),
+		Some(url::Host::Ipv6(address)) => address.is_loopback(),
+		None => false,
+	}
+}
+
+/// One of the five demo husk collections `reapers_ops mint-demo` makes: the
+/// rules' collection it stands for, its Core collection, and its assets in
+/// order, so the asset at index `n` is the husk with serial `n + 1`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HuskCollection {
+	pub collection: NftCollection,
+	pub address: Address,
+	pub assets: Vec<Address>,
+}
+
+impl HuskCollection {
+	/// The rules' collection a demo collection's slug stands for.
+	pub fn collection_of(slug: &str) -> Option<NftCollection> {
+		match slug {
+			"degenerate-ape-academy" => Some(NftCollection::DegenApes),
+			"thugbirdz" => Some(NftCollection::Thugbirdz),
+			"pesky-penguins" => Some(NftCollection::PeskyPenguins),
+			"sollamas" => Some(NftCollection::Sollamas),
+			"solarians" => Some(NftCollection::Solarians),
+			_ => None,
+		}
+	}
+
+	/// The collections in the manifest `reapers_ops mint-demo --out` writes.
+	///
+	/// # Errors
+	///
+	/// When `text` is not such a manifest.
+	pub fn from_manifest(text: &str) -> Result<Vec<Self>, ConfigError> {
+		let invalid = |what: &str| ConfigError(format!("REAPERS_DEMO_HUSKS: {what}"));
+		let manifest: serde_json::Value =
+			serde_json::from_str(text).map_err(|_| invalid("not JSON"))?;
+		let collections = manifest["collections"]
+			.as_array()
+			.ok_or_else(|| invalid("no collections"))?;
+		let address = |value: &serde_json::Value| {
+			value
+				.as_str()
+				.and_then(|text| text.parse::<Address>().ok())
+				.ok_or_else(|| invalid("an address that is not one"))
+		};
+
+		collections
+			.iter()
+			.map(|entry| {
+				let slug = entry["slug"].as_str().unwrap_or_default();
+				let collection =
+					Self::collection_of(slug).ok_or_else(|| invalid("an unknown slug"))?;
+				let assets = entry["assets"]
+					.as_array()
+					.ok_or_else(|| invalid("a collection without assets"))?
+					.iter()
+					.map(address)
+					.collect::<Result<Vec<_>, _>>()?;
+
+				if assets.len() != collection.rarities().len() {
+					return Err(invalid("a collection with the wrong number of assets"));
+				}
+
+				Ok(Self {
+					collection,
+					address: address(&entry["address"])?,
+					assets,
+				})
+			})
+			.collect()
+	}
 }
 
 /// Public deployment settings for the chain. No signing key or wallet secret
@@ -130,14 +216,18 @@ pub struct SolanaConfig {
 	pub marketplace_uri: Option<Url>,
 	/// The Reapers program husks are escrowed with and burned by.
 	pub program: Option<Address>,
+	/// The demo husk collections, from `REAPERS_DEMO_HUSKS`: the real Core
+	/// asset each husk of the rules stands for. Empty without a manifest.
+	pub husks: Vec<HuskCollection>,
 }
 
 impl SolanaConfig {
 	/// The identity origin that turns wallets off until a real one is set.
 	pub const PLACEHOLDER_IDENTITY: &'static str = "https://reapers.invalid/";
 
-	/// Checks the settings: a known chain, HTTPS everywhere, an identity
-	/// origin that is a bare origin and path ending in `/`.
+	/// Checks the settings: a known chain, HTTPS everywhere (but for a
+	/// localnet's RPC on this machine), an identity origin that is a bare
+	/// origin and path ending in `/`.
 	///
 	/// # Errors
 	///
@@ -173,11 +263,18 @@ impl SolanaConfig {
 				.transpose()
 		};
 
-		if genesis_hash(&chain).is_none() {
+		if genesis_hash(&chain).is_none() && chain != LOCALNET {
 			return Err(invalid("chain"));
 		}
 
-		https(Some(&rpc_url), "RPC URL")?;
+		if chain == LOCALNET {
+			Url::parse(&rpc_url)
+				.ok()
+				.filter(|url| matches!(url.scheme(), "http" | "https") && is_loopback(url))
+				.ok_or_else(|| invalid("RPC URL: a localnet's is on this machine"))?;
+		} else {
+			https(Some(&rpc_url), "RPC URL")?;
+		}
 
 		if bare_origin
 			|| identity_uri.scheme() != "https"
@@ -209,12 +306,36 @@ impl SolanaConfig {
 			chain,
 			rpc_url,
 			identity_uri,
+			husks: Vec::new(),
 		})
+	}
+
+	/// The same settings, with the demo husk collections.
+	#[must_use]
+	pub fn with_husks(mut self, husks: Vec<HuskCollection>) -> Self {
+		self.husks = husks;
+		self
+	}
+
+	/// Whether this is a developer's own validator, which only a keeper of
+	/// the simulated economy may read.
+	pub fn is_localnet(&self) -> bool {
+		self.chain == LOCALNET
+	}
+
+	/// The Core asset the husk `nft` stands for, when a manifest names one.
+	pub fn husk_asset(&self, nft: Nft) -> Option<Address> {
+		self.husks
+			.iter()
+			.find(|husks| husks.collection == nft.collection)
+			.and_then(|husks| husks.assets.get(nft.serial.checked_sub(1)?))
+			.copied()
 	}
 
 	/// The settings in `REAPERS_SOLANA_CHAIN`, `REAPERS_SOLANA_RPC_URL`,
 	/// `REAPERS_WALLET_IDENTITY_URI`, `REAPERS_REAPER_COLLECTION`,
-	/// `REAPERS_REAPER_MARKET_URL` and `REAPERS_PROGRAM_ID`.
+	/// `REAPERS_REAPER_MARKET_URL`, `REAPERS_PROGRAM_ID` and
+	/// `REAPERS_DEMO_HUSKS` (the path of a `mint-demo` manifest).
 	///
 	/// # Errors
 	///
@@ -241,12 +362,21 @@ impl SolanaConfig {
 		}
 
 		let rpc_url = var("REAPERS_SOLANA_RPC_URL").unwrap_or_else(|| {
-			if chain == "solana:mainnet" {
-				"https://api.mainnet-beta.solana.com".to_owned()
-			} else {
-				"https://api.devnet.solana.com".to_owned()
+			match chain.as_str() {
+				"solana:mainnet" => "https://api.mainnet-beta.solana.com".to_owned(),
+				LOCALNET => "http://127.0.0.1:8899".to_owned(),
+				_ => "https://api.devnet.solana.com".to_owned(),
 			}
 		});
+		let husks = match var("REAPERS_DEMO_HUSKS") {
+			Some(path) => {
+				let text = std::fs::read_to_string(&path)
+					.map_err(|error| ConfigError(format!("REAPERS_DEMO_HUSKS: {path}: {error}")))?;
+
+				HuskCollection::from_manifest(&text)?
+			}
+			None => Vec::new(),
+		};
 
 		Self::new(
 			chain,
@@ -256,6 +386,7 @@ impl SolanaConfig {
 			var("REAPERS_REAPER_MARKET_URL").as_deref(),
 			var("REAPERS_PROGRAM_ID").as_deref(),
 		)
+		.map(|config| config.with_husks(husks))
 	}
 
 	/// Whether wallets may be proved: false until a real identity origin is
@@ -525,5 +656,48 @@ mod tests {
 			.expect("mainnet is valid");
 
 		assert_eq!(mainnet.rpc_url, "https://api.mainnet-beta.solana.com");
+	}
+
+	#[test]
+	fn a_localnet_is_read_on_this_machine_only() {
+		let localnet = |rpc: &str| {
+			SolanaConfig::new(LOCALNET, rpc, "https://reapers.example/", None, None, None)
+		};
+
+		assert!(localnet("http://127.0.0.1:8899").is_ok_and(|config| config.is_localnet()));
+		assert!(localnet("http://localhost:8899").is_ok());
+		assert!(localnet("http://[::1]:8899").is_ok());
+		assert!(localnet("http://10.0.0.2:8899").is_err());
+		assert!(localnet("https://api.devnet.solana.com").is_err());
+	}
+
+	#[test]
+	fn a_demo_manifest_names_each_husks_asset() {
+		let asset = |n: u8| Address::from_bytes([n; 32]).to_string();
+		let manifest = serde_json::json!({
+			"cluster": "devnet",
+			"collections": [{
+				"name": "Thugbirdz",
+				"slug": "thugbirdz",
+				"address": asset(100),
+				"assets": (1..=8).map(asset).collect::<Vec<_>>(),
+			}],
+		})
+		.to_string();
+		let husks = HuskCollection::from_manifest(&manifest).expect("it parses");
+		let config = SolanaConfig::from_vars(|_| None)
+			.expect("the defaults")
+			.with_husks(husks);
+
+		assert_eq!(
+			config.husk_asset(Nft::new(NftCollection::Thugbirdz, 3)),
+			Some(Address::from_bytes([3; 32]))
+		);
+		assert_eq!(
+			config.husk_asset(Nft::new(NftCollection::Solarians, 3)),
+			None
+		);
+		assert!(HuskCollection::from_manifest("{}").is_err());
+		assert!(HuskCollection::from_manifest(&manifest.replace("thugbirdz", "nope")).is_err());
 	}
 }

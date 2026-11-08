@@ -62,6 +62,14 @@ async fn run() -> Result<ExitCode, Box<dyn std::error::Error>> {
 	}
 
 	let solana = SolanaConfig::from_env()?;
+
+	if solana.is_localnet() && !mode.simulates() {
+		return Err(ConfigError(format!(
+			"REAPERS_SOLANA_CHAIN: a localnet is for development and test, not \"{mode}\""
+		))
+		.into());
+	}
+
 	let gateway = Gateway::connect(solana)?;
 	let signer = if let Some(secret) = secrets.get(ReceiptSigner::SECRET) {
 		ReceiptSigner::from_secret(secret)
