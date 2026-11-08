@@ -66,7 +66,7 @@ devtools = ["leptoskit/devtools"]
 async-trait = "0.1"
 base64 = "0.22"
 futures = { version = "0.3", default-features = false, features = ["std", "async-await"] }
-leptoskit = { workspace = true }
+leptoskit = { workspace = true, features = ["3d"] }
 leptoskit_l10n = { workspace = true }
 leptoskit_plugin_crypto = { workspace = true }
 leptoskit_router = { workspace = true }
@@ -75,6 +75,7 @@ reapers_api = { workspace = true }
 reapers_program_client = { workspace = true }
 reapers_receipt = { workspace = true }
 reapers_rules = { workspace = true }
+send_wrapper = "0.6"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
@@ -96,7 +97,7 @@ console_error_panic_hook = { version = "0.1", optional = true }
 # The embedded wasm-bindgen CLI accepts exactly its matching library version.
 wasm-bindgen = { version = "=0.2.129", optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
-web-sys = { version = "0.3", optional = true, features = ["Window", "Navigator", "Request", "RequestInit", "RequestMode", "Response", "Headers", "Location", "Crypto", "MediaQueryList", "console", "CustomEvent", "CustomEventInit", "Event", "EventTarget"] }
+web-sys = { version = "0.3", optional = true, features = ["Window", "Navigator", "Request", "RequestInit", "RequestMode", "Response", "Headers", "Location", "Crypto", "MediaQueryList", "console", "CustomEvent", "CustomEventInit", "Event", "EventTarget", "Document", "Element", "DomRect", "PointerEvent", "MouseEvent"] }
 
 # What only a browser or a native guest calls: the device's store, HTTP,
 # links and haptics. The browser reaches the last two through `web-sys`.
@@ -114,11 +115,15 @@ leptoskit_testing = { workspace = true }
 # The end-to-end test (`tests/devnet.rs`): the desktop's HTTP for the
 # game's client, and a runtime for it.
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+# The headless render of a reaper (`tests/render.rs`).
+leptoskit_3d = { version = "=0.3.0", features = ["renderer"] }
+png = "0.17"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 tokio = { workspace = true, features = ["rt", "time"] }
 
 [build-dependencies]
 leptoskit_build = { workspace = true }
+serde_json = "1"
 
 [lints]
 workspace = true

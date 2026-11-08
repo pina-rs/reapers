@@ -7,6 +7,14 @@
 //! mirrored there: copied when it differs, never rewritten when it
 //! does not, so `leptoskit dev`'s watcher does not chase its own tail. The
 //! mirrors are git-ignored; the sources stay the only copies in git.
+//!
+//! One thing is changed on the way. The art build paints each model's
+//! vertex colours as masks for the Flutter game's own shader (grime, char,
+//! wear and hollowing, in the four channels), and `leptoskit_3d`, drawing
+//! the model's own materials, would multiply them into the colour as
+//! colours: a reaper came out blotched in red and orange. So the copy of a
+//! `.glb` under `assets/models` leaves `COLOR_0` out of every primitive. The
+//! JSON is all that changes; the binary chunk is copied as it is.
 
 use std::fs;
 use std::path::Path;
@@ -21,6 +29,53 @@ const MIRRORS: [(&str, &str); 5] = [
 	("../../assets/branding", "branding"),
 ];
 
+/// `glb` without its primitives' `COLOR_0`, or as it is when it is not a
+/// binary glTF this can read.
+fn without_vertex_colours(glb: Vec<u8>) -> Vec<u8> {
+	let word = |at: usize| -> Option<usize> {
+		Some(u32::from_le_bytes(glb.get(at..at + 4)?.try_into().ok()?) as usize)
+	};
+	let (Some(json_length), Some(json_kind)) = (word(12), word(16)) else {
+		return glb;
+	};
+	if glb.get(..4) != Some(b"glTF") || json_kind != 0x4E4F_534A || glb.len() < 20 + json_length {
+		return glb;
+	}
+	let Ok(mut json) = serde_json::from_slice::<serde_json::Value>(&glb[20..20 + json_length])
+	else {
+		return glb;
+	};
+	let Some(meshes) = json["meshes"].as_array_mut() else {
+		return glb;
+	};
+	for mesh in meshes {
+		if let Some(primitives) = mesh["primitives"].as_array_mut() {
+			for primitive in primitives {
+				if let Some(attributes) = primitive["attributes"].as_object_mut() {
+					attributes.remove("COLOR_0");
+				}
+			}
+		}
+	}
+	let Ok(mut chunk) = serde_json::to_vec(&json) else {
+		return glb;
+	};
+	// Chunks are padded to four bytes, the JSON with spaces.
+	while chunk.len() % 4 != 0 {
+		chunk.push(b' ');
+	}
+	let rest = &glb[20 + json_length..];
+	let total = 20 + chunk.len() + rest.len();
+	let mut out = Vec::with_capacity(total);
+	out.extend_from_slice(&glb[..8]);
+	out.extend_from_slice(&(total as u32).to_le_bytes());
+	out.extend_from_slice(&(chunk.len() as u32).to_le_bytes());
+	out.extend_from_slice(&glb[16..20]);
+	out.extend_from_slice(&chunk);
+	out.extend_from_slice(rest);
+	out
+}
+
 fn mirror(from: &Path, to: &Path) -> std::io::Result<()> {
 	fs::create_dir_all(to)?;
 	for entry in fs::read_dir(from)? {
@@ -29,8 +84,17 @@ fn mirror(from: &Path, to: &Path) -> std::io::Result<()> {
 		let target = to.join(entry.file_name());
 		if entry.file_type()?.is_dir() {
 			mirror(&source, &target)?;
-		} else if fs::read(&target).ok() != Some(fs::read(&source)?) {
-			fs::copy(&source, &target)?;
+		} else {
+			let mut bytes = fs::read(&source)?;
+			if source
+				.extension()
+				.is_some_and(|extension| extension == "glb")
+			{
+				bytes = without_vertex_colours(bytes);
+			}
+			if fs::read(&target).ok() != Some(bytes.clone()) {
+				fs::write(&target, bytes)?;
+			}
 		}
 	}
 	Ok(())

@@ -24,6 +24,7 @@ pub mod lookups;
 pub mod platform;
 pub mod program;
 pub mod receipt;
+pub mod render;
 #[allow(
 	clippy::all,
 	clippy::pedantic,
