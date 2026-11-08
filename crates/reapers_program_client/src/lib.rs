@@ -21,3 +21,4 @@ pub mod generated;
 pub mod absorb;
 
 pub use generated::*;
+pub use generated::programs::REAPERS_PROGRAM_ID;

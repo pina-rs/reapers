@@ -1,0 +1,32 @@
+[package]
+name = "reapers_ops"
+description = "Deploys, configures and rehearses the Reapers program."
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "reapers_ops"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true }
+getrandom = { workspace = true }
+reapers_program_client = { workspace = true }
+reapers_receipt = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+solana-instruction = { workspace = true }
+solana-pubkey = { workspace = true }
+solana_kit_client = { workspace = true }
+solana_kit_core = { workspace = true }
+solana_kit_mpl_core = { workspace = true }
+solana_kit_native = { workspace = true }
+solana_kit_surfpool = { workspace = true }
+tokio = { workspace = true }
+
+[lints]
+workspace = true
