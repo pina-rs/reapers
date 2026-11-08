@@ -13,7 +13,9 @@
 //! husks with the player's wallet: releasing a demo husk the wallet holds
 //! signs and sends `ReleaseCore`, waits for it to be finalized and then
 //! tells the server which escrow it went into; settling a hunt that
-//! absorbed one has the wallet sign and send the burn the server built.
+//! absorbed one has the wallet sign and send the burn the server built. A
+//! burn that did not land is finished later with the same receipt, which
+//! the server builds again.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -127,6 +129,9 @@ pub trait ReapersApi {
 	async fn release(&self, nft_id: &str, escrow: Option<&str>) -> ApiResult<PlayerState>;
 	/// `log` is [`HuntLog::encode`]'s bytes.
 	async fn settle_hunt(&self, sighting_id: i64, log: Vec<u8>) -> ApiResult<SettledHunt>;
+	/// The burn of the absorbed, still escrowed husk `nft_id` again: the
+	/// same receipt, on a fresh blockhash.
+	async fn absorb_transaction(&self, nft_id: &str) -> ApiResult<ChainReceipt>;
 	async fn buy_weapon(&self, weapon_id: &str) -> ApiResult<PlayerState>;
 	async fn wield(&self, weapon_id: &str) -> ApiResult<PlayerState>;
 	async fn buy_outfit(&self, outfit: &str) -> ApiResult<PlayerState>;
@@ -378,6 +383,19 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 		self.ask(async |api| api.import_reaper(asset).await).await
 	}
 
+	/// Asks the server for the burn of `nft` again and has the wallet sign
+	/// and send it, exactly as after the hunt. Its failure is the player's
+	/// to see, since they asked.
+	async fn finish_burn(&self, nft: Nft) -> KeeperResult<()> {
+		let Some((cluster, wallet)) = &self.cluster else {
+			return Err(KeeperError::unavailable("this build moves no husk"));
+		};
+		let receipt = self
+			.ask(async |api| api.absorb_transaction(&nft.id()).await)
+			.await?;
+		self.burn(cluster, wallet.as_ref(), nft, &receipt).await
+	}
+
 	async fn wallet_husks(&self) -> KeeperResult<Vec<WalletHusk>> {
 		let Some((cluster, _)) = &self.cluster else {
 			return Ok(Vec::new());
@@ -481,10 +499,14 @@ mod tests {
 	use super::*;
 
 	/// A server that refuses everything but signing in, and counts sign-ins.
+	/// With `chain`, it names the linked wallet; with `burn`, it builds that
+	/// burn again.
 	#[derive(Default)]
 	struct Refusing {
 		sign_ins: Cell<u32>,
 		refusal: &'static str,
+		chain: Option<ChainStatus>,
+		burn: Option<ChainReceipt>,
 	}
 
 	#[async_trait(?Send)]
@@ -522,6 +544,12 @@ mod tests {
 			unimplemented!()
 		}
 
+		async fn absorb_transaction(&self, _nft_id: &str) -> ApiResult<ChainReceipt> {
+			self.burn
+				.clone()
+				.ok_or_else(|| ApiError::Refused(self.refusal.into()))
+		}
+
 		async fn buy_weapon(&self, _weapon_id: &str) -> ApiResult<PlayerState> {
 			unimplemented!()
 		}
@@ -543,7 +571,7 @@ mod tests {
 		}
 
 		async fn chain_status(&self) -> ApiResult<ChainStatus> {
-			unimplemented!()
+			Ok(self.chain.clone().expect("a chain"))
 		}
 
 		async fn import_reaper(&self, _asset: &str) -> ApiResult<PlayerState> {
@@ -600,6 +628,235 @@ mod tests {
 		let _ = block_on(keeper.locate(None));
 		block_on(keeper.load()).unwrap();
 		assert_eq!(keeper.api.sign_ins.get(), 2);
+	}
+
+	/// A cluster that takes every transaction, confirms it, and shows every
+	/// account as Core's one-byte tombstone.
+	#[derive(Default)]
+	struct Burning {
+		calls: RefCell<Vec<String>>,
+	}
+
+	#[async_trait(?Send)]
+	impl crate::platform::HttpTransport for Burning {
+		async fn post(
+			&self,
+			_url: &str,
+			_headers: Vec<crate::platform::Header>,
+			body: Vec<u8>,
+			_timeout: std::time::Duration,
+		) -> Result<crate::platform::HttpReply, crate::platform::PlatformError> {
+			use base64::Engine as _;
+			use serde_json::json;
+
+			let request: serde_json::Value = serde_json::from_slice(&body).unwrap();
+			let method = request["method"].as_str().unwrap().to_owned();
+			let tombstone = base64::engine::general_purpose::STANDARD.encode([0]);
+			let result = match method.as_str() {
+				"sendTransaction" => json!("sent"),
+				"getSignatureStatuses" => {
+					json!({ "value": [{ "slot": 7, "confirmationStatus": "confirmed", "err": null }] })
+				}
+				"getMultipleAccounts" => {
+					json!({ "value": [{
+						"owner": crate::program::core_program().to_string(),
+						"data": [tombstone, "base64"],
+					}] })
+				}
+				other => panic!("unexpected {other}"),
+			};
+			self.calls.borrow_mut().push(method);
+			Ok(crate::platform::HttpReply {
+				status: 200,
+				body: serde_json::to_vec(
+					&json!({ "jsonrpc": "2.0", "id": request["id"], "result": result }),
+				)
+				.unwrap(),
+			})
+		}
+	}
+
+	/// A wallet holding `0`, or one that declines.
+	struct Wallet(Option<solana_kit_core::crypto::Keypair>);
+
+	#[async_trait(?Send)]
+	impl WalletProver for Wallet {
+		fn available(&self) -> bool {
+			true
+		}
+
+		async fn prove(
+			&self,
+			_status: &ChainStatus,
+			_challenge: crate::wallet::ChallengeFn<'_>,
+		) -> KeeperResult<crate::wallet::WalletProof> {
+			unimplemented!()
+		}
+
+		async fn sign_transaction(
+			&self,
+			_status: &ChainStatus,
+			transaction: Vec<u8>,
+		) -> crate::chain::ChainResult<Vec<u8>> {
+			use solana_kit_core::transaction::Transaction;
+
+			let keypair = self.0.as_ref().ok_or(ChainFailure::Declined)?;
+			Transaction::decode(&transaction)
+				.and_then(|transaction| transaction.sign(keypair))
+				.and_then(|signed| signed.encode(true))
+				.map_err(|_| ChainFailure::WrongWallet)
+		}
+	}
+
+	/// What the server answers for the saint's burn, built again: the
+	/// keeper's receipt for `wallet` and its unsigned transaction.
+	fn saint_burn(wallet: &solana_kit_core::Address) -> ChainReceipt {
+		use base64::Engine as _;
+		use base64::engine::general_purpose::STANDARD;
+		use solana_kit_core::Hash;
+		use solana_kit_core::transaction::Lifetime;
+		use solana_kit_core::transaction::Message;
+		use solana_kit_core::transaction::Transaction;
+		use solana_kit_core::transaction::Version;
+
+		let keeper = solana_kit_core::crypto::Keypair::from_seed(&[5; 32]);
+		let mint = solana_kit_core::Address::from_bytes([2; 32]);
+		let receipt = crate::receipt::Receipt {
+			player: *wallet.as_bytes(),
+			mint: *mint.as_bytes(),
+			grade: reapers_receipt::Grade::from_byte(1).unwrap(),
+			feeding: reapers_receipt::Feeding::from_byte(2).unwrap(),
+			xp: 120,
+			anima: 30,
+			at: 1_790_000_000,
+			nonce: 7,
+		};
+		let signature = keeper.sign(&receipt.encode());
+		let instructions =
+			crate::program::absorb_core(&keeper.address(), signature.as_bytes(), &receipt, None);
+		let message = Message::compile(
+			Version::Legacy,
+			*wallet,
+			Lifetime::Blockhash {
+				blockhash: Hash::from_bytes([3; 32]),
+				last_valid_block_height: 100,
+			},
+			&instructions,
+			&[],
+		)
+		.unwrap();
+		ChainReceipt {
+			message: STANDARD.encode(receipt.encode()),
+			signature: STANDARD.encode(signature.as_bytes()),
+			keeper: keeper.address().to_string(),
+			wallet: wallet.to_string(),
+			mint: mint.to_string(),
+			transaction: Some(STANDARD.encode(Transaction::new(message).encode(false).unwrap())),
+		}
+	}
+
+	fn linked_to(wallet: &solana_kit_core::Address) -> ChainStatus {
+		ChainStatus {
+			chain: "solana:localnet".into(),
+			identity_uri: "https://reapers.localhost/".into(),
+			wallet: Some(wallet.to_string()),
+			lamports: None,
+			collection: None,
+			marketplace_uri: None,
+			program: Some(crate::program::program_id().to_string()),
+			husks: Vec::new(),
+		}
+	}
+
+	fn cluster(rpc: &Rc<Burning>) -> Rc<Cluster> {
+		Rc::new(
+			Cluster::new(
+				crate::chain::ClusterName::Localnet,
+				"http://rpc",
+				rpc.clone(),
+			)
+			.with_pause(Rc::new(|_| Box::pin(async { true }))),
+		)
+	}
+
+	#[test]
+	fn a_burn_that_did_not_land_is_finished_with_the_receipt_built_again() {
+		let keypair = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]);
+		let address = keypair.address();
+		let rpc = Rc::new(Burning::default());
+		let chain = cluster(&rpc);
+		let landed = Rc::new(RefCell::new(Vec::new()));
+		chain.subscribe({
+			let landed = landed.clone();
+			move |transaction| landed.borrow_mut().push(transaction.clone())
+		});
+		let burn = saint_burn(&address);
+		let keeper = RemoteBackend::new(Refusing {
+			chain: Some(linked_to(&address)),
+			burn: Some(burn.clone()),
+			..Refusing::default()
+		})
+		.with_cluster(chain, Rc::new(Wallet(Some(keypair))));
+		let saint = Nft::parse("degenApes:1").unwrap();
+
+		block_on(keeper.finish_burn(saint)).expect("the burn lands");
+
+		assert_eq!(
+			*rpc.calls.borrow(),
+			[
+				"sendTransaction",
+				"getSignatureStatuses",
+				"getMultipleAccounts"
+			],
+			"sent, confirmed, and the tombstone checked"
+		);
+		let landed = landed.borrow();
+		assert_eq!(landed.len(), 1);
+		assert_eq!(
+			landed[0].instruction,
+			crate::simnet::SimnetInstruction::Burn
+		);
+		assert_eq!(landed[0].nft, Some(saint));
+		assert!(landed[0].receipt_verifies(), "the keeper's receipt");
+		assert!(landed[0].wire_verifies(), "signed by the wallet");
+	}
+
+	#[test]
+	fn a_burn_the_server_will_not_build_again_or_the_wallet_declines_sends_nothing() {
+		let keypair = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]);
+		let address = keypair.address();
+		let saint = Nft::parse("degenApes:1").unwrap();
+		let rpc = Rc::new(Burning::default());
+		let burned = RemoteBackend::new(Refusing {
+			refusal: "notInVault",
+			chain: Some(linked_to(&address)),
+			..Refusing::default()
+		})
+		.with_cluster(cluster(&rpc), Rc::new(Wallet(Some(keypair))));
+
+		assert_eq!(
+			block_on(burned.finish_burn(saint)).unwrap_err().refusal(),
+			Some(Refusal::NotInVault)
+		);
+
+		let declining = RemoteBackend::new(Refusing {
+			chain: Some(linked_to(&address)),
+			burn: Some(saint_burn(&address)),
+			..Refusing::default()
+		})
+		.with_cluster(cluster(&rpc), Rc::new(Wallet(None)));
+
+		assert_eq!(
+			block_on(declining.finish_burn(saint)),
+			Err(KeeperError::Chain(ChainFailure::Declined))
+		);
+		assert!(rpc.calls.borrow().is_empty(), "nothing reached the cluster");
+
+		let offline = RemoteBackend::new(Refusing::default());
+		assert!(matches!(
+			block_on(offline.finish_burn(saint)),
+			Err(KeeperError::Unavailable(_))
+		));
 	}
 
 	#[test]

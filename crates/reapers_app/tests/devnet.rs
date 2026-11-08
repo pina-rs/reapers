@@ -6,9 +6,10 @@
 //!
 //! It signs in as a guest, takes the oath, proves the wallet, releases one
 //! of the wallet's demo husks into the program's escrow, waits for it to
-//! surface, settles a hunt the rules' careful bot played, has the wallet
-//! sign the burn the server built, and checks the husk is Core's one-byte
-//! tombstone.
+//! surface, and settles a hunt the rules' careful bot played. The wallet
+//! declines the burn the server built, as a player might, so the husk stays
+//! in escrow; then the game finishes it, with the same receipt on a fresh
+//! blockhash, and checks the husk is Core's one-byte tombstone.
 //!
 //! Ignored by default: it needs Surfpool, the Solana CLI and PostgreSQL.
 //!
@@ -110,8 +111,23 @@ impl HttpTransport for Desktop {
 	}
 }
 
-/// A wallet whose key is in a file, as a wallet app holds one.
-struct FileWallet(Keypair);
+/// A wallet whose key is in a file, as a wallet app holds one. Told to,
+/// it declines the next transaction, and keeps what it was handed.
+struct FileWallet {
+	keypair: Keypair,
+	decline_next: std::cell::Cell<bool>,
+	declined: std::cell::RefCell<Option<Vec<u8>>>,
+}
+
+impl FileWallet {
+	fn new(keypair: Keypair) -> Self {
+		Self {
+			keypair,
+			decline_next: std::cell::Cell::new(false),
+			declined: std::cell::RefCell::new(None),
+		}
+	}
+}
 
 #[async_trait(?Send)]
 impl WalletProver for FileWallet {
@@ -124,10 +140,10 @@ impl WalletProver for FileWallet {
 		_status: &ChainStatus,
 		challenge: ChallengeFn<'_>,
 	) -> KeeperResult<WalletProof> {
-		let issued = challenge(self.0.address().to_string()).await?;
+		let issued = challenge(self.keypair.address().to_string()).await?;
 		Ok(WalletProof {
 			challenge_id: issued.challenge_id,
-			signature: BASE64.encode(self.0.sign(issued.message.as_bytes()).to_bytes()),
+			signature: BASE64.encode(self.keypair.sign(issued.message.as_bytes()).to_bytes()),
 		})
 	}
 
@@ -136,8 +152,12 @@ impl WalletProver for FileWallet {
 		_status: &ChainStatus,
 		transaction: Vec<u8>,
 	) -> ChainResult<Vec<u8>> {
+		if self.decline_next.replace(false) {
+			*self.declined.borrow_mut() = Some(transaction);
+			return Err(ChainFailure::Declined);
+		}
 		Transaction::decode(&transaction)
-			.and_then(|transaction| transaction.sign(&self.0))
+			.and_then(|transaction| transaction.sign(&self.keypair))
 			.and_then(|signed| signed.encode(true))
 			.map_err(|_| ChainFailure::WrongWallet)
 	}
@@ -445,7 +465,7 @@ fn a_wallet_releases_a_real_husk_and_burns_it_after_the_hunt() {
 			let failed = failed.clone();
 			move |failure| failed.borrow_mut().push(failure.clone())
 		});
-		let wallet = Rc::new(FileWallet(wallet));
+		let wallet = Rc::new(FileWallet::new(wallet));
 		let keeper = RemoteBackend::new(ServerApi::new(
 			&server_url,
 			desktop,
@@ -521,18 +541,69 @@ fn a_wallet_releases_a_real_husk_and_burns_it_after_the_hunt() {
 		bot.play(&mut sim);
 		let log = HuntLog::new(bot.recorded);
 
-		println!("==> settle it, and have the wallet sign the burn");
+		println!("==> settle it; the wallet declines the burn");
+		wallet.decline_next.set(true);
 		let settlement = keeper
 			.settle_hunt(sighting.id, &log)
 			.await
 			.expect("the settlement");
 		assert!(settlement.outcome.absorbed(), "the bot reaps the husk");
-		assert!(failed.borrow().is_empty(), "{:?}", failed.borrow());
+		assert_eq!(*failed.borrow(), [ChainFailure::Declined]);
+		assert_eq!(landed.borrow().len(), 1, "no burn landed");
+		let entry = settlement
+			.state
+			.codex()
+			.iter()
+			.find(|entry| entry.nft == husk.nft)
+			.cloned()
+			.expect("the husk is in the codex");
+		let declined = Transaction::decode(
+			&wallet
+				.declined
+				.borrow()
+				.clone()
+				.expect("the wallet was handed the burn"),
+		)
+		.expect("a transaction");
+		let stranded = keeper.wallet_husks().await.unwrap();
+		assert!(
+			stranded
+				.iter()
+				.any(|held| held.asset == husk.asset && held.place == HuskPlace::Escrowed),
+			"the husk is still in escrow"
+		);
+
+		println!("==> finish the burn: the same receipt, built again");
+		// The chain moves on, so the burn is built on a later blockhash.
+		tokio::time::sleep(Duration::from_secs(2)).await;
+		keeper
+			.finish_burn(husk.nft)
+			.await
+			.expect("the burn is finished");
+		assert_eq!(failed.borrow().len(), 1, "{:?}", failed.borrow());
 		assert_eq!(landed.borrow().len(), 2);
 		let burn = landed.borrow()[1].clone();
 		assert_eq!(burn.instruction, SimnetInstruction::Burn);
 		assert!(burn.receipt_verifies(), "the keeper's receipt verifies");
 		assert!(burn.wire_verifies(), "the wallet signed the burn");
+		assert_eq!(
+			burn.receipt_signature
+				.as_deref()
+				.map(|signature| BASE64.encode(signature)),
+			entry.signature,
+			"the signature the codex holds"
+		);
+		let sent = Transaction::decode(burn.wire.as_deref().expect("the wire")).unwrap();
+		assert_eq!(
+			sent.message().instructions(),
+			declined.message().instructions(),
+			"the same receipt check and the same burn"
+		);
+		assert_ne!(
+			sent.message().lifetime(),
+			declined.message().lifetime(),
+			"on a fresh blockhash"
+		);
 		println!("    burned: {}", burn.signature);
 
 		println!("==> the husk is Core's one-byte tombstone");

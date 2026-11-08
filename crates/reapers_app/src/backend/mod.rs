@@ -175,6 +175,14 @@ pub trait GameBackend {
 		Ok(Vec::new())
 	}
 
+	/// Has the wallet burn the absorbed husk `nft` again, on a cluster
+	/// build, when the burn after its hunt did not land: the keeper builds
+	/// it from the same receipt, and the husk is checked to be burned as
+	/// the first time.
+	async fn finish_burn(&self, _nft: Nft) -> KeeperResult<()> {
+		Err(KeeperError::unavailable("this keeper burns no husk"))
+	}
+
 	/// Imports the reaper NFT at `asset`, owned by the linked wallet.
 	async fn import_reaper(&self, _asset: &str) -> KeeperResult<PlayerState> {
 		Err(KeeperError::unavailable("this keeper imports no reaper"))

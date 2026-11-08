@@ -1,11 +1,18 @@
 //! The record of everything this reaper has absorbed, collection by
 //! collection, and how far each set is from complete.
+//!
+//! On a cluster build, a husk absorbed whose burn did not land is still in
+//! the program's escrow: its entry offers to finish the burn.
 
 use leptoskit::prelude::*;
+use reapers_rules::Absorption;
 use reapers_rules::Feeding;
+use reapers_rules::Nft;
 use reapers_rules::NftCollection;
 
 use super::soul::soul_ledger;
+use crate::chain::HuskPlace;
+use crate::chain::WalletHusk;
 use crate::l10n::use_l10n;
 use crate::lookups::feeding_name;
 use crate::lookups::gift_name;
@@ -16,6 +23,8 @@ use crate::seams::husk_portrait;
 use crate::state::Game;
 use crate::theme::ASH;
 use crate::theme::BONE;
+use crate::ui::LedgerButton;
+use crate::ui::aside;
 use crate::ui::body;
 use crate::ui::display;
 use crate::ui::gap;
@@ -33,6 +42,37 @@ fn soul_open() -> RwSignal<bool> {
 	OPEN.with(|open| *open)
 }
 
+/// Whether `entry` was absorbed and signed but its husk is still in the
+/// program's escrow, as `husks`, the linked wallet's, have it: its burn did
+/// not land.
+pub fn unburned(husks: &[WalletHusk], entry: &Absorption) -> bool {
+	entry.signature.is_some()
+		&& husks
+			.iter()
+			.any(|husk| husk.nft == entry.nft && husk.place == HuskPlace::Escrowed)
+}
+
+/// Why `nft` is still in escrow, and the button that has the wallet burn
+/// it with the receipt it was reaped with.
+pub fn finish_burn(game: Game, nft: Nft) -> Element {
+	let words = use_l10n();
+	let button = LedgerButton::new(words.codex_finish_burn())
+		.test_id(format!("codex-finish-burn-{}", nft.id()));
+	View()
+		.class("gap-3")
+		.child(aside(words.codex_finish_burn_note()))
+		.child(if game.busy.get() {
+			button.disabled()
+		} else {
+			button.on_press(move || {
+				game.attempt(
+					move |keeper| async move { keeper.finish_burn(nft).await },
+					move |_| game.refresh_husks(),
+				);
+			})
+		})
+}
+
 /// The codex.
 pub fn page() -> Element {
 	let game = Game::get();
@@ -41,6 +81,7 @@ pub fn page() -> Element {
 	let Some(player) = game.player() else {
 		return View();
 	};
+	let husks = game.wallet_husks.get();
 	let mut entries = Vec::new();
 
 	if let Some(reaper) = player.active_reaper() {
@@ -105,6 +146,7 @@ pub fn page() -> Element {
 			.iter()
 			.filter(|entry| entry.nft.collection == collection)
 		{
+			let unburned = unburned(&husks, entry);
 			entries.push(
 				View()
 					.class("flex-row items-center gap-[14px] py-[6px]")
@@ -113,11 +155,18 @@ pub fn page() -> Element {
 						size: 44,
 						spent: false,
 					}))
-					.child(
-						View()
-							.class("flex-1")
-							.child(body(entry.nft.title(), 15, BONE)),
-					)
+					.child({
+						let title = View().class("flex-1 gap-[3px]").child(body(
+							entry.nft.title(),
+							15,
+							BONE,
+						));
+						if unburned {
+							title.child(label(words.codex_unburned(), 10, light))
+						} else {
+							title
+						}
+					})
 					.child(
 						View()
 							.class("items-end gap-[3px]")
@@ -133,6 +182,10 @@ pub fn page() -> Element {
 							)),
 					),
 			);
+			if unburned {
+				entries.push(finish_burn(game, entry.nft));
+				entries.push(gap(8));
+			}
 		}
 	}
 

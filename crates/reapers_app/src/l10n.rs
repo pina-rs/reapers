@@ -165,6 +165,10 @@ pub trait Messages: Send + Sync {
 	fn class_weigher_line(&self) -> &'static str;
 	/// `Nothing yet. Every husk you reap is written here.`
 	fn codex_empty(&self) -> &'static str;
+	/// `Finish the burn`
+	fn codex_finish_burn(&self) -> &'static str;
+	/// `You reaped this husk, but its burn did not land, so it is still in the Reapers program's escrow. Your wallet signs the same receipt again; nothing is paid twice.`
+	fn codex_finish_burn_note(&self) -> &'static str;
 	/// `Husks that got away`
 	fn codex_lost(&self) -> &'static str;
 	/// `Codex`
@@ -177,6 +181,10 @@ pub trait Messages: Send + Sync {
 	fn codex_set_progress(&self, remaining: i64) -> String;
 	/// `Everything you have absorbed.`
 	fn codex_title(&self) -> &'static str;
+	/// A codex entry whose husk was absorbed but is still in the Reapers program's escrow, because its burn did not land.
+	///
+	/// `Not yet burned`
+	fn codex_unburned(&self) -> &'static str;
 	/// `Lihe Yang and others. Released under the Apache License 2.0. It runs on this phone; no picture leaves it.`
 	fn colophon_depth_credit(&self) -> &'static str;
 	/// `Depth Anything V2, small, metric, indoor`
@@ -1797,6 +1805,14 @@ impl Messages for En {
 		"Nothing yet. Every husk you reap is written here."
 	}
 
+	fn codex_finish_burn(&self) -> &'static str {
+		"Finish the burn"
+	}
+
+	fn codex_finish_burn_note(&self) -> &'static str {
+		"You reaped this husk, but its burn did not land, so it is still in the Reapers program's escrow. Your wallet signs the same receipt again; nothing is paid twice."
+	}
+
 	fn codex_lost(&self) -> &'static str {
 		"Husks that got away"
 	}
@@ -1823,6 +1839,10 @@ impl Messages for En {
 
 	fn codex_title(&self) -> &'static str {
 		"Everything you have absorbed."
+	}
+
+	fn codex_unburned(&self) -> &'static str {
+		"Not yet burned"
 	}
 
 	fn colophon_depth_credit(&self) -> &'static str {

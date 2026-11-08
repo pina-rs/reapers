@@ -1135,5 +1135,9 @@
   "vaultReleaseWallet": "Release from your wallet",
   "vaultReleaseWalletNote": "Your wallet signs a transaction that moves this husk into the Reapers program's escrow. Once the cluster has finalized it, the husk is loose in the veil; absorb it, and your wallet signs its burn.",
   "vaultReleaseEscrowed": "Loose it into the veil",
-  "vaultReleaseEscrowedNote": "This husk is already in the Reapers program's escrow. Releasing it tells the keeper, and it surfaces in the veil."
+  "vaultReleaseEscrowedNote": "This husk is already in the Reapers program's escrow. Releasing it tells the keeper, and it surfaces in the veil.",
+  "codexUnburned": "Not yet burned",
+  "@codexUnburned": { "description": "A codex entry whose husk was absorbed but is still in the Reapers program's escrow, because its burn did not land." },
+  "codexFinishBurn": "Finish the burn",
+  "codexFinishBurnNote": "You reaped this husk, but its burn did not land, so it is still in the Reapers program's escrow. Your wallet signs the same receipt again; nothing is paid twice."
 }

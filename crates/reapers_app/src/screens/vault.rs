@@ -11,6 +11,8 @@ use reapers_rules::NftCollection;
 use reapers_rules::PlayerState;
 use reapers_rules::market_listings;
 
+use super::codex::finish_burn;
+use super::codex::unburned;
 use super::home;
 use crate::chain::HuskPlace;
 use crate::chain::WalletHusk;
@@ -50,6 +52,8 @@ enum Holding {
 	InWallet,
 	/// A real demo husk the wallet released into escrow, not yet loose.
 	Escrowed,
+	/// A real demo husk absorbed whose burn did not land: still in escrow.
+	Unburned,
 }
 
 fn holding_of(player: &PlayerState, husks: &[WalletHusk], nft: Nft) -> Holding {
@@ -61,7 +65,11 @@ fn holding_of(player: &PlayerState, husks: &[WalletHusk], nft: Nft) -> Holding {
 		.sightings()
 		.iter()
 		.any(|sighting| sighting.nft == nft);
+	let absorbed = player.codex().iter().find(|entry| entry.nft == nft);
 	match place {
+		Some(HuskPlace::Escrowed) if absorbed.is_some_and(|entry| unburned(husks, entry)) => {
+			return Holding::Unburned;
+		}
 		Some(HuskPlace::InWallet) => return Holding::InWallet,
 		Some(HuskPlace::Escrowed) if !loose => return Holding::Escrowed,
 		_ => {}
@@ -74,7 +82,7 @@ fn holding_of(player: &PlayerState, husks: &[WalletHusk], nft: Nft) -> Holding {
 		.any(|sighting| sighting.nft == nft)
 	{
 		Holding::Loose
-	} else if player.codex().iter().any(|entry| entry.nft == nft) {
+	} else if absorbed.is_some() {
 		Holding::Absorbed
 	} else {
 		Holding::Listed
@@ -130,6 +138,7 @@ fn nft_row(game: Game, nft: Nft, holding: Holding) -> Element {
 		Holding::Absorbed => (words.vault_absorbed().to_owned(), ASH),
 		Holding::InWallet => (words.vault_in_wallet().to_owned(), light()),
 		Holding::Escrowed => (words.vault_in_escrow().to_owned(), light()),
+		Holding::Unburned => (words.codex_unburned().to_owned(), light()),
 	};
 	let rarity = rarity_name(&*words, nft.rarity());
 	Pressable(format!("{}, {rarity}, {status}", nft.title()))
@@ -139,7 +148,7 @@ fn nft_row(game: Game, nft: Nft, holding: Holding) -> Element {
 		.child(husk_portrait(HuskPortraitProps {
 			nft,
 			size: 48,
-			spent: holding == Holding::Absorbed,
+			spent: matches!(holding, Holding::Absorbed | Holding::Unburned),
 		}))
 		.child(
 			View()
@@ -229,6 +238,7 @@ pub fn nft_sheet(game: Game, nft: Nft) -> Element {
 		}
 		Holding::Loose => LedgerButton::new(words.vault_loose()).disabled(),
 		Holding::Absorbed => LedgerButton::new(words.vault_absorbed()).disabled(),
+		Holding::Unburned => finish_burn(game, nft),
 	};
 
 	sheet(

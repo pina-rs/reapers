@@ -41,6 +41,7 @@ use reapers_api::chain::ChainStatus as ChainStatusOp;
 use reapers_api::chain::ImportReaper;
 use reapers_api::chain::WalletChallenge as WalletChallengeOp;
 use reapers_api::player;
+use reapers_api::player::ChainReceipt;
 use reapers_api::player::SettledHunt;
 use reapers_api::rift::ReportRift;
 use reapers_api::rpc::FnError;
@@ -431,6 +432,14 @@ impl ReapersApi for ServerApi {
 			.call(player::SettleHunt {
 				sighting: sighting_id,
 				log: player::encode_log(&log),
+			})
+			.await
+	}
+
+	async fn absorb_transaction(&self, nft_id: &str) -> ApiResult<ChainReceipt> {
+		self.0
+			.call(player::AbsorbTransaction {
+				nft: nft_id.to_owned(),
 			})
 			.await
 	}
