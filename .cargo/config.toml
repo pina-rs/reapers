@@ -1,0 +1,4 @@
+# `cargo xtask <command>` runs the repository's own tools: see
+# crates/xtask/src/main.rs, or `cargo xtask --help`.
+[alias]
+xtask = "run --quiet --locked --package xtask --"

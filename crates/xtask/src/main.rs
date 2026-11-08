@@ -1,0 +1,82 @@
+//! The repository's own tools. Run them from anywhere inside the repository:
+//!
+//! ```sh
+//! cargo xtask check            # format, lints, every build and every test
+//! cargo xtask check --fast     # the same without the PostgreSQL-backed server tests
+//! cargo xtask hooks install    # once per clone: guard main
+//! cargo xtask merge            # run every check, then fast-forward main
+//! cargo xtask merge --push     # the same, then push main to origin
+//! cargo xtask build-art        # rebuild every model and portrait (Blender, gltfpack)
+//! cargo xtask build-music      # fetch and re-encode the music (curl, ffmpeg)
+//! ```
+//!
+//! `cargo xtask` is an alias in `.cargo/config.toml`.
+
+mod art;
+mod check;
+mod git;
+mod hooks;
+mod merge;
+mod music;
+mod run;
+
+use std::process::ExitCode;
+
+use clap::Parser;
+use clap::Subcommand;
+
+use crate::run::Failure;
+
+#[derive(Parser)]
+#[command(name = "cargo xtask", about = "The Reapers repository's own tools.")]
+struct Cli {
+	#[command(subcommand)]
+	command: Command,
+}
+
+#[derive(Subcommand)]
+enum Command {
+	/// Run every check a change has to pass before it reaches main.
+	Check {
+		/// Skip the server's tests, which start a PostgreSQL cluster.
+		#[arg(long)]
+		fast: bool,
+	},
+	/// Guard main against changes the checks have not passed.
+	Hooks {
+		#[command(subcommand)]
+		action: Option<hooks::Action>,
+	},
+	/// Check this branch, then fast-forward main to it.
+	Merge {
+		/// Push main to origin once it has moved.
+		#[arg(long)]
+		push: bool,
+	},
+	/// Build every 3D model and NFT portrait from `art/blender`.
+	BuildArt(art::Options),
+	/// Fetch the music from its makers and re-encode it.
+	BuildMusic,
+}
+
+fn main() -> ExitCode {
+	let cli = Cli::parse();
+	let root = run::root();
+	let outcome = match cli.command {
+		Command::Check { fast } => check::main(&root, fast),
+		Command::Hooks { action } => hooks::main(&git::Git::at(&root), action.unwrap_or_default()),
+		Command::Merge { push } => merge::main(&root, push),
+		Command::BuildArt(options) => art::main(&root, &options),
+		Command::BuildMusic => music::main(&root),
+	};
+
+	match outcome {
+		Ok(()) => ExitCode::SUCCESS,
+		Err(Failure { message, code }) => {
+			if !message.is_empty() {
+				eprintln!("{message}");
+			}
+			ExitCode::from(code)
+		}
+	}
+}
