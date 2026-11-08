@@ -1,6 +1,6 @@
 """Builds one GLB for each reaper class.
 
-    dart tool/build_art.dart reapers --preview
+    cargo xtask build-art reapers --preview
 
 Each class lives in its own module under `reaper_classes/` and exposes
 `build()`, which returns the model's root. Every model has the same node

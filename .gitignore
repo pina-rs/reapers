@@ -1,16 +1,11 @@
 # Miscellaneous
-*.class
 *.log
 *.pyc
 *.swp
 .DS_Store
-.atom/
 .build/
-.buildlog/
 .history
-.svn/
 .swiftpm/
-migrate_working_dir/
 __pycache__/
 
 # Nix/devenv local state
@@ -18,59 +13,31 @@ __pycache__/
 .devenv.flake.nix
 .direnv/
 
-# IntelliJ related
+# Editors
 *.iml
 *.ipr
 *.iws
 .idea/
-
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.packages
-.pub-cache/
-.pub/
-**/build/
-/coverage/
-pubspec_overrides.yaml
-
-# Serverpod runtime state and secrets
-reapers_server/.serverpod/
-reapers_server/config/passwords.yaml
-reapers_server/web/app/
-
-# Agent skills and editor wiring fetched by tooling
-.dart_skills/
-.agents/skills/serverpod-*/
-**/.claude/skills/flutter_scene-*/
 .vscode/mcp.json
 .mcp.json
-.scloud/
+
+# Review captures
 .impeccable/review/
 
-# Symbolication and obfuscation
-app.*.symbols
-app.*.map.json
-
-# Android Studio build artifacts
-/reapers_flutter/android/app/debug
-/reapers_flutter/android/app/profile
-/reapers_flutter/android/app/release
-
-# Rebuildable art outputs. The sources are the scripts in art/blender and the
-# compiled models are committed under reapers_flutter/assets/models.
+# Rebuildable art outputs. The sources are the scripts in art/blender, and the
+# compressed models and portraits are committed under assets/.
 art/build/
 *.blend1
 
 # Rust
 /target/
-crates/reapers_server/config/passwords.toml
 **/*.rs.bk
+.leptoskit/
+
+# The server's secrets, and a PostgreSQL kept under the repository for it.
+crates/reapers_server/config/passwords.toml
+/.postgres/
 
 # Solana keys are never committed: deploy keypairs live outside the repository.
 *-keypair.json
 /keys/
-.leptoskit/

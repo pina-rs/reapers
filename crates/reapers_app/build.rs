@@ -1,10 +1,10 @@
 //! Brings the game's assets into the project before leptoskit bundles it.
 //!
 //! The models, music and NFT portraits are built into the repository's own
-//! `assets/` (by `tool/build_art.dart` and `tool/build_music.dart`), and the
-//! typefaces and the mark live with the Flutter game. leptoskit bundles the
-//! project's `assets/` directory, and only real files in it, so each of
-//! those is mirrored there: copied when it differs, never rewritten when it
+//! `assets/` (by `cargo xtask build-art` and `cargo xtask build-music`),
+//! beside the typefaces and the mark. leptoskit bundles the project's
+//! `assets/` directory, and only real files in it, so each of those is
+//! mirrored there: copied when it differs, never rewritten when it
 //! does not, so `leptoskit dev`'s watcher does not chase its own tail. The
 //! mirrors are git-ignored; the sources stay the only copies in git.
 
@@ -17,8 +17,8 @@ const MIRRORS: [(&str, &str); 5] = [
 	("../../assets/nfts", "nfts"),
 	("../../assets/music", "music"),
 	("../../assets/models", "models"),
-	("../../reapers_flutter/assets/fonts", "fonts"),
-	("../../reapers_flutter/assets/branding", "branding"),
+	("../../assets/fonts", "fonts"),
+	("../../assets/branding", "branding"),
 ];
 
 fn mirror(from: &Path, to: &Path) -> std::io::Result<()> {

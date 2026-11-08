@@ -1,5 +1,7 @@
 """Render contact poses from the exported GLBs, not the authoring scene.
 
+It reads the full-size models `cargo xtask build-art` leaves in `art/build/models`.
+
     blender --background --python art/blender/review_motions.py -- \
       --class harvester --clip finisherReap --phase 0.52 --out art/build/contact.png
 """
@@ -29,7 +31,7 @@ def main():
     options = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
     clip_name = ("humanoid_" if options.humanoid else "") + options.clip
     core.reset_scene()
-    bpy.ops.import_scene.gltf(filepath=f"reapers_flutter/assets/models/reaper_{options.calling}.glb")
+    bpy.ops.import_scene.gltf(filepath=f"art/build/models/reaper_{options.calling}.glb")
     root = bpy.data.objects["reaper"]
     show_variant(root, 0, 0, 0)
     for obj in root.children_recursive:

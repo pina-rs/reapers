@@ -1,10 +1,10 @@
 """Builds one GLB for each vessel: the body a dead NFT wears as a husk.
 
-    dart tool/build_art.dart husks --preview
+    cargo xtask build-art husks --preview
 
 Every supported collection has a creature of its own, built by the module of
 the same name in `creature_kinds/`. The sizes and the seal positions come
-from the rules (`Vessel` in reapers_shared), passed in as `--specs`; nothing
+from the rules (`Vessel` in `reapers_rules`), passed in as `--specs`; nothing
 here invents a number the rules depend on.
 
 After a creature is built, one portrait is rendered for every NFT of its

@@ -2,12 +2,14 @@
 // Dart rules in reapers_shared say, for every rule that can be asked a
 // question with a definite answer.
 //
-// Run it from the repository root with the pinned SDK:
+// Retired with the Dart code on 8 November 2026, and kept as it was: it
+// imports reapers_shared, which is no longer in this tree, so it cannot run
+// here. The fixtures stay as they are, as the record of what the rules did
+// when they were Dart. README.md, beside this file, gives the git command
+// that checks out the last commit with the Dart package, where it runs from
+// the repository root with the pinned SDK:
 //
 //     fvm dart run crates/reapers_rules/tests/fixtures/generate.dart
-//
-// It is retired with the Dart code. Once reapers_shared is gone the fixtures
-// stay as they are, as the record of what the rules did when they were Dart.
 //
 // ignore_for_file: avoid_print
 import 'dart:async';

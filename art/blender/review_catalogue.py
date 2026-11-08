@@ -2,6 +2,7 @@
 
 Blender CLI: --class harvester --form humanoid --out art/build/motion-review
 The resulting 32 labelled strips are an inspection aid, not a quality score.
+It reads the full-size models `cargo xtask build-art` leaves in `art/build/models`.
 """
 
 import argparse
@@ -44,7 +45,7 @@ def main():
     options = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
     os.makedirs(options.out, exist_ok=True)
     core.reset_scene()
-    bpy.ops.import_scene.gltf(filepath=f"reapers_flutter/assets/models/reaper_{options.calling}.glb")
+    bpy.ops.import_scene.gltf(filepath=f"art/build/models/reaper_{options.calling}.glb")
     root = bpy.data.objects["reaper"]
     show_variant(root, 0, 0, options.variant)
     for obj in root.children_recursive:

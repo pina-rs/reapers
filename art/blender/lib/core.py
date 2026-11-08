@@ -1,7 +1,7 @@
 """Scene, mesh and export helpers shared by every Reapers art script.
 
 These scripts only ever run inside Blender (`blender --background --python`),
-driven by `dart tool/build_art.dart`. Blender's authoring API is Python, so
+driven by `cargo xtask build-art`. Blender's authoring API is Python, so
 this is the one place in the repository where Python is the right language.
 
 Conventions used throughout:

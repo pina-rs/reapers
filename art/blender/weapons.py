@@ -1,6 +1,6 @@
 """Builds every weapon kind into one GLB.
 
-    dart tool/build_art.dart weapons --preview
+    cargo xtask build-art weapons --preview
 
 Each kind lives in its own module under `weapon_kinds/` and exposes
 `build()`, which returns a node named `weapon_<kind>`, with `<kind>` spelled

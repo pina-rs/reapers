@@ -1,6 +1,6 @@
 # Music
 
-Nothing here was composed or generated for the game. Each piece is a recording somebody made and released for anyone to use. `tool/build_music.dart` fetches the originals and re-encodes them; the only change made to the sound is its level.
+Nothing here was composed or generated for the game. Each piece is a recording somebody made and released for anyone to use. `cargo xtask build-music` fetches the originals, checks each against its checksum, and re-encodes them; the only change made to the sound is its level.
 
 | File | Piece | By | Licence |
 | --- | --- | --- | --- |
@@ -20,6 +20,6 @@ The game's colophon screen carries all three.
 
 ## Changes
 
-Each piece was re-encoded as Ogg Vorbis at about 160 kbit/s. Ossuary 1 was lowered by 1 dB, Penumbra by 4 dB and Oppressive Gloom by 3 dB, so that all three sit at about the same loudness. In play, the game changes how loud a piece is and passes it through a low-pass filter; it does not cut, loop inside, or mix the recordings together.
+Each piece was re-encoded as Ogg Vorbis at quality 2, about 80 kbit/s for these slow, quiet pieces. Ossuary 1 was lowered by 1 dB, Penumbra by 4 dB and Oppressive Gloom by 3 dB, so that all three sit at about the same loudness. In play, the game changes how loud a piece is and passes it through a low-pass filter; it does not cut, loop inside, or mix the recordings together.
 
 Until 19 October 2026 the game played a Bach prelude (Kimiko Ishizaka) and two pieces by Scott Buckley. They were replaced to make the game sound like horror.
