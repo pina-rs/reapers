@@ -52,6 +52,7 @@ use crate::books;
 use crate::books::breach;
 use crate::chain::Gateway;
 use crate::config::RunMode;
+use crate::receipt;
 use crate::receipt::Receipt;
 use crate::rift::Chair;
 use crate::rift::RiftHall;
@@ -436,7 +437,7 @@ impl Keeper {
 			}
 			None => Sha256::digest(absorption.nft.id().as_bytes()).into(),
 		};
-		let Some(receipt) = Receipt::of(player, mint, absorption) else {
+		let Some(receipt) = receipt::of(player, mint, absorption) else {
 			return Err(rpc::Error::server("an absorption does not fit its receipt"));
 		};
 		let message = receipt.encode();
@@ -450,24 +451,23 @@ impl Keeper {
 	}
 
 	/// The receipt as the wallet takes it to the chain, with the absorb
-	/// transaction when the chain gives a blockhash for it.
+	/// transaction when the chain says how to burn the husk and gives a
+	/// blockhash for it.
 	async fn chain_receipt(&self, signed: SignedReceipt) -> ChainReceipt {
 		let message = signed.receipt.encode();
 		let wallet = Address::from_bytes(signed.receipt.player);
 		let mint = Address::from_bytes(signed.receipt.mint);
 		let keeper = self.signer.address();
 		let transaction = match (
-			self.gateway.config().program,
+			self.gateway.absorb_target(&mint).await,
 			self.gateway.latest_blockhash().await,
 		) {
-			(Some(program), Ok((blockhash, last_valid_block_height))) => {
+			(Ok(burn), Ok((blockhash, last_valid_block_height))) => {
 				absorb::transaction(
-					&program,
 					&keeper,
-					&wallet,
-					&mint,
-					&message,
+					&signed.receipt,
 					&signed.signature,
+					burn,
 					Lifetime::Blockhash {
 						blockhash,
 						last_valid_block_height,

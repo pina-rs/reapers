@@ -10,6 +10,7 @@ use reapers_server::chain::Gateway;
 use reapers_server::config::SolanaConfig;
 use reapers_server::escrow;
 use reapers_server::escrow::Escrow;
+use reapers_server::escrow::HuskKind;
 use solana_kit_core::Address;
 use solana_kit_mpl_core::UpdateAuthority;
 use support::*;
@@ -203,8 +204,16 @@ async fn an_escrow_holds_only_when_the_program_records_this_wallet_and_this_mint
 	let wallet = Address::from_bytes([1; 32]);
 	let other = Address::from_bytes([2; 32]);
 	let mint = Address::from_bytes([5; 32]);
-	let (address, bump) = escrow::address(&program(), &mint).expect("an escrow address");
-	let record = |wallet: Address, mint: Address, bump: u8| Escrow { wallet, mint, bump }.encode();
+	let (address, bump) = escrow::address_of(&mint);
+	let record = |wallet: Address, mint: Address, bump: u8| {
+		Escrow {
+			wallet,
+			mint,
+			kind: HuskKind::Core,
+			bump,
+		}
+		.encode()
+	};
 
 	assert_eq!(
 		gateway.escrowed(&wallet, &mint).await,
@@ -248,7 +257,7 @@ async fn an_escrow_holds_only_when_the_program_records_this_wallet_and_this_mint
 			program().to_string(),
 			record(wallet, mint, bump.wrapping_sub(1)),
 		),
-		("not an escrow", program().to_string(), [0; escrow::LEN]),
+		("not an escrow", program().to_string(), vec![0; escrow::LEN]),
 	] {
 		chain.put(&address.to_string(), &owner, &data);
 

@@ -34,7 +34,9 @@ use reapers_server::books::breach;
 use reapers_server::config::RunMode;
 use reapers_server::escrow;
 use reapers_server::escrow::Escrow;
+use reapers_server::escrow::HuskKind;
 use reapers_server::keeper::now;
+use reapers_server::receipt;
 use reapers_server::receipt::Receipt;
 use reapers_server::sign_in::sign_in_wallet;
 use reapers_server::tables::HuskEscrow;
@@ -488,15 +490,36 @@ fn mint() -> Address {
 	Address::from_bytes([5; 32])
 }
 
-/// Escrows `mint` on the chain, released by `wallet`.
+/// Escrows `mint` on the chain, released by `wallet`: the program's escrow
+/// account, and the Core asset it now owns, in a demo husk collection.
 fn escrow_on_chain(chain: &Chain, wallet: Address, mint: Address) {
-	let (address, bump) = escrow::address(&program(), &mint).expect("an escrow address");
+	let (address, bump) = escrow::address_of(&mint);
 
 	chain.put(
 		&address.to_string(),
 		&program().to_string(),
-		&Escrow { wallet, mint, bump }.encode(),
+		&Escrow {
+			wallet,
+			mint,
+			kind: HuskKind::Core,
+			bump,
+		}
+		.encode(),
 	);
+	chain.put(
+		&mint.to_string(),
+		&solana_kit_mpl_core::PROGRAM.to_string(),
+		&asset(
+			address,
+			UpdateAuthority::Collection(husk_collection()),
+			"https://reapers.example/husks/1.json",
+		),
+	);
+}
+
+/// The demo husk collection the escrow tests' husk belongs to.
+fn husk_collection() -> Address {
+	Address::from_bytes([6; 32])
 }
 
 /// A proved, oathbound player with the saint bought.
@@ -565,7 +588,7 @@ async fn an_escrowed_husk_earns_a_receipt_the_program_can_burn_it_with() {
 
 	assert_eq!(
 		receipt,
-		Receipt::of(*wallet.address().as_bytes(), *mint().as_bytes(), &entry).unwrap()
+		receipt::of(*wallet.address().as_bytes(), *mint().as_bytes(), &entry).unwrap()
 	);
 	assert_eq!(
 		receipt.player,
@@ -595,6 +618,13 @@ async fn an_escrowed_husk_earns_a_receipt_the_program_can_burn_it_with() {
 	assert!(
 		instructions[0].data().ends_with(&message),
 		"the Ed25519 check carries the receipt"
+	);
+	assert!(
+		transaction
+			.message()
+			.static_accounts()
+			.contains(&husk_collection()),
+		"the burn writes to the husk's collection"
 	);
 	assert!(transaction.sign(&wallet.0).unwrap().verify().is_ok());
 }
@@ -720,7 +750,7 @@ async fn a_husk_that_left_its_escrow_cannot_be_settled() {
 	let world = World::new().await;
 	let wallet = Wallet::new(1);
 	let player = holder(&world, &wallet).await;
-	let (address, _) = escrow::address(&program(), &mint()).unwrap();
+	let (address, _) = escrow::address_of(&mint());
 
 	escrow_on_chain(&world.chain, wallet.address(), mint());
 

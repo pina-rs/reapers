@@ -115,10 +115,10 @@ enum Commands {
 	/// Print the keeper public key the server derives from its secret.
 	///
 	/// The secret is read from the environment variable named by `--env`
-	/// (`SERVERPOD_PASSWORD_receiptSigningKey` by default), never from the
+	/// (`REAPERS_SECRET_receiptSigningKey` by default), never from the
 	/// command line, and is not printed.
 	Keeper {
-		#[arg(long, default_value = "SERVERPOD_PASSWORD_receiptSigningKey")]
+		#[arg(long, default_value = "REAPERS_SECRET_receiptSigningKey")]
 		env: String,
 	},
 	/// Mint the five demo husk collections, eight Core assets each.
@@ -155,7 +155,7 @@ enum Commands {
 		/// Its collection.
 		#[arg(long)]
 		collection: Address,
-		#[arg(long, default_value = "SERVERPOD_PASSWORD_receiptSigningKey")]
+		#[arg(long, default_value = "REAPERS_SECRET_receiptSigningKey")]
 		env: String,
 	},
 	/// Fetch Metaplex Core from mainnet for the tests and the rehearsal.

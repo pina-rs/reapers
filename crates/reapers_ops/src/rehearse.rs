@@ -215,7 +215,7 @@ pub async fn rehearse(options: Options) -> Result<(), Error> {
 			"--collection",
 			&collection.to_string(),
 		],
-		&[("SERVERPOD_PASSWORD_receiptSigningKey", secret)],
+		&[("REAPERS_SECRET_receiptSigningKey", secret)],
 	)?;
 	let instructions = absorb(
 		&keeper,

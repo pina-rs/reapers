@@ -374,7 +374,7 @@ pub const COLLECTION: &str = "11111111111111111111111111111111";
 
 /// The program test husks are escrowed with.
 pub fn program() -> solana_kit_core::Address {
-	solana_kit_core::Address::from_bytes([7; 32])
+	reapers_server::escrow::program()
 }
 
 /// The chain settings tests read by.

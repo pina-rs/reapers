@@ -22,6 +22,8 @@ leptoskit_db = { workspace = true, features = ["postgres"] }
 leptoskit_rpc = { workspace = true, features = ["postgres", "live"] }
 reapers_api = { workspace = true, features = ["server"] }
 reapers_db = { workspace = true }
+reapers_program_client = { workspace = true }
+reapers_receipt = { workspace = true }
 reapers_rules = { workspace = true }
 serde = { workspace = true, features = ["std"] }
 serde_json = { workspace = true }
@@ -30,6 +32,8 @@ solana_kit_client = { workspace = true }
 solana_kit_core = { workspace = true, features = ["crypto"] }
 solana_kit_mpl_core = { workspace = true }
 solana_kit_native = { workspace = true }
+solana-instruction = { workspace = true }
+solana-pubkey = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }
 toml = { workspace = true }

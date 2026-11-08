@@ -21,7 +21,7 @@ Keys, none of which ever go in the repository:
 | --- | --- | --- |
 | Program keypair | `~/.config/solana/reapers/program-devnet-keypair.json` | The program's address. Needed for the first deployment only. Back it up: without it the address cannot be deployed to again from scratch. |
 | Deployer | `~/.config/solana/reapers/devnet-deployer.json`, made in step 2 | Pays, and is the upgrade authority and the program's authority until you hand them on. |
-| Keeper secret | the server's `SERVERPOD_PASSWORD_receiptSigningKey` | The secret the server derives its receipt key from. Use one for devnet only, never the mainnet one: a receipt does not name its cluster. |
+| Keeper secret | the server's `REAPERS_SECRET_receiptSigningKey` | The secret the server derives its receipt key from. Use one for devnet only, never the mainnet one: a receipt does not name its cluster. |
 
 Set these once per shell:
 
@@ -124,10 +124,10 @@ The explorer: <https://explorer.solana.com/address/HuskN1zeKqNaWUZbxwymyoW3S8CxM
 
 ## 5. Initialize, with the keeper
 
-The program trusts receipts from one Ed25519 key, the keeper. The server derives it from its secret: the key's seed is the secret's SHA-256 (`ReceiptSigner` in `reapers_server`, `keeper_from_secret` in `reapers_ops`). Make a devnet secret, give it to the devnet server as `SERVERPOD_PASSWORD_receiptSigningKey`, and derive the public key from it:
+The program trusts receipts from one Ed25519 key, the keeper. The server derives it from its secret: the key's seed is the secret's SHA-256 (`ReceiptSigner` in `crates/reapers_server/src/signer.rs`, `keeper_from_secret` in `reapers_ops`). Make a devnet secret, give it to the devnet server as `REAPERS_SECRET_receiptSigningKey`, and derive the public key from it:
 
 ```sh
-export SERVERPOD_PASSWORD_receiptSigningKey="$(openssl rand -base64 32)"   # keep it where the server's secrets live
+export REAPERS_SECRET_receiptSigningKey="$(openssl rand -base64 32)"   # keep it where the server's secrets live
 export KEEPER=$(ops keeper)
 echo $KEEPER
 ```
@@ -168,12 +168,12 @@ COLLECTION=$(jq -r '.collections[] | select(.slug=="thugbirdz") | .address' targ
 ops smoke --url devnet --player $DEPLOYER --asset $ASSET --collection $COLLECTION
 ```
 
-It checks first that the keeper derived from `SERVERPOD_PASSWORD_receiptSigningKey` is the one the program trusts. It must end with `==> smoke test passed`, after saying the asset is a one-byte tombstone and the escrow is closed. Look the asset up in the explorer: it is owned by Core and holds one byte.
+It checks first that the keeper derived from `REAPERS_SECRET_receiptSigningKey` is the one the program trusts. It must end with `==> smoke test passed`, after saying the asset is a one-byte tombstone and the escrow is closed. Look the asset up in the explorer: it is owned by Core and holds one byte.
 
 The server does not yet sign version 2 receipts or post them; this test signs from your machine with the same secret. Clear it from the shell afterwards:
 
 ```sh
-unset SERVERPOD_PASSWORD_receiptSigningKey
+unset REAPERS_SECRET_receiptSigningKey
 ```
 
 ## 8. Upgrading

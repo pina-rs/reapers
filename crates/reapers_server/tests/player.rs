@@ -30,7 +30,7 @@ use reapers_rules::Timestamp;
 use reapers_rules::Weapon;
 use reapers_server::config::RunMode;
 use reapers_server::keeper::now;
-use reapers_server::receipt::Receipt;
+use reapers_server::receipt;
 use reapers_server::signer::ReceiptSigner;
 use sha2::Digest;
 use sha2::Sha256;
@@ -437,7 +437,7 @@ fn receipt_for(player: leptoskit_db::Id<leptoskit_auth::Account>, entry: &Absorp
 	let player = Sha256::digest(player.uuid().to_string().as_bytes()).into();
 	let mint = Sha256::digest(entry.nft.id().as_bytes()).into();
 
-	Receipt::of(player, mint, entry).expect("it fits").encode()
+	receipt::of(player, mint, entry).expect("it fits").encode()
 }
 
 fn signature(text: &str) -> Signature {

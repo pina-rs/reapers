@@ -41,9 +41,11 @@ use solana_kit_mpl_core::AssetV1;
 use solana_kit_mpl_core::UpdateAuthority;
 use solana_kit_mpl_core::decode_asset_v1;
 
+use crate::absorb::Burn;
 use crate::config::SolanaConfig;
 use crate::escrow;
 use crate::escrow::Escrow;
+use crate::escrow::HuskKind;
 
 /// How long any one chain read may take before the request is refused.
 pub const TIMEOUT: Duration = Duration::from_secs(8);
@@ -234,12 +236,58 @@ impl Gateway {
 	/// Refused as `chainUnconfigured` when no program is configured, and as
 	/// `notInVault` when the escrow is not there or is someone else's.
 	pub async fn escrowed(&self, wallet: &Address, mint: &Address) -> Result<(), Refusal> {
-		let Some(program) = self.config.program else {
+		self.escrow(mint).await.and_then(|recorded| {
+			if recorded.wallet == *wallet {
+				Ok(())
+			} else {
+				Err(Refusal::NotInVault)
+			}
+		})
+	}
+
+	/// How the escrowed husk `mint` is burned: its kind, from its escrow,
+	/// and for a Core asset its collection, read from the asset. Both at a
+	/// finalized slot.
+	///
+	/// Refused as for [`Self::escrowed`], and as `notInVault` when a Core
+	/// husk's asset is no longer an asset.
+	pub async fn absorb_target(&self, mint: &Address) -> Result<Burn, Refusal> {
+		let recorded = self.escrow(mint).await?;
+		let collection = match recorded.kind {
+			HuskKind::Core => {
+				let assets = self
+					.call(MultipleAccounts(
+						vec![*mint],
+						Some(AccountConfig {
+							read: finalized(),
+							encoding: Some(AccountEncoding::Base64),
+							data_slice: None,
+						}),
+					))
+					.await?;
+				let Some(asset) = assets.value.into_iter().next().and_then(core_asset) else {
+					return Err(Refusal::NotInVault);
+				};
+
+				match asset.update_authority {
+					UpdateAuthority::Collection(collection) => Some(collection),
+					_ => None,
+				}
+			}
+			HuskKind::Token | HuskKind::Token2022 => None,
+		};
+
+		Ok(Burn::of(recorded.kind, collection))
+	}
+
+	/// The escrow the program keeps for `mint`, read at a finalized slot,
+	/// when the program owns it and it is the escrow of exactly this mint.
+	async fn escrow(&self, mint: &Address) -> Result<Escrow, Refusal> {
+		if self.config.program.is_none() {
 			return Err(Refusal::ChainUnconfigured);
-		};
-		let Some((address, bump)) = escrow::address(&program, mint) else {
-			return Err(Refusal::NotInVault);
-		};
+		}
+
+		let (address, bump) = escrow::address_of(mint);
 
 		self.check_cluster().await?;
 
@@ -247,17 +295,16 @@ impl Gateway {
 		let MaybeAccount::Present(account) = account.value else {
 			return Err(Refusal::NotInVault);
 		};
-		let recorded = Escrow::decode(&account.data);
-		let held = account.owner == program
-			&& !account.executable
-			&& recorded.is_some_and(|recorded| {
-				recorded.wallet == *wallet && recorded.mint == *mint && recorded.bump == bump
-			});
-
-		if held {
-			Ok(())
-		} else {
-			Err(Refusal::NotInVault)
+		match Escrow::decode(&account.data) {
+			Some(recorded)
+				if account.owner == escrow::program()
+					&& !account.executable
+					&& recorded.mint == *mint
+					&& recorded.bump == bump =>
+			{
+				Ok(recorded)
+			}
+			_ => Err(Refusal::NotInVault),
 		}
 	}
 

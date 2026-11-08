@@ -1,178 +1,187 @@
 //! The transaction that burns an escrowed husk: the native Ed25519 check of
-//! the keeper's receipt, then the program's `Absorb`.
+//! the keeper's receipt, then the program's `AbsorbCore` or `AbsorbToken`.
 //!
-//! The program reads the receipt from the Ed25519 instruction through the
-//! instructions sysvar, so both travel in one transaction and the burn
-//! happens only when the signature checks.
+//! The program reads the receipt from the Ed25519 instruction immediately
+//! before the burn, through the instructions sysvar, so both travel in one
+//! transaction and the burn happens only when the signature checks. Both
+//! instructions come from the program's generated client, the same builders
+//! its own tests and `reapers_ops` use.
 
+use reapers_program_client::absorb;
+use reapers_receipt::Receipt;
 use solana_kit_core::AccountMeta;
 use solana_kit_core::AccountRole;
 use solana_kit_core::Address;
 use solana_kit_core::Instruction;
 use solana_kit_core::Signature;
-use solana_kit_core::address_constants::ED25519_PROGRAM;
-use solana_kit_core::address_constants::SYSVAR_INSTRUCTIONS;
 use solana_kit_core::transaction::Lifetime;
 use solana_kit_core::transaction::Message;
 use solana_kit_core::transaction::Transaction;
 use solana_kit_core::transaction::Version;
+use solana_pubkey::Pubkey;
 
 use crate::escrow;
+use crate::escrow::HuskKind;
 
-/// The native Ed25519 program's instruction checking `signature` by
-/// `signer` over `message`, all carried in the instruction itself.
-///
-/// Its data is a count of one, a padding byte, one fourteen-byte offsets
-/// entry, then the key, the signature and the message. An instruction index
-/// of `u16::MAX` points each offset at this same instruction.
-pub fn ed25519_instruction(
-	signer: &Address,
-	signature: &Signature,
-	message: &[u8],
-) -> Option<Instruction> {
-	const HEADER: usize = 2 + 14;
-	const THIS: u16 = u16::MAX;
+/// The SPL Token program.
+pub const TOKEN_PROGRAM: Pubkey =
+	Pubkey::from_str_const("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
-	let key_at = HEADER;
-	let signature_at = key_at + 32;
-	let message_at = signature_at + 64;
-	let offset = |at: usize| u16::try_from(at).ok();
-	let mut data = Vec::with_capacity(message_at + message.len());
+/// The Token-2022 program.
+pub const TOKEN_2022_PROGRAM: Pubkey =
+	Pubkey::from_str_const("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
 
-	data.extend_from_slice(&[1, 0]);
-
-	for field in [
-		offset(signature_at)?,
-		THIS,
-		offset(key_at)?,
-		THIS,
-		offset(message_at)?,
-		offset(message.len())?,
-		THIS,
-	] {
-		data.extend_from_slice(&field.to_le_bytes());
-	}
-
-	data.extend_from_slice(signer.as_bytes());
-	data.extend_from_slice(signature.as_bytes());
-	data.extend_from_slice(message);
-
-	Some(Instruction {
-		program_address: ED25519_PROGRAM,
-		accounts: Vec::new(),
-		data,
-	})
+/// What the burn needs to know about the husk beyond its mint.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Burn {
+	/// A Core asset, with its collection when it has one: burning a member
+	/// of a collection writes to the collection.
+	Core { collection: Option<Address> },
+	/// A classic NFT under the SPL Token program.
+	Token,
+	/// A classic NFT under the Token-2022 program.
+	Token2022,
 }
 
-/// The program's `Absorb`: burn the husk escrowed for `mint`, released by
-/// `wallet`, on the strength of the receipt in the transaction's Ed25519
-/// instruction.
-///
-/// TODO(integration): replace with the program's generated client. This is
-/// a minimal hand-written builder: the discriminator and the account order
-/// are the keeper's reading of the program.
-pub fn absorb_instruction(
-	program: &Address,
-	wallet: &Address,
-	mint: &Address,
-) -> Option<Instruction> {
-	/// `Absorb`'s discriminator.
-	const ABSORB: u8 = 1;
+impl Burn {
+	/// The burn for a husk of `kind`; `collection` matters only to Core.
+	pub const fn of(kind: HuskKind, collection: Option<Address>) -> Self {
+		match kind {
+			HuskKind::Core => Self::Core { collection },
+			HuskKind::Token => Self::Token,
+			HuskKind::Token2022 => Self::Token2022,
+		}
+	}
+}
 
-	let (escrow, _) = escrow::address(program, mint)?;
+/// The receipt's verification and the burn, in the order the program needs.
+pub fn instructions(
+	keeper: &Address,
+	receipt: &Receipt,
+	signature: &Signature,
+	burn: Burn,
+) -> [Instruction; 2] {
+	let keeper = escrow::pubkey(keeper);
+	let signature = signature.as_bytes();
+	let pair = match burn {
+		Burn::Core { collection } => {
+			absorb::absorb_core(
+				&keeper,
+				signature,
+				receipt,
+				collection.as_ref().map(escrow::pubkey),
+			)
+		}
+		Burn::Token => absorb::absorb_token(&keeper, signature, receipt, &TOKEN_PROGRAM),
+		Burn::Token2022 => absorb::absorb_token(&keeper, signature, receipt, &TOKEN_2022_PROGRAM),
+	};
 
-	Some(Instruction {
-		program_address: *program,
-		accounts: vec![
-			AccountMeta {
-				address: *wallet,
-				role: AccountRole::WritableSigner,
-			},
-			AccountMeta {
-				address: escrow,
-				role: AccountRole::Writable,
-			},
-			AccountMeta {
-				address: *mint,
-				role: AccountRole::Writable,
-			},
-			AccountMeta {
-				address: solana_kit_mpl_core::PROGRAM,
-				role: AccountRole::Readonly,
-			},
-			AccountMeta {
-				address: SYSVAR_INSTRUCTIONS,
-				role: AccountRole::Readonly,
-			},
-		],
-		data: vec![ABSORB],
-	})
+	pair.map(instruction)
 }
 
 /// The unsigned legacy transaction the wallet signs and sends: the receipt's
-/// check, then the burn, paid for by the wallet.
+/// check, then the burn, paid for by the wallet the receipt names.
 pub fn transaction(
-	program: &Address,
 	keeper: &Address,
-	wallet: &Address,
-	mint: &Address,
-	receipt: &[u8],
+	receipt: &Receipt,
 	signature: &Signature,
+	burn: Burn,
 	lifetime: Lifetime,
 ) -> Option<Vec<u8>> {
-	let instructions = [
-		ed25519_instruction(keeper, signature, receipt)?,
-		absorb_instruction(program, wallet, mint)?,
-	];
-	let message = Message::compile(Version::Legacy, *wallet, lifetime, &instructions, &[]).ok()?;
+	let wallet = Address::from_bytes(receipt.player);
+	let instructions = instructions(keeper, receipt, signature, burn);
+	let message = Message::compile(Version::Legacy, wallet, lifetime, &instructions, &[]).ok()?;
 
 	Transaction::new(message).encode(false).ok()
 }
 
+/// The client's instruction, in Solana Kit's terms.
+fn instruction(instruction: solana_instruction::Instruction) -> Instruction {
+	Instruction {
+		program_address: escrow::address(&instruction.program_id),
+		accounts: instruction
+			.accounts
+			.iter()
+			.map(|meta| {
+				AccountMeta {
+					address: escrow::address(&meta.pubkey),
+					role: match (meta.is_signer, meta.is_writable) {
+						(true, true) => AccountRole::WritableSigner,
+						(true, false) => AccountRole::ReadonlySigner,
+						(false, true) => AccountRole::Writable,
+						(false, false) => AccountRole::Readonly,
+					},
+				}
+			})
+			.collect(),
+		data: instruction.data,
+	}
+}
+
 #[cfg(test)]
 mod tests {
+	use reapers_receipt::Feeding;
+	use reapers_receipt::Grade;
 	use solana_kit_core::Hash;
+	use solana_kit_core::address_constants::ED25519_PROGRAM;
 	use solana_kit_core::crypto::Keypair;
 
 	use super::*;
 
-	#[test]
-	fn the_ed25519_instruction_points_at_its_own_data() {
-		let keeper = Keypair::from_seed(&[5; 32]);
-		let message = [8; 98];
-		let signature = keeper.sign(&message);
-		let instruction =
-			ed25519_instruction(&keeper.address(), &signature, &message).expect("it fits");
-		let data = &instruction.data;
-		let read = |at: usize| u16::from_le_bytes([data[at], data[at + 1]]);
+	fn receipt(wallet: &Keypair) -> Receipt {
+		Receipt {
+			player: *wallet.address().as_bytes(),
+			mint: [9; 32],
+			grade: Grade::from_byte(1).unwrap(),
+			feeding: Feeding::from_byte(1).unwrap(),
+			xp: 120,
+			anima: 4,
+			at: 1_790_000_000,
+			nonce: 7,
+		}
+	}
 
-		assert_eq!(instruction.program_address, ED25519_PROGRAM);
-		assert_eq!(data[0], 1);
-		assert_eq!(usize::from(read(2)), 48, "signature offset");
-		assert_eq!(read(4), u16::MAX);
-		assert_eq!(usize::from(read(6)), 16, "public key offset");
-		assert_eq!(usize::from(read(10)), 112, "message offset");
-		assert_eq!(usize::from(read(12)), 98, "message size");
-		assert_eq!(&data[16..48], keeper.address().as_bytes());
-		assert_eq!(&data[48..112], signature.as_bytes());
-		assert_eq!(&data[112..], &message);
-		assert_eq!(data.len(), 210);
+	#[test]
+	fn the_ed25519_check_carries_the_receipt_and_the_burn_follows_it() {
+		let keeper = Keypair::from_seed(&[5; 32]);
+		let wallet = Keypair::from_seed(&[6; 32]);
+		let receipt = receipt(&wallet);
+		let signature = keeper.sign(&receipt.encode());
+
+		for burn in [
+			Burn::Core { collection: None },
+			Burn::Core {
+				collection: Some(Address::from_bytes([4; 32])),
+			},
+			Burn::Token,
+			Burn::Token2022,
+		] {
+			let [check, absorb] = instructions(&keeper.address(), &receipt, &signature, burn);
+
+			assert_eq!(check.program_address, ED25519_PROGRAM, "{burn:?}");
+			assert!(check.data.ends_with(&receipt.encode()), "{burn:?}");
+			assert_eq!(absorb.program_address, escrow::program(), "{burn:?}");
+			assert_eq!(
+				absorb.accounts[0],
+				AccountMeta {
+					address: wallet.address(),
+					role: AccountRole::WritableSigner,
+				},
+				"the wallet signs the burn: {burn:?}"
+			);
+		}
 	}
 
 	#[test]
 	fn the_wallet_pays_for_and_signs_the_burn() {
-		let program = Address::from_bytes([7; 32]);
 		let keeper = Keypair::from_seed(&[5; 32]);
 		let wallet = Keypair::from_seed(&[6; 32]);
-		let mint = Address::from_bytes([9; 32]);
-		let receipt = [1; 98];
+		let receipt = receipt(&wallet);
 		let bytes = transaction(
-			&program,
 			&keeper.address(),
-			&wallet.address(),
-			&mint,
 			&receipt,
-			&keeper.sign(&receipt),
+			&keeper.sign(&receipt.encode()),
+			Burn::Core { collection: None },
 			Lifetime::Blockhash {
 				blockhash: Hash::from_bytes([3; 32]),
 				last_valid_block_height: 100,

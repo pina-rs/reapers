@@ -191,10 +191,21 @@ impl SolanaConfig {
 			return Err(invalid("identity URI"));
 		}
 
+		let program = address(program, "program")?;
+
+		// The keeper builds the program's instructions and finds its accounts
+		// with the client generated for one program id; any other id would
+		// name accounts and instructions that program does not have.
+		if program.is_some_and(|program| program != crate::escrow::program()) {
+			return Err(invalid(
+				"program: not the program this keeper was built for",
+			));
+		}
+
 		Ok(Self {
 			collection: address(collection, "collection")?,
 			marketplace_uri: https(marketplace_uri, "marketplace URI")?,
-			program: address(program, "program")?,
+			program,
 			chain,
 			rpc_url,
 			identity_uri,
