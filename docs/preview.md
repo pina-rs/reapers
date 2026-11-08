@@ -17,7 +17,9 @@ For a static build to put on any web host, `leptoskit build --release --platform
 
 ## Where it stands
 
-The studio is one of the app's seams: `studio_view` in `crates/reapers_app/src/seams/studio.rs`, given only the genome it opens on (`StudioViewProps`). Today it is the 2D stand-in: the reaper's silhouette, its calling and name, a word about the studio, and the way back. The studio on `leptoskit_3d` replaces that function's body and nothing else, and brings back the studio the first game had, described below as the contract it is built to. Its strings, the Book of Becoming's included, are already in `locales/en.arb`.
+The studio is in the game, under **Reaper studio** in the sanctum and in **Your reapers**, at `/studio`. It is `crates/reapers_app/src/studio/`, opened through the `studio_view` seam, and draws the specimen on the game's own models with `leptoskit_3d`: WebGPU or WebGL2 in the browser, Metal on iOS, OpenGL ES on Android. It opens through the `studio_view` seam, given only the genome it opens on (`StudioViewProps`).
+
+Everything below holds for it, with two differences that come from `leptoskit_3d` playing clips on the host's own clock: the timeline cannot be scrubbed, and **Inspect contact pose** is replaced by a note saying why. **Inspect expression** holds the reaction's face with its morph target and moves the camera to the face, which it frames where the face stands at rest. The browser turns the specimen under a drag; the native apps turn it with the portrait button. `crates/reapers_app/tests/studio.rs` drives the controls and checks what the stage shows, and that the books are untouched.
 
 ## What it holds
 

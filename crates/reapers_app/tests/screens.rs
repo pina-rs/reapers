@@ -62,6 +62,26 @@ impl Harness {
 		Self::new(BuildFlags::default())
 	}
 
+	/// An offline build whose hunts the rules' own player fights
+	/// (`REAPERS_AUTOPLAY`).
+	fn autoplay() -> Self {
+		Self::new(BuildFlags {
+			autoplay: true,
+			..BuildFlags::default()
+		})
+	}
+
+	/// Plays the hunt on screen to its end, through the real view, as the
+	/// ticker would on a device: the tests have no timer.
+	fn fight(&mut self) {
+		assert!(
+			reapers_app::hunt::view::play_on(300.0),
+			"the hunt ends\n{}",
+			self.tester.tree()
+		);
+		self.settle();
+	}
+
 	/// Lets every task the screens started run, and the screen catch up.
 	fn settle(&mut self) {
 		platform::run_until_stalled();
@@ -206,17 +226,18 @@ fn a_hunt_for_an_unknown_husk_says_so() {
 
 #[test]
 fn a_practice_hunt_fought_by_the_rules_own_player_ends_in_a_verdict() {
-	let mut harness = Harness::offline();
+	let mut harness = Harness::autoplay();
 	harness.open(Route::Practice);
 	assert!(harness.has("hunt-view"));
 	harness.tap("hunt-begin");
+	harness.fight();
 	assert!(harness.has("hunt-result"), "{}", harness.tester.tree());
 	harness.tap("hunt-leave");
 }
 
 #[test]
 fn a_loose_husk_is_hunted_settled_by_the_keeper_and_written_in_the_codex() {
-	let mut harness = Harness::offline();
+	let mut harness = Harness::autoplay();
 	harness.take_oath();
 	harness.open(Route::Vault);
 	harness.tap(&format!("vault-nft-{}", SAINT.id()));
@@ -235,6 +256,7 @@ fn a_loose_husk_is_hunted_settled_by_the_keeper_and_written_in_the_codex() {
 	});
 	assert!(harness.has("hunt-view"));
 	harness.tap("hunt-begin");
+	harness.fight();
 	// The keeper refuses a husk that has not surfaced by its own clock, and
 	// the refusal is explained; either way the books are left consistent.
 	let settled = harness.has("hunt-result");

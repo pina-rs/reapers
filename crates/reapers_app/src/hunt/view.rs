@@ -46,15 +46,12 @@ use crate::l10n::AppTranslations;
 use crate::l10n::Messages;
 use crate::l10n::use_l10n;
 use crate::lookups::difficulty_name;
-use crate::lookups::rarity_name;
 use crate::platform;
 use crate::render::pointer::Gesture;
 use crate::render::pointer::on_gesture;
 use crate::render::scene::HUNT;
 use crate::seams::HuntBrief;
 use crate::seams::HuntViewProps;
-use crate::seams::HuskPortraitProps;
-use crate::seams::husk_portrait;
 use crate::theme::ASH;
 use crate::theme::BONE;
 use crate::theme::Rgb;
@@ -129,6 +126,21 @@ pub struct HuntState {
 
 thread_local! {
 	static CURRENT: RefCell<Option<Rc<RefCell<HuntState>>>> = const { RefCell::new(None) };
+}
+
+/// Moves the hunt on screen on by `seconds`, a tick at a time, as the
+/// ticker would: for a host with no timer, and the tests. Answers whether
+/// it has been handed to the books.
+pub fn play_on(seconds: f64) -> bool {
+	let Some(hunt) = current() else {
+		return false;
+	};
+	let mut left = seconds;
+	while left > 0.0 && hunt.borrow().stage != Stage::Finished {
+		hunt.borrow_mut().tick(HuntController::TICK_SECONDS);
+		left -= HuntController::TICK_SECONDS;
+	}
+	hunt.borrow().stage == Stage::Finished
 }
 
 /// The hunt on screen, if any.
@@ -681,18 +693,6 @@ fn briefing(state: &HuntState, props: &HuntViewProps) -> Element {
 		))
 		.child(gap(10))
 		.child(display(brief.nft.title(), 40, BONE))
-		.child(gap(6))
-		.child(body(rarity_name(&*words, brief.nft.rarity()), 14, ASH))
-		.child(gap(18))
-		.child(
-			View()
-				.class("items-center")
-				.child(husk_portrait(HuskPortraitProps {
-					nft: brief.nft,
-					size: 132,
-					spent: false,
-				})),
-		)
 		.child(gap(18));
 	// The whole of a hunt, in the order it happens.
 	for (step, line) in [
@@ -720,12 +720,7 @@ fn briefing(state: &HuntState, props: &HuntViewProps) -> Element {
 	column = column
 		.child(gap(10))
 		.child(body(words.hunt_safety(), 14, ASH))
-		.child(gap(14))
-		.child(ledger_row(
-			words.hunt_ward(),
-			brief.nft.rarity().ward().to_string(),
-			false,
-		));
+		.child(gap(16));
 	column = match props.on_difficulty.clone() {
 		Some(cycle) => {
 			column.child(

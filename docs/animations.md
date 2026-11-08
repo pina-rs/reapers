@@ -46,7 +46,7 @@ The Rust game (`crates/reapers_app`) plays the same 64 clips from the same GLBs 
 - **The weapon.** The weapons model follows `socket_weapon` with every weapon but the held one hidden, and weapon-free performances hide it while they play.
 - **The cloth.** The robe's genome morphs (gauntness and tatter), its fit for the form and the cut, and its sway are set on the worn robe alone, from the same clock, a few times a second.
 - **Faces.** The clips carry their faces. To inspect an expression the studio holds the reaction's morph target (joy, sorrow, anger, fear, smirk or awe) with a weight, which overrides what the clip sets, and moves the camera to the face.
-- **What it cannot do.** The host plays a clip on its own clock and cannot seek one, so the studio cannot scrub the timeline or hold the exact contact frame; a paused clip shows its first frame. The face camera aims where the face stands at rest, not where the animated face is: the host does not report a part's place.
+- **What it cannot do.** The host plays a clip on its own clock and cannot seek one, so the studio cannot scrub the timeline or hold the exact contact frame; it says so where the Flutter studio had those controls. The face camera aims where the face stands at rest, not where the animated face is: the host does not report a part's place.
 
 `cargo test -p reapers_app` checks that every one of the 64 clips, the six face targets and the eight cloth targets exist in all six models, and `tests/render.rs` draws all six reapers and a face close-up headless.
 

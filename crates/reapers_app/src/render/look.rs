@@ -308,7 +308,10 @@ impl ReaperLook {
 				SurfaceLook {
 					tint: lerp(0x0011_1B24, self.colourway.accent, 0.15),
 					burns: false,
-					glow_strength: self.glow * 0.08,
+					// The Flutter shader's 0.08 was tonemapped with its bloom;
+					// drawn here without it, the spirit's limbs, which show
+					// through the robe's gaps, glowed as solid colour.
+					glow_strength: self.glow * 0.025,
 					rimmed: false,
 				}
 			}
