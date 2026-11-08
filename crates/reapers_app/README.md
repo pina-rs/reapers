@@ -53,7 +53,7 @@ REAPERS_SERVER_URL=https://keeper.example/ REAPERS_CLUSTER=devnet leptoskit buil
 3. **Releasing** one buys its stand-in into the books if it is not there (the simulated market's price), has the wallet sign `ReleaseCore` (from `reapers_program_client`), sends it, waits until it is finalized, and then calls the server's `release` with the asset as the escrow. A husk already in escrow ("In escrow") skips the chain.
 4. **A won hunt** comes back from `settle_hunt` with a `ChainReceipt` and its unsigned absorb transaction. The wallet signs it, the game sends it, waits for it to confirm, checks the asset is Core's one-byte tombstone, and slips the burn in front of the player; the transaction sheet links to Solana Explorer.
 
-The Reapers program's errors, and a wallet that declines, are explained in the player's words (`lookups::chain_failure_message`). A burn that fails after its hunt was settled leaves the husk in escrow, and says so.
+The Reapers program's errors, and a wallet that declines, are explained in the player's words (`lookups::chain_failure_message`). A burn that fails after its hunt was settled leaves the husk in escrow, and says so. The codex and the vault then show it as not yet burned, with **Finish the burn**: the server's `absorb_transaction` builds the same receipt again on a fresh blockhash, and the wallet signs and sends it as the first time (`GameBackend::finish_burn`).
 
 To play the whole flow on this machine, bring up a localnet and a server on it (`docs/deploy.md`, "The game on a localnet"), then:
 

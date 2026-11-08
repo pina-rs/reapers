@@ -181,7 +181,7 @@ unset REAPERS_SECRET_receiptSigningKey
 
 ## 8. The game, end to end
 
-Once the server runs against devnet, play the whole flow through the game's own backend, as the browser and the apps run it: sign in as a guest, take the oath, prove a wallet, release one of its demo husks with `ReleaseCore`, wait for it to surface, settle a hunt the rules' bot played, have the wallet sign the burn the server built, and check the husk is burned. It burns one husk of the wallet's.
+Once the server runs against devnet, play the whole flow through the game's own backend, as the browser and the apps run it: sign in as a guest, take the oath, prove a wallet, release one of its demo husks with `ReleaseCore`, wait for it to surface, and settle a hunt the rules' bot played. The wallet declines the first burn, as a player might, so the husk stays in escrow; the test then finishes it through `absorb_transaction`, the same receipt on a fresh blockhash, and checks the husk is burned. It burns one husk of the wallet's.
 
 The server needs, besides its secrets (`REAPERS_SECRET_receiptSigningKey` being the devnet keeper's of step 5):
 
@@ -202,7 +202,7 @@ REAPERS_E2E_WALLET=$KEYS/devnet-player.json \
 cargo test -p reapers_app --test devnet -- --ignored --nocapture
 ```
 
-`REAPERS_E2E_RPC_URL` names another RPC than devnet's public one. It must end with `==> passed`, after printing the escrow's and the burn's signatures; look the burn up in the explorer. The web game built for devnet is:
+`REAPERS_E2E_RPC_URL` names another RPC than devnet's public one. It must end with `==> passed`, after printing the escrow's and the burn's signatures; look the burn up in the explorer. A burn that did not land after a settled hunt is finished from the game's codex (**Finish the burn**); the server keeps what it needs since the migration `absorbed_husks`, so a hunt settled before it cannot be finished this way. The web game built for devnet is:
 
 ```sh
 cd crates/reapers_app

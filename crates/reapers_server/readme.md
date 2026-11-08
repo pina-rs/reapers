@@ -91,7 +91,7 @@ The tests need PostgreSQL's `initdb`, `pg_ctl` and `createdb` on `PATH`, or in `
 | File              | What it covers                                                                                                          |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `tests/player.rs` | The Dart `player_endpoint_test` and `simulation_policy_test`: books, location, replays, receipts, the armory, concurrency |
-| `tests/solana.rs` | The Dart `solana_endpoint_test`: wallet proof, replay and expiry, restoring an account, ownership transfer; and escrows   |
+| `tests/solana.rs` | The Dart `solana_endpoint_test`: wallet proof, replay and expiry, restoring an account, ownership transfer; and escrows, and building a burn that did not land again |
 | `tests/chain.rs`  | The Dart `solana_gateway_test`: Core decoding, the cluster check, genome URIs, failures; and escrow accounts            |
 | `tests/rift.rs`   | The Dart `rift_endpoint_test`: one reaper, two at once, demo circles, standings                                         |
 | `tests/http.rs`   | The router: guest and wallet sign-in, bearer calls, leptoskit_auth refreshing guest sessions, refusals on the wire     |
