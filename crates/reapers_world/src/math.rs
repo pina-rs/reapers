@@ -31,6 +31,22 @@ pub fn exp(x: f64) -> f64 {
 	libm::exp(x)
 }
 
+/// Dart's `double.floor()` as a whole number, saturating where Dart would
+/// throw.
+pub fn floor(x: f64) -> i64 {
+	libm::floor(x) as i64
+}
+
+/// Dart's `double.ceil()` as a whole number.
+pub fn ceil(x: f64) -> i64 {
+	libm::ceil(x) as i64
+}
+
+/// Dart's `double.round()`: half away from zero, to a whole number.
+pub fn round(x: f64) -> i64 {
+	libm::round(x) as i64
+}
+
 /// The length of the vector (`x`, `y`, `z`).
 pub fn length(x: f64, y: f64, z: f64) -> f64 {
 	sqrt(x * x + y * y + z * z)
