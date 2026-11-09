@@ -80,7 +80,7 @@ REAPERS_SERVER_URL=http://127.0.0.1:8080/ REAPERS_CLUSTER=localnet leptoskit dev
 | `src/ui/`, `src/theme.rs` | The funeral-ledger kit: hand-drawn boxes, rows, meters, pips, sheets and dialogs. |
 | `src/seams/` | Where the 3D and camera views plug in. |
 | `src/render/` | 3D on `leptoskit_3d`: the reaper rig, its look and appearance, cloth and playback, the stage, the husk rig and how it reacts, and the scenes, ticker and pointer they share. |
-| `src/hunt/` | The hunt: the arena, the controller that keeps the log, the pose (`leptoskit_xr`, or a finger), the HUD and what is drawn over the scene. |
+| `src/hunt/` | The hunt: the arena, the controller that keeps the log, the thumb controls (FIRE, ORB and the weapon rail), the pose (`leptoskit_xr`, or a finger), the HUD and what is drawn over the scene. |
 | `src/rift/` | A seat in a rift, in the hunt's arena. |
 | `src/studio/` | The reaper studio and the gallery. |
 | `src/dev/` | The depth bench and the drawn room. |

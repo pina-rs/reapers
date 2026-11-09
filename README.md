@@ -8,13 +8,13 @@ Most NFT collections are dead: thousands of pictures nobody wants, sitting in wa
 
 ## What makes it different
 
-You are bound to a reaper you did not choose, and the phone is its blade. The hunt is not won by tapping fast. It is won by keeping still: creep up on a husk without startling it, hold the phone steady while it shrieks at you, and reap it with one slow sweep. The biggest husks are a whole collection piled into one body at a real place, and take a circle of four who all have to hold still at the same moment.
+You are bound to a reaper you did not choose, and the phone is its sight. The hunt is not won by tapping fast. It is won by keeping still: creep up on a husk without startling it, hold the phone steady while it shrieks at you, and catch it in a soul orb timed by holding on while a ring closes. The biggest husks are a whole collection piled into one body at a real place, and take a circle of four who all have to hold still at the same moment.
 
 ## What is in the game
 
 - The shuffle: six classes, each with its own silhouette, weapon and perk, and a few hundred looks apiece.
 - Eighteen permanent birth gifts and four temperaments. Each reaper's remembered successful hunts awaken its own power at levels five, twelve and twenty.
-- The hunt: trace a sigil to draw the husk out (harder for rarer husks), then stalk, strike, shriek, reap.
+- The hunt: trace a sigil to draw the husk out (harder for rarer husks), then stalk, fire, shriek, capture.
 - Husks that are creatures with a place in the room: walkers on the floor, fliers in the air, leaping onto counters and hiding behind them.
 - Arts, learned by absorbing the creatures that carry them: Cinder (fire, lobbed over cover), Rime (ice that freezes) and Gale (wind that blows a husk out of hiding).
 - Two heavy weapons for any class: a greatsword that stops a husk in its tracks and an axe that bites the body anywhere.

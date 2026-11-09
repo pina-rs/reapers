@@ -9,7 +9,7 @@ The rules' conformance tests replay, hunt by hunt and to the bit, fixtures writt
 1. Take the oath. The shuffle binds you to one reaper. You do not choose it.
 2. Buy an NFT into your vault (a simulated market for now; see [nfts.md](nfts.md)).
 3. Release it into the veil. It becomes a husk and surfaces 6 to 14 seconds later, with a "husk sighted" notice.
-4. Hunt it through your phone. Trace its sigil to draw it out, break its ward, then reap it.
+4. Hunt it through your phone. Trace its sigil to draw it out, weaken it with the weapons on your crosshair, then catch it in a soul orb.
 5. Absorbing it feeds your reaper: experience (with a roll of luck), anima, and an entry in your codex. The NFT is gone for good: absorbing is a sink.
 6. Spend anima in the armory. Level up. Absorb three of a collection to complete its set.
 7. Carry one of a collection's dead and that collection's rift opens to you: a husk too big for one reaper, fought by a circle of four at a real place.
@@ -18,10 +18,10 @@ Up to three husks can be loose at once. A husk that escapes stays loose and can 
 
 ## What is different about it
 
-The brief said defeating an NFT "should be just tapping on the phone". Tapping alone is what every AR game already does, so the hunt keeps the tap and builds two things around it that only work because the phone is in your hand:
+The brief said defeating an NFT "should be just tapping on the phone". Tapping alone is what every AR game already does, so the hunt keeps the buttons and builds two things around them that only work because the phone is in your hand:
 
-- The phone is the blade. Where it points is where you look and where you cut.
-- Stillness is the skill. The husk notices fast movement, punishes you for flinching, and can only be reaped with a slow, steady sweep. The hard thing in this game is holding a phone still while something shrieks at you.
+- The phone is the sight. Where it points is the crosshair, and every shot, stab, swing, throw and orb goes there. The two thumbs only say when: FIRE on the right, ORB on the left.
+- Stillness is the skill. The husk notices fast movement and punishes you for flinching, and the orb that catches it is timed by holding on while a ring closes. The hard thing in this game is holding a phone still while something shrieks at you.
 
 In a rift, everyone in the circle is told to hold still at the same instant. Four people on a bridge freezing together is the picture the raid is built around.
 
@@ -115,50 +115,73 @@ The husk is also drawn as hidden. The phone keeps a picture of how far away the 
 The husk has not noticed you. A marker at the edge of the screen shows which way it is.
 
 - Turn faster than 1.7 rad/s and it starts to notice, sooner the faster you turn. It notices on its own after 25 seconds.
-- Hold your aim within 9° of it while turning slower than 0.6 rad/s for 66 ticks (1.1 s) and you spring an ambush: every seal you can see opens, your first strike is doubled, and the husk is worth 10% more.
-- If it notices you, or you strike it first, the fight starts without the ambush and the husk bolts: it runs, or darts through the air, 45° to 105° round you at full speed.
+- Hold the crosshair within 9° of it while turning slower than 0.6 rad/s for 66 ticks (1.1 s) and you spring an ambush: every seal you can see opens for 170 ticks, your first hit lands twice as hard, and the husk is worth 10% more.
+- If it notices you, or you fire first, the fight starts without the ambush and the husk bolts: it runs, or darts through the air, 45° to 105° round you at full speed.
+
+### The crosshair and the four weapons
+
+The crosshair is the middle of the screen. Where the phone points is where every shot, stab, swing, throw and orb goes. Nothing you touch says where: your thumbs only say when.
+
+- **FIRE**, under the right thumb, uses whatever is in hand. One press is one use; holding it down does not fire again. It answers the moment the thumb lands.
+- **ORB**, under the left thumb, is held and let go. See [Capture](#capture).
+- **The rail** above FIRE holds four weapons. Tap one to draw it. Drawing takes 21 ticks, and nothing in the new hand can act until it is drawn.
+
+Every weapon does a share of the reaper's hit, `H` (see [Reapers](#reapers)). A hit on an open seal is critical and lands twice as hard.
+
+| Slot | Weapon | A press | Share of `H` | Reaches the husk when |
+| --- | --- | --- | --- | --- |
+| 1 | Grave pistol | One shot | 0.55 | the crosshair is on an open seal, or within the aim assist of its body |
+| 2 | Bone knife | A dive with up to three stabs, or one stab in arm's reach | 0.8 a stab | the crosshair is within 2° of its body, and it is within 4.5 m (a dive) or 1.8 m (arm's reach) |
+| 3 | The class weapon | A dive with one heavy swing, or a swing in arm's reach | the weapon's share, 0.8 to 1.85 | the crosshair is within the weapon's reach + 3° of its body, and it is within 3.5 m |
+| 4 | The art, if the reaper knows one | A throw at the crosshair | see [Arts](#arts) | |
+
+**The pistol** holds six rounds and fires at most one every 18 ticks. The aim assist is 3.5° for a reaper of middling reach, a quarter of a degree wider or narrower for each point of reach above or below 3. FIRE on an empty gun starts an 84-tick reload, which runs on if you change weapons. Press FIRE again between ticks 48 and 60 of the reload and it finishes at once, and every round of that magazine lands ×1.25: an active reload. Press earlier and the reload jams for 30 ticks more. A shot that lands nowhere on the husk is a miss.
+
+**The bone knife** dives. A press with the husk on the crosshair and within 4.5 m spends a dive: 13 ticks in, 30 at the husk, 18 back out. The first stab lands as you arrive, and each press in those 30 ticks stabs again, at least 10 ticks apart, three stabs at most. The knife holds three dives and gets one back every 180 ticks (3 s). A husk within 1.8 m, mid-charge or stunned after a parry, needs no dive: each press stabs, at least 10 ticks apart, and spends nothing. A stab at a stunned husk is critical wherever it lands.
+
+**The class weapon** is the reaper's own scythe, pole, flail, spear, whip or bell, or a greatsword or axe bought for it. A press with the husk on the crosshair and within 3.5 m dives in, swings once (it lands 13 ticks in, plus the weapon's ticks per swing) and comes back out 18 ticks later. It spends nothing. Within 1.8 m it swings without a dive, at most once every weapon's ticks per swing. A swing on an open seal lands twice its share; one on the body lands its share (×1.4 for the axe). Every swing that lands stops a fighting husk in its tracks for 12 ticks (28 for the greatsword); not one that is drawing breath, shrieking, charging or in the air.
+
+**Cadence.** Hits closer together than 78 ticks build cadence: +10% each, up to +50% (+100% with the Chain perk). A miss breaks it. A plain reload takes 84 ticks, so it breaks the cadence; an active reload does not.
 
 ### Fight
 
 Each husk has four or five seals: on its brow, its chest, its flanks, its back. Up to two are open at a time, each for 2.5 to 4.3 seconds.
 
-- A seal can only be struck from a side you can see. One well round the far side of the body (more than about 105° from the nearest point) is hidden, so a husk with its back to you shows different seals from one facing you. From any angle at least two are in view.
-- Tap an open seal to strike it. A struck seal shuts for 44 ticks.
-- Your weapon sets how often you can strike. A tap made up to 8 ticks early is held and played when the swing finishes.
-- Strikes within 78 ticks of each other build cadence: +10% each, up to +50%.
-- A tap on the body away from a seal glances for a quarter of a strike. A tap that hits nothing breaks your cadence.
-- The fight lasts 75 seconds. After that the husk escapes.
+- A seal can only be hit from a side you can see. One well round the far side of the body (more than about 105° from the nearest point) is hidden, so a husk with its back to you shows different seals from one facing you. From any angle at least two are in view.
+- A hit counts as on an open seal when the crosshair is within the seal cone of it: `3.2° + 0.55° × reach + weapon reach`, whatever is in hand. A hit on a seal shuts it for 44 ticks.
+- The fight lasts 150 seconds. The clock stops while the husk lies broken, and again while an orb holds it: a capture must not time out. When the clock runs out the husk escapes.
 
-The blade meter shows the weapon's recovery: strike again when it fills.
-Each blow reports whether it cut the ward, glanced off the body or missed.
-The thin line under a cadence counts down the time to keep the streak alive.
-During a shriek the motion meter shows how close the phone is to flinching;
-the stalk and reap prompts also warn when the phone is moving too fast.
-These are readings of the existing rules, not extra bonuses or penalties.
-Practice results show unbroken holds, parries and the longest seal streak.
-They offer the same stray again, with the same seed and room, so its rhythm
-can be learned without tracing the sigil again or returning to the sanctum.
-Practice earns nothing.
+What the screen shows:
+
+- **The ring under the husk** says what it is about to do, and a caption under the crosshair says it in words. White: nothing is coming, attack. Amber: it is drawing breath or shrieking, hold still. Red: it is charging, swing. Blue: it is stunned and close, dive in. Gold: it is weak enough for an orb, or broken, throw one.
+- **The crosshair** brightens when a press now would reach the husk, takes the husk's colour on an open seal, and flares when a hit lands.
+- **Above FIRE** is what the weapon in hand has left: rounds, a reload with its active window marked in gold, dives, throws, or whether the husk is in reach.
+- **ORB** shows the reaper's soul with a notch at what an orb costs, and says why it cannot be thrown when it cannot.
+- During a shriek a meter shows how close the phone is to flinching, and while the husk lies broken another shows how long it stays down.
+
+A press a moment early is not lost: FIRE pressed while the weapon in hand is busy waits up to 8 ticks for it and is played when it is ready. A press that would have to wait longer is dropped, and one that has waited is never played into a shriek. A press during a reload or a dive is played at once, since there its timing is the player's.
+
+These are readings of the rules, not extra bonuses or penalties. Practice results show unbroken holds, parries and the longest run of hits. They offer the same stray again, with the same seed and room, so its rhythm can be learned without tracing the sigil again or returning to the sanctum. Practice earns nothing.
 
 ### Shriek
 
-Every 6.5 to 10 seconds the husk stops where it is, turns on you and draws breath (54 ticks of warning, its mouth opening), then shrieks for 66 ticks.
+Every 6.5 to 10 seconds the husk stops where it is, turns on you and draws breath (54 ticks of warning, its mouth opening, its ring amber), then shrieks for 66 ticks.
 
-- Move faster than your flinch speed, or tap, and you flinch: you lose one resolve and your cadence. The first 7 ticks are forgiven.
+- Move faster than your flinch speed, press FIRE, or let go of an orb, and you flinch: you lose one resolve and your cadence. The first 7 ticks are forgiven. Holding ORB down is not a flinch.
 - Out of resolve, the husk escapes.
-- Hold still through the whole shriek and every seal in view opens for 170 ticks. It is facing you, so that is its front.
+- Hold still through the whole shriek and every seal in view opens for 170 ticks, and your soul gains 10. It is facing you, so that is its front.
 - Two or three seconds after a shriek it bolts again.
 
 The warning is a darkening of the edges of the screen and a line of text. It is deliberately not a flash: see the safety notes below.
 
 ### Charge
 
-A husk fights back. Every 8 to 14 seconds of the fight it turns on you and comes: a walker runs at you along the floor, a flier swoops down to eye level. It takes 66 ticks (1.1 s) to arrive, to within 0.9 m, and a ring closes on it as it comes.
+A husk fights back. Every 8 to 14 seconds of the fight it turns on you and comes: a walker runs at you along the floor, a flier swoops down to eye level. It takes 66 ticks (1.1 s) to arrive, to within 0.9 m. Its ring turns red, and a ring on the screen closes on it as it comes.
 
 - Swing the phone across it at 2.0 rad/s or faster and you turn it aside. That is a flick of the wrist: a third of a turn a second. A swing in the first 10 ticks does not count, since you were probably still turning to follow it.
-- Turned aside, it stands stunned where it got to for 100 ticks, right in front of you, with every seal in view open. Then it bolts.
-- Do nothing and it strikes: you lose one resolve and your cadence, the edges of the screen bruise, and it runs off. Out of resolve, the husk escapes.
-- You can keep striking its seals while it comes.
+- Turned aside, it stands stunned where it got to for 100 ticks, usually in arm's reach, with every seal in view open, and your soul gains 10. Its ring turns blue: the knife needs no dive, and every stab is critical. Then it bolts.
+- Do nothing and it strikes: you lose one resolve and your cadence, the edges of the screen bruise, and it runs off. If it catches you mid-dive it strikes for double: two resolve. Out of resolve, the husk escapes.
+- You can keep firing at it while it comes.
 
 A shriek asks you to freeze and a charge asks you to swing, so the two are never close together: there are always at least 90 ticks between one ending and the other beginning. A husk in a rift does not charge.
 
@@ -174,13 +197,7 @@ A reaper that has absorbed a husk carries something of it: an art, thrown rather
 
 **Learning.** The first husk absorbed that carries an art teaches it, at rank one. Four of them make rank two, ten rank three. Nothing buys an art: what a reaper can throw is a record of what it has hunted, read from its codex, so it travels with an NFT reaper. The first art a reaper learns is made ready at once. In the armory a reaper may make any art it knows the one it throws.
 
-**Throwing.** The art sits under the thumb in the corner of the screen.
-
-1. Hold it. While the phone turns slower than 0.6 rad/s the art gathers, for 24 ticks (0.4 s), and it will go wherever the phone was last steady on.
-2. Flick the phone, faster than 1.5 rad/s. The art leaves your hand.
-3. Let go before the flick and nothing is lost.
-
-That flick is slower than the 2.0 rad/s swing that turns a charge aside, so a hard flick at a charging husk does both. A flick in a shriek is a flinch, and throws nothing. Taps still strike while the art is held, so one thumb holds and the other hand strikes.
+**Throwing.** The art is the fourth weapon on the rail. With it in hand, FIRE throws it at the crosshair at once, while a throw is ready, and throws are at least 24 ticks apart. Drawing it takes 21 ticks, as for any weapon. FIRE in a shriek is a flinch and throws nothing.
 
 A reaper starts the fight with one throw ready and holds at most two (three at rank three). Another is readied every 9 seconds (8 at rank two, 7 at rank three), and an unflinching hold readies one at once. An art thrown at a husk that has not noticed you goes unseen until it lands; then the fight begins, without the ambush.
 
@@ -189,21 +206,52 @@ A reaper starts the fight with one throw ready and holds at most two (three at r
 | Flies at | 6 m/s, lobbed, to where it was thrown | 14 m/s, straight, following the husk | 12 m/s, following the husk |
 | Catches the husk when | it bursts within 0.8 m of the husk's body | thrown at the husk, and nothing stands between | thrown within 22° of the husk |
 | Cover | arcs over it | breaks on it | goes round it |
-| On landing | ×2.0 / 2.5 / 3.0 of a strike | ×1.5 of a strike | ×0.8 / 1.0 / 1.2 of a strike |
-| Then | it burns for 150 ticks, taking another ×1.5 / 2.0 / 2.5 of a strike, and bolts 20 ticks later, into the open | it is frozen for 150 / 190 / 230 ticks, every seal in view open; a charge stops dead; the next seal struck shatters the ice for ×2.0 / 2.25 / 2.5 | it is knocked off its ledge or out from behind its cover, a charge is turned aside, and it stands stunned 90 / 110 / 130 ticks with every seal in view open |
+| On landing | ×2.0 / 2.5 / 3.0 of `H` | ×1.5 of `H` | ×0.8 / 1.0 / 1.2 of `H` |
+| Then | it burns for 150 ticks, taking another ×1.5 / 2.0 / 2.5 of `H`, and bolts 20 ticks later, into the open | it is frozen for 150 / 190 / 230 ticks, every seal in view open; a charge stops dead; the next hit on a seal shatters the ice for ×2.0 / 2.25 / 2.5 | it is knocked off its ledge or out from behind its cover, a charge is turned aside, and it stands stunned 90 / 110 / 130 ticks with every seal in view open |
 
 A husk that is burning, or that the wind has shaken (for 4 seconds after it comes round), will not run for cover.
 
-A simulated careful reaper at level six takes a rare ape about 22% sooner with Cinder at rank one, 18% sooner with Rime and 8% sooner with Gale. Gale's worth is in what it undoes: a husk in cover, and a charge.
+A simulated careful harvester at level six takes a rare ape in a furnished kitchen about 5% sooner with Cinder at rank one, 8% sooner with Rime and 2% sooner with Gale, over ten hunts each. Drawing the art and drawing the gun again costs nearly as much as an art takes off the ward, so an art is worth throwing for what it does to the husk, not for its damage: Cinder and Gale bring a husk out of cover, Rime and Gale stop a charge.
 
-### Reap
+### Capture
 
-When the ward reaches zero the husk stops dead, hangs open, and an arc appears across it, 52° wide.
+A husk is not cut down. It is weakened, and then caught in a soul orb.
 
-- Bring your aim to the start of the arc, then sweep along it.
-- Sweeping faster than 2.1 rad/s, or straying from the arc, tears the cut.
-- The grade decides the reward: ragged ×1.0, clean ×1.25, perfect ×1.5.
-- Run out of time and the husk recovers 30% of its ward and runs. A second unfinished reap and it escapes.
+**Soul.** Every hit fills the reaper's soul by 120 × the share of the husk's whole ward it took, so breaking a ward always pays for at least two orbs. An unflinching hold and a parry add 10 each. Soul starts each hunt at 0 and holds at most 100.
+
+**When an orb can be thrown.** Once the husk's ward is down to 60% of what it started with (its ring turns gold) or it is broken, and the reaper has 40 soul, which is what an orb costs. One orb is in the air at a time. ORB says which of these is missing when one is.
+
+**The throw.** Hold ORB and a ring shrinks from the edge of the screen onto the husk, in 72 ticks (1.2 s), then starts again. Let go to throw. Where the ring is when ORB is let go grades the throw: in its outer third a plain throw, in its middle third a great one, in its inner third an excellent one. A hold shorter than 6 ticks, or a throw with the crosshair off the husk, is plain. The orb strikes the husk if the crosshair is within 6° of its body; otherwise it misses and falls, and its soul is spent.
+
+**The chance it holds** is `P = min(0.97, R × (3 − 2w) ÷ 3 × K × C + pity)`, where:
+
+- `R` is the husk's rarity: common 0.8, uncommon 0.6, rare 0.4, epic 0.25.
+- `w` is the share of its ward the husk has left, from 0 (broken) to 1. A broken husk is three times as easy to hold as a whole one.
+- `K` is the grade: plain ×1, great ×1.3, excellent ×1.5.
+- `C` is `0.85 + 0.05 × capture`, from the reaper's capture rating.
+- `pity` is 0.08 for every orb this husk has already broken out of, up to 0.24.
+
+**What happens**, counted in ticks from the moment ORB is let go:
+
+| Ticks | |
+| --- | --- |
+| 0 to 27 | The orb is in the air. At 27 it strikes the husk, and the roll is drawn. |
+| 27 to 48 | The husk is drawn into the orb as light. |
+| 48 to 66 | The orb drops onto the surface under where the husk was. |
+| 66, 114 and 168 | It pulses: the husk is fighting inside it. |
+| 222 | After a held breath, the result, about 3.7 seconds after the throw. |
+
+While the orb holds it, the husk can do nothing, nothing can be done to it, and the fight clock stops: a hunt cannot time out during a capture.
+
+**The roll** is one number `u` between 0 and 1, from `SeededRandom(mixSeed([seed, 0x0B5, attempt]))`, where `seed` is the hunt's and `attempt` counts the orbs that have struck this husk before, from 0. The same hunt always rolls the same. If `u` is under `P`, the orb holds and the husk is captured. If not, it breaks on a pulse that tells the truth about how close it came: with `m = (u − P) ÷ (1 − P)`, under a third it breaks on the third pulse, under two thirds on the second, and otherwise on the first. A husk that breaks out gets 10% of its whole ward back (never above 60%), stands stunned for 48 ticks, and the fight goes on.
+
+The roll comes from the hunt's seed, and the phone knows the seed. A modified client that knows it could work out every roll in advance and only let go of orbs that will hold. The server's replay cannot tell that apart from luck. The later hardening is an orb rolled by the keeper, from a seed the player never sees, as feeding is rolled now.
+
+**The grade pays.** A captured husk pays experience and anima by its throw: plain ×1.0, great ×1.25, excellent ×1.5. The codex keeps the grade. Saves written before the orb keep the grades that pay the same: a ragged cut reads as plain, a clean as great and a perfect as excellent.
+
+**Broken.** Take the whole ward and the husk collapses for `3.5 s + 0.5 s × capture`: the broken window. It cannot move, shriek or charge, nothing you fire does anything to it, and the fight clock stops. Throw an orb before the window ends. If it passes without one, the husk gathers itself, 30% of its ward back, and runs. The second window to pass is its escape (the fourth, on easy).
+
+**In a rift** the ward is shared, and no orb can be thrown until it breaks. Then every reaper still standing has the room's window (8 seconds) to land one. Orbs cost no soul there and one may be thrown as soon as the last has fallen, and the first to strike the husk holds at once, with nothing rolled: landing it is that reaper's cut. A plain throw is a ragged cut, a great one a clean cut, an excellent one a perfect cut. A reaper whose window passes without a cut has made none.
 
 ### Testing difficulty
 
@@ -212,24 +260,24 @@ A build that is not a release has a "Testing difficulty" button on the screen be
 | | Easy | Normal | Hard |
 | --- | --- | --- | --- |
 | The husk's ward | ×0.35 | ×1 | ×1.3 |
-| How far a tap may land from a seal | ×1.75 | ×1 | ×0.85 |
+| The seal cone and the pistol's aim assist | ×1.75 | ×1 | ×0.85 |
 | How fast you may move in a shriek | ×3 | ×1 | ×0.8 |
 | Flinches and blows you can take | +3 | +0 | +0 |
-| The reap window | ×2.5 | ×1 | ×0.8 |
-| How far the cut may stray | ×2 | ×1 | ×0.8 |
-| Unfinished reaps allowed | 4 | 2 | 2 |
+| The broken window | ×2 | ×1 | ×0.8 |
+| How far off the husk an orb may be thrown | ×2 | ×1 | ×0.8 |
+| Broken windows that may pass | 4 | 2 | 2 |
 | How fast the husk moves | ×0.6 | ×1 | ×1.15 |
-| How long the fight may run | 150 s | 75 s | 75 s |
+| How long the fight may run | 225 s | 150 s | 75 s |
 | How long a charge takes to arrive | ×1.6 | ×1 | ×0.85 |
 | The swing that turns a charge aside | ×0.6 | ×1 | ×1.15 |
 | How near the ring must come to a sigil's light | ×1.75 | ×1 | ×0.85 |
 | How long a caught light waits for the next | ×2 | ×1 | ×1 |
 
-A simulated beginner (slow to react, wide with every other tap) takes every creature on easy and loses most hunts on hard. The difficulty is recorded with the hunt. The server replays at the recorded difficulty, and refuses anything but normal when it runs in production. A release build has no button and plays on normal.
+A simulated beginner (slow to turn and to react, every other shot wide, no active reloads, never drawing the knife, letting ORB go early) captured all 60 of its uncommon husks on easy and on normal, and 26 of 60 on hard. The difficulty is recorded with the hunt. The server replays at the recorded difficulty, and refuses anything but normal when it runs in production. A release build has no button and plays on normal.
 
 ### Feeding
 
-Two reapers who cut the same husk equally well do not get exactly the same out of it. When a husk is absorbed, the keeper of the books rolls how well the reaper fed:
+Two reapers who capture the same husk equally well do not get exactly the same out of it. When a husk is absorbed, the keeper of the books rolls how well the reaper fed:
 
 | Feeding | Experience | Chance |
 | --- | --- | --- |
@@ -248,18 +296,20 @@ Six classes. Each has four ratings that always total 13, one perk and its own we
 
 | Class | Strike | Reach | Capture | Resilience | Perk | Weapon |
 | --- | --- | --- | --- | --- | --- | --- |
-| Harvester | 3 | 5 | 3 | 2 | Cleave: a strike also catches other open seals nearby, for 40% each | Scythe |
+| Harvester | 3 | 5 | 3 | 2 | Cleave: a hit on a seal also catches every other open seal, for 40% each | Scythe |
 | Ferryman | 3 | 2 | 3 | 5 | Steadfast: the first flinch of a hunt costs nothing | Lantern pole |
-| Weigher | 4 | 2 | 4 | 3 | Measure: seals are numbered, and striking them in order hits 20% harder | Balance flail |
-| Chooser | 5 | 4 | 2 | 2 | Chosen blow: the strike after an unflinching hold lands three times as hard | Spear |
+| Weigher | 4 | 2 | 4 | 3 | Measure: open seals are numbered in the order they opened, and a hit on the first lands 20% harder | Balance flail |
+| Chooser | 5 | 4 | 2 | 2 | Chosen blow: the hit after an unflinching hold lands three times as hard | Spear |
 | Hollow | 4 | 3 | 2 | 4 | Chain: cadence builds to +100% | Chain whip |
-| Mourner | 1 | 4 | 5 | 3 | Toll: each unflinching hold adds 80 ticks to the reap window | Bell |
+| Mourner | 1 | 4 | 5 | 3 | Toll: each unflinching hold adds 80 ticks to the broken window | Bell |
+
+The perks work the same whichever weapon is in hand: a shot, a stab and a swing are each one hit. An art is not.
 
 What the ratings do:
 
-- Strike: ward removed per strike is `4.0 × (0.85 + 0.1 × strike) × weapon × temper × level × sets`.
-- Reach: how far from a seal a tap may land, `3.2° + 0.55° × reach + weapon reach`.
-- Capture: the reap window is `3.5 s + 0.5 s × capture`, and the arc tolerance is `5° + 0.8° × capture`.
+- Strike: the reaper's hit, `H = 4.0 × (0.85 + 0.1 × strike) × temper × level × sets`. Each weapon does a share of it: see [The crosshair and the four weapons](#the-crosshair-and-the-four-weapons).
+- Reach: the seal cone, `3.2° + 0.55° × reach + weapon reach`, and the pistol's aim assist, `3.5° + 0.25° × (reach − 3)`.
+- Capture: the broken window, `3.5 s + 0.5 s × capture`, and the orb's odds, ×`(0.85 + 0.05 × capture)`.
 - Resilience: resolve is `2 + (resilience + 1) ÷ 2`, and flinch speed is `0.42 + 0.035 × resilience` rad/s.
 
 A reaper also has a look the shuffle draws: three heads, three mantles, four robes and three colourways per class, plus stature, gauntness, gaze and tatter, an aura, a name, and an omen (none 80%, ashen 12%, gilded 6%, eclipsed 2%). Omens change colour only.
@@ -274,7 +324,7 @@ Birth traits are immutable for owned reapers. The studio freely changes an unsav
 
 ### Levels
 
-Level cap 30. Going from level `n` to the next costs `90 + 55(n − 1) + 6(n − 1)²` experience. Each level adds 7% of a level-one strike. Each completed set adds 3%.
+Level cap 30. Going from level `n` to the next costs `90 + 55(n − 1) + 6(n − 1)²` experience. Each level adds 7% of a level-one hit. Each completed set adds 3%.
 
 ### Birth gifts and the soul's memory
 
@@ -286,10 +336,10 @@ explains the original lore and why these rules use actions the game already has.
 
 | Temperament | Benefit | Cost |
 | --- | --- | --- |
-| Patient | Reap window +30 ticks (0.5 s) | Swing +2 ticks |
-| Keen | Reach +0.6° | Reap window −24 ticks (0.4 s) |
-| Stalwart | Resolve +1 | Base strike ×0.95 |
-| Hungry | Base strike ×1.08 | Flinch speed ×0.92 |
+| Patient | Broken window +30 ticks (0.5 s) | Heavy swing +2 ticks |
+| Keen | Seal cone and aim assist +0.6° | Broken window −24 ticks (0.4 s) |
+| Stalwart | Resolve +1 | Hit ×0.95 |
+| Hungry | Hit ×1.08 | Flinch speed ×0.92 |
 
 Each reaper keeps three independent memories. A successful solo absorption
 grants at most one mark in each, calculated from the replay:
@@ -325,24 +375,24 @@ The following `S` is the strength in that table, never a random roll.
 | Ferryman | The Anchor | Stillness | A hold restores one lost resolve, at most `S` times per hunt; never above starting resolve. |
 | Ferryman | Returning Light | Rhythm | Five cadence hits prepare one flinch forgiveness, at most `S` preparations per hunt. The class's first free flinch is used before this light. |
 | Weigher | Foreknowledge | Unseen | The ambush's exposed seals stay open `30S` ticks longer. |
-| Weigher | The Verdict | Stillness | A hold prepares the next in-order strike for ×`(1 + 0.25S)` damage. An out-of-order hit does not spend it. |
-| Weigher | Equilibrium | Rhythm | Three in-order strikes reopen all seals for `44 + 24S` ticks. An out-of-order strike resets this count. |
-| Chooser | First Light | Unseen | First ambush strike gains a further ×`(1 + 0.25S)`. |
-| Chooser | Reprisal | Stillness | A player parry prepares Chosen Blow and a further ×`(1 + 0.25S)` on the next seal strike. |
-| Chooser | The Last Word | Rhythm | At cadence ≥3, a seal strike while ward is ≤35% of its starting value gains ×`(1 + 0.25S)`. |
+| Weigher | The Verdict | Stillness | A hold prepares the next in-order hit for ×`(1 + 0.25S)` damage. An out-of-order hit does not spend it. |
+| Weigher | Equilibrium | Rhythm | Three in-order hits reopen all seals for `44 + 24S` ticks. An out-of-order hit resets this count. |
+| Chooser | First Light | Unseen | The first hit of an ambush gains a further ×`(1 + 0.25S)`. |
+| Chooser | Reprisal | Stillness | A player parry prepares Chosen Blow and a further ×`(1 + 0.25S)` on the next hit on a seal. |
+| Chooser | The Last Word | Rhythm | At cadence ≥3, a hit on a seal while the ward is ≤35% of its starting value gains ×`(1 + 0.25S)`. |
 | Hollow | Old Hunger | Unseen | An ambush starts cadence at `S`; the normal cadence timer still applies. |
 | Hollow | The Echo | Stillness | A hold restores cadence from the shriek's warning plus `S`, capped at ten, and restarts its timer. |
 | Hollow | Unbroken | Rhythm | At most `S` real misses preserve cadence per hunt; its existing timer continues. The actual landed-hit streak still breaks. |
 | Mourner | Hush | Unseen | An ambush delays the first shriek by `30S` ticks. |
-| Mourner | Keening | Stillness | A hold prepares the next seal strike for ×`(1 + 0.25S)` damage. |
-| Mourner | The Refrain | Rhythm | Every third cadence hit adds `15S` ticks to the reap window, at most six times per hunt. |
+| Mourner | Keening | Stillness | A hold prepares the next hit on a seal for ×`(1 + 0.25S)` damage. |
+| Mourner | The Refrain | Rhythm | Every third cadence hit adds `15S` ticks to the broken window, at most six times per hunt. |
 
 Gifts act only at their stated trigger; they add no paid training, cooldown
 skips or second spell bar. The studio's Soul view shows their exact current
 and future effects, temperament costs, marks and original lore. Studio memory
 buttons are explicitly illustrative and never write the saved player.
 
-Combat log version **6** identifies these rules: it carries the room's cover in the plan and whether the art was held on each tick. Older logs are refused with
+Combat log version **7** identifies these rules: it carries the room's cover in the plan, and each tick's crosshair, turn speed, FIRE, ORB and weapon slot. Older logs are refused with
 an update message, never silently reinterpreted. Staging and production refuse
 the simulated acquire, release, settlement and rift endpoints until real husk
 acquisition, escrow and confirmed burning replace them. Practice remains
@@ -352,7 +402,7 @@ available. This is a launch guard, not a claim those transactions exist.
 
 Any class can buy any weapon. Each kind has its own feel:
 
-| Weapon | Strike | Reach | Ticks per swing |
+| Weapon | Hits per swing | Reach | Ticks per swing |
 | --- | --- | --- | --- |
 | Scythe | ×1.15 | +1.6° | 26 |
 | Lantern pole | ×1.0 | +0.8° | 22 |
@@ -365,8 +415,8 @@ Any class can buy any weapon. Each kind has its own feel:
 
 The greatsword and the axe are heavy, and no class starts with them. Each has one thing of its own:
 
-- **Greatsword.** A seal struck with it stops the husk in its tracks for 28 ticks.
-- **Axe.** A blow on the body away from any seal does 70% of a strike, not 25%.
+- **Greatsword.** Every swing that lands stops the husk in its tracks for 28 ticks.
+- **Axe.** A swing on the body, away from any seal, does 70% of a hit on a seal, not 50%.
 
 The first temper of a heavy weapon costs 320 anima and needs level 3, for any class.
 
@@ -390,7 +440,7 @@ Its ward, its worth and its sigil come from its rarity (see [Drawing it out](#dr
 | Common | 280 | 40 | 16 | 0.02 SOL |
 | Uncommon | 420 | 70 | 28 | 0.045 SOL |
 | Rare | 760 | 120 | 48 | 0.11 SOL |
-| Epic | 1400 | 210 | 85 | 0.26 SOL |
+| Epic | 2800 | 210 | 85 | 0.26 SOL |
 
 | Collection | Creature | Gets about | Stays | Ambles | Bolts |
 | --- | --- | --- | --- | --- | --- |
@@ -402,7 +452,62 @@ Its ward, its worth and its sigil come from its rarity (see [Drawing it out](#dr
 
 The body of a rift is not a creature: it is the reliquary stack, a tower of cubes 10 m tall and 17 m away, each face wearing one of the collection's portraits. It does not move. Four seals at the seams.
 
-A level-one reaper takes a common husk in about half a minute and cannot take an epic one. `cargo run --release -p reapers_rules --example pacing` prints the whole table for every class and level.
+A level-one reaper takes a common husk in 22 to 31 seconds, depending on its class, and cannot take an epic one. A level-ten reaper with a scorched weapon takes an epic in 76 to 109 seconds. `cargo run --release -p reapers_rules --example pacing` prints the whole table for every class and level.
+
+As it prints now:
+
+```text
+--- level 1, shrouded ---
+harvester  common: 8/8 24s       uncommon: 8/8 33s     rare: 8/8 62s         epic: 0/8 --
+ferryman   common: 8/8 28s       uncommon: 8/8 38s     rare: 8/8 71s         epic: 0/8 --
+weigher    common: 8/8 22s       uncommon: 8/8 32s     rare: 8/8 58s         epic: 0/8 --
+chooser    common: 8/8 22s       uncommon: 8/8 32s     rare: 8/8 59s         epic: 0/8 --
+hollow     common: 8/8 24s       uncommon: 8/8 34s     rare: 8/8 63s         epic: 0/8 --
+mourner    common: 8/8 31s       uncommon: 8/8 43s     rare: 8/8 82s         epic: 0/8 --
+--- level 5, sworn ---
+harvester  common: 8/8 16s       uncommon: 8/8 22s     rare: 8/8 40s         epic: 7/8 122s
+ferryman   common: 8/8 19s       uncommon: 8/8 25s     rare: 8/8 46s         epic: 6/8 138s
+weigher    common: 8/8 15s       uncommon: 8/8 21s     rare: 8/8 38s         epic: 7/8 112s
+chooser    common: 8/8 16s       uncommon: 8/8 21s     rare: 8/8 39s         epic: 7/8 115s
+hollow     common: 8/8 16s       uncommon: 8/8 22s     rare: 8/8 40s         epic: 7/8 124s
+mourner    common: 8/8 20s       uncommon: 8/8 29s     rare: 8/8 53s         epic: 5/8 152s
+--- level 10, scorched ---
+harvester  common: 8/8 10s       uncommon: 8/8 15s     rare: 8/8 27s         epic: 8/8 81s
+ferryman   common: 8/8 12s       uncommon: 8/8 18s     rare: 8/8 32s         epic: 8/8 96s
+weigher    common: 8/8 10s       uncommon: 8/8 14s     rare: 8/8 25s         epic: 8/8 76s
+chooser    common: 8/8 10s       uncommon: 8/8 15s     rare: 8/8 26s         epic: 8/8 82s
+hollow     common: 8/8 10s       uncommon: 8/8 15s     rare: 8/8 27s         epic: 8/8 88s
+mourner    common: 8/8 13s       uncommon: 8/8 20s     rare: 8/8 35s         epic: 8/8 109s
+--- level 16, hollowed ---
+harvester  common: 8/8 9s        uncommon: 8/8 10s     rare: 8/8 20s         epic: 8/8 54s
+ferryman   common: 8/8 9s        uncommon: 8/8 12s     rare: 8/8 22s         epic: 8/8 63s
+weigher    common: 8/8 9s        uncommon: 8/8 10s     rare: 8/8 18s         epic: 8/8 49s
+chooser    common: 8/8 9s        uncommon: 8/8 10s     rare: 8/8 19s         epic: 7/8 50s
+hollow     common: 8/8 9s        uncommon: 8/8 10s     rare: 8/8 19s         epic: 7/8 53s
+mourner    common: 8/8 10s       uncommon: 8/8 13s     rare: 8/8 24s         epic: 8/8 69s
+```
+
+`cargo run --release -p reapers_rules --example rift_pacing` prints how rifts go for circles of different sizes and levels:
+
+```text
+--- level 1 ---
+1 reaper  + 3 shades: sealed 8/8  98s, 275 xp
+2 reapers + 2 shades: sealed 8/8  83s, 275 xp
+4 reapers + 0 shades: sealed 8/8  64s, 267 xp
+--- level 6 ---
+1 reaper  + 3 shades: sealed 8/8  98s, 275 xp
+2 reapers + 2 shades: sealed 8/8  83s, 275 xp
+4 reapers + 0 shades: sealed 8/8  64s, 267 xp
+--- level 12 ---
+1 reaper  + 3 shades: sealed 8/8  98s, 275 xp
+2 reapers + 2 shades: sealed 8/8  83s, 275 xp
+4 reapers + 0 shades: sealed 8/8  64s, 267 xp
+--- level 20 ---
+1 reaper  + 3 shades: sealed 8/8  98s, 275 xp
+2 reapers + 2 shades: sealed 8/8  83s, 275 xp
+4 reapers + 0 shades: sealed 8/8  64s, 267 xp
+one idle reaper + 3 shades: sealed 0/8
+```
 
 Why these five, and the hundred or so they were chosen from, is in [research/solana-collections.md](research/solana-collections.md).
 
@@ -413,13 +518,11 @@ A rift is a whole dead collection piled into one body. It takes a circle of four
 - **Where.** Each rift has a site: London Bridge (Degenerate Ape Academy), Shibuya Crossing (Thugbirdz), Third Mainland Bridge in Lagos (Sollamas), Brooklyn Bridge (Pesky Penguins), Golden Gate Bridge (Solarians). A rift can be entered from anywhere, and where its husk stands depends on where you are: see "Standing in the same place" below.
 - **Who.** A rift opens only to a reaper who has absorbed at least one NFT from its collection. The way to a collection's raid runs through buying that collection.
 - **Gathering.** Reapers join and stand ready. When everyone present is ready there is a three-second count. A rift waits at most 60 seconds. Seats nobody takes are filled by shades: bots one level below the circle's average, slower to react and wider of the mark than a careful person.
-- **The ward.** It is sized to the circle: the sum of everyone's best damage per second × 0.84 × 70 seconds. A rift is as hard for four beginners as for four veterans. What it asks for is company and care, not levels.
-- **The fight.** Each reaper fights the husk through their own phone, with their own seals, exactly as in a hunt but with nothing to stalk. Every strike anyone lands comes off the one shared ward. The shrieks come at the same instant for everyone. Flinch away all your resolve and you are cast out.
-- **The limit.** 120 seconds. Four careful reapers break the ward in about a minute; one with three shades in about 80 seconds.
-- **Sealing.** When the ward breaks everyone has one reap window (8 seconds for the room). Half the reapers still standing, rounded up, must make their cut, and at least one cut must be a person's: shades can break a ward but only the living can shut a rift.
-- **Pay.** 220 experience and 90 anima for a clean cut and a fair share of the work. Your share of the ward scales that from 60% (did nothing) to 100% (a quarter of the ward or more). The cut scales it like a reap grade; no cut is ×0.75 and cast out is ×0.5. Leave early and you are paid nothing. A failed rift costs nothing.
-
-`cargo run --release -p reapers_rules --example rift_pacing` prints how rifts go for circles of different sizes and levels.
+- **The ward.** It is sized to the circle: the sum of what each reaper's pistol takes off a second, firing at the body with plain reloads, × 2.5 for the seals, cadence and active reloads of a careful reaper, × 70 seconds. A rift is as hard for four beginners as for four veterans. What it asks for is company and care, not levels.
+- **The fight.** Each reaper fights the husk through their own phone, with their own seals, exactly as in a hunt but with nothing to stalk. The husk stands 14 to 40 m away, beyond any dive, so in a rift only the pistol and the arts reach it. Every hit anyone lands comes off the one shared ward. The shrieks come at the same instant for everyone. Flinch away all your resolve and you are cast out.
+- **The limit.** 120 seconds. Four careful reapers break the ward and seal the rift in about 64 seconds; one with three shades in about 98 seconds.
+- **Sealing.** When the ward breaks everyone has 8 seconds to land an orb (see [Capture](#capture)): in a rift an orb costs nothing and always holds, and landing it is that reaper's cut. Half the reapers still standing, rounded up, must make their cut, and at least one cut must be a person's: shades can break a ward but only the living can shut a rift.
+- **Pay.** 220 experience and 90 anima for a ragged cut and a fair share of the work. Your share of the ward scales that from 60% (did nothing) to 100% (a quarter of the ward or more). The cut scales it: a ragged cut (a plain throw) ×1.0, a clean one (a great throw) ×1.25, a perfect one (an excellent throw) ×1.5, no cut ×0.75, and cast out ×0.5. Leave early and you are paid nothing. A failed rift costs nothing.
 
 A development demo build (`REAPERS_DEMO_RIFT`) waives only the collection gate so several people can meet one enemy before they own its dead. The fight, the ward, the shrieks, the cuts and the pay are the same rules above; each player is paid once from their own books. The flag is ignored by release builds, and staging and production servers refuse the demo endpoint.
 
@@ -437,7 +540,7 @@ A rift's husk stands at one place on the earth, and everyone in the circle is po
 
 How well this works is down to the phone. Out of doors a phone knows where it is to within 3 to 10 m, and at 25 m that is 7 to 20 degrees of bearing. A compass is good to about 10 degrees, and much worse near steel, cars or indoors. So people standing together face the same way, give or take; they do not all touch the same stone. Indoors, expect it to be rough.
 
-**Tried against a running server** on 3 October 2026: a simulator and a second client signed in as guests, each absorbed a Degenerate Ape through the server (the hunt replayed and the receipt signed), entered London Bridge within the same minute, and were seated in one circle with two shades. The second client said where it stood; the rift took its place 25 m in front of it, and every frame to both carried that one place from the gathering through the fight, the reap and the seal. A Seeker also hunted and sealed a rift against the same server. What has not been tried is two phones that both know where they are and which way north lies, standing together: the Seeker is the only such phone here.
+**Tried against a running server** on 3 October 2026: a simulator and a second client signed in as guests, each absorbed a Degenerate Ape through the server (the hunt replayed and the receipt signed), entered London Bridge within the same minute, and were seated in one circle with two shades. The second client said where it stood; the rift took its place 25 m in front of it, and every frame to both carried that one place from the gathering through the fight, the capture and the seal. A Seeker also hunted and sealed a rift against the same server. What has not been tried is two phones that both know where they are and which way north lies, standing together: the Seeker is the only such phone here.
 
 Compass north is used as it comes. True north differs from it by a few degrees in most places and by 13 in New York and San Francisco. For a rift planted in front of a reaper that makes no difference, since everyone uses the same compass north. For a rift at its real site it moves the husk by that angle for everyone alike.
 
@@ -466,7 +569,7 @@ A hunt never switches tune. It has one piece, and the hunt changes how that piec
 | It draws breath | falls from 0.8 to 0.12 | rises to 0.9 |
 | The shriek | 0.06 | full |
 | It charges | 1.0 | clear |
-| Ward broken, the reap | 0.45 | 0.45 |
+| Ward broken | 0.45 | 0.45 |
 | Absorbed | silence | |
 | Escaped | 0.25 | 0.85 |
 

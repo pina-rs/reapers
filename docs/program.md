@@ -109,7 +109,7 @@ An event proves nothing by itself: any program can log the same bytes. Attribute
 | 0..8 | the ASCII tag `RPRSABS2` |
 | 8..40 | the player's wallet address |
 | 40..72 | the husk's mint (token) or asset (Core) address |
-| 72 | the reap grade: 0 ragged, 1 clean, 2 perfect |
+| 72 | the capture grade: 0 plain, 1 great, 2 excellent |
 | 73 | the feeding: 0 meagre, 1 fair, 2 rich, 3 feast |
 | 74..78 | experience paid, unsigned, little-endian |
 | 78..82 | anima paid, unsigned, little-endian |
