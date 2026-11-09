@@ -132,7 +132,7 @@ fn open_seals(sim: &HuntSim) -> Vec<usize> {
 /// The seals of `sim`'s husk on the side the reaper can see.
 fn in_view(sim: &HuntSim) -> Vec<usize> {
 	(0..sim.vessel().seals().len())
-		.filter(|&seal| sim.pose().seal_faces_player(seal))
+		.filter(|&seal| sim.pose().seal_faces(reapers_rules::Vec3::ZERO, seal))
 		.collect()
 }
 
@@ -301,7 +301,8 @@ mod cadence {
 			if open.is_empty() {
 				sim.pose().direction()
 			} else {
-				sim.pose().seal_direction(open[0])
+				sim.pose()
+					.seal_direction(reapers_rules::Vec3::ZERO, open[0])
 			},
 			None,
 		)
@@ -434,7 +435,10 @@ mod shriek {
 		assert_eq!(count!(events, HuntEvent::HeldFirm), 1);
 		assert_eq!(count!(events, HuntEvent::Flinched { .. }), 0);
 		assert_eq!(sim.resolve(), sim.stats().resolve);
-		assert!(sim.pose().faces_player(), "it turned to shriek");
+		assert!(
+			sim.pose().faces(reapers_rules::Vec3::ZERO),
+			"it turned to shriek"
+		);
 		assert_eq!(open_seals(&sim), in_view(&sim));
 		assert!(open_seals(&sim).len() >= 2);
 	}
@@ -598,7 +602,12 @@ mod class_perks {
 
 		let open = open_seals(&sim);
 		let hit = single_hit(&step_with(&mut sim, |sim| {
-			fire_at(sim, sim.pose().seal_direction(open[0]), None)
+			fire_at(
+				sim,
+				sim.pose()
+					.seal_direction(reapers_rules::Vec3::ZERO, open[0]),
+				None,
+			)
 		}));
 
 		assert!(open.len() >= 2);
@@ -645,7 +654,11 @@ mod class_perks {
 		assert!(open.len() >= 2);
 
 		let out_of_order = single_hit(&step_with(&mut sim, |sim| {
-			fire_at(sim, sim.pose().seal_direction(newest), None)
+			fire_at(
+				sim,
+				sim.pose().seal_direction(reapers_rules::Vec3::ZERO, newest),
+				None,
+			)
 		}));
 
 		for _ in 0..GunRules::FIRE_INTERVAL_TICKS {
@@ -653,7 +666,11 @@ mod class_perks {
 		}
 
 		let in_order = single_hit(&step_with(&mut sim, |sim| {
-			fire_at(sim, sim.pose().seal_direction(oldest), None)
+			fire_at(
+				sim,
+				sim.pose().seal_direction(reapers_rules::Vec3::ZERO, oldest),
+				None,
+			)
 		}));
 
 		// Take the ambush bonus off the first and the cadence off the
@@ -698,7 +715,8 @@ mod class_perks {
 				if open.is_empty() {
 					sim.pose().direction()
 				} else {
-					sim.pose().seal_direction(open[0])
+					sim.pose()
+						.seal_direction(reapers_rules::Vec3::ZERO, open[0])
 				},
 				None,
 			)

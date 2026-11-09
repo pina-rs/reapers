@@ -151,7 +151,8 @@ pub fn fire_at_open_seal(sim: &HuntSim) -> HuntInput {
 		if open.is_empty() {
 			sim.pose().direction()
 		} else {
-			sim.pose().seal_direction(open[0])
+			sim.pose()
+				.seal_direction(reapers_rules::Vec3::ZERO, open[0])
 		},
 		None,
 	)
@@ -240,7 +241,7 @@ pub fn open_seals(sim: &HuntSim) -> Vec<usize> {
 /// The seals of `sim`'s husk on the side the reaper can see.
 pub fn in_view(sim: &HuntSim) -> Vec<usize> {
 	(0..sim.vessel().seals().len())
-		.filter(|&seal| sim.pose().seal_faces_player(seal))
+		.filter(|&seal| sim.pose().seal_faces(reapers_rules::Vec3::ZERO, seal))
 		.collect()
 }
 
@@ -259,7 +260,7 @@ pub fn body_away_from_seals(sim: &HuntSim) -> Option<Vec3> {
 				))
 			.normalized();
 
-			if pose.covers(at, 0.0) && !sim.on_open_seal(at) {
+			if pose.covers(reapers_rules::Vec3::ZERO, at, 0.0) && !sim.on_open_seal(at) {
 				return Some(at);
 			}
 		}

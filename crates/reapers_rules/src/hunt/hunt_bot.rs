@@ -248,7 +248,7 @@ impl HuntBot {
 		if noticed.is_empty() {
 			sim.pose().direction()
 		} else {
-			sim.pose().seal_direction(noticed[0])
+			sim.pose().seal_direction(Vec3::ZERO, noticed[0])
 		}
 	}
 

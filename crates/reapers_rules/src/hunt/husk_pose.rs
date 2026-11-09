@@ -56,7 +56,7 @@ pub struct HuskLocomotion {
 pub struct HuskPose {
 	pub vessel: Vessel,
 
-	/// The middle of the husk's body, in metres from the player's eye.
+	/// The middle of the husk's body, in metres from the hunt origin.
 	pub position: Vec3,
 
 	/// The way the husk's body faces, as a bearing in radians: 0 is the way
@@ -134,6 +134,25 @@ impl HuskPose {
 		self.position.normalized()
 	}
 
+	/// The displacement from an eye to the centre, preserving origin bits.
+	fn offset_from(&self, eye: Vec3) -> Vec3 {
+		if eye == Vec3::ZERO {
+			self.position
+		} else {
+			self.position - eye
+		}
+	}
+
+	/// The distance from the eye to the centre, in metres.
+	pub fn distance_from(&self, eye: Vec3) -> f64 {
+		self.offset_from(eye).length()
+	}
+
+	/// The direction from the eye to the centre.
+	pub fn direction_from(&self, eye: Vec3) -> Vec3 {
+		self.offset_from(eye).normalized()
+	}
+
 	/// The way the husk's chest points.
 	pub fn forward(&self) -> Vec3 {
 		Vec3::new(math::sin(self.heading), 0.0, math::cos(self.heading))
@@ -146,8 +165,8 @@ impl HuskPose {
 
 	/// Whether the husk is turned toward the player, give or take a quarter
 	/// turn.
-	pub fn faces_player(&self) -> bool {
-		self.forward().dot(-self.direction()) > 0.0
+	pub fn faces(&self, eye: Vec3) -> bool {
+		self.forward().dot(-self.direction_from(eye)) > 0.0
 	}
 
 	/// Whether `ray`, a direction out from the player, passes through the
@@ -155,12 +174,13 @@ impl HuskPose {
 	///
 	/// A hit that covers the body but misses every open seal is a body hit:
 	/// half a hit on a seal.
-	pub fn covers(&self, ray: Vec3, pad: f64) -> bool {
-		let distance = self.distance();
-		let across = wrap_angle(ray.yaw() - self.yaw()) * math::cos(self.pitch())
+	pub fn covers(&self, eye: Vec3, ray: Vec3, pad: f64) -> bool {
+		let offset = self.offset_from(eye);
+		let distance = offset.length();
+		let across = wrap_angle(ray.yaw() - offset.yaw()) * math::cos(offset.pitch())
 			/ (math::atan2(self.half_width(), distance) + pad);
 		let along =
-			(ray.pitch() - self.pitch()) / (math::atan2(self.half_height(), distance) + pad);
+			(ray.pitch() - offset.pitch()) / (math::atan2(self.half_height(), distance) + pad);
 
 		across * across + along * along <= 1.0
 	}
@@ -171,18 +191,23 @@ impl HuskPose {
 	}
 
 	/// The direction from the player to seal `index`.
-	pub fn seal_direction(&self, index: usize) -> Vec3 {
-		self.seal_position(index).normalized()
+	pub fn seal_direction(&self, eye: Vec3, index: usize) -> Vec3 {
+		if eye == Vec3::ZERO {
+			self.seal_position(index)
+		} else {
+			self.seal_position(index) - eye
+		}
+		.normalized()
 	}
 
 	/// Whether seal `index` is on a side of the husk the player can see.
 	///
 	/// A husk hides the seals on its far side, so one that turns its back
 	/// shows different seals from one that faces the reaper.
-	pub fn seal_faces_player(&self, index: usize) -> bool {
+	pub fn seal_faces(&self, eye: Vec3, index: usize) -> bool {
 		let outward = self.seal_offset(index);
 
-		outward.dot(-self.direction()) >= Self::FACING_SHARE * outward.length()
+		outward.dot(-self.direction_from(eye)) >= Self::FACING_SHARE * outward.length()
 	}
 
 	/// Seal `index`'s place relative to the middle of the body, in the

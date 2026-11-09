@@ -305,3 +305,470 @@ fn all_constructors_default_to_origin_and_tick_limit_is_unchanged() {
 	]);
 	assert_eq!(HuntLog::decode(&log.encode()), Err(HuntLogError::TooLong));
 }
+
+#[test]
+fn a_grid_can_hide_a_husk_from_one_eye_and_reveal_it_from_the_side() {
+	use reapers_rules::Vec3;
+	let mut drawn = room::DrawnRoom::sized(100, 100, &[0]);
+	drawn.obstacle(44, 58, 8, 6, 96);
+	let grid = drawn.build();
+	let target = Vec3::new(0.0, -1.15, 4.2);
+	let side = Vec3::new(0.9, 0.0, 0.0);
+	assert!(grid.hides_from(Vec3::ZERO, target));
+	assert!(!grid.hides_from(side, target - side));
+	assert!(grid.hides_from(-side, target + side));
+	for x in -10..=10 {
+		for z in -10..=10 {
+			let ray = Vec3::new(f64::from(x) / 10.0, -0.2, f64::from(z) / 10.0);
+			assert_eq!(grid.hides_from(Vec3::ZERO, ray), grid.hides(ray));
+			assert_eq!(
+				grid.surface_along_from(Vec3::ZERO, ray, 5.0).to_bits(),
+				grid.surface_along(ray, 5.0).to_bits()
+			);
+		}
+	}
+}
+
+#[test]
+fn a_plan_wall_is_seen_from_either_side_and_origin_queries_keep_their_bits() {
+	use reapers_rules::Vec3;
+	let mut plan = HuntPlan {
+		reach_decimetres: vec![30; HuntPlan::SLICES],
+		cover_centimetres: vec![100; HuntPlan::SLICES],
+		hide_decimetres: vec![0; HuntPlan::SLICES],
+		ledges: vec![false; HuntPlan::SLICES],
+		..HuntPlan::OPEN
+	};
+	let near = Vec3::new(0.5, -1.0, 1.0);
+	let far = Vec3::new(0.5, -1.0, 4.0);
+	assert!(plan.hides_from(near, far - near));
+	assert!(plan.hides_from(far, near - far));
+	assert!(!plan.hides_from(near, Vec3::new(0.0, 0.0, 0.5)));
+	for x in -20..=20 {
+		let p = Vec3::new(f64::from(x) / 10.0, -0.8, -0.0);
+		assert_eq!(plan.hides_from(Vec3::ZERO, p), plan.hides(p));
+	}
+	plan.cover_centimetres.fill(0);
+	assert!(!plan.hides_from(near, far - near));
+}
+
+#[test]
+fn a_seal_shot_uses_the_eye_on_the_firing_tick() {
+	use reapers_rules::Aim;
+	use reapers_rules::Eye;
+	use reapers_rules::HuntEvent;
+	use reapers_rules::HuntInput;
+	use reapers_rules::HuntPhase;
+	use reapers_rules::Vec3;
+	let mut sim = SimFor::default().sim();
+	support::run_until(&mut sim, HuntPhase::Fight, Some(support::steady_on_husk));
+	let eye = Eye::new(900, 0, 0);
+	let mut found = false;
+	for _ in 0..300 {
+		let idle = HuntInput::new(Aim::AHEAD, 0).with_eye(eye);
+		sim.step(&idle);
+		if let Some(index) = (0..sim.vessel().seals().len()).find(|&i| sim.seal_open(i)) {
+			let ray = sim.pose().seal_direction(eye.point(), index);
+			let rounded = Aim::from_direction(ray).direction();
+			if !sim.on_open_seal(rounded) {
+				continue;
+			}
+			let mut origin = sim.clone();
+			let mut moved = sim.clone();
+			let shot = HuntInput::measured(ray, 0.0, true, 0, false);
+			let from_eye = moved.step(&shot.clone().with_eye(eye));
+			let from_origin = origin.step(&shot.with_eye(Eye::ORIGIN));
+			if from_eye
+				.iter()
+				.any(|e| matches!(e, HuntEvent::HitLanded { seal: Some(i), .. } if *i == index))
+				&& !from_origin
+					.iter()
+					.any(|e| matches!(e, HuntEvent::HitLanded { seal: Some(i), .. } if *i == index))
+			{
+				assert!(sim.in_reach(rounded));
+				found = true;
+				break;
+			}
+		}
+	}
+	assert!(
+		found,
+		"a moved-eye seal hit must differ from the same origin shot"
+	);
+	assert_ne!(eye.point(), Vec3::ZERO);
+}
+
+#[test]
+fn orb_preview_throw_and_missed_landing_use_the_recorded_eye() {
+	use reapers_rules::Aim;
+	use reapers_rules::CaptureGrade;
+	use reapers_rules::Eye;
+	use reapers_rules::HuntEvent;
+	use reapers_rules::HuntInput;
+	use reapers_rules::HuntPhase;
+	use reapers_rules::Vec3;
+	let mut sim = SimFor::default().sim();
+	support::run_until(&mut sim, HuntPhase::Fight, Some(support::steady_on_husk));
+	sim.set_ward(0.0);
+	sim.step(&HuntInput::new(Aim::AHEAD, 0));
+	assert_eq!(sim.phase(), HuntPhase::Broken);
+	sim.set_soul(100.0);
+	let eye = Eye::new(800, 0, 0);
+	for _ in 0..50 {
+		let ray = sim.pose().direction_from(eye.point());
+		sim.step(&HuntInput::measured(ray, 0.0, false, 0, true).with_eye(eye));
+	}
+	let aim = Aim::from_direction(sim.pose().direction_from(eye.point())).direction();
+	let preview = sim.orb_grade(aim);
+	assert_eq!(preview, CaptureGrade::Excellent);
+	let mut missed = sim.clone();
+	let events = sim.step(&HuntInput::measured(aim, 0.0, false, 0, false).with_eye(eye));
+	assert!(events.iter().any(
+		|event| matches!(event, HuntEvent::OrbThrown { grade, on_target: true } if *grade == preview)
+	));
+	let down = Vec3::new(0.0, -1.0, 0.0);
+	let events = missed.step(&HuntInput::measured(down, 0.0, false, 0, false).with_eye(eye));
+	assert!(events.iter().any(|event| {
+		matches!(
+			event,
+			HuntEvent::OrbThrown {
+				on_target: false,
+				..
+			}
+		)
+	}));
+	let target = missed.orb().unwrap().target;
+	assert!((target.x - 0.8).abs() < 1e-9);
+	assert!((target.y + missed.plan().eye_height()).abs() < 1e-9);
+}
+
+#[test]
+fn arts_leave_the_hand_below_the_recorded_eye() {
+	use reapers_rules::Arsenal;
+	use reapers_rules::Art;
+	use reapers_rules::ArtRules;
+	use reapers_rules::ArtSkill;
+	use reapers_rules::Eye;
+	use reapers_rules::HuntEvent;
+	use reapers_rules::HuntInput;
+	use reapers_rules::HuntLoadout;
+	use reapers_rules::HuntStats;
+	use reapers_rules::ReaperClass;
+	use reapers_rules::Temper;
+	use reapers_rules::Vec3;
+	use reapers_rules::Weapon;
+	for art in [Art::Cinder, Art::Rime, Art::Gale] {
+		let options = SimFor::default();
+		let stats = HuntStats::derive(
+			&HuntLoadout {
+				art: Some(ArtSkill::new(art, 1).unwrap()),
+				..HuntLoadout::new(
+					ReaperClass::Harvester,
+					6,
+					Weapon::new(ReaperClass::Harvester.weapon(), Temper::Shrouded),
+				)
+			},
+			1.0,
+		)
+		.unwrap();
+		let mut sim = HuntSim::new(
+			options.seed,
+			options.vessel,
+			options.rarity,
+			options.rarity.ward(),
+			&stats,
+			HuntPlan::OPEN,
+			Difficulty::Normal,
+		)
+		.unwrap();
+		let eye = Eye::new(400, 100, -200);
+		for _ in 0..40 {
+			sim.step(
+				&HuntInput::measured(
+					sim.pose().direction_from(eye.point()),
+					0.0,
+					false,
+					Arsenal::ART_SLOT,
+					false,
+				)
+				.with_eye(eye),
+			);
+		}
+		let events = sim.step(
+			&HuntInput::measured(
+				sim.pose().direction_from(eye.point()),
+				0.0,
+				true,
+				Arsenal::ART_SLOT,
+				false,
+			)
+			.with_eye(eye),
+		);
+		assert!(events.contains(&HuntEvent::ArtThrown(art)));
+		assert_eq!(
+			sim.flights()[0].from,
+			eye.point() + Vec3::new(0.0, -ArtRules::HAND_DROP, 0.0)
+		);
+	}
+}
+
+#[test]
+fn a_moving_eye_hunt_lands_on_the_same_bits_everywhere() {
+	use reapers_rules::Eye;
+	use reapers_rules::HuntInput;
+	let plan = HuntPlan {
+		room: Some(room::furnished_room()),
+		..HuntPlan::new(0, 6000)
+	};
+	let options = SimFor {
+		seed: 5,
+		vessel: Vessel::Ape,
+		..SimFor::default()
+	};
+	let mut sim = HuntSim::new(
+		5,
+		Vessel::Ape,
+		Rarity::Common,
+		Rarity::Common.ward(),
+		&options.stats(),
+		plan,
+		Difficulty::Normal,
+	)
+	.unwrap();
+	let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+	for tick in 0..600 {
+		let eye = Eye::new(((tick % 80) as i16 - 40) * 10, 0, 0);
+		let input = HuntInput::measured(
+			sim.pose().direction_from(eye.point()),
+			0.0,
+			tick % 20 == 0,
+			0,
+			false,
+		)
+		.with_eye(eye);
+		let events = sim.step(&input);
+		for byte in sim
+			.pose()
+			.position
+			.x
+			.to_bits()
+			.to_le_bytes()
+			.into_iter()
+			.chain(sim.pose().position.y.to_bits().to_le_bytes())
+			.chain(sim.pose().position.z.to_bits().to_le_bytes())
+			.chain(format!("{events:?}{:?}", sim.outcome()).bytes())
+		{
+			hash = (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3);
+		}
+	}
+	assert_eq!(hash, 0x30a9_9835_023d_48ad);
+}
+
+#[test]
+#[allow(
+	clippy::too_many_lines,
+	reason = "both weapons exercise the same range cases"
+)]
+fn melee_reach_and_dive_resources_follow_the_eye() {
+	use reapers_rules::Archetype;
+	use reapers_rules::Arsenal;
+	use reapers_rules::BladeRules;
+	use reapers_rules::Eye;
+	use reapers_rules::HeavyRules;
+	use reapers_rules::HuntEvent;
+	use reapers_rules::HuntInput;
+	use reapers_rules::Vec3;
+	for (slot, weapon, limit) in [
+		(
+			Arsenal::BLADE_SLOT,
+			Archetype::Blade,
+			BladeRules::DIVE_METRES,
+		),
+		(
+			Arsenal::HEAVY_SLOT,
+			Archetype::Heavy,
+			HeavyRules::DIVE_METRES,
+		),
+	] {
+		let mut saw_close = false;
+		let mut saw_far = false;
+		for seed in 0..12 {
+			let mut sim = SimFor {
+				seed,
+				vessel: Vessel::Ape,
+				..SimFor::default()
+			}
+			.sim();
+			for _ in 0..30 {
+				let input = HuntInput::measured(sim.pose().direction(), 0.0, false, slot, false);
+				sim.step(&input);
+			}
+			for _ in 0..2000 {
+				if sim.is_over() {
+					break;
+				}
+				let pos = sim.pose().position;
+				let horizontal = Vec3::new(pos.x, 0.0, pos.z).normalized();
+				for toward in [true, false] {
+					let eye = Eye::rounded(horizontal * if toward { 0.95 } else { -0.95 }).unwrap();
+					let distance = sim.pose().distance_from(eye.point());
+					let origin = sim.pose().distance();
+					if !((toward
+						&& origin > Arsenal::CLOSE_METRES
+						&& distance < Arsenal::CLOSE_METRES - 0.1)
+						|| (!toward && origin < limit && distance > limit + 0.1))
+					{
+						continue;
+					}
+					let input = HuntInput::measured(
+						sim.pose().direction_from(eye.point()),
+						0.0,
+						true,
+						slot,
+						false,
+					)
+					.with_eye(eye);
+					let mut candidate = sim.clone();
+					candidate.step(
+						&HuntInput::measured(
+							sim.pose().direction_from(eye.point()),
+							0.0,
+							false,
+							slot,
+							false,
+						)
+						.with_eye(eye),
+					);
+					let aim = input.aim.direction();
+					let preview = candidate.in_reach(aim);
+					let charges = candidate.dive_charges();
+					let events = candidate.step(&input);
+					if toward
+						&& origin > Arsenal::CLOSE_METRES
+						&& distance < Arsenal::CLOSE_METRES - 0.1
+						&& events.iter().any(
+							|e| matches!(e, HuntEvent::HitLanded { weapon: w, .. } if *w == weapon),
+						) {
+						assert!(preview);
+						assert_eq!(candidate.dive_charges(), charges);
+						assert!(!events.contains(&HuntEvent::DiveStarted(weapon)));
+						saw_close = true;
+					}
+					if !toward && origin < limit && distance > limit + 0.1 {
+						assert!(!preview);
+						assert!(!events.contains(&HuntEvent::DiveStarted(weapon)));
+						assert_eq!(candidate.dive_charges(), charges);
+						saw_far = true;
+					}
+				}
+				if saw_close && saw_far {
+					break;
+				}
+				sim.step(&HuntInput::measured(
+					sim.pose().direction(),
+					0.0,
+					false,
+					slot,
+					false,
+				));
+			}
+			if saw_close && saw_far {
+				break;
+			}
+		}
+		assert!(saw_close, "no close {weapon:?} case");
+		assert!(saw_far, "no far {weapon:?} case");
+	}
+}
+
+#[test]
+fn a_moving_eye_is_followed_on_each_shot() {
+	use reapers_rules::Eye;
+	use reapers_rules::HuntEvent;
+	use reapers_rules::HuntInput;
+	let mut sim = SimFor::default().sim();
+	for tick in 0..120 {
+		let eye = Eye::new(if tick % 40 < 20 { 400 } else { -400 }, 0, 0);
+		let ray = sim.pose().direction_from(eye.point());
+		let fire = tick % 20 == 0;
+		let events = sim.step(&HuntInput::measured(ray, 0.0, fire, 0, false).with_eye(eye));
+		assert_eq!(sim.eye(), eye);
+		if fire {
+			assert!(
+				events
+					.iter()
+					.any(|event| matches!(event, HuntEvent::HitLanded { .. })),
+				"tick {tick}: {events:?}"
+			);
+		}
+	}
+}
+
+#[test]
+fn the_simulation_uses_grid_visibility_for_shots_from_either_side() {
+	use reapers_rules::Eye;
+	use reapers_rules::HuntEvent;
+	use reapers_rules::HuntInput;
+	let plan = HuntPlan {
+		room: Some(room::desk_room()),
+		..HuntPlan::new(0, 6000)
+	};
+	let options = SimFor {
+		seed: 3,
+		vessel: Vessel::Ape,
+		..SimFor::default()
+	};
+	let sim = HuntSim::new(
+		3,
+		Vessel::Ape,
+		Rarity::Common,
+		Rarity::Common.ward(),
+		&options.stats(),
+		plan,
+		Difficulty::Normal,
+	)
+	.unwrap();
+	let side = Eye::new(900, 0, 0);
+	let other = Eye::new(-900, 0, 0);
+	let mut visible = sim.clone();
+	let mut hidden = sim;
+	visible.step(
+		&HuntInput::measured(
+			visible.pose().direction_from(side.point()),
+			0.0,
+			false,
+			0,
+			false,
+		)
+		.with_eye(side),
+	);
+	hidden.step(
+		&HuntInput::measured(
+			hidden.pose().direction_from(other.point()),
+			0.0,
+			false,
+			0,
+			false,
+		)
+		.with_eye(other),
+	);
+	assert!(!visible.husk_hidden());
+	assert!(hidden.husk_hidden());
+	let clear_ray = visible.pose().direction_from(side.point());
+	let blocked_ray = hidden.pose().direction_from(other.point());
+	assert!(visible.in_reach(clear_ray));
+	assert!(!hidden.in_reach(blocked_ray));
+	let clear = visible.step(&HuntInput::measured(clear_ray, 0.0, true, 0, false).with_eye(side));
+	let blocked =
+		hidden.step(&HuntInput::measured(blocked_ray, 0.0, true, 0, false).with_eye(other));
+	assert!(
+		clear
+			.iter()
+			.any(|e| matches!(e, HuntEvent::HitLanded { .. }))
+	);
+	assert!(blocked.iter().any(|e| matches!(e, HuntEvent::Missed(_))));
+	visible.step(&HuntInput::measured(clear_ray, 0.0, false, 0, false).with_eye(side));
+	hidden.step(&HuntInput::measured(blocked_ray, 0.0, false, 0, false).with_eye(other));
+	assert!(visible.seal_open(0));
+	assert!(!hidden.seal_open(0));
+}

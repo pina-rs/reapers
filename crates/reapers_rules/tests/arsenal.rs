@@ -216,7 +216,11 @@ fn off_the_edge(sim: &HuntSim, beyond: f64) -> Vec3 {
 	for _ in 0..40 {
 		let middle = f64::midpoint(inside, outside);
 
-		if pose.covers(Vec3::from_angles(pose.yaw() + middle, pose.pitch()), 0.0) {
+		if pose.covers(
+			reapers_rules::Vec3::ZERO,
+			Vec3::from_angles(pose.yaw() + middle, pose.pitch()),
+			0.0,
+		) {
 			inside = middle;
 		} else {
 			outside = middle;
@@ -244,7 +248,11 @@ fn within_dive_of(sim: &mut HuntSim, rule: f64) {
 fn a_shot_on_an_open_seal_is_critical_and_shuts_it() {
 	let mut sim = ambushed();
 	let seal = open_seals(&sim)[0];
-	let events = sim.step(&fire_at(&sim, sim.pose().seal_direction(seal), None));
+	let events = sim.step(&fire_at(
+		&sim,
+		sim.pose().seal_direction(reapers_rules::Vec3::ZERO, seal),
+		None,
+	));
 	let (weapon, hit_seal, damage, _cadence, critical, empowered) = landed(&events);
 
 	assert_eq!(fired(&events).0, 5);
@@ -268,7 +276,9 @@ fn a_shot_on_an_open_seal_is_critical_and_shuts_it() {
 #[test]
 fn a_shot_near_an_open_seal_counts_as_on_it() {
 	let mut sim = ambushed();
-	let seal = sim.pose().seal_direction(open_seals(&sim)[0]);
+	let seal = sim
+		.pose()
+		.seal_direction(reapers_rules::Vec3::ZERO, open_seals(&sim)[0]);
 	let near = Vec3::from_angles(seal.yaw(), seal.pitch() + sim.stats().reach_radians * 0.6);
 
 	assert!(sim.on_open_seal(near));
@@ -671,7 +681,11 @@ fn a_heavy_blow_to_the_body_does_its_weight_and_to_an_open_seal_twice_that() {
 	step_for(&mut sim, swing_ticks - 1, None);
 	let seal = open_seals(&sim)[0];
 	let sealed_expected = plain_damage(&sim, sim.stats().heavy_strike, true);
-	let on_seal = sim.step(&fire_at(&sim, sim.pose().seal_direction(seal), None));
+	let on_seal = sim.step(&fire_at(
+		&sim,
+		sim.pose().seal_direction(reapers_rules::Vec3::ZERO, seal),
+		None,
+	));
 
 	assert_eq!(landed(&on_seal).1, Some(seal));
 	assert!((landed(&on_seal).2 - sealed_expected).abs() < 1e-9);

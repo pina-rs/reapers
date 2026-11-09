@@ -162,7 +162,7 @@ mod a_charge {
 
 		assert!(before > HuntRules::CHARGE_METRES);
 		assert!((range(&sim.pose()) - HuntRules::CHARGE_METRES).abs() <= 0.15);
-		assert!(sim.pose().faces_player());
+		assert!(sim.pose().faces(reapers_rules::Vec3::ZERO));
 
 		if vessel.gait() == Gait::Air {
 			assert!(sim.pose().position.y.abs() < 0.15, "eye level");

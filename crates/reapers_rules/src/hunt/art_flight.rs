@@ -14,10 +14,10 @@ use crate::vec3::Vec3;
 pub struct ArtFlight {
 	pub art: Art,
 
-	/// Where it left the reaper's hand, in metres from the eye.
+	/// Where it left the reaper's hand, in metres from the hunt origin.
 	pub from: Vec3,
 
-	/// Where it was thrown, in metres from the eye. A homing art goes to
+	/// Where it was thrown, in metres from the hunt origin. A homing art goes to
 	/// wherever the husk is instead.
 	pub target: Vec3,
 

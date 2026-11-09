@@ -693,7 +693,7 @@ impl Sight {
 			Some(reapers_rules::Archetype::Heavy) => stats.heavy_reach_radians,
 			_ => return Self::Off,
 		};
-		if sim.pose().covers(aim, reach) {
+		if sim.pose().covers(sim.eye().point(), aim, reach) {
 			Self::TooFar
 		} else {
 			Self::Off

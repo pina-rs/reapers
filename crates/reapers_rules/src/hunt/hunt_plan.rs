@@ -320,6 +320,41 @@ impl HuntPlan {
 		crossing < cover - self.eye_height()
 	}
 
+	/// Whether a thin plan wall blocks the displacement from this eye.
+	pub fn hides_from(&self, eye: Vec3, way: Vec3) -> bool {
+		if eye == Vec3::ZERO {
+			return self.hides(way);
+		}
+		self.wall_along(eye, way, 1.0).is_some()
+	}
+
+	/// The first thin wall along a ray, sampled at 10 cm intervals.
+	pub fn wall_along(&self, eye: Vec3, ray: Vec3, farthest: f64) -> Option<f64> {
+		if !self.knows_cover() {
+			return None;
+		}
+		let steps = math::ceil_int(ray.length() * farthest / 0.1).max(1);
+		let mut previous = eye;
+		for step in 1..=steps {
+			let distance = farthest * step as f64 / steps as f64;
+			let point = eye + ray * distance;
+			let slice = Self::slice_of(point.yaw());
+			let cover = self.cover_at(point.yaw());
+			let front = self.front_at(slice);
+			let before = math::sqrt(previous.x * previous.x + previous.z * previous.z) - front;
+			let after = math::sqrt(point.x * point.x + point.z * point.z) - front;
+			if cover > 0.0 && ((before < 0.0 && after >= 0.0) || (before > 0.0 && after <= 0.0)) {
+				let fraction = before / (before - after);
+				let height = previous.y + (point.y - previous.y) * fraction;
+				if height < cover - self.eye_height() {
+					return Some(farthest * (step as f64 - 1.0 + fraction) / steps as f64);
+				}
+			}
+			previous = point;
+		}
+		None
+	}
+
 	/// How far out along slice `index` a husk can hide behind the cover
 	/// there, in metres, or `None` when there is no room behind it.
 	pub fn hide_at(&self, index: usize) -> Option<f64> {

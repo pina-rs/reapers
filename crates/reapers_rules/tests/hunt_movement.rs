@@ -234,7 +234,7 @@ mod where_a_husk_can_be {
 			sim.step(&idle());
 
 			assert_eq!(sim.pose().position, start);
-			assert!(sim.pose().faces_player());
+			assert!(sim.pose().faces(reapers_rules::Vec3::ZERO));
 		}
 
 		assert!(sim.pose().yaw().abs() < 1e-9);
@@ -377,7 +377,7 @@ mod how_a_husk_moves {
 				{
 					shrieks += 1;
 
-					assert!(step.after.faces_player(), "{vessel:?}");
+					assert!(step.after.faces(reapers_rules::Vec3::ZERO), "{vessel:?}");
 				}
 			}
 
@@ -421,12 +421,12 @@ mod seals_and_the_side_they_are_on {
 		let belly = 1;
 		let back = 4;
 
-		assert!(facing.faces_player());
-		assert!(facing.seal_faces_player(belly));
-		assert!(!facing.seal_faces_player(back));
-		assert!(!turned.faces_player());
-		assert!(!turned.seal_faces_player(belly));
-		assert!(turned.seal_faces_player(back));
+		assert!(facing.faces(reapers_rules::Vec3::ZERO));
+		assert!(facing.seal_faces(reapers_rules::Vec3::ZERO, belly));
+		assert!(!facing.seal_faces(reapers_rules::Vec3::ZERO, back));
+		assert!(!turned.faces(reapers_rules::Vec3::ZERO));
+		assert!(!turned.seal_faces(reapers_rules::Vec3::ZERO, belly));
+		assert!(turned.seal_faces(reapers_rules::Vec3::ZERO, back));
 	}
 
 	#[test]
@@ -454,7 +454,7 @@ mod seals_and_the_side_they_are_on {
 						radians(f64::from(turn * 10)),
 					);
 					let seen = (0..vessel.seals().len())
-						.filter(|&seal| pose.seal_faces_player(seal))
+						.filter(|&seal| pose.seal_faces(reapers_rules::Vec3::ZERO, seal))
 						.count();
 
 					assert!(seen >= 2, "{vessel:?} turned {}° at {range} m", turn * 10);

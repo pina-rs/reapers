@@ -259,7 +259,7 @@ pub enum HuntEvent {
 	ArtLanded {
 		art: Art,
 
-		/// Where it came down, in metres from the player's eye.
+		/// Where it came down, in metres from the hunt origin.
 		at: Vec3,
 
 		/// Whether it caught the husk.

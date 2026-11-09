@@ -240,7 +240,11 @@ fn an_orb_a_little_off_the_body_still_strikes_it() {
 	let pose = sim.pose();
 	let mut edge = 0.0;
 
-	while pose.covers(Vec3::from_angles(pose.yaw() + edge, pose.pitch()), 0.0) {
+	while pose.covers(
+		reapers_rules::Vec3::ZERO,
+		Vec3::from_angles(pose.yaw() + edge, pose.pitch()),
+		0.0,
+	) {
 		edge += 0.001;
 	}
 

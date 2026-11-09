@@ -458,6 +458,38 @@ impl RoomGrid {
 		farthest
 	}
 
+	/// Whether the heightfield blocks the displacement `way` from `eye`.
+	pub fn hides_from(&self, eye: Vec3, way: Vec3) -> bool {
+		if eye == Vec3::ZERO {
+			return self.hides(way);
+		}
+		let away = math::sqrt(way.x * way.x + way.z * way.z);
+		let steps = math::ceil_int(away / Self::CELL_METRES).max(1);
+		for step in 0..=steps {
+			let point = eye + way * (step as f64 / steps as f64);
+			if self.top_metres_at_world(point.x, point.z) > point.y + 1e-9 {
+				return true;
+			}
+		}
+		false
+	}
+
+	/// Distance along a ray from an eye to the first sampled surface.
+	pub fn surface_along_from(&self, eye: Vec3, ray: Vec3, farthest: f64) -> f64 {
+		if eye == Vec3::ZERO {
+			return self.surface_along(ray, farthest);
+		}
+		let steps = math::ceil_int(farthest / Self::CELL_METRES).max(1);
+		for step in 1..=steps {
+			let metres = farthest * step as f64 / steps as f64;
+			let point = eye + ray * metres;
+			if point.y <= self.top_metres_at_world(point.x, point.z) {
+				return metres;
+			}
+		}
+		farthest
+	}
+
 	/// The top of the cell under a world point, in metres from the eye.
 	fn top_metres_at_world(&self, world_x: f64, world_z: f64) -> f64 {
 		(self.top_centimetres_at_world(world_x, world_z) - i64::from(self.eye_height_centimetres))

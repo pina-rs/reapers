@@ -23,6 +23,7 @@ use crate::hunt::hunt_event::HuntOutcome;
 use crate::hunt::hunt_event::HuntPhase;
 use crate::hunt::hunt_event::HuskRing;
 use crate::hunt::hunt_input::Aim;
+use crate::hunt::hunt_input::Eye;
 use crate::hunt::hunt_input::HuntInput;
 use crate::hunt::hunt_input::HuntLog;
 use crate::hunt::hunt_plan::HuntPlan;
@@ -97,6 +98,9 @@ pub struct HuntSim {
 	/// apart from `path` so that a room with nothing in it plays exactly as
 	/// one did before the room's furniture was known.
 	cover: SeededRandom,
+
+	/// The eye recorded on the latest tick.
+	eye: Eye,
 
 	// Movement -----------------------------------------------------------
 	/// Where the husk is: its bearing round the player, how far away it is
@@ -429,6 +433,7 @@ impl HuntSim {
 			vessel,
 			stats,
 			plan,
+			eye: Eye::ORIGIN,
 			difficulty,
 			in_rift,
 			rarity_odds,
@@ -1087,6 +1092,16 @@ impl HuntSim {
 		(ready.max(self.drawn_at) - self.tick).max(0)
 	}
 
+	/// The eye used for the most recent tick.
+	pub const fn eye(&self) -> Eye {
+		self.eye
+	}
+
+	/// Whether the room hides the centre of the husk from the eye.
+	pub fn husk_hidden(&self) -> bool {
+		self.room_hides(self.pose().position - self.eye.point())
+	}
+
 	/// Whether a shot, stab or swing along `aim` would strike an open seal.
 	pub fn on_open_seal(&self, aim: Vec3) -> bool {
 		self.nearest_open_seal(aim, &self.pose(), self.stats.reach_radians)
@@ -1101,20 +1116,24 @@ impl HuntSim {
 		}
 
 		let current = self.pose();
-		let close = current.distance() <= Arsenal::CLOSE_METRES;
+		let close = current.distance_from(self.eye.point()) <= Arsenal::CLOSE_METRES;
 
 		match Arsenal::archetype_of(self.slot) {
 			Some(Archetype::Gun) => {
-				self.on_open_seal(aim) || current.covers(aim, self.stats.assist_radians)
+				self.on_open_seal(aim)
+					|| (current.covers(self.eye.point(), aim, self.stats.assist_radians)
+						&& (self.eye.is_origin()
+							|| !self.room_hides(aim * current.distance_from(self.eye.point()))))
 			}
 			Some(Archetype::Blade) => {
-				current.covers(aim, self.stats.blade_reach_radians)
+				current.covers(self.eye.point(), aim, self.stats.blade_reach_radians)
 					&& (close
-						|| (current.distance() <= BladeRules::DIVE_METRES && self.dive_charges > 0))
+						|| (current.distance_from(self.eye.point()) <= BladeRules::DIVE_METRES
+							&& self.dive_charges > 0))
 			}
 			Some(Archetype::Heavy) => {
-				current.covers(aim, self.stats.heavy_reach_radians)
-					&& current.distance() <= HeavyRules::DIVE_METRES
+				current.covers(self.eye.point(), aim, self.stats.heavy_reach_radians)
+					&& current.distance_from(self.eye.point()) <= HeavyRules::DIVE_METRES
 			}
 			_ => self.stats.art.is_some() && self.art_charges > 0,
 		}
@@ -1164,7 +1183,10 @@ impl HuntSim {
 	/// The grade a throw let go now would have, with the crosshair along
 	/// `aim`. [`CaptureGrade::Plain`] while ORB is not held.
 	pub fn orb_grade(&self, aim: Vec3) -> CaptureGrade {
-		CaptureRules::grade_for(self.orb_held_ticks, self.pose().covers(aim, 0.0))
+		CaptureRules::grade_for(
+			self.orb_held_ticks,
+			self.pose().covers(self.eye.point(), aim, 0.0),
+		)
 	}
 
 	/// The last orb thrown, or `None` before the first.
@@ -1227,22 +1249,22 @@ impl HuntSim {
 
 		let current = self.pose();
 
-		current.seal_faces_player(index) && !self.behind_cover(&current, index)
+		current.seal_faces(self.eye.point(), index) && !self.behind_cover(&current, index)
 	}
 
 	/// Whether seal `index` of a husk at `current` is behind something in
 	/// the room, out of sight and out of reach.
 	fn behind_cover(&self, current: &HuskPose, index: usize) -> bool {
-		self.room_hides(current.seal_position(index))
+		self.room_hides(current.seal_position(index) - self.eye.point())
 	}
 
-	/// Whether something in the room stands between the eye and `point`:
+	/// Whether something in the room stands along `way` from the eye:
 	/// read from the grid for a husk that walks it, and from the plan's
 	/// slices otherwise.
-	fn room_hides(&self, point: Vec3) -> bool {
+	fn room_hides(&self, way: Vec3) -> bool {
 		match &self.walker {
-			Some(walker) => walker.grid().hides(point),
-			None => self.plan.hides(point),
+			Some(walker) => walker.grid().hides_from(self.eye.point(), way),
+			None => self.plan.hides_from(self.eye.point(), way),
 		}
 	}
 
@@ -1274,6 +1296,7 @@ impl HuntSim {
 			return Vec::new();
 		}
 
+		self.eye = input.eye;
 		let mut events = Vec::new();
 		let thrown = self.let_go(input);
 
@@ -1345,8 +1368,11 @@ impl HuntSim {
 			);
 		}
 
-		let on_target =
-			input.aim.direction().angle_to(current.direction()) <= HuntRules::AMBUSH_AIM;
+		let on_target = input
+			.aim
+			.direction()
+			.angle_to(current.direction_from(self.eye.point()))
+			<= HuntRules::AMBUSH_AIM;
 
 		if on_target && speed <= HuntRules::STEADY_SPEED {
 			self.steady_ticks += 1;
@@ -1846,7 +1872,7 @@ impl HuntSim {
 				.filter(|&index| {
 					self.tick >= self.open_until[index]
 						&& self.tick >= self.shut_until[index]
-						&& current.seal_faces_player(index)
+						&& current.seal_faces(self.eye.point(), index)
 						&& !self.behind_cover(&current, index)
 				})
 				.collect();
@@ -1892,7 +1918,7 @@ impl HuntSim {
 				continue;
 			}
 
-			let angle = ray.angle_to(current.seal_direction(index));
+			let angle = ray.angle_to(current.seal_direction(self.eye.point(), index));
 
 			if angle <= nearest_angle {
 				nearest = Some(index);
@@ -2043,7 +2069,7 @@ impl HuntSim {
 		let current = self.pose();
 		let ray = aim.direction();
 
-		if current.distance() <= Arsenal::CLOSE_METRES {
+		if current.distance_from(self.eye.point()) <= Arsenal::CLOSE_METRES {
 			if self.tick < self.next_melee_tick {
 				return;
 			}
@@ -2054,8 +2080,8 @@ impl HuntSim {
 			return;
 		}
 
-		let reachable = current.covers(ray, self.stats.blade_reach_radians)
-			&& current.distance() <= BladeRules::DIVE_METRES
+		let reachable = current.covers(self.eye.point(), ray, self.stats.blade_reach_radians)
+			&& current.distance_from(self.eye.point()) <= BladeRules::DIVE_METRES
 			&& self.dive_charges > 0;
 
 		if !reachable {
@@ -2079,7 +2105,7 @@ impl HuntSim {
 		let current = self.pose();
 		let ray = aim.direction();
 
-		if current.distance() <= Arsenal::CLOSE_METRES {
+		if current.distance_from(self.eye.point()) <= Arsenal::CLOSE_METRES {
 			if self.tick < self.next_melee_tick {
 				return;
 			}
@@ -2090,8 +2116,8 @@ impl HuntSim {
 			return;
 		}
 
-		let reachable = current.covers(ray, self.stats.heavy_reach_radians)
-			&& current.distance() <= HeavyRules::DIVE_METRES;
+		let reachable = current.covers(self.eye.point(), ray, self.stats.heavy_reach_radians)
+			&& current.distance_from(self.eye.point()) <= HeavyRules::DIVE_METRES;
 
 		if !reachable {
 			return;
@@ -2173,9 +2199,9 @@ impl HuntSim {
 			};
 			// A blow at the part of a husk that is behind the counter hits
 			// the counter.
-			let blocked = self.room_hides(ray * current.distance());
+			let blocked = self.room_hides(ray * current.distance_from(self.eye.point()));
 
-			if blocked || !current.covers(ray, pad) {
+			if blocked || !current.covers(self.eye.point(), ray, pad) {
 				self.miss(weapon, events);
 				return;
 			}
@@ -2477,10 +2503,19 @@ impl HuntSim {
 		let ray = aim.direction();
 		let current = self.pose();
 		let at_husk = match art.art {
-			Art::Gale => ray.angle_to(current.direction()) <= ArtRules::GUST_ANGLE,
-			Art::Cinder | Art::Rime => current.covers(ray, self.stats.reach_radians),
+			Art::Gale => {
+				ray.angle_to(current.direction_from(self.eye.point())) <= ArtRules::GUST_ANGLE
+			}
+			Art::Cinder | Art::Rime => {
+				current.covers(self.eye.point(), ray, self.stats.reach_radians)
+			}
 		};
-		let from = Vec3::new(0.0, -ArtRules::HAND_DROP, 0.0);
+		let hand = Vec3::new(0.0, -ArtRules::HAND_DROP, 0.0);
+		let from = if self.eye.is_origin() {
+			hand
+		} else {
+			self.eye.point() + hand
+		};
 		let target = if at_husk {
 			current.position
 		} else {
@@ -2506,7 +2541,27 @@ impl HuntSim {
 	/// its throw. Thrown over the top of something, it comes down behind it.
 	fn landing_along(&self, ray: Vec3) -> Vec3 {
 		if let Some(walker) = &self.walker {
-			return ray * walker.grid().surface_along(ray, ArtRules::FARTHEST_METRES);
+			let distance =
+				walker
+					.grid()
+					.surface_along_from(self.eye.point(), ray, ArtRules::FARTHEST_METRES);
+			return if self.eye.is_origin() {
+				ray * distance
+			} else {
+				self.eye.point() + ray * distance
+			};
+		}
+
+		if !self.eye.is_origin() {
+			let eye = self.eye.point();
+			let mut metres = ArtRules::FARTHEST_METRES;
+			if ray.y < 0.0 {
+				metres = math::min(metres, (-self.plan.eye_height() - eye.y) / ray.y);
+			}
+			if let Some(wall) = self.plan.wall_along(eye, ray, metres) {
+				metres = wall;
+			}
+			return eye + ray * metres;
 		}
 
 		let mut metres = ArtRules::FARTHEST_METRES;
@@ -2564,7 +2619,7 @@ impl HuntSim {
 				(current.position - at).length() <= current.half_width() + ArtRules::BURST_METRES
 			}
 			// Ice flies straight, and breaks on whatever the husk is behind.
-			Art::Rime => flight.homing && !self.room_hides(current.position),
+			Art::Rime => flight.homing && !self.room_hides(current.position - self.eye.point()),
 			// Wind goes round things.
 			Art::Gale => flight.homing,
 		};
@@ -2735,8 +2790,8 @@ impl HuntSim {
 		}
 
 		let current = self.pose();
-		let on_target = current.covers(aim, self.stats.orb_aim_radians);
-		let grade = CaptureRules::grade_for(held, current.covers(aim, 0.0));
+		let on_target = current.covers(self.eye.point(), aim, self.stats.orb_aim_radians);
+		let grade = CaptureRules::grade_for(held, current.covers(self.eye.point(), aim, 0.0));
 
 		if !self.in_rift {
 			self.soul -= CaptureRules::COST;

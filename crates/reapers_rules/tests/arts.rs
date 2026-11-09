@@ -474,7 +474,7 @@ mod ice {
 		let pose = sim.pose();
 
 		for seal in 0..sim.vessel().seals().len() {
-			if pose.seal_faces_player(seal) {
+			if pose.seal_faces(reapers_rules::Vec3::ZERO, seal) {
 				assert!(sim.seal_open(seal), "seal {seal} is open");
 			}
 		}
@@ -501,7 +501,7 @@ mod ice {
 			.find(|&index| sim.seal_open(index))
 			.unwrap();
 		let input = HuntInput::measured(
-			sim.pose().seal_direction(seal),
+			sim.pose().seal_direction(reapers_rules::Vec3::ZERO, seal),
 			0.0,
 			true,
 			Arsenal::GUN_SLOT,

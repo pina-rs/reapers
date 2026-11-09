@@ -272,7 +272,7 @@ mod where_a_reaper_sees_it {
 
 		assert!(close_to(degrees(pose.yaw()), 40.0, 1e-9));
 		assert!(close_to(flat, 30.0, 1e-9));
-		assert!(pose.faces_player());
+		assert!(pose.faces(reapers_rules::Vec3::ZERO));
 	}
 
 	#[test]

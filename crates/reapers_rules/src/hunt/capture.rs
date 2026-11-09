@@ -179,7 +179,7 @@ pub struct OrbView {
 	/// Pulses it has made so far, from 0 to 3.
 	pub pulses: i64,
 
-	/// Where it flies to, in metres from the eye: the husk, or where it
+	/// Where it flies to, in metres from the hunt origin: the husk, or where it
 	/// falls when it misses.
 	pub target: Vec3,
 

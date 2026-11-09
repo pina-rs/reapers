@@ -88,7 +88,7 @@ The plan is about 80 bytes, or 230 when it also says what stands in the room. A 
 
 ### Where a husk is
 
-A husk has a real place around you, in metres, and it moves through it.
+A husk has a real place around you, in metres, and it moves through it. Its movement, facing, keepaway and charge endpoint are measured from the stance: the origin where the room was first read. The phone's recorded eye may move within that stance without moving the husk's world.
 
 - A husk that walks stands on the floor: the floor the phone measured, or one taken to be 1.45 m below it. It ambles a short way every second or three.
 - A husk that flies keeps to a band of air around head height and drifts about in it.
@@ -122,7 +122,7 @@ A phone that reads the room as a grid of 10 cm cells, each a level top, somethin
 - **How it leaps.** It slows to a stand at the edge, facing the landing, gathers itself for 10 to 20 ticks (longer the higher the leap), flies the exact arc gravity (9.81 m/s²) gives it, touches down for 6 to 12 ticks and stands up again over 12 to 24, longer the farther it fell. The surface under it changes only at the edge of a leap, never in between. It cannot be stopped from the moment it gathers itself until it has stood up.
 - **It comes down to fight.** As before, it never shrieks from hiding and never charges from a ledge or from cover: it walks and leaps down to open floor first, and nothing but the end of the fight stops it on the way. With no way down from where it is, it does not charge this time.
 - **The charge** runs straight at you across the surface it stands on, to within 0.9 m, and stops short of anything in its way rather than run through the sofa or up the desk. Afterwards it walks back out past 1.5 m, even while it draws breath.
-- **Cover is the grid's.** A seal is hidden, and a blow misses, wherever any cell between your eye and it stands taller than the line to it. An art thrown at nothing lands on the first surface along its throw.
+- **Cover is the grid's.** A seal is hidden, and a blow misses, wherever any cell between your eye and it stands taller than the line to it. An art thrown at nothing lands on the first surface along its throw. This heightfield is approximate: it cannot see beneath overhangs, unknown cells count as floor, and height and position are quantised. Without a grid the plan approximates cover as thin walls.
 - **A husk that flies** keeps to its band of air and to the slices, even in a room read as a grid.
 
 `cargo run --release -p reapers_rules --example pacing` prints the same bot against a penguin in a furnished room after the open table. A level-one reaper breaks a common husk there in 21 to 32 seconds (22 to 31 in the open), and a level-ten one an epic husk in 76 to 112 (76 to 109).
@@ -142,6 +142,8 @@ The crosshair is the middle of the screen. Where the phone points is where every
 - **FIRE**, under the right thumb, uses whatever is in hand. One press is one use; holding it down does not fire again. It answers the moment the thumb lands.
 - **ORB**, under the left thumb, is held and let go. See [Capture](#capture).
 - **The rail** above FIRE holds four weapons. Tap one to draw it. Drawing takes 21 ticks, and nothing in the new hand can act until it is drawn.
+
+Hits, visible seals, cover, ambush aim, reach, and orb and art throws are judged from the phone's recorded eye on that tick. Reach is measured from the phone; a dive is a virtual lunge whose reach is checked at its start. Orbs and arts that miss land along the ray from the eye.
 
 Every weapon does a share of the reaper's hit, `H` (see [Reapers](#reapers)). A hit on an open seal is critical and lands twice as hard.
 
@@ -598,6 +600,7 @@ The veil is a low-pass filter: clear is everything up to 16 kHz, full is only wh
 
 The game asks people to hold a phone up outdoors, so:
 
+- The recorded eye must stay within a 1.0 m horizontal circle of the stance and between 0.50 m and 2.20 m above the floor. The bound is provisional until tested on phones; it limits input, not proof that a sensor was really there. The app's out-of-stance and tracking pause is still to be implemented.
 - You only ever turn on the spot. Nothing in the game asks you to walk while looking at the screen, and every hunt opens with a line saying so.
 - Nothing flashes. A strike lights the husk in its own colour rather than to white, and the shriek warning darkens the screen instead of flashing it.
 - Everything the hunt needs is on screen as text as well as colour, and every target is at least 44 points across.
@@ -616,7 +619,7 @@ On a phone that cannot see, the floor is taken to be 1.45 m down and nothing is 
 
 What it still does not know anywhere:
 
-- **Where you walk.** The game follows the phone turning, not moving. Step sideways and the husks come with you.
+- **Tracking movement.** The rules can replay a recorded eye offset, but the app has not yet wired positional tracking into hunt inputs. The intended experience keeps the husk fixed in the room and pauses actions when tracking is invalid or the eye leaves the stance.
 - **Anything it has not been shown.** The room is read once, before the hunt. Move a chair during it and the husk walks through the chair, and the chair's old place still hides it.
 - **Behind what it could not see.** A husk hides behind something only where the camera saw floor or a wall beyond it. Behind a cupboard taller than your eye, nothing is known, so nothing hides there.
 - **The ceiling.** A husk that flies keeps clear of walls and cupboards, but its band of air tops out 0.85 m above your eye whatever the ceiling's height.
