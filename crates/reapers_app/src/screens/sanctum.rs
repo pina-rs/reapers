@@ -184,7 +184,7 @@ pub fn page(player: &PlayerState) -> Element {
 		.test_id("sanctum")
 		.child(
 			View()
-				.class("relative w-full h-[52vh] min-h-[340px]")
+				.class("relative w-full h-[52vh] shrink-0")
 				.child(reaper_stage(&ReaperStageProps::new(
 					genome,
 					weapon,
@@ -194,7 +194,12 @@ pub fn page(player: &PlayerState) -> Element {
 				.child(foot_scrim(40, 0xFF))
 				.child(masthead),
 		)
-		.child(ScrollView().class("flex-1 w-full pb-safe").child(list));
+		.child(
+			ScrollView()
+				.class("flex-1 w-full pb-safe")
+				.test_id("sanctum-menu")
+				.child(list),
+		);
 
 	if let Some(sighted) = game.sighted.get()
 		&& player

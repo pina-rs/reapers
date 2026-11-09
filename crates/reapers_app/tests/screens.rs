@@ -192,6 +192,26 @@ fn the_oath_binds_a_reaper_and_the_sanctum_shows_it() {
 }
 
 #[test]
+fn a_landscape_phone_keeps_room_to_scroll_the_sanctum_menu() {
+	let mut harness = Harness::offline();
+	harness.take_oath();
+	harness.tester.resize(869.0, 359.0).unwrap();
+	harness.settle();
+	let menu = harness
+		.tester
+		.find(&Finder::test_id("sanctum-menu"))
+		.unwrap();
+	assert!(
+		menu.frame.height >= 120.0,
+		"the menu needs a usable scroll area: {menu:?}"
+	);
+	assert!(
+		menu.frame.y + menu.frame.height <= 360.0,
+		"the menu fits the phone: {menu:?}"
+	);
+}
+
+#[test]
 fn buying_and_releasing_from_the_vault_lets_a_husk_loose() {
 	let mut harness = Harness::offline();
 	harness.take_oath();
