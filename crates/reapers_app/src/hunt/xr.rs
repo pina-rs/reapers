@@ -19,6 +19,7 @@ use std::cell::Cell;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use reapers_world::RoomGridBuilder;
 use reapers_world::RoomSurvey;
 
 use super::pose::LivePose;
@@ -44,6 +45,9 @@ pub struct Shared {
 	pub live: Rc<RefCell<LivePose>>,
 	/// The room being read, while a sigil is traced.
 	pub survey: Rc<RefCell<Option<RoomSurvey>>>,
+	/// The same room read cell by cell, for a husk that walks it: every
+	/// picture the survey takes goes into it too.
+	pub grid: Rc<RefCell<Option<RoomGridBuilder>>>,
 	/// Set when the hunt is over and the platform can be let go.
 	pub done: Rc<Cell<bool>>,
 	/// The scene a headset draws into its own frames: the hunt's `Scene3d`.
@@ -300,11 +304,27 @@ mod platform {
 			millis: crate::platform::now().millis() - started.millis(),
 		});
 		let picture = DepthFrame::from_rays(&grid, &distances);
-		if let Some(survey) = shared.survey.borrow_mut().as_mut() {
-			if let Some(height) = eye_height {
-				survey.measure_floor(height);
+		let surveyed = match shared.survey.borrow_mut().as_mut() {
+			Some(survey) => {
+				if let Some(height) = eye_height {
+					survey.measure_floor(height);
+				}
+				survey.add(&picture)
 			}
-			survey.add(&picture);
+			None => false,
+		};
+		if !surveyed {
+			return;
+		}
+		// Charting the picture into the grid costs about as much again as
+		// the survey did, so it waits for the next turn of the event loop,
+		// where a frame can be drawn between the two.
+		crate::platform::sleep(std::time::Duration::ZERO).await;
+		if let Some(cells) = shared.grid.borrow_mut().as_mut() {
+			if let Some(height) = eye_height {
+				cells.measure_floor(height);
+			}
+			cells.add_frame(&picture);
 		}
 	}
 }

@@ -14,14 +14,17 @@ use std::sync::Arc;
 use leptoskit::prelude::*;
 use reapers_rules::ClassPerk;
 use reapers_rules::Difficulty;
+use reapers_rules::Gait;
 use reapers_rules::HuntLog;
 use reapers_rules::HuntOutcome;
 use reapers_rules::HuntPlan;
 use reapers_rules::HuntSim;
 use reapers_rules::HuntStats;
+use reapers_rules::RoomGrid;
 use reapers_rules::Sigil;
 use reapers_rules::SigilEvent;
 use reapers_rules::SigilTrace;
+use reapers_world::RoomGridBuilder;
 use reapers_world::RoomSurvey;
 use reapers_world::sigil_plan;
 
@@ -44,6 +47,7 @@ use super::overlay::veil;
 use super::pose::Tracking;
 use super::xr::Shared;
 use super::xr::follow;
+use crate::dev::room_overlay::RoomOverlay;
 use crate::l10n::AppTranslations;
 use crate::l10n::Messages;
 use crate::l10n::use_l10n;
@@ -121,6 +125,8 @@ pub struct HuntState {
 	/// The room drawn by hand the hunt is played in, with
 	/// `REAPERS_DRAWN_ROOM`.
 	room: Option<reapers_world::DrawnRoom>,
+	/// The room's grid drawn over the fight, with `REAPERS_ROOM_OVERLAY`.
+	overlay: Option<RoomOverlay>,
 	/// What a practice teaches through the caption, until it is learned.
 	teacher: Option<Teacher>,
 	/// Where what was learned is kept.
@@ -232,6 +238,7 @@ impl HuntState {
 			light: light_of(&props.brief),
 			size,
 			room: crate::dev::drawn_room::room(),
+			overlay: None,
 			teacher,
 			prefs,
 		}
@@ -299,6 +306,15 @@ impl HuntState {
 				.as_ref()
 				.map_or_else(|| RoomSurvey::new(vessel), |room| room.survey(vessel)),
 		);
+		// A husk that walks reads the room cell by cell as well, to walk
+		// across its furniture. One that flies keeps to its own air.
+		*self.shared.grid.borrow_mut() = (vessel.gait() == Gait::Ground).then(|| {
+			let mut grid = RoomGridBuilder::new();
+			if let Some(room) = &self.room {
+				crate::dev::drawn_room::read_grid(room, &mut grid);
+			}
+			grid
+		});
 		if self.autoplay {
 			// A hunt that plays itself has no sigil to trace. A drawn room
 			// has its furniture straight ahead, so that is where its hunt is.
@@ -322,10 +338,25 @@ impl HuntState {
 
 	/// Starts the fight inside `plan`. The room stops being read; what it
 	/// showed stays, to hide the husk behind.
-	fn engage(&mut self, plan: HuntPlan) {
-		let Some(sim) = self.sim(plan).or_else(|| self.sim(HuntPlan::OPEN)) else {
+	fn engage(&mut self, mut plan: HuntPlan) {
+		if plan.room.is_none() {
+			plan.room = self.room_grid();
+		}
+		let grid = plan.room.clone();
+		let without_room = HuntPlan {
+			room: None,
+			..plan.clone()
+		};
+		let Some(sim) = self
+			.sim(plan)
+			.or_else(|| self.sim(without_room))
+			.or_else(|| self.sim(HuntPlan::OPEN))
+		else {
 			return;
 		};
+		self.overlay = grid
+			.filter(|_| crate::config::BuildFlags::current().room_overlay)
+			.map(|grid| RoomOverlay::new(grid, self.brief.nft.collection.vessel()));
 		let occlusion = self
 			.shared
 			.survey
@@ -348,6 +379,13 @@ impl HuntState {
 			self.seconds,
 		));
 		platform::thud();
+	}
+
+	/// The room as read cell by cell, for a husk that walks, once it has
+	/// taken in a picture. The room stops being read.
+	fn room_grid(&self) -> Option<RoomGrid> {
+		let grid = self.shared.grid.borrow_mut().take()?;
+		(grid.frames() > 0).then(|| grid.finish())
 	}
 
 	/// The plan the traced sigil and the room read so far come to.
@@ -585,6 +623,11 @@ pub fn hunt_view(props: &HuntViewProps) -> Element {
 	}
 	if let Some(room) = &state.room {
 		crate::dev::drawn_room::draw(&mut sketch, &lens, room);
+	}
+	if state.stage == Stage::Fighting
+		&& let Some(overlay) = &state.overlay
+	{
+		overlay.draw(&mut sketch, &lens);
 	}
 	let mut root = View()
 		.class(frame_class(camera))

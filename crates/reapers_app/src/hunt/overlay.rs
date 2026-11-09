@@ -111,6 +111,22 @@ impl Sketch {
 		self.add(&Self::circle_data(at.0, at.1, radius), Some(paint), None);
 	}
 
+	/// A dot at each of `centres`, all drawn as one path.
+	pub(crate) fn dots(
+		&mut self,
+		centres: impl IntoIterator<Item = (f64, f64)>,
+		radius: f64,
+		paint: Color,
+	) {
+		let data: String = centres
+			.into_iter()
+			.map(|at| Self::circle_data(at.0, at.1, radius))
+			.collect();
+		if !data.is_empty() {
+			self.add(&data, Some(paint), None);
+		}
+	}
+
 	pub(crate) fn ring(&mut self, at: (f64, f64), radius: f64, paint: Color, width: f64) {
 		self.add(
 			&Self::circle_data(at.0, at.1, radius),

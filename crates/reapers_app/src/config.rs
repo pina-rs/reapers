@@ -15,7 +15,8 @@
 //! | `REAPERS_GALLERY=true` | Debug builds open at the reaper bench. |
 //! | `REAPERS_DEPTH_PROBE=true` | Debug builds open at the depth bench: what the platform's AR measures of the room. |
 //! | `REAPERS_ARMS_BENCH=true` | Debug builds open at the arms bench: every weapon and motion, the hit effects and the capture orb. |
-//! | `REAPERS_DRAWN_ROOM=true` | Debug builds hunt in a kitchen drawn by hand, read as if the platform saw it. |
+//! | `REAPERS_DRAWN_ROOM=true` | Debug builds hunt in a kitchen drawn by hand, with a stool at its counter, read as if the platform saw it. |
+//! | `REAPERS_ROOM_OVERLAY=true` | Debug builds draw the room's grid over the fight: its levels, the surfaces a husk stands on, and the leaps between them. |
 //!
 //! ```sh
 //! REAPERS_SIMNET=true leptoskit dev --platform web
@@ -57,6 +58,9 @@ pub struct BuildFlags {
 	/// Whether hunts are played in a room drawn by hand, read as if the
 	/// platform saw it: for simulators and desks.
 	pub drawn_room: bool,
+	/// Whether the room's grid is drawn over the fight: its levels,
+	/// regions and leaps, to check what a real room was read as.
+	pub room_overlay: bool,
 	/// Whether this is a release build, which ignores the developers' flags.
 	pub release: bool,
 }
@@ -126,6 +130,7 @@ impl BuildFlags {
 			depth_probe: !release && yes(option_env!("REAPERS_DEPTH_PROBE")),
 			arms_bench: !release && yes(option_env!("REAPERS_ARMS_BENCH")),
 			drawn_room: !release && yes(option_env!("REAPERS_DRAWN_ROOM")),
+			room_overlay: !release && yes(option_env!("REAPERS_ROOM_OVERLAY")),
 			release,
 		}
 	}

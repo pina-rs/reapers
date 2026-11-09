@@ -8,3 +8,4 @@
 pub mod arms;
 pub mod drawn_room;
 pub mod probe;
+pub mod room_overlay;
