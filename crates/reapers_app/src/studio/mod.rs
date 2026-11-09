@@ -238,6 +238,7 @@ fn portrait(specimen: &Specimen) -> Element {
 			})),
 	);
 	let mut foot = View()
+		.enabled(false)
 		.class("absolute left-6 right-6 bottom-6 gap-[10px]")
 		.child(display(genome.name(), 34, BONE).test_id("studio-name"))
 		.child(body(words.studio_drag(), 13, ASH));

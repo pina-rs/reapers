@@ -1040,6 +1040,11 @@ fn briefing(state: &HuntState, props: &HuntViewProps) -> Element {
 
 #[cfg(test)]
 mod tests {
+	use reactive_graph::owner::Owner;
+	use reapers_rules::Vec3;
+	use reapers_world::ArPose;
+	use reapers_world::to_platform;
+	use crate::render::camera::look_at;
 	#[test]
 	fn pause_guidance_uses_the_localized_action_for_each_state() {
 		use super::PauseStatus;
@@ -1216,5 +1221,67 @@ mod tests {
 		for (light, expected) in before.iter().enumerate() {
 			assert_eq!(trace.direction_of(light), *expected);
 		}
+	}
+
+	/// Feeds a real phone pose through `LivePose`, with the phone rolled a
+	/// quarter turn. This exercises the same coordinates as Android's XR
+	/// frames, instead of the autoplay controller or the skip button.
+	fn point(hunt: &HuntState, target: Vec3, time: f64) {
+		let pose = ArPose::looking(target, 0.0);
+		let rotation = look_at(
+			[0.0; 3],
+			to_platform(target).map(|x| x as f32),
+			to_platform(pose.right * -1.0).map(|x| x as f32),
+		)
+		.rotation
+		.map(f64::from);
+		hunt.shared
+			.live
+			.borrow_mut()
+			.world_frame(rotation, [0.0; 3], time, true);
+	}
+
+	#[test]
+	fn a_phone_can_find_the_sigil_then_face_the_husk_without_skipping() {
+		let owner = Owner::new();
+		owner.with(|| {
+			for (seed, nft) in market_listings().into_iter().take(5).enumerate() {
+				let props = HuntViewProps {
+					brief: HuntBrief {
+						nft,
+						seed: seed as i64,
+						loadout: HuntLoadout::BORROWED,
+						sighting_id: None,
+					},
+					difficulty: Difficulty::default(),
+					autoplay: false,
+					on_finished: Arc::new(|_, _| {}),
+					on_difficulty: None,
+				};
+				let mut hunt = HuntState::new(&props);
+				point(&hunt, Vec3::from_angles(2.8, 0.0), 0.0);
+				hunt.begin();
+				hunt.tick(1.0 / 30.0);
+				let mut ticks = 0;
+				while let Stage::Tracing(trace) = &hunt.stage {
+					assert!(ticks < 4000, "seed {seed} never found its sigil");
+					let target = trace.direction_of(trace.caught());
+					point(&hunt, target, f64::from(ticks) / 30.0);
+					hunt.tick(1.0 / 30.0);
+					ticks += 1;
+				}
+				assert_eq!(hunt.stage, Stage::Fighting);
+				let controller = hunt.arena.controller.as_ref().unwrap();
+				assert!(!controller.plays_itself());
+				let target = controller.sim().pose().direction();
+				point(&hunt, target, f64::from(ticks) / 30.0);
+				let lens = hunt.lens();
+				let (x, y) = lens
+					.place(target)
+					.expect("the husk is in front of the phone");
+				assert!((x - lens.width / 2.0).abs() < 0.01);
+				assert!((y - lens.height / 2.0).abs() < 0.01);
+			}
+		});
 	}
 }

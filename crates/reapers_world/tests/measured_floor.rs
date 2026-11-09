@@ -172,3 +172,123 @@ fn reads_the_platforms_rays_against_it() {
 	assert!(hides(Vec3::new(0.0, -1.45 + 0.3, 3.4)));
 	assert!(!hides(Vec3::new(0.0, -1.45 + 0.02, 1.8)));
 }
+
+#[test]
+fn estimates_use_their_own_floor_with_a_measured_anchor() {
+	// ARKit/ARCore can track a floor while the camera model reads the
+	// entire room long or short. The wall and counter must still stand
+	// in real metres, and occlusion must use the same calibration.
+	for stretch in [0.7, 1.0, 1.3] {
+		let mut survey = RoomSurvey::new(Vessel::Ape);
+		survey.measure_floor(1.45);
+		for frame in pictures(
+			&DrawnRoom::kitchen(),
+			-60.0,
+			60.0,
+			-30.0,
+			Sweep {
+				stretch,
+				every: 10.0,
+				..Sweep::default()
+			},
+		) {
+			assert!(survey.add_estimated(&frame));
+		}
+		assert_eq!(survey.map().floor_depth(), Some(1.45));
+		assert_close(
+			survey.map().last_picture_floor().unwrap(),
+			1.45 * stretch,
+			0.05,
+		);
+		assert_close(survey.reach(slice_at(0.0)).unwrap(), 2.2, 0.25);
+		let counter = survey.map().furniture(slice_at(0.0)).unwrap();
+		assert_close(counter.cover, 0.92, 0.08);
+		let point = Vec3::new(0.0, -1.45 + 0.3, 3.4);
+		assert!(
+			survey
+				.occlusion()
+				.hides(point.yaw(), point.pitch(), point.length())
+		);
+		let point = Vec3::new(0.0, -1.45 + 0.02, 1.8);
+		assert!(
+			!survey
+				.occlusion()
+				.hides(point.yaw(), point.pitch(), point.length())
+		);
+	}
+}
+
+#[test]
+fn estimates_without_a_floor_do_not_borrow_the_measured_floor() {
+	let mut survey = RoomSurvey::new(Vessel::Penguin);
+	survey.measure_floor(1.45);
+	assert!(!survey.add_estimated(&DrawnRoom::walled(1.0).picture(0.0, 25.0)));
+	assert_eq!(survey.pictures(), 0);
+	assert_eq!(survey.occlusion().pictures(), 0);
+	assert_eq!(survey.map().floor_depth(), Some(1.45));
+}
+
+#[test]
+fn measured_and_estimated_pictures_share_the_same_map() {
+	let mut map = RoomMap::new(Vessel::Penguin);
+	map.measure_floor(1.45);
+	let room = DrawnRoom::default();
+	for frame in pictures(&room, -60.0, -10.0, -30.0, Sweep::default()) {
+		assert!(map.add(&frame));
+	}
+	for frame in pictures(
+		&room,
+		10.0,
+		60.0,
+		-30.0,
+		Sweep {
+			stretch: 1.3,
+			..Sweep::default()
+		},
+	) {
+		assert!(map.add_estimated(&frame));
+	}
+	let mut measured = RoomMap::new(Vessel::Penguin);
+	measured.measure_floor(1.45);
+	sweep(&mut measured, &room, -60.0, 60.0, -30.0);
+	for bearing in [-30.0, 30.0] {
+		let slice = slice_at(bearing);
+		assert_close(
+			map.reach(slice).unwrap(),
+			measured.reach(slice).unwrap(),
+			0.1,
+		);
+	}
+}
+
+#[test]
+fn estimated_air_is_calibrated_to_the_tracked_floor_too() {
+	let room = DrawnRoom::default();
+	let mut measured = RoomMap::new(Vessel::Bird);
+	measured.measure_floor(1.45);
+	sweep(&mut measured, &room, -60.0, 60.0, -20.0);
+	for stretch in [0.7, 1.3] {
+		let mut estimated = RoomMap::new(Vessel::Bird);
+		estimated.measure_floor(1.45);
+		for frame in pictures(
+			&room,
+			-60.0,
+			60.0,
+			-20.0,
+			Sweep {
+				stretch,
+				..Sweep::default()
+			},
+		) {
+			assert!(estimated.add_estimated(&frame));
+		}
+		for bearing in [-30.0, 0.0, 30.0] {
+			let slice = slice_at(bearing);
+			assert_close(
+				estimated.reach(slice).unwrap(),
+				measured.reach(slice).unwrap(),
+				0.1,
+			);
+		}
+	}
+}

@@ -46,7 +46,9 @@ wasm_opt = true
 precompress = false
 
 [native]
-update_contract = "mobile-v1"
+# XR frames now identify measured and inferred depth. The native host and
+# its guest must update together; an older host has only the boolean wire format.
+update_contract = "mobile-v2"
 package_id = "com.reapers.app"
 viewport_width = 390.0
 viewport_height = 844.0
@@ -59,9 +61,15 @@ viewport_height = 844.0
 # camera's permission it needs (permissions).
 plugins = ["store", "secure-store", "http", "websocket", "crypto", "linking", "haptics", "solana-wallet", "audio", "xr", "permissions"]
 
-# The rifts' live socket runs as an async plugin, which takes its host
-# configuration here; it needs none.
+# The rifts' live socket starts with the native host, including offline
+# builds. Its factory requires explicit keeper origins. A deployed keeper
+# needs its matching ws:// or wss:// origin here, as well as HTTP below.
 [native.plugin-options.websocket]
+origins = [
+    "ws://127.0.0.1:8080",
+    "ws://localhost:8080",
+    "ws://10.0.2.2:8080",
+]
 
 # The hunt reads the platform's frames at the rules' own rate: more would
 # only be skipped.

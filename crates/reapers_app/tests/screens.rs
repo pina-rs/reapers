@@ -123,6 +123,56 @@ impl Harness {
 const SAINT: Nft = Nft::new(NftCollection::DegenApes, 1);
 
 #[test]
+fn the_main_screen_gives_the_reaper_a_visible_phone_sized_stage() {
+	let mut harness = Harness::offline();
+	harness.take_oath();
+	let stage = harness
+		.tester
+		.find(&Finder::test_id("reaper-stage"))
+		.unwrap()
+		.frame;
+	let scene = harness
+		.tester
+		.find(&Finder::test_id("reaper-scene"))
+		.unwrap()
+		.frame;
+	assert!(stage.width >= 389.0 && stage.height >= 340.0, "{stage:?}");
+	assert!(
+		stage.y >= 0.0 && stage.y + stage.height <= 844.0,
+		"{stage:?}"
+	);
+	for (actual, expected) in [
+		(scene.x, stage.x),
+		(scene.y, stage.y),
+		(scene.width, stage.width),
+		(scene.height, stage.height),
+	] {
+		assert!(
+			(actual - expected).abs() < 0.02,
+			"the GPU view fills the stage: {scene:?}, {stage:?}"
+		);
+	}
+	let scene_id = harness
+		.tester
+		.find(&Finder::test_id("reaper-scene"))
+		.unwrap()
+		.props
+		.scene3d;
+	assert!(scene_id.is_some());
+	harness.tap("sanctum-studio");
+	harness.tap("ledger-back");
+	let returned = harness
+		.tester
+		.find(&Finder::test_id("reaper-scene"))
+		.unwrap();
+	assert_eq!(returned.props.scene3d, scene_id);
+	assert_eq!(
+		returned.frame, scene,
+		"returning from the studio restores the main stage"
+	);
+}
+
+#[test]
 fn an_unbound_player_stands_at_the_threshold() {
 	let harness = Harness::offline();
 	assert!(harness.has("threshold"));

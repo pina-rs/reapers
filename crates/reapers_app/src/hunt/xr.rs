@@ -87,8 +87,10 @@ pub fn follow(shared: &Shared) {
 #[cfg(all(target_arch = "wasm32", any(feature = "web", feature = "native")))]
 mod platform {
 	use leptoskit_xr::Availability;
+	use leptoskit_xr::DepthSource;
 	use leptoskit_xr::Features;
 	use leptoskit_xr::Frame;
+	use leptoskit_xr::HitKind;
 	use leptoskit_xr::HitTargets;
 	use leptoskit_xr::HitTestRequest;
 	use leptoskit_xr::InputKind;
@@ -177,7 +179,9 @@ mod platform {
 				continue;
 			}
 			#[cfg_attr(not(feature = "native"), allow(unused_mut))]
-			let mut ready = xr.prepare(mode, false).await.ok()?;
+			let Ok(mut ready) = xr.prepare(mode, false).await else {
+				continue;
+			};
 			// The rotation sensor answers ready without the camera, which a
 			// phone without AR (the Seeker) still shows behind the hunt: ask
 			// for it first there too.
@@ -188,7 +192,10 @@ mod platform {
 				let _ = permissions
 					.request(leptoskit_plugin_permissions::Permission::Camera)
 					.await;
-				ready = xr.prepare(mode, false).await.ok()?;
+				let Ok(prepared) = xr.prepare(mode, false).await else {
+					continue;
+				};
+				ready = prepared;
 			}
 			if ready != Availability::Ready {
 				continue;
@@ -266,7 +273,7 @@ mod platform {
 					}
 					live.fov = fov(&frame);
 				}
-				live.depth = frame.depth;
+				live.depth = frame.depth.is_some();
 				if reliable && let Some(height) = eye_height(&frame, &planes) {
 					live.eye_height = Some(height);
 				}
@@ -288,7 +295,7 @@ mod platform {
 					.any(|(_, since, _)| frame.time - since > HOLD_SECONDS);
 				reliable
 			};
-			if reliable && frame.depth && frame.time - last_look > LOOK_EVERY {
+			if reliable && frame.depth.is_some() && frame.time - last_look > LOOK_EVERY {
 				last_look = frame.time;
 				look(&shared, &session, &frame).await;
 			}
@@ -300,6 +307,9 @@ mod platform {
 	/// Reads the room once, where it is wanted: a grid of rays cast against
 	/// the platform's depth, taken as a depth picture.
 	async fn look(shared: &Shared, session: &leptoskit_xr::Session, frame: &Frame) {
+		let Some(source) = frame.depth else {
+			return;
+		};
 		let (pose, fov, eye_height) = {
 			let live = shared.live.borrow();
 			(live.pose(), live.fov, live.eye_height)
@@ -348,11 +358,22 @@ mod platform {
 						)
 						.await
 						.ok()
-						.and_then(|hits| hits.first().map(|hit| f64::from(hit.distance)))
+						.and_then(|hits| hits.first().copied())
 				}
 				None => None,
 			};
-			distances.push(hit);
+			if let Some(hit) = hit {
+				let expected = match source {
+					DepthSource::Measured => HitKind::Depth,
+					DepthSource::Estimated => HitKind::EstimatedDepth,
+				};
+				// Each request reads the latest host frame. If the source
+				// changes during the grid, try again on the next look.
+				if hit.kind != expected {
+					return;
+				}
+			}
+			distances.push(hit.map(|hit| f64::from(hit.distance)));
 		}
 		// Ray casts can outlive the frame they came from. Never chart one
 		// after that source has gone silent.
@@ -377,7 +398,10 @@ mod platform {
 				// the player has moved.
 				survey.measure_floor(height - origin.y);
 			}
-			survey.add(&picture)
+			match source {
+				DepthSource::Measured => survey.add(&picture),
+				DepthSource::Estimated => survey.add_estimated(&picture),
+			}
 		};
 		if surveyed && shared.room_frame.get().is_none() {
 			// The first picture that teaches anything fixes the frame. What

@@ -22,7 +22,6 @@ use reapers_rules::HuskRing;
 use reapers_rules::SeededRandom;
 use reapers_rules::SigilTrace;
 use reapers_rules::Vec3;
-use reapers_rules::wrap_angle;
 use reapers_world::ArPose;
 
 use crate::theme::BONE;
@@ -75,6 +74,7 @@ impl Lens {
 	fn centre(&self) -> (f64, f64) {
 		(self.width / 2.0, self.height / 2.0)
 	}
+
 }
 
 /// A flat drawing being put together.
@@ -995,6 +995,71 @@ mod tests {
 			drift > 40.0,
 			"the origin's direction is {drift} units from the middle, not far from it"
 		);
+	}
+
+	#[test]
+	fn guidance_turns_with_the_phones_roll_and_pitch() {
+		for pose in [
+			ArPose::AHEAD,
+			ArPose {
+				forward: Vec3::FORWARD,
+				right: Vec3::UP,
+				up: Vec3::new(-1.0, 0.0, 0.0),
+				turn_speed: 0.0,
+			},
+			ArPose::looking(Vec3::from_angles(2.7, 1.2), 0.0),
+		] {
+			let lens = Lens { pose, ..lens() };
+			for (right, up) in [(1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0)] {
+				let target = (pose.forward * 0.2 + pose.right * right + pose.up * up).normalized();
+				let angle = bearing(&lens, target);
+				let (x, y) = lens.place(target).unwrap();
+				assert!((angle.cos() * (x - lens.width / 2.0)) >= -1e-9);
+				assert!((angle.sin() * (y - lens.height / 2.0)) >= -1e-9);
+			}
+			// A target behind the phone still gives a finite, correct side
+			// to turn toward; perspective projection alone cannot do this.
+			for right in [-0.1, 0.1] {
+				let target = (pose.forward * -1.0 + pose.right * right).normalized();
+				let angle = bearing(&lens, target);
+				assert!(angle.is_finite());
+				assert!(angle.cos() * right > 0.0);
+			}
+		}
+	}
+
+	#[test]
+	fn each_guided_light_can_be_centred_and_caught_with_a_rolled_phone() {
+		for seed in 0..24 {
+			let mut trace = SigilTrace::new(
+				Sigil::draw(
+					seed,
+					&Rarity::Rare.sigil(),
+					Gait::Ground,
+					Difficulty::default(),
+				),
+				2.8,
+			);
+			for index in 0..trace.sigil.lights.len() {
+				let target = trace.direction_of(index);
+				let mut pose = ArPose::looking(target, 0.0);
+				// Roll a quarter turn after finding the target. Its light
+				// remains under the reticle and the rules still catch it.
+				(pose.right, pose.up) = (pose.up, pose.right * -1.0);
+				let lens = Lens { pose, ..lens() };
+				let (x, y) = lens.place(target).unwrap();
+				assert!((x - lens.width / 2.0).abs() < 1e-6);
+				assert!((y - lens.height / 2.0).abs() < 1e-6);
+				for _ in 0..300 {
+					trace.advance(pose.forward, pose.turn_speed, 1.0 / 30.0);
+					if trace.caught() > index {
+						break;
+					}
+				}
+				assert!(trace.caught() > index, "seed {seed}, light {index}");
+			}
+			assert!(trace.is_closed(), "seed {seed}");
+		}
 	}
 
 	#[test]

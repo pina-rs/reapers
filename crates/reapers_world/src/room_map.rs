@@ -255,6 +255,10 @@ impl RoomMap {
 			return self.measured_floor;
 		}
 
+		self.picture_floor_depth()
+	}
+
+	fn picture_floor_depth(&self) -> Option<f64> {
 		if self.floors.is_empty() {
 			return None;
 		}
@@ -279,7 +283,7 @@ impl RoomMap {
 	///
 	/// - [`floor_depth`](Self::floor_depth) is the measured height, and the
 	///   plan's eye height is exactly it;
-	/// - every picture is charted against it, with no floor of its own
+	/// - every measured-depth picture is charted against it, with no floor of its own
 	///   looked for and none set aside. A picture with no floor in view,
 	///   such as one of a table top, now charts the table: its height is
 	///   still known;
@@ -294,8 +298,8 @@ impl RoomMap {
 	///
 	/// It may be measured again, as the platform refines the plane; the last
 	/// measurement stands. Only depth in real metres should be read against
-	/// a measured floor: a depth model's pictures are read against their
-	/// own floors for a reason.
+	/// a measured floor: use [`add_estimated`](Self::add_estimated) for a
+	/// depth model's pictures, which must first find their own floors.
 	pub fn measure_floor(&mut self, eye_height: f64) -> bool {
 		if !(FLOOR_NEAREST..=FLOOR_FARTHEST).contains(&eye_height) {
 			return false;
@@ -311,12 +315,24 @@ impl RoomMap {
 	/// picture with no floor in it teaches nothing about where a walker can
 	/// stand, unless the floor has been measured.
 	pub fn add(&mut self, frame: &DepthFrame) -> bool {
+		self.add_frame(frame, false)
+	}
+
+	/// Takes a picture inferred by a depth model. Even with a measured AR
+	/// floor, its own floor must be found: the model can read everything
+	/// long or short together. Lengths are charted in that picture's floor
+	/// units, then converted to the measured floor's metres.
+	pub fn add_estimated(&mut self, frame: &DepthFrame) -> bool {
+		self.add_frame(frame, true)
+	}
+
+	fn add_frame(&mut self, frame: &DepthFrame, estimated: bool) -> bool {
 		let columns = frame.width / STRIDE;
 		let rows = frame.height / STRIDE;
-		let cloud = Cloud::of(frame);
+		let mut cloud = Cloud::of(frame);
 
 		let level = level_points(&cloud, columns, rows);
-		let measured = self.measured_floor;
+		let measured = self.measured_floor.filter(|_| !estimated);
 		let own = if measured.is_some() {
 			None
 		} else {
@@ -325,7 +341,7 @@ impl RoomMap {
 		let agreed = if self.floors.len() < PICTURES_TO_AGREE {
 			None
 		} else {
-			self.floor_depth()
+			self.picture_floor_depth()
 		};
 
 		// The floor below this picture's own eye, in its own metres: the
@@ -344,42 +360,41 @@ impl RoomMap {
 				|| agreed.is_none_or(|agreed| (floor / agreed - 1.0).abs() <= FLOOR_LEEWAY)
 		});
 
-		if self.vessel.gait() == Gait::Ground {
-			let Some(floor) = floor else {
-				return false;
-			};
-
-			if !agrees {
-				return false;
-			}
-
-			// A picture that is charted counts towards the floor. One that is
-			// set aside does not: it must not move the floor the others found.
-			if let Some(own) = own {
-				self.floors.push(own - frame.origin.y);
-			}
-
-			let unit = self
-				.floor_depth()
-				.unwrap_or(floor_at_origin.unwrap_or(floor));
-			let scale = (unit + frame.origin.y) / floor;
-
-			self.chart_floor(&cloud, floor, scale, frame.origin, unit);
-		} else {
-			if agrees && let Some(own) = own {
-				self.floors.push(own - frame.origin.y);
-			}
-
-			self.chart_air(&cloud, &level, frame.origin);
+		if self.vessel.gait() == Gait::Ground && !agrees {
+			return false;
 		}
+		// An estimate cannot borrow the measured floor as its own scale.
+		if estimated && self.measured_floor.is_some() && !agrees {
+			return false;
+		}
+		// Only accepted pictures contribute to the floor at the hunt's origin.
+		if agrees && let Some(own) = own {
+			self.floors.push(own - frame.origin.y);
+		}
+		let chart = floor.filter(|_| agrees);
+		let unit = self.floor_depth();
+		let scale = chart.map(|floor| {
+			(unit.unwrap_or(floor - frame.origin.y) + frame.origin.y) / floor
+		});
 
-		if let (Some(floor), true) = (floor, agrees) {
-			let unit = self
-				.floor_depth()
-				.unwrap_or(floor_at_origin.unwrap_or(floor));
-			let scale = (unit + frame.origin.y) / floor;
-
+		if let (Some(floor), Some(scale), Some(unit)) = (chart, scale, unit) {
+			if self.vessel.gait() == Gait::Ground {
+				self.chart_floor(&cloud, floor, scale, frame.origin, unit);
+			}
 			self.chart_furniture(&cloud, &level, floor, scale, frame.origin, unit);
+		}
+		if self.vessel.gait() != Gait::Ground {
+			if estimated && self.measured_floor.is_some() {
+				// Air is classified in metres; the model's floor calibrates
+				// distances from this picture's eye before its origin is added.
+				let Some(scale) = scale else { return false; };
+				for axis in [&mut cloud.xs, &mut cloud.ys, &mut cloud.zs] {
+					for coordinate in axis {
+						*coordinate *= scale as f32;
+					}
+				}
+			}
+			self.chart_air(&cloud, &level, frame.origin);
 		}
 
 		self.last_picture_floor = floor;

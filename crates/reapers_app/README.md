@@ -28,7 +28,7 @@ The build flags are environment variables of `leptoskit build` and `leptoskit de
 
 | Variable | Effect |
 | --- | --- |
-| `REAPERS_SERVER_URL=http://localhost:8080/` | Play against the server. Without it the game is fully offline. Add the server's origin to `[native.plugin-options.http]` for the apps, and give the server the web game's origin as `REAPERS_ORIGIN`. |
+| `REAPERS_SERVER_URL=http://localhost:8080/` | Play against the server. Without it the game is fully offline. Add the server's origin to `[native.plugin-options.http]` and its `ws://` or `wss://` origin to `[native.plugin-options.websocket]` for the apps, and give the server the web game's origin as `REAPERS_ORIGIN`. |
 | `REAPERS_CLUSTER=devnet` | With a server, real demo husks on devnet, moved by the player's wallet. `localnet` is a validator on this machine (`reapers_ops localnet`). |
 | `REAPERS_SOLANA_RPC_URL=https://…` | With a cluster, the RPC the game reads and sends through. Defaults to devnet's public RPC, or `http://127.0.0.1:8899` for `localnet`. The apps need its origin in `[native.plugin-options.http]`. |
 | `REAPERS_SIMNET=true` | The offline game on a pretend devnet: a burner wallet, and a signed Solana transaction for every purchase, escrow and burn. |

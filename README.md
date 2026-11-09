@@ -106,7 +106,7 @@ Flags are environment variables of `leptoskit dev` and `leptoskit build`, read w
 | `REAPERS_AUTOPLAY=true` | A simulated player fights every hunt and rift. |
 | `REAPERS_GALLERY=true` | Debug builds open at the reaper bench. |
 
-A combination that cannot work (the simnet with a server, a demo rift without one, Surfpool without the simnet, a cluster without a server) opens a notice saying why, instead of a game that half works. The native apps only reach the origins listed under `[native.plugin-options.http]` in `crates/reapers_app/leptoskit.toml`: add a deployed server's or RPC's origin there.
+A combination that cannot work (the simnet with a server, a demo rift without one, Surfpool without the simnet, a cluster without a server) opens a notice saying why, instead of a game that half works. The native apps only reach the origins listed under `[native.plugin-options.http]` in `crates/reapers_app/leptoskit.toml`: add a deployed server's or RPC's origin there. The keeper's live rift socket also needs the corresponding `ws://` or `wss://` origin under `[native.plugin-options.websocket]`; this plugin starts with the host even in an offline build.
 
 ### On the simnet: a devnet rehearsal
 

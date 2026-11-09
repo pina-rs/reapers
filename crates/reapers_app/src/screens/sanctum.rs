@@ -151,6 +151,8 @@ pub fn page(player: &PlayerState) -> Element {
 	};
 	let masthead =
 		View()
+			// Decorative text must let native scene touches through.
+			.enabled(false)
 			.class(format!(
 				"flex-1 w-full {CONTENT_WIDTH} self-center px-6 pt-safe-offset-4 pb-[10px]"
 			))

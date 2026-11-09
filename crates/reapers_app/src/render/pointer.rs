@@ -1,17 +1,16 @@
-//! Fingers and mice on a scene's view, in the browser.
+//! Fingers and mice on a scene's view.
 //!
 //! leptoskit's views hear a press and nothing finer, so the browser build
 //! listens on the page itself and hands drags and taps to whichever scene's
-//! canvas they land on, even under the words laid over it. The native apps
-//! have no drag yet: their stages turn on their own, and their hunts follow
-//! the phone.
+//! canvas they land on, even under the words laid over it. Native hosts send
+//! their scene view's touches through a separate stream from model events.
 
 use leptoskit::scene3d::SceneId;
 
 /// What a finger did on a scene.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Gesture {
-	/// Moved while down, by this many CSS pixels.
+	/// Moved while down, by this many layout units (CSS pixels, dp or points).
 	Drag { dx: f32, dy: f32 },
 	/// Went down: where, from 0 to 1 across and down the view.
 	Down { x: f32, y: f32 },
@@ -188,12 +187,125 @@ mod web {
 	}
 }
 
-/// Hands every gesture on `scene`'s view to `handler`, replacing the one
-/// before. Nothing happens where the host has no pointer to listen to.
+/// Translates the native host's primary pointer into the game's gestures.
+#[cfg(any(
+	test,
+	all(target_arch = "wasm32", feature = "native", not(feature = "web"))
+))]
+#[derive(Default)]
+pub(super) struct NativeGestures {
+	down: Option<(f32, f32, bool)>,
+}
+
+#[cfg(any(
+	test,
+	all(target_arch = "wasm32", feature = "native", not(feature = "web"))
+))]
+impl NativeGestures {
+	pub(super) fn accept(
+		&mut self,
+		input: leptoskit::scene3d::PointerInput,
+	) -> [Option<Gesture>; 2] {
+		use leptoskit::scene3d::PointerPhase;
+		let gesture = match input.phase {
+			PointerPhase::Down => {
+				self.down = Some((input.x, input.y, false));
+				Gesture::Down {
+					x: input.x,
+					y: input.y,
+				}
+			}
+			PointerPhase::Move => {
+				let Some((_, _, dragged)) = self.down.as_mut() else {
+					return [None, None];
+				};
+				*dragged = true;
+				Gesture::Drag {
+					dx: input.dx,
+					dy: input.dy,
+				}
+			}
+			PointerPhase::Up => {
+				if let Some((x, y, false)) = self.down.take() {
+					return [Some(Gesture::Tap { x, y }), Some(Gesture::Up)];
+				}
+				Gesture::Up
+			}
+			PointerPhase::Cancel => {
+				self.down = None;
+				Gesture::Up
+			}
+		};
+		[Some(gesture), None]
+	}
+}
+
+#[cfg(all(target_arch = "wasm32", feature = "native", not(feature = "web")))]
+mod native {
+	use std::cell::RefCell;
+	use std::collections::HashMap;
+	use std::collections::HashSet;
+	use std::rc::Rc;
+
+	use leptoskit::scene3d::client::Scene;
+
+	use super::Gesture;
+	use super::NativeGestures;
+	use super::SceneId;
+
+	type Handler = Rc<dyn Fn(Gesture)>;
+	thread_local! {
+		static HANDLERS: RefCell<HashMap<SceneId, Handler>> = RefCell::new(HashMap::new());
+		static LISTENING: RefCell<HashSet<SceneId>> = RefCell::new(HashSet::new());
+	}
+
+	fn send(scene: SceneId, gesture: Gesture) {
+		let handler = HANDLERS.with_borrow(|handlers| handlers.get(&scene).cloned());
+		if let Some(handler) = handler {
+			handler(gesture);
+		}
+	}
+
+	pub fn on_gesture(id: SceneId, handler: impl Fn(Gesture) + 'static) {
+		HANDLERS.with_borrow_mut(|handlers| handlers.insert(id, Rc::new(handler)));
+		if !LISTENING.with_borrow_mut(|listening| listening.insert(id)) {
+			return;
+		}
+		crate::platform::spawn(async move {
+			let scene = Scene::new(id);
+			let mut gestures = NativeGestures::default();
+			loop {
+				match scene.next_pointer().await {
+					Ok(Some(input)) => {
+						for gesture in gestures.accept(input).into_iter().flatten() {
+							send(id, gesture);
+						}
+					}
+					Ok(None) => break,
+					Err(error) => {
+						crate::platform::log(&format!("a scene's pointer stream failed: {error}"));
+						break;
+					}
+				}
+			}
+			send(id, Gesture::Up);
+			HANDLERS.with_borrow_mut(|handlers| handlers.remove(&id));
+			LISTENING.with_borrow_mut(|listening| listening.remove(&id));
+		});
+	}
+
+	pub fn forget(id: SceneId) {
+		HANDLERS.with_borrow_mut(|handlers| handlers.remove(&id));
+	}
+}
+
+/// Hands every gesture on `scene`'s view to `handler`, replacing the one before.
 pub fn on_gesture(scene: SceneId, handler: impl Fn(Gesture) + 'static) {
 	#[cfg(all(target_arch = "wasm32", feature = "web"))]
 	web::on_gesture(scene, handler);
-	#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+	#[cfg(all(target_arch = "wasm32", feature = "native", not(feature = "web")))]
+	native::on_gesture(scene, handler);
+	#[cfg(not(all(target_arch = "wasm32", any(feature = "web", feature = "native"))))]
 	let _ = (scene, handler);
 }
 
@@ -201,11 +313,71 @@ pub fn on_gesture(scene: SceneId, handler: impl Fn(Gesture) + 'static) {
 pub fn forget(scene: SceneId) {
 	#[cfg(all(target_arch = "wasm32", feature = "web"))]
 	web::forget(scene);
-	#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
+	#[cfg(all(target_arch = "wasm32", feature = "native", not(feature = "web")))]
+	native::forget(scene);
+	#[cfg(not(all(target_arch = "wasm32", any(feature = "web", feature = "native"))))]
 	let _ = scene;
 }
 
 /// Whether this build can follow a finger across a scene.
 pub const fn follows_fingers() -> bool {
-	cfg!(all(target_arch = "wasm32", feature = "web"))
+	cfg!(all(
+		target_arch = "wasm32",
+		any(feature = "web", feature = "native")
+	))
+}
+
+#[cfg(test)]
+mod tests {
+	use leptoskit::scene3d::PointerInput;
+	use leptoskit::scene3d::PointerPhase;
+
+	use super::*;
+
+	fn input(phase: PointerPhase, dx: f32) -> PointerInput {
+		PointerInput {
+			phase,
+			x: 0.25,
+			y: 0.75,
+			dx,
+			dy: 0.0,
+		}
+	}
+
+	#[test]
+	fn native_drags_reach_the_stage_without_becoming_taps() {
+		let mut gestures = NativeGestures::default();
+		assert_eq!(
+			gestures.accept(input(PointerPhase::Move, 90.0)),
+			[None, None]
+		);
+		assert_eq!(
+			gestures.accept(input(PointerPhase::Down, 0.0)),
+			[Some(Gesture::Down { x: 0.25, y: 0.75 }), None]
+		);
+		assert_eq!(
+			gestures.accept(input(PointerPhase::Move, 90.0)),
+			[Some(Gesture::Drag { dx: 90.0, dy: 0.0 }), None]
+		);
+		assert_eq!(
+			gestures.accept(input(PointerPhase::Up, 0.0)),
+			[Some(Gesture::Up), None]
+		);
+	}
+
+	#[test]
+	fn native_tap_and_cancel_release_a_held_control() {
+		let mut gestures = NativeGestures::default();
+		gestures.accept(input(PointerPhase::Down, 0.0));
+		assert_eq!(
+			gestures.accept(input(PointerPhase::Up, 0.0)),
+			[Some(Gesture::Tap { x: 0.25, y: 0.75 }), Some(Gesture::Up)]
+		);
+		gestures.accept(input(PointerPhase::Down, 0.0));
+		assert_eq!(
+			gestures.accept(input(PointerPhase::Cancel, 0.0)),
+			[Some(Gesture::Up), None]
+		);
+		assert!(gestures.down.is_none());
+	}
 }

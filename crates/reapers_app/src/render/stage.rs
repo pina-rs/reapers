@@ -346,6 +346,7 @@ pub fn stage_view(key: Key, show: StageShow) -> (Rc<RefCell<Stage>>, Element) {
 	if loading != Loading::Failed {
 		view = view.child(
 			Scene3d(id)
+				.test_id("reaper-scene")
 				.class("absolute inset-0 w-full h-full")
 				.aria_hidden(true),
 		);
@@ -453,7 +454,22 @@ mod tests {
 		assert!(camera(&stage)[2] < 2.0);
 		stage.show(show(3));
 		assert!(camera(&stage)[2] > 8.0);
-		stage.gesture(Gesture::Drag { dx: 100.0, dy: 0.0 });
+		let mut gestures = super::super::pointer::NativeGestures::default();
+		for (phase, dx) in [
+			(leptoskit::scene3d::PointerPhase::Down, 0.0),
+			(leptoskit::scene3d::PointerPhase::Move, 100.0),
+		] {
+			let input = leptoskit::scene3d::PointerInput {
+				phase,
+				x: 0.5,
+				y: 0.5,
+				dx,
+				dy: 0.0,
+			};
+			for gesture in gestures.accept(input).into_iter().flatten() {
+				stage.gesture(gesture);
+			}
+		}
 		assert!(camera(&stage)[0] > 1.0, "the camera has gone round");
 		assert!(stage.dragging);
 		stage.gesture(Gesture::Up);

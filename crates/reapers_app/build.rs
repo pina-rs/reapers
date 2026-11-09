@@ -9,13 +9,17 @@
 //! does not, so `leptoskit dev`'s watcher does not chase its own tail. The
 //! mirrors are git-ignored; the sources stay the only copies in git.
 //!
-//! One thing is changed on the way. The art build paints each model's
+//! The art build paints each model's
 //! vertex colours as masks for the Flutter game's own shader (grime, char,
 //! wear and hollowing, in the four channels), and `leptoskit_3d`, drawing
 //! the model's own materials, would multiply them into the colour as
 //! colours: a reaper came out blotched in red and orange. So the copy of a
 //! `.glb` under `assets/models` leaves `COLOR_0` out of every primitive. The
-//! JSON is all that changes; the binary chunk is copied as it is.
+//! JSON is all that changes; the binary chunk is copied as it is. Reapers
+//! and weapons also replace the art build's placeholder surfaces with the
+//! roughness and metalness of Flutter's `ReaperLook`. Their base colour is
+//! white: the game's material tint supplies the whole colour, as Flutter's
+//! replacement shader did. Husks keep their authored materials.
 
 use std::fs;
 use std::path::Path;
@@ -33,9 +37,8 @@ const MIRRORS: [(&str, &str); 6] = [
 	("../../assets/depth", "depth"),
 ];
 
-/// `glb` without its primitives' `COLOR_0`, or as it is when it is not a
-/// binary glTF this can read.
-fn without_vertex_colours(glb: Vec<u8>) -> Vec<u8> {
+/// Adapts material metadata to the renderer, preserving every binary byte.
+fn for_renderer(glb: Vec<u8>, reaper: bool) -> Vec<u8> {
 	let word = |at: usize| -> Option<usize> {
 		Some(u32::from_le_bytes(glb.get(at..at + 4)?.try_into().ok()?) as usize)
 	};
@@ -61,6 +64,18 @@ fn without_vertex_colours(glb: Vec<u8>) -> Vec<u8> {
 			}
 		}
 	}
+	if reaper && let Some(materials) = json["materials"].as_array_mut() {
+		for material in materials {
+			let name = material["name"].as_str().unwrap_or_default();
+			let name = name.split('.').next().unwrap_or_default();
+			let (roughness, metallic) = reaper_surface(name);
+			let pbr = &mut material["pbrMetallicRoughness"];
+			let alpha = pbr["baseColorFactor"][3].as_f64().unwrap_or(1.0);
+			pbr["baseColorFactor"] = serde_json::json!([1.0, 1.0, 1.0, alpha]);
+			pbr["roughnessFactor"] = serde_json::json!(roughness);
+			pbr["metallicFactor"] = serde_json::json!(metallic);
+		}
+	}
 	let Ok(mut chunk) = serde_json::to_vec(&json) else {
 		return glb;
 	};
@@ -80,6 +95,23 @@ fn without_vertex_colours(glb: Vec<u8>) -> Vec<u8> {
 	out
 }
 
+/// The named surfaces of Flutter's `ReaperLook`; only material metadata,
+/// never the geometry, animation, morphs or the husks' own colours.
+fn reaper_surface(name: &str) -> (f64, f64) {
+	match name {
+		"cloth" | "rope" => (0.95, 0.0),
+		"cloth_alt" => (0.92, 0.0),
+		"feather" => (0.55, 0.0),
+		"bone" => (0.7, 0.0),
+		"metal" => (0.5, 1.0),
+		"gold" => (0.4, 1.0),
+		"spirit" => (0.65, 0.0),
+		"void" => (1.0, 0.0),
+		"paper" | "wood" => (0.8, 0.0),
+		_ => (0.9, 0.0),
+	}
+}
+
 fn mirror(from: &Path, to: &Path) -> std::io::Result<()> {
 	fs::create_dir_all(to)?;
 	for entry in fs::read_dir(from)? {
@@ -94,7 +126,11 @@ fn mirror(from: &Path, to: &Path) -> std::io::Result<()> {
 				.extension()
 				.is_some_and(|extension| extension == "glb")
 			{
-				bytes = without_vertex_colours(bytes);
+				let name = source
+					.file_name()
+					.and_then(|name| name.to_str())
+					.unwrap_or_default();
+				bytes = for_renderer(bytes, name.starts_with("reaper_") || name == "weapons.glb");
 			}
 			if fs::read(&target).ok() != Some(bytes.clone()) {
 				fs::write(&target, bytes)?;

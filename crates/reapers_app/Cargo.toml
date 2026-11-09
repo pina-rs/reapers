@@ -133,8 +133,10 @@ leptoskit_testing = { workspace = true }
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 # The headless render of a reaper (`tests/render.rs`).
 leptoskit_3d = { version = "=0.3.0", features = ["renderer"] }
+leptoskit_plugin_websocket = { workspace = true, features = ["async-host"] }
 png = "0.17"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+toml = { workspace = true }
 tokio = { workspace = true, features = ["rt", "time"] }
 
 [build-dependencies]

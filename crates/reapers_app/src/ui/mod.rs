@@ -37,7 +37,9 @@ use crate::theme::reaper_light;
 pub fn foot_scrim(height: u32, alpha: u8) -> leptoskit::prelude::Element {
 	use leptoskit::prelude::*;
 	const STEPS: u32 = 6;
-	let mut scrim = View().class(format!("absolute left-0 right-0 bottom-0 h-[{height}%]"));
+	let mut scrim = View()
+		.enabled(false)
+		.class(format!("absolute left-0 right-0 bottom-0 h-[{height}%]"));
 	for step in 1..=STEPS {
 		let shade = (f64::from(alpha) * f64::from(step) / f64::from(STEPS)).round() as u8;
 		scrim = scrim.child(View().class(format!(

@@ -75,7 +75,17 @@ impl RoomSurvey {
 	/// Takes in one picture. Answers whether anything was learnt from it.
 	pub fn add(&mut self, frame: &DepthFrame) -> bool {
 		let learnt = self.map.add(frame);
+		self.add_occlusion(frame, learnt)
+	}
 
+	/// Takes a model's estimated depth, calibrated against its own floor
+	/// even when the platform has measured the floor in real metres.
+	pub fn add_estimated(&mut self, frame: &DepthFrame) -> bool {
+		let learnt = self.map.add_estimated(frame);
+		self.add_occlusion(frame, learnt)
+	}
+
+	fn add_occlusion(&mut self, frame: &DepthFrame, learnt: bool) -> bool {
 		// Each picture is scaled to the floor the hunt will stand on, as the
 		// map of the room is. A picture taken from above or below the hunt's
 		// origin saw the floor that much farther away, so its own expected
