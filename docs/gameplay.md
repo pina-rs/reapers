@@ -416,7 +416,7 @@ skips or second spell bar. The studio's Soul view shows their exact current
 and future effects, temperament costs, marks and original lore. Studio memory
 buttons are explicitly illustrative and never write the saved player.
 
-Combat log version **9** (or **10** with a room grid) identifies these rules, including swings into empty space: it carries the room's cover in the plan, and each tick's crosshair, turn speed, FIRE, ORB and weapon slot. Older logs are refused with
+Combat log version **10** (or **11** with a room grid, **12** with a recorded moving eye) identifies these rules, including swings into empty space: it carries the room's cover in the plan, and each tick's crosshair, turn speed, FIRE, ORB and weapon slot. Older logs are refused with
 an update message, never silently reinterpreted. Staging and production refuse
 the simulated acquire, release, settlement and rift endpoints until real husk
 acquisition, escrow and confirmed burning replace them. Practice remains
@@ -642,3 +642,13 @@ What it still does not know anywhere:
 - **Reaper against reaper** is not built.
 - **Sound effects** are not built. Music and haptics are.
 - **The numbers** were tuned against a simulated player, not people. Expect to move them after the first playtest on real phones.
+
+### Combat audio
+
+Accepted shots play recorded pistol reports even when they miss. Reloads,
+blade cuts, heavy strikes and parries have separate cues; cooldown presses
+remain quiet. Each vessel has a distinct attack tell before its charge or
+shriek, and a landed charge or unforgiven flinch plays the reaper's hurt cue
+as the rules remove resolve. Encounter seeds already vary attack timing;
+ground creatures rush across the floor, birds swoop and the stationary rift
+stack shrieks. Music and effects can be switched independently on the colophon.

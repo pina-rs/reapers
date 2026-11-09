@@ -70,6 +70,7 @@ const TURN_FOLLOW: f64 = 12.0;
 
 /// One husk's arena.
 pub struct Arena {
+	audio: Option<crate::state::Game>,
 	pub environment: Rc<RefCell<super::environment::Environment>>,
 	/// The scene's name.
 	key: Key,
@@ -135,6 +136,10 @@ impl Arena {
 	/// An arena under `key` for a husk of `vessel` dressed as `nft`, in a
 	/// fresh scene.
 	pub fn new(key: Key, vessel: Vessel, nft: &Nft, aspect: f64, camera_picture: bool) -> Self {
+		let audio = reactive_graph::owner::use_context::<crate::state::Game>();
+		if let Some(game) = audio {
+			game.prepare_effects();
+		}
 		// A new hunt starts afresh: the last husk, and its scene, go.
 		forget(key);
 		let scene = scene(key);
@@ -143,6 +148,7 @@ impl Arena {
 		let rig = HuskRig::spawn(ops, vessel, nft);
 		scene.flush();
 		Self {
+			audio,
 			environment: Rc::new(RefCell::new(super::environment::Environment::new(key))),
 			key,
 			scene,
@@ -425,6 +431,30 @@ impl Arena {
 		self.scene.flush();
 	}
 
+	/// Sends the accepted frame to the room effects, audio and weapon rig.
+	fn hear_events(&mut self, events: &[(i64, HuntEvent)], pose: &ArPose, eye: Vec3) {
+		let origin = reapers_world::from_platform(self.rig.origin().map(f64::from));
+		let heavy = self.arms.as_ref().map_or(WeaponKind::Scythe, Arms::weapon);
+		if let Some(game) = self.audio {
+			game.combat_sounds(
+				events,
+				self.controller.as_ref().unwrap().sim().vessel(),
+				heavy,
+			);
+		}
+		self.environment
+			.borrow_mut()
+			.hear(events, origin, eye, pose.forward, heavy);
+		let marks = self.marks();
+		if let (Some(arms), Some(controller)) = (self.arms.as_mut(), self.controller.as_ref()) {
+			let sim = controller.sim();
+			for (tick, event) in events {
+				arms.hear(sim, *tick, event, &marks);
+			}
+			arms.follow(sim);
+		}
+	}
+
 	/// Advances the fight and everything drawn from it, with the player at
 	/// `live`, and returns what happened, each on the rules' tick it happened
 	/// on. Before a fight is engaged this only idles.
@@ -456,19 +486,7 @@ impl Arena {
 		};
 		self.rig.place_from(&controller.sim().pose(), eye);
 		self.environment.borrow_mut().advance(delta);
-		let origin = reapers_world::from_platform(self.rig.origin().map(f64::from));
-		let heavy = self.arms.as_ref().map_or(WeaponKind::Scythe, Arms::weapon);
-		self.environment
-			.borrow_mut()
-			.hear(&events, origin, eye, pose.forward, heavy);
-		let marks = self.marks();
-		if let (Some(arms), Some(controller)) = (self.arms.as_mut(), self.controller.as_ref()) {
-			let sim = controller.sim();
-			for (tick, event) in &events {
-				arms.hear(sim, *tick, event, &marks);
-			}
-			arms.follow(sim);
-		}
+		self.hear_events(&events, &pose, eye);
 		self.follow_turn(delta, &pose);
 		for (_, event) in &events {
 			match event {

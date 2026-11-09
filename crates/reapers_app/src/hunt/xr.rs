@@ -422,6 +422,18 @@ mod platform {
 			millis: crate::platform::now().millis() - started.millis(),
 		});
 		let picture = DepthFrame::from_rays_at(&grid, &distances, origin);
+		chart(shared, eye, source, eye_height, picture).await;
+	}
+
+	/// Calibrates a picture into the survey and the walking grid together.
+	async fn chart(
+		shared: &Shared,
+		eye: leptoskit_xr::Vec3,
+		source: DepthSource,
+		eye_height: Option<f64>,
+		picture: DepthFrame,
+	) {
+		let origin = picture.origin;
 		let surveyed = {
 			let mut survey = shared.survey.borrow_mut();
 			let Some(survey) = survey.as_mut() else {

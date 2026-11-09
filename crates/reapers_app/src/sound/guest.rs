@@ -55,6 +55,14 @@ impl Device for Guest {
 			.map_err(|_| Unheard)
 	}
 
+	async fn sample(&self, path: &str) -> Result<Sound, Unheard> {
+		self.audio
+			.load(Source::Asset(path), LoadMode::Memory)
+			.await
+			.map(|info| info.sound)
+			.map_err(|_| Unheard)
+	}
+
 	async fn unload(&self, sound: Sound) {
 		let _ = self.audio.unload(sound).await;
 	}

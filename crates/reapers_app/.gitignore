@@ -7,6 +7,7 @@
 # Mirrored by build.rs from the repository's assets.
 /assets/nfts
 /assets/music
+/assets/sfx
 /assets/models
 /assets/fonts
 /assets/branding

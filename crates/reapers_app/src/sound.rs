@@ -17,6 +17,9 @@ use reapers_rules::HuntPhase;
 use reapers_rules::HuntSim;
 use reapers_rules::SigilTrace;
 
+mod effects;
+pub use effects::Effect;
+
 #[cfg(all(target_arch = "wasm32", feature = "web"))]
 mod browser;
 #[cfg(all(target_arch = "wasm32", feature = "native", not(feature = "web")))]
@@ -199,6 +202,9 @@ pub fn hunt_mix(sim: &HuntSim) -> Mix {
 /// as it is told, in its own time. Keeping the two apart is what lets the
 /// deciding be tested with nothing audible at all.
 pub trait ScoreEngine {
+	fn prepare_effects(&self) {}
+	fn cue(&self, _effect: Effect) {}
+	fn stop_effects(&self) {}
 	/// Brings `piece` in over `fade`, heard as `mix`, and lets whatever was
 	/// playing fall away over the same time.
 	fn play(&self, piece: Score, mix: Mix, fade: Duration);
@@ -261,6 +267,7 @@ pub fn when_hidden(hold: impl Fn(bool) + 'static) {
 pub struct Soundtrack {
 	engine: Box<dyn ScoreEngine>,
 	enabled: Cell<bool>,
+	effects_enabled: Cell<bool>,
 	piece: Cell<Option<Score>>,
 	mix: Cell<Mix>,
 }
@@ -273,8 +280,36 @@ impl Soundtrack {
 		Self {
 			engine,
 			enabled: Cell::new(enabled),
+			effects_enabled: Cell::new(true),
 			piece: Cell::new(None),
 			mix: Cell::new(Mix::OPEN),
+		}
+	}
+
+	pub fn prepare_effects(&self) {
+		self.engine.prepare_effects();
+	}
+
+	pub fn combat(
+		&self,
+		events: &[(i64, reapers_rules::HuntEvent)],
+		vessel: reapers_rules::Vessel,
+		heavy: reapers_rules::WeaponKind,
+	) {
+		if !self.effects_enabled.get() {
+			return;
+		}
+		for (tick, event) in events {
+			if let Some(cue) = Effect::event(event, *tick, vessel, heavy) {
+				self.engine.cue(cue);
+			}
+		}
+	}
+
+	pub fn set_effects_enabled(&self, enabled: bool) {
+		self.effects_enabled.set(enabled);
+		if !enabled {
+			self.engine.stop_effects();
 		}
 	}
 

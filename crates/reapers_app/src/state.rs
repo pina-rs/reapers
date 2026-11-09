@@ -134,6 +134,7 @@ pub struct Game {
 	pub sighted: RwSignal<Option<Sighting>>,
 	/// Whether the music plays.
 	pub music: RwSignal<bool>,
+	pub effects: RwSignal<bool>,
 	/// How forgiving hunts are while the game is being tested.
 	pub difficulty: RwSignal<Difficulty>,
 	/// Whether the arrival is over and the game may be touched.
@@ -152,6 +153,7 @@ pub struct Game {
 
 impl Game {
 	const DIFFICULTY_KEY: &'static str = "reapers.testing.difficulty";
+	const EFFECTS_KEY: &'static str = "reapers.effects";
 	/// How long a simnet transaction shows as confirmed before it is
 	/// finalized, and how long its slip stays up.
 	pub const FINALITY: Duration = Duration::from_millis(1400);
@@ -176,6 +178,7 @@ impl Game {
 			now: RwSignal::new(platform::now()),
 			sighted: RwSignal::new(None),
 			music: RwSignal::new(true),
+			effects: RwSignal::new(true),
 			difficulty: RwSignal::new(if flags.testing_difficulty() {
 				Difficulty::Easy
 			} else {
@@ -554,6 +557,32 @@ impl Game {
 			.with_value(|soundtrack| soundtrack.shape(mix));
 	}
 
+	/// Warms the short combat clips before the fight starts.
+	pub fn prepare_effects(self) {
+		self.soundtrack.with_value(|sound| sound.prepare_effects());
+	}
+
+	pub fn combat_sounds(
+		self,
+		events: &[(i64, reapers_rules::HuntEvent)],
+		vessel: reapers_rules::Vessel,
+		heavy: reapers_rules::WeaponKind,
+	) {
+		self.soundtrack
+			.with_value(|sound| sound.combat(events, vessel, heavy));
+	}
+
+	pub fn toggle_effects(self) {
+		let on = !self.effects.get_untracked();
+		self.effects.set(on);
+		self.soundtrack
+			.with_value(|sound| sound.set_effects_enabled(on));
+		let prefs = self.prefs();
+		platform::spawn(async move {
+			let _ = prefs.set(Self::EFFECTS_KEY, Value::Bool(on)).await;
+		});
+	}
+
 	/// Turns the music on or off, and remembers which.
 	pub fn toggle_music(self) {
 		let on = !self.music.get_untracked();
@@ -584,6 +613,11 @@ impl Game {
 	}
 
 	async fn restore_settings(self, prefs: &dyn Prefs) {
+		if let Ok(Some(Value::Bool(on))) = prefs.get(Self::EFFECTS_KEY).await {
+			self.effects.set(on);
+		}
+		self.soundtrack
+			.with_value(|sound| sound.set_effects_enabled(self.effects.get_untracked()));
 		if let Ok(Some(Value::Bool(on))) = prefs.get(Self::MUSIC_KEY).await {
 			self.music.set(on);
 		}
@@ -692,17 +726,19 @@ mod tests {
 	}
 
 	#[test]
-	fn music_and_difficulty_are_remembered() {
+	fn music_effects_and_difficulty_are_remembered() {
 		Owner::new().with(|| {
 			let prefs = Rc::new(MemoryPrefs::new());
 			let game = Game::new(BuildFlags::default(), prefs.clone());
 			game.toggle_music();
+			game.toggle_effects();
 			game.cycle_difficulty();
 			platform::run_until_stalled();
 
 			let reopened = Game::new(BuildFlags::default(), prefs);
 			block_on(reopened.open());
 			assert!(!reopened.music.get_untracked());
+			assert!(!reopened.effects.get_untracked());
 			assert_eq!(reopened.difficulty.get_untracked(), Difficulty::Normal);
 		});
 	}

@@ -26,9 +26,10 @@ use std::path::Path;
 
 /// Each mirror: where it comes from, relative to this crate, and where it
 /// goes under `assets/`.
-const MIRRORS: [(&str, &str); 6] = [
+const MIRRORS: [(&str, &str); 7] = [
 	("../../assets/nfts", "nfts"),
 	("../../assets/music", "music"),
+	("../../assets/sfx", "sfx"),
 	("../../assets/models", "models"),
 	("../../assets/fonts", "fonts"),
 	("../../assets/branding", "branding"),

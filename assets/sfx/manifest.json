@@ -1,0 +1,170 @@
+{
+  "sources": {
+    "firearms": [
+      "firearms.7z",
+      "https://opengameart.org/sites/default/files/Prepared%20SFX%20Library.7z",
+      "cc1ab5a99a0a365105c7c5dd783f4b0b1fe90938114d3ceec53856bfe005f7d6"
+    ],
+    "rpg": [
+      "rpg.zip",
+      "https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip",
+      "3ae398ad63e293f9c450bda22d5d81c3af69c74df66fc1400f33c012c0bbc231"
+    ],
+    "creatures": [
+      "creatures.zip",
+      "https://opengameart.org/sites/default/files/80-CC0-creature-SFX_0.zip",
+      "5d4002eea42f278e76543bb36e8ddd2cb978588a13271984191d8228f5d26768"
+    ],
+    "reload": [
+      "reload.wav",
+      "https://opengameart.org/sites/default/files/gunreload1.wav",
+      "685cac6a184e3cc3ec09a25b6ddb1d6feffd86d469778f339aa423d384035c50"
+    ]
+  },
+  "clips": [
+    {
+      "file": "pistol-a.ogg",
+      "source": "firearms",
+      "member": "Prepared SFX Library/1911/A_34P.wav",
+      "max_seconds": 1.2,
+      "sha256": "9f4970dd85d6e266a1beaeea04e988ee47fe24d6480107fef804e83bb17b447f",
+      "bytes": 14858
+    },
+    {
+      "file": "pistol-b.ogg",
+      "source": "firearms",
+      "member": "Prepared SFX Library/1911/A_42P.wav",
+      "max_seconds": 1.2,
+      "sha256": "83a37b6eb0329e00abc97b8c6ec025a260dd75c2ecbd5436310491ea7bc51440",
+      "bytes": 13922
+    },
+    {
+      "file": "pistol-c.ogg",
+      "source": "firearms",
+      "member": "Prepared SFX Library/Walther PPQ/X_31P.wav",
+      "max_seconds": 1.2,
+      "sha256": "71141d4704c798adc4d1b3c23eeef032f99f0277b620641b8009ebcdbcf79b0a",
+      "bytes": 14085
+    },
+    {
+      "file": "reload.ogg",
+      "source": "reload",
+      "member": null,
+      "max_seconds": 1.4,
+      "sha256": "2a4623843dd7b09c059c6a0e98f504a5a5c4982a4651deab2cd7fea381e5ad1d",
+      "bytes": 17348
+    },
+    {
+      "file": "loaded.ogg",
+      "source": "rpg",
+      "member": "OGG/metalLatch.ogg",
+      "max_seconds": 0.6,
+      "sha256": "e2c307af3aa8920bd8251fa42cea96562f410d87fde34d099bd61be489b136f1",
+      "bytes": 6316
+    },
+    {
+      "file": "blade.ogg",
+      "source": "rpg",
+      "member": "OGG/knifeSlice.ogg",
+      "max_seconds": 0.65,
+      "sha256": "2dd78524ab756fff306bd31166fb3fdf8b6b5b1191fc5a67ca7a448291d2c6fc",
+      "bytes": 8601
+    },
+    {
+      "file": "heavy.ogg",
+      "source": "rpg",
+      "member": "OGG/chop.ogg",
+      "max_seconds": 0.8,
+      "sha256": "c374e28fc8939f8d20d37d9a0d7ad37b53313457fda7aa71b5ad6eba913a8d7a",
+      "bytes": 5873
+    },
+    {
+      "file": "impact.ogg",
+      "source": "rpg",
+      "member": "OGG/dropLeather.ogg",
+      "max_seconds": 0.5,
+      "sha256": "964ead0f7f85c22b9980a2203b894b64290d1e503c2e6d5b1c08efb1ecbaf6f8",
+      "bytes": 7172
+    },
+    {
+      "file": "parry.ogg",
+      "source": "rpg",
+      "member": "OGG/metalPot1.ogg",
+      "max_seconds": 0.8,
+      "sha256": "e2dd3232c5912fca7097f552afc17a7055468a17b9b0ec728577e6864e907104",
+      "bytes": 11657
+    },
+    {
+      "file": "ape.ogg",
+      "source": "creatures",
+      "member": "roar_01.ogg",
+      "max_seconds": 1.1,
+      "sha256": "df73c6a8289bd7eebd3d03652d48f1844bb45b7d2e61b775aabaa29903dc2af4",
+      "bytes": 5681
+    },
+    {
+      "file": "bird.ogg",
+      "source": "creatures",
+      "member": "scream_01.ogg",
+      "max_seconds": 0.8,
+      "sha256": "1537c3e322155bd502b86efb70ea86955c6987f2bc72f712407202ff2e0d8d4c",
+      "bytes": 11019
+    },
+    {
+      "file": "penguin.ogg",
+      "source": "creatures",
+      "member": "grunt_03.ogg",
+      "max_seconds": 0.7,
+      "sha256": "c20623d6f8e6f314ffd1550b3468e12cff89385ef853e7f6bb0c774a0ac42d14",
+      "bytes": 8117
+    },
+    {
+      "file": "llama.ogg",
+      "source": "creatures",
+      "member": "barking_02.ogg",
+      "max_seconds": 0.9,
+      "sha256": "d4384442c1199004e285ec9ffaf2dc88f0165787615d72f44d13fb58299e6361",
+      "bytes": 6425
+    },
+    {
+      "file": "robot.ogg",
+      "source": "creatures",
+      "member": "alien_04.ogg",
+      "max_seconds": 1.0,
+      "sha256": "fff0d946c74a76cb3e92f3695b67c5a424c8717b945b9d6dafb185677dc56b3e",
+      "bytes": 9785
+    },
+    {
+      "file": "boss.ogg",
+      "source": "creatures",
+      "member": "monster_04.ogg",
+      "max_seconds": 1.2,
+      "sha256": "edd938d07b72d93d9a9a3ec068984a3b34a8f0c50ad0bcfaab352a8257155541",
+      "bytes": 7639
+    },
+    {
+      "file": "shriek.ogg",
+      "source": "creatures",
+      "member": "scream_02.ogg",
+      "max_seconds": 1.2,
+      "sha256": "6a77f53fb5dfba3001c4c6678b00fea493cbac88f3af6d5bc26b3ae861f88831",
+      "bytes": 11337
+    },
+    {
+      "file": "hurt.ogg",
+      "source": "creatures",
+      "member": "hurt_02.ogg",
+      "max_seconds": 0.6,
+      "sha256": "b039a5b1bb5706b3500a84859f852ae9896c1891b0f6ad31d87285f0709b7428",
+      "bytes": 8023
+    },
+    {
+      "file": "catch.ogg",
+      "source": "rpg",
+      "member": "OGG/handleCoins.ogg",
+      "max_seconds": 0.7,
+      "sha256": "a804d23cfe9d81e4644eba3ca0d4d8621a1cee0ba50839e78164d7eb36abf325",
+      "bytes": 11838
+    }
+  ]
+}

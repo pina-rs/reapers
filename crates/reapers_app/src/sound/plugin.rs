@@ -2,8 +2,8 @@
 //!
 //! One piece plays at a time, on a loop, streamed as it goes so that a
 //! ten-minute recording never has to sit in memory whole. A new piece fades
-//! in while the old one falls away. Everything passes through one low-pass
-//! filter on the master bus, which is what the veil is.
+//! in while the old one falls away. Music passes through its own low-pass
+//! filter, leaving the short combat effects clear.
 //!
 //! The browser's `web::Audio` and a native guest's `guest::Audio` speak the
 //! same model through slightly different calls, so the engine is written
@@ -12,6 +12,7 @@
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -21,6 +22,7 @@ use leptoskit_plugin_audio::Sound;
 use leptoskit_plugin_audio::Target;
 use leptoskit_plugin_audio::Voice;
 
+use super::Effect;
 use super::Mix;
 use super::Score;
 use super::ScoreEngine;
@@ -42,6 +44,7 @@ pub trait Device: 'static {
 
 	/// Loads the asset at `path` to be streamed as it plays.
 	async fn stream(&self, path: &str) -> Result<Sound, Unheard>;
+	async fn sample(&self, path: &str) -> Result<Sound, Unheard>;
 
 	async fn unload(&self, sound: Sound);
 
@@ -73,6 +76,11 @@ struct Inner<D> {
 	/// a piece is still coming in is not lost.
 	wanted: Cell<Mix>,
 	asked: Cell<u64>,
+	samples: RefCell<HashMap<Effect, Sound>>,
+	effects: RefCell<VecDeque<Voice>>,
+	queued: Cell<usize>,
+	held: Cell<bool>,
+	effect_epoch: Cell<u64>,
 }
 
 impl<D: Device> PluginEngine<D> {
@@ -83,11 +91,91 @@ impl<D: Device> PluginEngine<D> {
 			playing: Cell::new(None),
 			wanted: Cell::new(Mix::OPEN),
 			asked: Cell::new(0),
+			samples: RefCell::default(),
+			effects: RefCell::default(),
+			queued: Cell::new(0),
+			held: Cell::new(false),
+			effect_epoch: Cell::new(0),
 		}))
 	}
 }
 
 impl<D: Device> ScoreEngine for PluginEngine<D> {
+	fn prepare_effects(&self) {
+		let inner = self.0.clone();
+		platform::spawn(async move {
+			inner.device.ready().await;
+			for effect in Effect::ALL {
+				let _ = inner.sample(effect).await;
+			}
+		});
+	}
+
+	fn cue(&self, effect: Effect) {
+		if self.0.held.get() || self.0.queued.get() >= 8 {
+			return;
+		}
+		self.0.queued.set(self.0.queued.get() + 1);
+		let inner = self.0.clone();
+		let epoch = inner.effect_epoch.get();
+		platform::spawn(async move {
+			inner.device.ready().await;
+			let sample = inner.sample(effect).await;
+			inner.queued.set(inner.queued.get() - 1);
+			if inner.held.get() || inner.effect_epoch.get() != epoch {
+				return;
+			}
+			let Some(sample) = sample else {
+				return;
+			};
+			if let Ok(voice) = inner
+				.device
+				.play(sample, Play::new().volume(effect.volume()))
+				.await
+			{
+				if inner.held.get() || inner.effect_epoch.get() != epoch {
+					inner
+						.device
+						.stop(Target::Voice(voice), Duration::ZERO)
+						.await;
+					return;
+				}
+				let leaving = {
+					let mut voices = inner.effects.borrow_mut();
+					voices.push_back(voice);
+					if voices.len() > 12 {
+						voices.pop_front()
+					} else {
+						None
+					}
+				};
+				if let Some(voice) = leaving {
+					inner
+						.device
+						.stop(Target::Voice(voice), Duration::from_millis(5))
+						.await;
+				}
+				if cfg!(debug_assertions) {
+					platform::log(&format!("SFX: {} voice {}", effect.asset(), voice.0));
+				}
+			}
+		});
+	}
+
+	fn stop_effects(&self) {
+		self.0.effect_epoch.set(self.0.effect_epoch.get() + 1);
+		let voices: Vec<_> = self.0.effects.borrow_mut().drain(..).collect();
+		let inner = self.0.clone();
+		platform::spawn(async move {
+			for voice in voices {
+				inner
+					.device
+					.stop(Target::Voice(voice), Duration::from_millis(20))
+					.await;
+			}
+		});
+	}
+
 	fn play(&self, piece: Score, mix: Mix, fade: Duration) {
 		let asked = self.0.asked.get() + 1;
 		self.0.asked.set(asked);
@@ -113,6 +201,10 @@ impl<D: Device> ScoreEngine for PluginEngine<D> {
 	}
 
 	fn hold(&self, held: bool) {
+		self.0.held.set(held);
+		if held {
+			self.stop_effects();
+		}
 		let inner = self.0.clone();
 		platform::spawn(async move { inner.device.pause(Target::Master, held, HOLD).await });
 	}
@@ -137,12 +229,14 @@ impl<D: Device> Inner<D> {
 		}
 
 		let leaving = self.playing.take();
-		self.veil(mix, Duration::ZERO).await;
 		let play = Play::new()
 			.volume(loudness(mix))
 			.looping(true)
 			.fade_in(fade);
 		let voice = self.device.play(sound, play).await;
+		if let Ok(voice) = voice {
+			self.veil(voice, mix, Duration::ZERO).await;
+		}
 
 		if let Some(leaving) = leaving {
 			self.device.stop(Target::Voice(leaving), fade).await;
@@ -176,12 +270,34 @@ impl<D: Device> Inner<D> {
 		self.device
 			.set_volume(Target::Voice(voice), loudness(mix), EASE)
 			.await;
-		self.veil(mix, EASE).await;
+		self.veil(voice, mix, EASE).await;
 	}
 
-	async fn veil(&self, mix: Mix, glide: Duration) {
+	async fn veil(&self, voice: Voice, mix: Mix, glide: Duration) {
 		let filter = Filter::low_pass(mix.cutoff() as f32);
-		self.device.set_filter(Target::Master, filter, glide).await;
+		self.device
+			.set_filter(Target::Voice(voice), filter, glide)
+			.await;
+	}
+
+	async fn sample(&self, effect: Effect) -> Option<Sound> {
+		if let Some(&sound) = self.samples.borrow().get(&effect) {
+			return Some(sound);
+		}
+		for root in D::ASSET_ROOTS {
+			if let Ok(loaded) = self
+				.device
+				.sample(&format!("{root}{}", effect.asset()))
+				.await
+			{
+				let kept = *self.samples.borrow_mut().entry(effect).or_insert(loaded);
+				if kept != loaded {
+					self.device.unload(loaded).await;
+				}
+				return Some(kept);
+			}
+		}
+		None
 	}
 
 	/// `piece`, loaded once and kept.
@@ -274,6 +390,14 @@ mod tests {
 			Ok(Sound(name.len() as u32))
 		}
 
+		async fn sample(&self, path: &str) -> Result<Sound, Unheard> {
+			let Some(name) = path.strip_prefix("assets/sfx/") else {
+				return Err(Unheard);
+			};
+			self.note(format!("sample {name}"));
+			Ok(Sound(name.len() as u32))
+		}
+
 		async fn unload(&self, sound: Sound) {
 			self.note(format!("unload {}", sound.0));
 		}
@@ -329,6 +453,56 @@ mod tests {
 	const FADE: Duration = Soundtrack::CROSSFADE;
 
 	#[test]
+	fn effects_are_cached_and_stay_clear_beside_muffled_music() {
+		let (engine, device) = engine();
+		engine.play(Score::Hunt, Mix::WAITING, FADE);
+		platform::run_until_stalled();
+		for _ in 0..3 {
+			engine.cue(Effect::PistolA);
+			platform::run_until_stalled();
+		}
+		let calls = device.told();
+		assert_eq!(
+			calls
+				.iter()
+				.filter(|line| *line == "sample pistol-a.ogg")
+				.count(),
+			1
+		);
+		assert_eq!(
+			calls
+				.iter()
+				.filter(|line| line.contains("looping false"))
+				.count(),
+			3
+		);
+		assert_eq!(
+			calls
+				.iter()
+				.filter(|line| line.starts_with("veil "))
+				.count(),
+			1
+		);
+		assert!(
+			calls
+				.iter()
+				.any(|line| line == "veil voice 1 at 473Hz over 0ms")
+		);
+	}
+
+	#[test]
+	fn muting_or_backgrounding_discards_pending_effects() {
+		let (engine, device) = engine();
+		engine.cue(Effect::PistolA);
+		engine.stop_effects();
+		platform::run_until_stalled();
+		engine.hold(true);
+		engine.cue(Effect::PistolA);
+		platform::run_until_stalled();
+		assert!(!device.told().iter().any(|line| line.starts_with("play ")));
+	}
+
+	#[test]
 	fn a_piece_loops_in_over_the_fade_behind_its_veil() {
 		let (engine, device) = engine();
 		engine.play(Score::Hunt, Mix::WAITING, FADE);
@@ -337,8 +511,8 @@ mod tests {
 			device.told(),
 			[
 				"load hunt.ogg",
-				"veil master at 473Hz over 0ms",
 				"play voice 1 at 0.22 over 1600ms, looping true",
+				"veil voice 1 at 473Hz over 0ms",
 			]
 		);
 	}
@@ -356,14 +530,14 @@ mod tests {
 			device.told(),
 			[
 				"load sanctum.ogg",
-				"veil master at 16000Hz over 0ms",
 				"play voice 1 at 0.55 over 1600ms, looping true",
+				"veil voice 1 at 16000Hz over 0ms",
 				"load hunt.ogg",
-				"veil master at 16000Hz over 0ms",
 				"play voice 2 at 0.55 over 1600ms, looping true",
+				"veil voice 2 at 16000Hz over 0ms",
 				"stop voice 1 over 1600ms",
-				"veil master at 16000Hz over 0ms",
 				"play voice 3 at 0.55 over 1600ms, looping true",
+				"veil voice 3 at 16000Hz over 0ms",
 				"stop voice 2 over 1600ms",
 			]
 		);
@@ -383,7 +557,7 @@ mod tests {
 			device.told()[3..],
 			[
 				"volume voice 1 to 1 over 180ms",
-				"veil master at 320Hz over 180ms",
+				"veil voice 1 at 320Hz over 180ms",
 			]
 		);
 	}
@@ -401,7 +575,7 @@ mod tests {
 			device.told()[3..],
 			[
 				"volume voice 1 to 0.8 over 180ms",
-				"veil master at 16000Hz over 180ms",
+				"veil voice 1 at 16000Hz over 180ms",
 			]
 		);
 	}

@@ -303,6 +303,12 @@ pub trait Messages: Send + Sync {
 	fn colophon_depth_credit(&self) -> &'static str;
 	/// `Depth Anything V2, small, metric, indoor`
 	fn colophon_depth_piece(&self) -> &'static str;
+	/// `Sound effects`
+	fn colophon_effects(&self) -> &'static str;
+	/// `Ben Jaszczak and the Free Firearm Sound Library team; Kenney.nl; rubberduck; SpringySpringo. CC0 1.0.`
+	fn colophon_effects_credit(&self) -> &'static str;
+	/// `Firearms, foley and creatures`
+	fn colophon_effects_piece(&self) -> &'static str;
 	/// `On the hunt`
 	fn colophon_hunt(&self) -> &'static str;
 	/// `"Penumbra" Kevin MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 4.0 License. http://creativecommons.org/licenses/by/4.0/`
@@ -2319,6 +2325,18 @@ impl Messages for En {
 
 	fn colophon_depth_piece(&self) -> &'static str {
 		"Depth Anything V2, small, metric, indoor"
+	}
+
+	fn colophon_effects(&self) -> &'static str {
+		"Sound effects"
+	}
+
+	fn colophon_effects_credit(&self) -> &'static str {
+		"Ben Jaszczak and the Free Firearm Sound Library team; Kenney.nl; rubberduck; SpringySpringo. CC0 1.0."
+	}
+
+	fn colophon_effects_piece(&self) -> &'static str {
+		"Firearms, foley and creatures"
 	}
 
 	fn colophon_hunt(&self) -> &'static str {

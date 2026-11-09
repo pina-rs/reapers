@@ -24,6 +24,7 @@ pub fn page() -> Element {
 	let game = Game::get();
 	let words = use_l10n();
 	let music = game.music.get();
+	let effects = game.effects.get();
 	ledger_page(
 		words.colophon_overline(),
 		Some(words.colophon_title()),
@@ -39,6 +40,19 @@ pub fn page() -> Element {
 				.test_id("colophon-music")
 				.on_press(move || game.toggle_music()),
 			ledger_heading(words.colophon_music_heading(), None),
+			LedgerButton::new(words.colophon_effects())
+				.detail(if effects {
+					words.colophon_music_on()
+				} else {
+					words.colophon_music_off()
+				})
+				.test_id("colophon-effects")
+				.on_press(move || game.toggle_effects()),
+			credit(
+				words.colophon_effects(),
+				words.colophon_effects_piece(),
+				words.colophon_effects_credit(),
+			),
 			credit(
 				words.colophon_sanctum(),
 				words.colophon_sanctum_piece(),

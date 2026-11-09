@@ -58,6 +58,8 @@ enum Command {
 	BuildArt(art::Options),
 	/// Fetch the music from its makers and re-encode it.
 	BuildMusic,
+	/// Fetch and compress the recorded CC0 combat sound bank.
+	BuildSfx,
 	/// Fetch the depth model phones without platform depth read rooms with.
 	FetchDepthModel,
 }
@@ -72,6 +74,7 @@ fn main() -> ExitCode {
 		Command::Leptoskit(options) => leptoskit::main(&root, &options),
 		Command::BuildArt(options) => art::main(&root, &options),
 		Command::BuildMusic => music::main(&root),
+		Command::BuildSfx => run::require("python3", ["art/audio/build.py"], &root),
 		Command::FetchDepthModel => depth::main(&root),
 	};
 

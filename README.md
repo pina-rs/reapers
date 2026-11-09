@@ -175,6 +175,7 @@ cargo xtask check             # format, clippy, every build and every test
 cargo xtask check --fast      # the same without the server's PostgreSQL tests
 cargo xtask build-art         # rebuild every model and portrait (Blender 5.1, gltfpack 0.25)
 cargo xtask build-music       # fetch and re-encode the music (curl, ffmpeg)
+cargo xtask build-sfx         # build the recorded combat effects (Python, ffmpeg, bsdtar)
 cargo xtask fetch-depth-model # fetch the phones' depth model, 27 MB, not committed (curl)
 ```
 
@@ -214,11 +215,12 @@ The hooks make this the only way in: `main` refuses any commit that `cargo xtask
 
 The code, the art scripts and the models and portraits they build are under the [MIT licence](LICENSE).
 
-Two things in the repository are other people's and keep their own licences:
+The following recordings and fonts keep their own licences:
 
 | What | Licence | Where it says so |
 | --- | --- | --- |
 | The music, by Kevin MacLeod | CC BY 4.0 | [assets/music/CREDITS.md](assets/music/CREDITS.md) |
+| Recorded combat effects | CC0 1.0 | [assets/sfx/CREDITS.md](assets/sfx/CREDITS.md) |
 | DM Sans and Fraunces | SIL Open Font License 1.1 | [assets/fonts/](assets/fonts/) |
 
 The five collections' names belong to their holders and are not covered by the licence; see [docs/nfts.md](docs/nfts.md).
