@@ -420,12 +420,41 @@ async fn when_a_played_hunt_is_submitted_then_the_replay_absorbs_the_husk() {
 	);
 }
 
+/// The oath and husk seeds the room-replay test fixes.
+///
+/// The keeper draws both from secure random numbers for a real player, and
+/// the reaper's class, weapon and gift change how the same inputs play. A
+/// fixed pair makes the hunt's shape the same on every run. With these,
+/// playing in [`desk_room`] absorbs with an `Excellent` capture, while
+/// replaying the same inputs without the grid absorbs with a `Plain` one.
+const ROOM_REPLAY_OATH_SEED: i64 = 1;
+const ROOM_REPLAY_HUSK_SEED: i64 = 14;
+
 #[tokio::test]
 async fn when_a_hunt_in_a_room_is_submitted_then_the_replay_walks_the_same_room() {
 	let world = World::new().await;
 	let player = world.player().await;
-	let before = with_loose_husk(&world, player).await;
+	let saint = Nft::new(NftCollection::DegenApes, 1);
+	let sworn = PlayerState::initial()
+		.take_oath(ROOM_REPLAY_OATH_SEED)
+		.expect("the oath")
+		.acquire(saint)
+		.expect("the saint")
+		.release(
+			saint,
+			ROOM_REPLAY_HUSK_SEED,
+			Timestamp::from_unix_seconds(0),
+		)
+		.expect("the release");
+
+	world.call(player, Load {}).await.expect("the books open");
+	world.store(player, sworn.clone()).await;
+
+	let before = world.call(player, Load {}).await.expect("the books");
 	let sighting = before.sightings()[0];
+
+	assert_eq!(before, sworn, "the keeper reads the fixed fixture");
+	assert_eq!(sighting.seed, ROOM_REPLAY_HUSK_SEED);
 	let plan = HuntPlan {
 		room: Some(desk_room()),
 		..HuntPlan::new(0, 6000)
