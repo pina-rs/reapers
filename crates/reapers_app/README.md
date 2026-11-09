@@ -9,7 +9,7 @@ Every rule is `reapers_rules`'; this crate keeps the books, draws the ledger, an
 You need the leptoskit CLI at the revision the workspace pins:
 
 ```sh
-cargo install --locked --git https://github.com/leptoskit/leptoskit --rev 996f9b1814996e5f6b3f565803d53266c3359e78 leptoskit_cli
+cargo install --locked --git https://github.com/leptoskit/leptoskit --rev b878753721d8c81819b8b332cc0a7b9455097c86 leptoskit_cli
 cd crates/reapers_app
 leptoskit dev --platform web             # the browser, live
 leptoskit build --platform web           # dist/, for any static host
@@ -94,7 +94,7 @@ Each seam is a function of one props struct. The screens around them only ever c
 | Seam | Props | What it is now |
 | --- | --- | --- |
 | `reaper_stage` | `ReaperStageProps { genome, weapon, outfit, turns_on_its_own, focus_face }` | The class's model on a `Scene3d`, on transparent ground, seen from chest height and lit as the sanctum was. Each line that shows a stage keeps its own scene and sends only what changed. Its silhouette stands in while the model loads, and for good where 3D cannot draw. |
-| `husk_portrait` | `HuskPortraitProps { nft, size, spent }` | The bundled WebP plate in the browser; the husk's outline in its colour in the native apps, whose hosts cannot yet name a bundled image. |
+| `husk_portrait` | `HuskPortraitProps { nft, size, spent }` | The bundled WebP plate, `asset://nfts/<image key>.webp`, on every platform. |
 | `hunt_view` | `HuntViewProps { brief, difficulty, autoplay, on_finished, on_difficulty }` | The whole hunt: the threshold, the sigil traced while the room is read, and the fight on `HuntSim::new(brief…, plan, difficulty)`. It calls `on_finished(log, outcome)` once, after the husk has come apart, with the log it recorded. |
 | `rift_view` | `RiftViewProps { site, frame, report, on_leave, autoplay }` | The circle gathering over the husk at rest, then this reaper's `RiftSeat` fought in the hunt's arena against the frames, reporting whole standings. |
 | `studio_view` | `StudioViewProps { genome }` | The studio; opens no save, server, wallet or camera. |
@@ -112,7 +112,7 @@ What `leptoskit_3d` cannot do, and what the port does instead:
 
 ### The room
 
-`hunt_view` and `rift_view` follow the phone through `leptoskit_xr`: `PhoneAr` with planes and depth on phones with ARKit or ARCore, the rotation sensor on phones without, and a dragged finger in a browser or a simulator. Taps strike along their ray. While the sigil is traced, the room is read by casting a grid of rays against the platform's depth and taking the floor from its planes (`reapers_world`). See [docs/environment.md](../../docs/environment.md), which also says what has not yet run on a device.
+`hunt_view` and `rift_view` follow the phone through `leptoskit_xr`: `ImmersiveAr` on a Meta Quest, `PhoneAr` with planes, depth and the camera's picture on phones with ARKit or ARCore, the rotation sensor and the camera's picture on phones without, and a dragged finger in a browser or a simulator. In the native apps the camera's picture is drawn behind the fight. Where the phone measures no depth, the `xr` plugin estimates it with the model `cargo xtask fetch-depth-model` fetches. Taps strike along their ray. While the sigil is traced, the room is read by casting a grid of rays against the platform's depth and taking the floor from its planes (`reapers_world`). See [docs/environment.md](../../docs/environment.md), which also says what has not yet run on a device.
 
 ## The server
 
@@ -143,7 +143,7 @@ The second builds the server and `reapers_ops`, starts PostgreSQL, a localnet an
 - Wallets: the browser reaches its wallets through the Wallet Standard (`src/wallet/browser.rs`), written as `leptoskit_auth`'s web client does it. `solana_kit_browser`'s wallet would do, but at the pinned Solana Kit revision it requires wasm-bindgen 0.2.128 and leptoskit's CLI embeds 0.2.129, and one build holds only one.
 
 - Fonts: leptoskit has no font-family utility. The web shell sets display type (headings) in Fraunces and the rest in DM Sans (`assets/app.css`); native apps use the system face.
-- Native images: `Image` takes `file://` paths the guest cannot name, so portraits and the mark are drawn as vectors there.
-- Meta Quest: `leptoskit build --platform quest` packages the Android app for Horizon OS as a panel (`[native.quest] immersive = false`): the screens are ordinary views, which an immersive session would not show. The hunt follows the headset through OpenXR where the `xr` plugin offers it; drawing the hunt into the headset's own frames needs a host that runs `leptoskit_xr::host::scene3d::draw`, which the generated host does not yet.
+- Images: `asset://` names a file under the project's `assets/` on every platform; `build.rs` mirrors the repository's `assets/` there.
+- Meta Quest: `leptoskit build --platform quest` packages the Android app for Horizon OS as a panel (`[native.quest] immersive = false`): the screens are ordinary views. A hunt or a rift starts the `xr` plugin's `ImmersiveAr` session and presents its `Scene3d`, so the headset opens an immersive activity over the panel and draws the husk over passthrough; the fight's 2D marks stay on the panel. The session's end returns to the panel.
 - The iOS app's `Info.plist` is app-owned (`ios/Info.plist`): ARKit needs its camera usage text.
 - No gradients, no fixed positioning: scrims fall in steps, and the frame is the screen's height with the route scrolling inside it, so overlays cover the screen.

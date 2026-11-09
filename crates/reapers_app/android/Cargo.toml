@@ -8,6 +8,14 @@ publish = false
 name = "leptoskit_app"
 crate-type = ["staticlib"]
 
+# Features `leptoskit build` turns on by itself: Meta Quest's headset
+# sessions for `--platform quest`, and the depth model for
+# `[native.plugin-options.xr] depth-model`. Named here so that the lockfile
+# holds their dependencies, and so that a `--locked` build has them.
+[features]
+quest = ["leptoskit_xr/quest"]
+depth-estimation = ["leptoskit_xr/depth-estimation"]
+
 [target.'cfg(target_os = "android")'.dependencies]
 leptoskit_bridge_ffi = { version = "=0.3.0", default-features = false, features = ["app"] }
 # The music: decoding, the mixer and the device's output.

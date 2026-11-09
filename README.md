@@ -43,7 +43,7 @@ Everything is Rust: the rules, the server, the program, the tools and every scre
 | [`reapers_server`](crates/reapers_server) | The keeper: the server, on leptoskit's server crates and PostgreSQL. |
 | [`reapers_app`](crates/reapers_app) | The game, on [leptoskit](https://github.com/leptoskit/leptoskit): one tree of screens for the browser and the iOS and Android apps. |
 | [`reapers_ops`](crates/reapers_ops) | Deploys, configures and rehearses the program; brings up a localnet. |
-| [`xtask`](crates/xtask) | The repository's own tools: the checks, the guard on `main`, the merge, the art and music builds. |
+| [`xtask`](crates/xtask) | The repository's own tools: the checks, the guard on `main`, the merge, the art and music builds, and the depth model's fetch. |
 
 Rust is pinned by `rust-toolchain.toml` (a nightly, the one leptoskit pins); rustup installs it, with its Wasm and mobile targets, the first time `cargo` runs here. leptoskit and Solana Kit come from git, each at one revision, pinned in the root `Cargo.toml`. The models, music, portraits, typefaces and mark the game ships are in [`assets/`](assets).
 
@@ -53,7 +53,7 @@ You need the leptoskit CLI, at the revision the workspace pins:
 
 ```sh
 cargo install --locked --git https://github.com/leptoskit/leptoskit \
-  --rev 996f9b1814996e5f6b3f565803d53266c3359e78 leptoskit_cli
+  --rev b878753721d8c81819b8b332cc0a7b9455097c86 leptoskit_cli
 ```
 
 ### In the browser
@@ -162,6 +162,7 @@ cargo xtask check             # format, clippy, every build and every test
 cargo xtask check --fast      # the same without the server's PostgreSQL tests
 cargo xtask build-art         # rebuild every model and portrait (Blender 5.1, gltfpack 0.25)
 cargo xtask build-music       # fetch and re-encode the music (curl, ffmpeg)
+cargo xtask fetch-depth-model # fetch the phones' depth model, 27 MB, not committed (curl)
 ```
 
 `cargo xtask check` needs `pina` 0.24.0 and Agave's `cargo-build-sbf` for the program's build, and PostgreSQL's binaries for the server's tests; it says which is missing, and how to get it, before it starts. Every push to `main` and every pull request runs it on GitHub Actions; [.github/workflows/ci.yml](.github/workflows/ci.yml) installs the same tools.
