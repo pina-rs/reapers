@@ -413,17 +413,10 @@ impl Arena {
 		let (mood, plight) = mood_of(sim);
 		let husk = sim.pose();
 		self.rig.place(&husk);
-		// Where the room was seen, whatever stands nearer than the husk in
-		// its direction hides it. The occlusion map is a quarter-degree
-		// picture of the room; the husk is hidden whole or not at all, by
-		// whether its middle is behind.
-		let hidden = self.occlusion.as_ref().is_some_and(|room| {
-			room.hides(
-				husk.yaw(),
-				husk.pitch(),
-				husk.distance() - husk.vessel.half_width(),
-			)
-		});
+		let hidden = self
+			.occlusion
+			.as_ref()
+			.is_some_and(|room| hidden_by(room, &husk));
 		// A soul an orb draws in goes into it; one that breaks out gathers
 		// itself again, never at once.
 		let taken = sim
@@ -438,6 +431,19 @@ impl Arena {
 		self.scene.flush();
 		events
 	}
+}
+
+/// Whether the room, where it was seen, hides `husk`: whether anything
+/// stands nearer than the husk in its direction. The occlusion map is a
+/// quarter-degree picture of the room; the husk is hidden whole or not at
+/// all, by whether its middle is behind. A top it stands on is under its
+/// middle, so it never hides it.
+pub fn hidden_by(room: &OcclusionMap, husk: &HuskPose) -> bool {
+	room.hides(
+		husk.yaw(),
+		husk.pitch(),
+		husk.distance() - husk.half_width(),
+	)
 }
 
 /// What the rules say a husk is doing and suffering, for the rig to act.

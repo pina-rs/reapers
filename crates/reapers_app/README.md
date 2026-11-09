@@ -109,7 +109,7 @@ What `leptoskit_3d` cannot do, and what the port does instead:
 
 - **No custom shaders.** The Flutter game drew every reaper surface with `reaper.fmat`. A look here is a material override per part (tint, a light of its own, a rim); `render/parts.rs` lists each model's parts by material, kept whole by a test that reads the models. The burn front, the hollowing and the sketched outline are gone; the hollowed outfit still loses its void parts.
 - **No seeking a clip.** The host plays clips on its own clock, with crossfades. The studio plays, replays and changes speed, and holds a reaction's face with morph weights; it cannot hold an exact frame.
-- **No moving a model's own parts.** The husks are rigid parts on pivots with no clips. The rig moves the creature whole (a step's rise and fall, the lean and twist of a blow, the reap dragging it up) where the Flutter rig also swung each leg and turned the head.
+- **No clips on the husks.** The husks are rigid parts on pivots. The rig moves the creature whole (a step's rise and fall, the lean and twist of a blow, the reap dragging it up, a crouch's squash and a leap's stretch) and swings each leg and turns the head by part offsets on those pivots, worked out from the rules' pose alone (`render/gait.rs`): the legs stride as far as the body went, so a planted foot does not skate.
 - **No per-material textures.** A rift's reliquary stack shows its frames, not the collection's portraits.
 
 ### The room

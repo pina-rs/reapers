@@ -7,11 +7,14 @@
 //! [`HuskRig::dissolve`]; it decides nothing about the hunt. How it acts that
 //! out is [`super::reaction::HuskReaction`]'s.
 //!
-//! A creature is built from rigid parts on pivots. `leptoskit_3d` moves a
-//! model's parts only by its clips, and the husks have none, so where the
-//! Flutter rig swung each leg, this one moves the creature whole: it rises
-//! and falls with each step or wingbeat, leans and twists from blows,
-//! squashes as it is struck, and is dragged up the reaping arc.
+//! A creature is built from rigid parts on pivots, and has no clips. The
+//! creature moves whole: it rises and falls with each step or wingbeat,
+//! leans and twists from blows, squashes as it is struck, and is dragged up
+//! the reaping arc. Its own pivots move by part offsets, which the host
+//! eases between ticks: its legs keep step with the ground it covers, it
+//! crouches, stretches, tucks and reaches through a leap, and its head
+//! looks where it is going ([`super::gait`]). Its shadow stays on the
+//! surface under it, whatever the body does above.
 
 use leptoskit::scene3d::MaterialOverride;
 use leptoskit::scene3d::NodeId;
@@ -26,6 +29,9 @@ use reapers_rules::NftLook;
 use reapers_rules::Vessel;
 use reapers_rules::wrap_angle;
 
+use super::gait::Carriage;
+use super::gait::Footwork;
+use super::gait::MAX_LIMBS;
 use super::look::linear;
 use super::parts::parts;
 use super::reaction::HuskPlight;
@@ -60,6 +66,20 @@ const RIM: f32 = 0.12;
 /// How fast a strike's flash fades, as a share lost each second.
 const FLASH_DECAY: f64 = 7.0;
 
+/// How dark a shadow is at its darkest, under a body standing on it.
+const SHADOW_OPACITY: f64 = 0.55;
+/// The shadow's strength and width under feet that touch the ground,
+/// and under a body [`SHADOW_FADE_HEIGHT`] or more above it: tight and dark
+/// at contact, broad and faint in the air.
+const SHADOW_CONTACT: f64 = 1.15;
+const SHADOW_FAINTEST: f64 = 0.35;
+const SHADOW_TIGHTEST: f64 = 0.9;
+const SHADOW_WIDEST: f64 = 1.5;
+const SHADOW_FADE_HEIGHT: f64 = 0.8;
+
+/// No turn at all.
+const IDENTITY: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
+
 /// One husk in a scene.
 #[derive(Debug)]
 pub struct HuskRig {
@@ -88,8 +108,20 @@ pub struct HuskRig {
 	leaping: bool,
 	grounded: bool,
 	dissolved: f64,
+	/// How strong its shadow is against [`SHADOW_OPACITY`], by how high the
+	/// body is above it.
+	shadow_fade: f64,
 	/// Where the rules last put it, and which way it faces.
 	placed: Option<([f32; 3], f32)>,
+	/// What the rules last said of it.
+	pose: Option<HuskPose>,
+	/// Its walk, its leaps and its gaze.
+	gait: Footwork,
+	/// Whether its model has a shadow to keep on the ground.
+	has_shadow: bool,
+	/// The part offsets last sent, so a still husk sends none: each limb,
+	/// the head, the neck, and the shadow's place and look.
+	posed: Posed,
 	/// Where the player stands in the scene's space: zero, unless the
 	/// platform draws the scene from its own view of the room.
 	origin: [f32; 3],
@@ -139,7 +171,14 @@ impl HuskRig {
 			leaping: false,
 			grounded: true,
 			dissolved: 0.0,
+			shadow_fade: 1.0,
 			placed: None,
+			pose: None,
+			gait: Footwork::new(vessel),
+			has_shadow: parts(&husk_model(vessel))
+				.iter()
+				.any(|(material, _)| *material == "shadow"),
+			posed: Posed::default(),
 			origin: [0.0; 3],
 			sent: None,
 		};
@@ -216,7 +255,10 @@ impl HuskRig {
 				return MaterialOverride {
 					color: Some([0.0, 0.0, 0.0, 1.0]),
 					emissive: Some([0.0; 3]),
-					opacity: Some((0.55 * (1.0 - self.dissolved)) as f32),
+					opacity: Some(
+						(SHADOW_OPACITY * self.shadow_fade * (1.0 - self.dissolved)).min(1.0)
+							as f32,
+					),
 					..MaterialOverride::default()
 				};
 			}
@@ -256,6 +298,7 @@ impl HuskRig {
 
 	/// Puts the husk where the rules say it is, facing the way they say.
 	pub fn place(&mut self, pose: &HuskPose) {
+		self.pose = Some(*pose);
 		let at = pose.position;
 		self.leaping = pose.leaping;
 		self.grounded = pose.ground.is_some() && !pose.leaping;
@@ -318,6 +361,47 @@ impl HuskRig {
 		self.dissolved = amount.clamp(0.0, 1.0);
 	}
 
+	/// How the body is carried about its feet this frame: its step's rise
+	/// and fall, the lean and twist of blows and of its own gait, and its
+	/// squash and stretch.
+	fn carry(&self, carriage: &Carriage) -> Transform {
+		let walks = self
+			.gait
+			.build()
+			.is_some_and(|build| !build.limbs.is_empty());
+		let reaction = &self.reaction;
+		let still = 1.0 - self.frost;
+		let t = self.seconds * still;
+		let half_height = self.vessel.half_height();
+		let beats = 2.6 + 2.4 * self.effort + 4.0 * reaction.flail().abs();
+		let step = if self.tuck > 0.5 {
+			0.0
+		} else if self.vessel.gait() == Gait::Air {
+			0.02 * (t * std::f64::consts::TAU * beats).sin()
+		} else if walks {
+			carriage.bob * half_height
+		} else {
+			0.03 * self.effort * (self.stride * 2.0).sin().abs()
+		};
+		let lift = step + reaction.rise() * 2.0 * half_height * still;
+		// Tipped by blows and staggering, and pulled over towards the
+		// reaper as the reap drags it up the arc; turned about its feet so
+		// that it rocks rather than spins about its middle. Its own gait
+		// rolls it from foot to foot and tips it into a leap.
+		let lean_x = (reaction.lean_x() - self.away.0 * reaction.drag() + carriage.roll) * still;
+		let lean_z = (reaction.lean_z() - self.away.1 * reaction.drag() + carriage.pitch) * still;
+		let squash = (1.0 + reaction.squash() * still) * carriage.squash;
+		let feet = if self.vessel.gait() == Gait::Air {
+			0.0
+		} else {
+			half_height
+		};
+		let twist = reaction.twist() * still
+			+ 0.08 * self.effort * (self.stride).sin() * still
+			+ 0.4 * reaction.flail() * still;
+		sway(lift, feet, lean_x, lean_z, twist, squash)
+	}
+
 	/// Advances everything about the husk that is only for show, and queues
 	/// what changed.
 	pub fn animate(&mut self, scene: &Scene, delta: f64, mood: HuskMood, plight: HuskPlight) {
@@ -354,35 +438,15 @@ impl HuskRig {
 		};
 		approach(&mut self.effort, target, 8.0);
 		self.stride += played * (2.2 + 9.0 * self.effort);
+		let carriage = match self.pose {
+			Some(pose) => self.gait.step(&pose, played),
+			None => Carriage::REST,
+		};
+		let lift_transform = self.carry(&carriage);
 		let reaction = &self.reaction;
-		let still = 1.0 - self.frost;
-		let t = self.seconds * still;
-		let half_height = self.vessel.half_height();
-		let beats = 2.6 + 2.4 * self.effort + 4.0 * reaction.flail().abs();
-		let step = if self.tuck > 0.5 {
-			0.0
-		} else if self.vessel.gait() == Gait::Air {
-			0.02 * (t * std::f64::consts::TAU * beats).sin()
-		} else {
-			0.03 * self.effort * (self.stride * 2.0).sin().abs()
-		};
-		let lift = step + reaction.rise() * 2.0 * half_height * still;
-		// Tipped by blows and staggering, and pulled over towards the
-		// reaper as the reap drags it up the arc; turned about its feet so
-		// that it rocks rather than spins about its middle.
-		let lean_x = (reaction.lean_x() - self.away.0 * reaction.drag()) * still;
-		let lean_z = (reaction.lean_z() - self.away.1 * reaction.drag()) * still;
-		let squash = 1.0 + reaction.squash() * still;
-		let feet = if self.vessel.gait() == Gait::Air {
-			0.0
-		} else {
-			half_height
-		};
-		let twist = reaction.twist() * still
-			+ 0.08 * self.effort * (self.stride).sin() * still
-			+ 0.4 * reaction.flail() * still;
-		let lift_transform = sway(lift, feet, lean_x, lean_z, twist, squash);
-		let size = 1.0 + self.punch * 0.06;
+		// The rules' size for the body: a husk on a room's grid is the
+		// smaller creature of the v2 table.
+		let size = self.pose.map_or(1.0, |pose| pose.scale) * (1.0 + self.punch * 0.06);
 		let placed = self.placed.unwrap_or(([0.0; 3], 0.0));
 		let root = Transform::from_translation(
 			self.origin[0] + placed.0[0],
@@ -392,6 +456,19 @@ impl HuskRig {
 		.with_yaw(placed.1)
 		.with_scale(size as f32);
 		let eye_glow = reaction.eye_glow();
+		let ground = self.pose.and_then(|pose| pose.ground);
+		// A husk walking the room's grid keeps its shadow through a leap,
+		// on the surface it left until it crosses onto the next.
+		let shadowed = match self.pose.and_then(|pose| pose.locomotion) {
+			Some(_) => ground.is_some(),
+			None => self.grounded,
+		};
+		let shadow = self.has_shadow
+			&& shadowed
+			&& self.dissolved < 1.0
+			&& ground.is_some_and(|ground| {
+				self.pin_shadow(scene, ground, placed.0[1], size, &lift_transform)
+			});
 		// Materials change in steps fine enough to see, coarse enough that
 		// a husk at rest sends nothing.
 		let quantum = |value: f64| (value * 40.0).round() as i32;
@@ -401,7 +478,7 @@ impl HuskRig {
 			quantum(self.burn),
 			quantum(self.dissolved),
 			quantum(eye_glow),
-			i32::from(self.grounded && self.dissolved < 1.0),
+			i32::from(shadow),
 		];
 		let changed = self.sent.map(|(_, _, sent)| sent != looks);
 		if self.sent.map(|(sent, ..)| sent) != Some(root) {
@@ -410,14 +487,128 @@ impl HuskRig {
 		if self.sent.map(|(_, sent, _)| sent) != Some(lift_transform) {
 			scene.set_transform(self.lift, lift_transform);
 		}
+		let shadow_look = quantum(self.shadow_fade);
 		if changed != Some(false) {
 			self.style(scene, eye_glow as f32);
 			scene.set_part_visible(self.body, "shadow", looks[5] == 1);
+		} else if shadow && self.posed.shadow_look != shadow_look {
+			scene.set_material(
+				self.body,
+				Some("shadow"),
+				self.surface("shadow", eye_glow as f32),
+			);
 		}
+		self.posed.shadow_look = shadow_look;
+		self.pose_parts(scene, &carriage, delta);
 		if self.sent.is_none() {
 			scene.set_visible(self.root, true);
 		}
 		self.sent = Some((root, lift_transform, looks));
+	}
+
+	/// Sends the limbs' swings and the head's gaze that changed, for the
+	/// host to ease to over `delta`.
+	fn pose_parts(&mut self, scene: &Scene, carriage: &Carriage, delta: f64) {
+		let Some(build) = self.gait.build() else {
+			return;
+		};
+		let seconds = delta.clamp(0.0, 0.1) as f32;
+		for (slot, limb) in build.limbs.iter().take(MAX_LIMBS).enumerate() {
+			let (swing, spread) = carriage.limbs[slot];
+			let rotation = multiply(
+				axis_angle([1.0, 0.0, 0.0], swing),
+				axis_angle([0.0, 0.0, 1.0], spread),
+			);
+			let key = quantize(rotation);
+			if self.posed.limbs[slot] != key {
+				self.posed.limbs[slot] = key;
+				scene.set_part_offset(self.body, limb.part, turn(rotation), seconds);
+			}
+		}
+		let (right, down) = carriage.look;
+		// A long neck takes the tip and the head the turn; otherwise the
+		// head takes both.
+		let (head, neck) = match build.neck {
+			Some(_) => {
+				(
+					axis_angle([0.0, 1.0, 0.0], -right),
+					axis_angle([1.0, 0.0, 0.0], down),
+				)
+			}
+			None => {
+				(
+					multiply(
+						axis_angle([0.0, 1.0, 0.0], -right),
+						axis_angle([1.0, 0.0, 0.0], down),
+					),
+					IDENTITY,
+				)
+			}
+		};
+		let key = quantize(head);
+		if self.posed.head != key {
+			self.posed.head = key;
+			scene.set_part_offset(self.body, build.head, turn(head), seconds);
+		}
+		if let Some(part) = build.neck {
+			let key = quantize(neck);
+			if self.posed.neck != key {
+				self.posed.neck = key;
+				scene.set_part_offset(self.body, part, turn(neck), seconds);
+			}
+		}
+	}
+
+	/// Keeps the model's shadow flat on the surface `ground` metres from
+	/// the eye, wherever the body above it is: a husk `centre` metres up,
+	/// drawn `size` times its model, with `lift` tipping, raising and
+	/// squashing it. The shadow is undone from the lift, so it neither
+	/// leans, bobs nor squashes with the body, and it grows larger and
+	/// fainter as the body rises off it. Answers whether it is drawn.
+	fn pin_shadow(
+		&mut self,
+		scene: &Scene,
+		ground: f64,
+		centre: f32,
+		size: f64,
+		lift: &Transform,
+	) -> bool {
+		if size <= 1e-6 {
+			return false;
+		}
+		let feet = self.vessel.half_height();
+		// How far the patch, at the model's feet, must move in the model's
+		// own frame to lie on the ground.
+		let down = (ground - f64::from(centre)) / size + feet;
+		let above = (-down).max(0.0) * size;
+		let risen = (above / SHADOW_FADE_HEIGHT).min(1.0);
+		self.shadow_fade = SHADOW_CONTACT - (SHADOW_CONTACT - SHADOW_FAINTEST) * risen;
+		let grow = SHADOW_TIGHTEST + (SHADOW_WIDEST - SHADOW_TIGHTEST) * risen;
+		let undo = [
+			-lift.rotation[0],
+			-lift.rotation[1],
+			-lift.rotation[2],
+			lift.rotation[3],
+		];
+		let wanted = [
+			-lift.translation[0],
+			down as f32 - lift.translation[1],
+			-lift.translation[2],
+		];
+		let back = super::camera::rotate(undo, wanted);
+		let [width, height, depth] = lift.scale.map(|scale| scale.max(1e-3));
+		let offset = Transform {
+			translation: [back[0] / width, back[1] / height, back[2] / depth],
+			rotation: undo,
+			scale: [grow as f32 / width, 1.0 / height, grow as f32 / depth],
+		};
+		let key = quantize_transform(&offset);
+		if self.posed.shadow != Some(key) {
+			self.posed.shadow = Some(key);
+			// The surface under a husk changes at once, never in between.
+			scene.set_part_offset(self.body, "shadow", offset, 0.0);
+		}
+		true
 	}
 
 	/// Removes the husk from the scene.
@@ -435,6 +626,62 @@ impl HuskRig {
 /// straight at the player (a heading of π) needs no turn at all.
 pub fn heading_yaw(heading: f64) -> f32 {
 	wrap_angle(std::f64::consts::PI - heading) as f32
+}
+
+/// The part offsets a rig last sent, in the steps [`quantize`] takes them
+/// to: a limb, the head or the shadow is sent again only when it moved by
+/// more than a step.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Posed {
+	limbs: [[i32; 4]; MAX_LIMBS],
+	head: [i32; 4],
+	neck: [i32; 4],
+	shadow: Option<[i32; 10]>,
+	shadow_look: i32,
+}
+
+impl Default for Posed {
+	/// Every pivot at rest, as the model has it: nothing needs sending.
+	fn default() -> Self {
+		let rest = quantize(IDENTITY);
+		Self {
+			limbs: [rest; MAX_LIMBS],
+			head: rest,
+			neck: rest,
+			shadow: None,
+			shadow_look: -1,
+		}
+	}
+}
+
+/// A turn, in steps of about a twentieth of a degree.
+fn quantize(rotation: [f32; 4]) -> [i32; 4] {
+	rotation.map(|value| (value * 2000.0).round() as i32)
+}
+
+/// A whole offset, in steps of half a millimetre, a twentieth of a degree
+/// and a thousandth of its size.
+fn quantize_transform(transform: &Transform) -> [i32; 10] {
+	let mut key = [0; 10];
+	for (slot, value) in key.iter_mut().zip(
+		transform
+			.translation
+			.iter()
+			.chain(&transform.rotation)
+			.chain(&transform.scale),
+	) {
+		*slot = (value * 2000.0).round() as i32;
+	}
+	key
+}
+
+/// A part turned by `rotation` about its own pivot, and moved no further.
+const fn turn(rotation: [f32; 4]) -> Transform {
+	Transform {
+		translation: [0.0; 3],
+		rotation,
+		scale: [1.0; 3],
+	}
 }
 
 /// The body's rise, lean, twist and squash, turned about its feet.
@@ -582,5 +829,222 @@ mod tests {
 		assert!(leaning.translation[1] < 0.0);
 		let ahead = facing(Transform::IDENTITY.with_yaw(0.0).rotation);
 		assert!((ahead[2] + 1.0).abs() < 1e-6);
+	}
+
+	/// Where `point`, in the model's own frame, ends up in the scene.
+	fn apply(transform: &Transform, point: [f32; 3]) -> [f32; 3] {
+		let scaled = [0, 1, 2].map(|axis| point[axis] * transform.scale[axis]);
+		let turned = crate::render::camera::rotate(transform.rotation, scaled);
+		[0, 1, 2].map(|axis| turned[axis] + transform.translation[axis])
+	}
+
+	/// The last transform `ops` set on `node`, and the last offset they
+	/// gave `part`, with how long it was eased over.
+	fn last_moves(
+		ops: &[Op],
+		node: NodeId,
+		part: &str,
+	) -> (Option<Transform>, Option<(Transform, f32)>) {
+		let mut placed = None;
+		let mut offset = None;
+		for op in ops {
+			match op {
+				Op::SetTransform {
+					node: moved,
+					transform,
+				} if *moved == node => {
+					placed = Some(*transform);
+				}
+				Op::SetPartOffset {
+					part: moved,
+					offset: to,
+					seconds,
+					..
+				} if moved == part => offset = Some((*to, *seconds)),
+				_ => {}
+			}
+		}
+		(placed, offset)
+	}
+
+	/// A penguin of the room's size, `state` and `fraction` through it,
+	/// with its middle `centre` metres from the eye over a surface at
+	/// `support`.
+	fn walker(
+		state: reapers_rules::HuskMotionState,
+		fraction: f64,
+		centre: f64,
+		support: f64,
+	) -> HuskPose {
+		HuskPose {
+			scale: 0.53,
+			ground: Some(support),
+			leaping: state == reapers_rules::HuskMotionState::Air,
+			locomotion: Some(reapers_rules::HuskLocomotion {
+				state,
+				state_fraction: fraction,
+				support_height: support,
+				next_foothold: None,
+			}),
+			..HuskPose::new(
+				Vessel::Penguin,
+				reapers_rules::Vec3::new(0.3, centre, 2.4),
+				std::f64::consts::PI,
+			)
+		}
+	}
+
+	/// Where the shadow's patch lies, in the scene, after `rig` was
+	/// placed at `pose` and animated, and how long its move was eased.
+	fn shadow_height(
+		scene: &Scene,
+		rig: &mut HuskRig,
+		pose: &HuskPose,
+		last: &mut Option<(Transform, f32)>,
+	) -> (f32, f32) {
+		rig.place(pose);
+		rig.animate(
+			scene,
+			1.0 / 30.0,
+			HuskMood::default(),
+			HuskPlight::default(),
+		);
+		let ops = scene.take_ops();
+		let (root, _) = last_moves(&ops, rig.root, "shadow");
+		let (lift, offset) = last_moves(&ops, rig.lift, "shadow");
+		// An offset that did not change was not sent again.
+		let offset = offset.or(*last);
+		*last = offset;
+		let (root, lift, (offset, seconds)) = (
+			root.or(rig.sent.map(|(root, ..)| root)).unwrap(),
+			lift.or(rig.sent.map(|(_, lift, _)| lift)).unwrap(),
+			offset.expect("the shadow was moved"),
+		);
+		// A corner of the patch, which lies flat at the model's feet.
+		let patch = [0.3, -0.446, 0.2];
+		(
+			apply(&root, apply(&lift, apply(&offset, patch)))[1],
+			seconds,
+		)
+	}
+
+	#[test]
+	fn the_shadow_stays_on_the_surface_under_the_husk() {
+		use reapers_rules::HuskMotionState::Air;
+		use reapers_rules::HuskMotionState::Crouch;
+
+		let scene = Scene::new(leptoskit::scene3d::SceneId(41));
+		let nft = market_listings()
+			.into_iter()
+			.find(|nft| nft.collection.vessel() == Vessel::Penguin)
+			.unwrap();
+		let mut rig = HuskRig::spawn(&scene, Vessel::Penguin, &nft);
+		scene.take_ops();
+		let mut last = None;
+		// High over the desk it left: the shadow is on the desk, exactly.
+		let (y, seconds) =
+			shadow_height(&scene, &mut rig, &walker(Air, 0.5, -0.2, -0.7), &mut last);
+		assert!((f64::from(y) - (-0.7 + 0.004 * 0.53)).abs() < 1e-4, "{y}");
+		assert_eq!(seconds, 0.0, "the shadow is never eased between surfaces");
+		// Over the edge, the surface under it is the floor, at once.
+		let (y, seconds) =
+			shadow_height(&scene, &mut rig, &walker(Air, 0.6, -0.4, -1.45), &mut last);
+		assert!((f64::from(y) + 1.45).abs() < 3e-3, "{y}");
+		assert_eq!(seconds, 0.0);
+		// Gathered, squashed and tipped into a leap, it does not lean or
+		// sink with the body.
+		for _ in 0..10 {
+			shadow_height(
+				&scene,
+				&mut rig,
+				&walker(Crouch, 0.9, -1.25, -1.45),
+				&mut last,
+			);
+		}
+		let (y, _) = shadow_height(
+			&scene,
+			&mut rig,
+			&walker(Crouch, 1.0, -1.25, -1.45),
+			&mut last,
+		);
+		assert!((f64::from(y) + 1.45).abs() < 6e-3, "{y}");
+	}
+
+	#[test]
+	fn a_walking_husk_moves_its_legs_and_a_still_one_does_not() {
+		let scene = Scene::new(leptoskit::scene3d::SceneId(42));
+		let nft = market_listings()
+			.into_iter()
+			.find(|nft| nft.collection.vessel() == Vessel::Penguin)
+			.unwrap();
+		let mut rig = HuskRig::spawn(&scene, Vessel::Penguin, &nft);
+		scene.take_ops();
+		let mut moved_legs = false;
+		for frame in 0..30 {
+			let mut pose = walker(reapers_rules::HuskMotionState::Walk, 0.0, -1.21, -1.45);
+			pose.position.x += 0.015 * f64::from(frame);
+			rig.place(&pose);
+			rig.animate(
+				&scene,
+				1.0 / 30.0,
+				HuskMood::default(),
+				HuskPlight::default(),
+			);
+			moved_legs |= scene.take_ops().iter().any(
+				|op| matches!(op, Op::SetPartOffset { part, seconds, .. } if part == "leg_l" && *seconds > 0.0),
+			);
+		}
+		assert!(moved_legs, "the legs keep step");
+		let still = walker(reapers_rules::HuskMotionState::Idle, 0.0, -1.21, -1.45);
+		for _ in 0..90 {
+			rig.place(&still);
+			rig.animate(
+				&scene,
+				1.0 / 30.0,
+				HuskMood::default(),
+				HuskPlight::default(),
+			);
+		}
+		scene.take_ops();
+		rig.place(&still);
+		rig.animate(
+			&scene,
+			1.0 / 30.0,
+			HuskMood::default(),
+			HuskPlight::default(),
+		);
+		assert!(
+			scene
+				.take_ops()
+				.iter()
+				.all(|op| !matches!(op, Op::SetPartOffset { .. })),
+			"a husk standing still sends no part"
+		);
+	}
+
+	#[test]
+	fn every_pivot_a_creature_walks_on_is_in_its_model() {
+		for vessel in [
+			Vessel::Ape,
+			Vessel::Bird,
+			Vessel::Llama,
+			Vessel::Penguin,
+			Vessel::Robot,
+		] {
+			let build = crate::render::gait::build(vessel).unwrap();
+			let names = model::node_names(&husk_model(vessel));
+			let pivots = build
+				.limbs
+				.iter()
+				.map(|limb| limb.part)
+				.chain([build.head])
+				.chain(build.neck);
+			for pivot in pivots {
+				assert!(
+					names.iter().any(|name| name == pivot),
+					"{vessel:?} has no {pivot}"
+				);
+			}
+		}
 	}
 }

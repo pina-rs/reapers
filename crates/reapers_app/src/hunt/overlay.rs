@@ -597,8 +597,8 @@ fn orb_grade_colour(grade: reapers_rules::CaptureGrade) -> Rgb {
 /// The ring under a husk that says what it is about to do.
 fn husk_ring(sketch: &mut Sketch, lens: &Lens, sim: &HuntSim, seconds: f64) {
 	let pose = sim.pose();
-	let half_width = sim.vessel().half_width();
-	let half_height = sim.vessel().half_height();
+	let half_width = pose.half_width();
+	let half_height = pose.half_height();
 	let below = (pose.position - Vec3::new(0.0, half_height * 0.85, 0.0)).normalized();
 	let across = (pose.position - Vec3::new(0.0, half_height * 0.85, 0.0)
 		+ Vec3::new(half_width * 1.3, 0.0, 0.0))
@@ -721,7 +721,7 @@ fn orb_ring(sketch: &mut Sketch, lens: &Lens, sim: &HuntSim) {
 	let (cx, cy) = husk;
 	let husk_radius = f64::max(
 		24.0,
-		sim.vessel().half_height() / sim.pose().distance() / (lens.fov / 2.0).tan() * lens.height
+		sim.pose().half_height() / sim.pose().distance() / (lens.fov / 2.0).tan() * lens.height
 			/ 2.0,
 	);
 	let outer = f64::min(lens.width, lens.height) * 0.48;

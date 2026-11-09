@@ -13,6 +13,7 @@ pub mod camera;
 pub mod cloth;
 pub mod curves;
 pub mod effects;
+pub mod gait;
 pub mod husk;
 pub mod juice;
 pub mod look;
