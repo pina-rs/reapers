@@ -200,8 +200,10 @@ impl HuntController {
 		if self.pause != PauseStatus::Playing {
 			return;
 		}
-		self.orb.pressed |= held && !self.orb.held;
-		self.orb.held = held;
+		self.orb.pressed |= pressed;
+		if pressed || !held {
+			self.orb.held = held;
+		}
 	}
 
 	/// Whether ORB is down.
@@ -486,6 +488,40 @@ mod tests {
 		);
 		assert!(!controller.log().inputs[0].orb_held);
 		assert_eq!(controller.sim().orb_ring(), None);
+	}
+
+	#[test]
+	fn an_unplayed_orb_held_through_tracking_loss_needs_a_fresh_press() {
+		let mut controller = HuntController::new(Fight::Hunt(sim(3)));
+		controller.hold_orb(true);
+		controller.frame(1.0, &ArPose::AHEAD, FrameEye::Unavailable);
+
+		for _ in 0..2 {
+			controller.hold_orb(true);
+			controller.frame(
+				HuntController::TICK_SECONDS,
+				&ArPose::AHEAD,
+				FrameEye::Origin,
+			);
+		}
+
+		assert!(!controller.log().inputs[0].orb_held);
+		controller.hold_orb(false);
+		controller.frame(
+			HuntController::TICK_SECONDS,
+			&ArPose::AHEAD,
+			FrameEye::Origin,
+		);
+		assert!(controller.log().inputs.iter().all(|input| !input.orb_held));
+		assert_eq!(controller.sim().orb_ring(), None);
+
+		controller.hold_orb(true);
+		controller.frame(
+			HuntController::TICK_SECONDS,
+			&ArPose::AHEAD,
+			FrameEye::Origin,
+		);
+		assert!(controller.log().inputs.last().unwrap().orb_held);
 	}
 
 	#[test]
