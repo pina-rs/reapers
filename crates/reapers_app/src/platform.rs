@@ -531,8 +531,12 @@ mod guest {
 	/// The guest has no console of its own; the host keeps no log of it yet.
 	pub fn log(_message: &str) {}
 
-	pub const fn viewport() -> (f64, f64) {
-		super::PHONE
+	pub fn viewport() -> (f64, f64) {
+		leptoskit::guest::viewport()
+			.filter(|(width, height)| *width > 0.0 && *height > 0.0)
+			.map_or(super::PHONE, |(width, height)| {
+				(f64::from(width), f64::from(height))
+			})
 	}
 
 	pub async fn post(

@@ -126,7 +126,7 @@ A phone that reads the room as a grid of 10 cm cells, each a level top, somethin
 - **Cover is the grid's.** A seal is hidden, and a blow misses, wherever any cell between your eye and it stands taller than the line to it. An art thrown at nothing lands on the first surface along its throw. This heightfield is approximate: it cannot see beneath overhangs, unknown cells count as floor, and height and position are quantised. Without a grid the plan approximates cover as thin walls.
 - **A husk that flies** keeps to its band of air and to the slices, even in a room read as a grid.
 
-`cargo run --release -p reapers_rules --example pacing` prints the same bot against a penguin in a furnished room after the open table. A level-one reaper breaks a common husk there in 21 to 32 seconds (22 to 31 in the open), and a level-ten one an epic husk in 76 to 112 (76 to 109).
+`cargo run --release -p reapers_rules --example pacing` prints the same bot against a penguin in a furnished room after the open table. A level-one reaper breaks a common husk there in 21 to 32 seconds (22 to 31 in the open), and a level-ten one an epic husk in 76 to 108 (76 to 109).
 
 ### Stalk
 
@@ -155,11 +155,15 @@ Every weapon does a share of the reaper's hit, `H` (see [Reapers](#reapers)). A 
 | 3 | The class weapon | A dive with one heavy swing, or a swing in arm's reach | the weapon's share, 0.8 to 1.85 | the crosshair is within the weapon's reach + 3° of its body, and it is within 3.5 m |
 | 4 | The art, if the reaper knows one | A throw at the crosshair | see [Arts](#arts) | |
 
-**The pistol** holds six rounds and fires at most one every 18 ticks. The aim assist is 3.5° for a reaper of middling reach, a quarter of a degree wider or narrower for each point of reach above or below 3. FIRE on an empty gun starts an 84-tick reload, which runs on if you change weapons. Press FIRE again between ticks 48 and 60 of the reload and it finishes at once, and every round of that magazine lands ×1.25: an active reload. Press earlier and the reload jams for 30 ticks more. A shot that lands nowhere on the husk is a miss.
+**The pistol** holds six rounds and fires at most one every 18 ticks. The aim assist is 3.5° for a reaper of middling reach, a quarter of a degree wider or narrower for each point of reach above or below 3. FIRE on an empty gun starts an 84-tick reload, which runs on if you change weapons. Press FIRE again between ticks 48 and 60 of the reload and it finishes at once, and every round of that magazine lands ×1.25: an active reload. Press earlier and the reload jams for 30 ticks more. The pistol fires even when the enemy is outside the crosshair or out of view; a shot that lands nowhere on the husk is a miss.
 
 **The bone knife** dives. A press with the husk on the crosshair and within 4.5 m spends a dive: 13 ticks in, 30 at the husk, 18 back out. The first stab lands as you arrive, and each press in those 30 ticks stabs again, at least 10 ticks apart, three stabs at most. The knife holds three dives and gets one back every 180 ticks (3 s). A husk within 1.8 m, mid-charge or stunned after a parry, needs no dive: each press stabs, at least 10 ticks apart, and spends nothing. A stab at a stunned husk is critical wherever it lands.
 
 **The class weapon** is the reaper's own scythe, pole, flail, spear, whip or bell, or a greatsword or axe bought for it. A press with the husk on the crosshair and within 3.5 m dives in, swings once (it lands 13 ticks in, plus the weapon's ticks per swing) and comes back out 18 ticks later. It spends nothing. Within 1.8 m it swings without a dive, at most once every weapon's ticks per swing. A swing on an open seal lands twice its share; one on the body lands its share (×1.4 for the axe). Every swing that lands stops a fighting husk in its tracks for 12 ticks (28 for the greatsword); not one that is drawing breath, shrieking, charging or in the air.
+
+FIRE still stabs or swings when no husk can be reached: it spends the normal attack cooldown, never spends a dive, and counts as a miss. Only a reachable husk starts a dive. A press while drawing, cooling down, reloading or shrieking keeps those rules.
+
+In a camera hunt, a missed shot is ray-tested against the room. A measured wall or object takes a visible impact: a chipped bullet mark, a knife or blade cut, a spear puncture, a blunt crack, a bell ripple, a scorch from Cinder, frost from Rime or a dust ripple from Gale. Melee marks reach only 1.8 m. These are surface effects, kept for the hunt; they neither deform real objects nor change a combat result. No surface hit means no invented wall mark.
 
 **Cadence.** Hits closer together than 78 ticks build cadence: +10% each, up to +50% (+100% with the Chain perk). A miss breaks it. A plain reload takes 84 ticks, so it breaks the cadence; an active reload does not.
 
@@ -412,7 +416,7 @@ skips or second spell bar. The studio's Soul view shows their exact current
 and future effects, temperament costs, marks and original lore. Studio memory
 buttons are explicitly illustrative and never write the saved player.
 
-Combat log version **7** identifies these rules: it carries the room's cover in the plan, and each tick's crosshair, turn speed, FIRE, ORB and weapon slot. Older logs are refused with
+Combat log version **9** (or **10** with a room grid) identifies these rules, including swings into empty space: it carries the room's cover in the plan, and each tick's crosshair, turn speed, FIRE, ORB and weapon slot. Older logs are refused with
 an update message, never silently reinterpreted. Staging and production refuse
 the simulated acquire, release, settlement and rift endpoints until real husk
 acquisition, escrow and confirmed burning replace them. Practice remains
@@ -479,32 +483,32 @@ As it prints now:
 ```text
 --- level 1, shrouded ---
 harvester  common: 8/8 24s       uncommon: 8/8 33s     rare: 8/8 62s         epic: 0/8 --
-ferryman   common: 8/8 28s       uncommon: 8/8 38s     rare: 8/8 71s         epic: 0/8 --
-weigher    common: 8/8 22s       uncommon: 8/8 32s     rare: 8/8 58s         epic: 0/8 --
+ferryman   common: 8/8 28s       uncommon: 8/8 38s     rare: 8/8 72s         epic: 0/8 --
+weigher    common: 8/8 22s       uncommon: 8/8 32s     rare: 8/8 60s         epic: 0/8 --
 chooser    common: 8/8 22s       uncommon: 8/8 32s     rare: 8/8 59s         epic: 0/8 --
-hollow     common: 8/8 24s       uncommon: 8/8 34s     rare: 8/8 63s         epic: 0/8 --
+hollow     common: 8/8 24s       uncommon: 8/8 34s     rare: 8/8 64s         epic: 0/8 --
 mourner    common: 8/8 31s       uncommon: 8/8 43s     rare: 8/8 82s         epic: 0/8 --
 --- level 5, sworn ---
-harvester  common: 8/8 16s       uncommon: 8/8 22s     rare: 8/8 40s         epic: 7/8 122s
-ferryman   common: 8/8 19s       uncommon: 8/8 25s     rare: 8/8 46s         epic: 6/8 138s
-weigher    common: 8/8 15s       uncommon: 8/8 21s     rare: 8/8 38s         epic: 7/8 112s
+harvester  common: 8/8 16s       uncommon: 8/8 22s     rare: 8/8 41s         epic: 7/8 124s
+ferryman   common: 8/8 19s       uncommon: 8/8 25s     rare: 8/8 47s         epic: 6/8 140s
+weigher    common: 8/8 15s       uncommon: 8/8 21s     rare: 8/8 38s         epic: 7/8 113s
 chooser    common: 8/8 16s       uncommon: 8/8 21s     rare: 8/8 39s         epic: 7/8 115s
-hollow     common: 8/8 16s       uncommon: 8/8 22s     rare: 8/8 40s         epic: 7/8 124s
-mourner    common: 8/8 20s       uncommon: 8/8 29s     rare: 8/8 53s         epic: 5/8 152s
+hollow     common: 8/8 16s       uncommon: 8/8 22s     rare: 8/8 42s         epic: 7/8 125s
+mourner    common: 8/8 20s       uncommon: 8/8 30s     rare: 8/8 53s         epic: 3/8 152s
 --- level 10, scorched ---
-harvester  common: 8/8 10s       uncommon: 8/8 15s     rare: 8/8 27s         epic: 8/8 81s
+harvester  common: 8/8 10s       uncommon: 8/8 15s     rare: 8/8 27s         epic: 8/8 82s
 ferryman   common: 8/8 12s       uncommon: 8/8 18s     rare: 8/8 32s         epic: 8/8 96s
 weigher    common: 8/8 10s       uncommon: 8/8 14s     rare: 8/8 25s         epic: 8/8 76s
 chooser    common: 8/8 10s       uncommon: 8/8 15s     rare: 8/8 26s         epic: 8/8 82s
-hollow     common: 8/8 10s       uncommon: 8/8 15s     rare: 8/8 27s         epic: 8/8 88s
+hollow     common: 8/8 10s       uncommon: 8/8 15s     rare: 8/8 28s         epic: 8/8 89s
 mourner    common: 8/8 13s       uncommon: 8/8 20s     rare: 8/8 35s         epic: 8/8 109s
 --- level 16, hollowed ---
-harvester  common: 8/8 9s        uncommon: 8/8 10s     rare: 8/8 20s         epic: 8/8 54s
+harvester  common: 8/8 9s        uncommon: 8/8 11s     rare: 8/8 20s         epic: 8/8 54s
 ferryman   common: 8/8 9s        uncommon: 8/8 12s     rare: 8/8 22s         epic: 8/8 63s
-weigher    common: 8/8 9s        uncommon: 8/8 10s     rare: 8/8 18s         epic: 8/8 49s
-chooser    common: 8/8 9s        uncommon: 8/8 10s     rare: 8/8 19s         epic: 7/8 50s
-hollow     common: 8/8 9s        uncommon: 8/8 10s     rare: 8/8 19s         epic: 7/8 53s
-mourner    common: 8/8 10s       uncommon: 8/8 13s     rare: 8/8 24s         epic: 8/8 69s
+weigher    common: 8/8 9s        uncommon: 8/8 10s     rare: 8/8 19s         epic: 8/8 50s
+chooser    common: 8/8 9s        uncommon: 8/8 11s     rare: 8/8 19s         epic: 7/8 50s
+hollow     common: 8/8 9s        uncommon: 8/8 10s     rare: 8/8 19s         epic: 7/8 55s
+mourner    common: 8/8 10s       uncommon: 8/8 13s     rare: 8/8 24s         epic: 8/8 70s
 ```
 
 `cargo run --release -p reapers_rules --example rift_pacing` prints how rifts go for circles of different sizes and levels:

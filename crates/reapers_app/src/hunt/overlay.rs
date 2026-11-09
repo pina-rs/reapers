@@ -204,6 +204,24 @@ impl Sketch {
 		);
 	}
 
+	/// A small surface patch, already projected from its world-space corners.
+	pub(crate) fn patch(&mut self, points: &[(f64, f64)], paint: Color) {
+		let mut path = String::new();
+		for (index, &(x, y)) in points.iter().enumerate() {
+			let _ = write!(
+				path,
+				"{}{} {} ",
+				if index == 0 { "M" } else { "L" },
+				unit(x),
+				unit(y)
+			);
+		}
+		if points.len() >= 3 {
+			path.push('Z');
+			self.add(&path, Some(paint), None);
+		}
+	}
+
 	/// A line through `points`, broken wherever one is behind the player.
 	fn polyline(&mut self, points: &[Option<(f64, f64)>], paint: Color, width: f64) {
 		let mut data = String::new();

@@ -428,7 +428,7 @@ fn a_room_hunt_replays_from_its_log_to_the_last_bit() {
 	let bytes = log.encode();
 
 	assert!(outcome.is_some(), "the bot finishes the hunt");
-	assert_eq!(bytes[0], 8, "a log with a room is version 8");
+	assert_eq!(bytes[0], 10, "a log with a room uses current combat rules");
 
 	let decoded = HuntLog::decode(&bytes).unwrap();
 
@@ -476,7 +476,7 @@ fn a_log_without_a_room_is_written_as_it_always_was() {
 	let with = log.encode();
 	let room = log.plan.room.as_ref().unwrap().encode();
 
-	assert_eq!(bytes[0], 7);
+	assert_eq!(bytes[0], 9);
 	assert_eq!(HuntLog::decode(&bytes).unwrap(), without);
 
 	// The room is the only difference: its length and its bytes, after the

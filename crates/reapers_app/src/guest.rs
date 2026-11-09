@@ -50,3 +50,9 @@ pub extern "C" fn leptoskit_abi_version() -> i32 {
 pub extern "C" fn leptoskit_clock(unix_ms: i64) {
 	crate::platform::report_clock(unix_ms);
 }
+
+/// Keeps the hunt's lens and HUD in the host's actual view, including rotation.
+#[unsafe(no_mangle)]
+pub extern "C" fn leptoskit_viewport(width: f32, height: f32) {
+	leptoskit::guest::set_viewport(width, height);
+}

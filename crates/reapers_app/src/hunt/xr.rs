@@ -51,6 +51,7 @@ pub struct Look {
 /// What the hunt shares with the task that follows the platform.
 #[derive(Clone, Default)]
 pub struct Shared {
+	pub environment: Rc<RefCell<super::environment::Environment>>,
 	/// The last look at the room, for the depth bench.
 	pub last_look: Rc<RefCell<Option<Look>>>,
 	/// Whether the room is looked at whether or not a survey wants it: the
@@ -296,12 +297,46 @@ mod platform {
 				reliable
 			};
 			if reliable && frame.depth.is_some() && frame.time - last_look > LOOK_EVERY {
+				impacts(&shared, &session).await;
 				last_look = frame.time;
 				look(&shared, &session, &frame).await;
+			} else if reliable {
+				impacts(&shared, &session).await;
 			}
 		}
 		shared.live.borrow_mut().lose_device();
 		let _ = session.stop().await;
+	}
+
+	async fn impacts(shared: &Shared, session: &leptoskit_xr::Session) {
+		let requests = shared.environment.borrow_mut().take_requests();
+		for request in requests {
+			let point = |v: reapers_rules::Vec3| {
+				let [x, y, z] = reapers_world::to_platform(v).map(|v| v as f32);
+				leptoskit_xr::Vec3::new(x, y, z)
+			};
+			let ray = Ray {
+				origin: point(request.origin),
+				direction: point(request.direction),
+			};
+			let Ok(hits) = session.hit_test(HitTestRequest::ray(ray)).await else {
+				continue;
+			};
+			if let Some(hit) = hits.first() {
+				let at = hit.pose.position;
+				let normal = hit.pose.orientation.rotate(leptoskit_xr::Vec3::Y);
+				shared.environment.borrow_mut().land(
+					request,
+					super::super::environment::Surface {
+						at: reapers_world::from_platform([at.x, at.y, at.z].map(f64::from)),
+						normal: reapers_world::from_platform(
+							[normal.x, normal.y, normal.z].map(f64::from),
+						),
+						distance: f64::from(hit.distance),
+					},
+				);
+			}
+		}
 	}
 
 	/// Reads the room once, where it is wanted: a grid of rays cast against

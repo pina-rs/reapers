@@ -291,7 +291,7 @@ pub struct HuntLog {
 
 impl HuntLog {
 	const EYE_TICK_BYTES: usize = 14;
-	const EYE_VERSION: u8 = 9;
+	const EYE_VERSION: u8 = 12;
 	const FIRE_FLAG: u8 = 1;
 	const HEADER_BYTES: usize = 9;
 	const LEDGE_BYTES: usize = HuntPlan::SLICES.div_ceil(8);
@@ -301,19 +301,13 @@ impl HuntLog {
 	const ORB_FLAG: u8 = 2;
 	/// The bytes that say how long the room's grid is.
 	const ROOM_LENGTH_BYTES: usize = 4;
-	/// Version 8 is version 7 with the room's grid after the plan, for a
-	/// hunt played in a room the phone read cell by cell. A log without a
-	/// grid is still written as version 7, byte for byte, so every log
-	/// written before the grid replays as it did, and a server that cannot
-	/// read a grid refuses one that carries it rather than replay it
-	/// without.
-	const ROOM_VERSION: u8 = 8;
+	/// The same combat as version 9, with the room's grid after the plan.
+	const ROOM_VERSION: u8 = 11;
 	const TICK_BYTES: usize = 8;
-	// Version 7 fires from the crosshair and captures with an orb: a tick
-	// says whether FIRE was pressed, which slot is selected and whether ORB
-	// is held, and taps are gone. Refuse old clients rather than silently
-	// reinterpret a version-six hunt under the new rules.
-	const VERSION: u8 = 7;
+	// Version 9 lets melee weapons swing at empty space. A missed swing
+	// now spends its cooldown and breaks cadence, so versions 7 and 8
+	// cannot be replayed under these rules.
+	const VERSION: u8 = 10;
 
 	/// `inputs` played in the open with nothing known about the room, at
 	/// normal difficulty.
@@ -523,11 +517,11 @@ impl HuntLog {
 	/// and one bit for whether its top is a ledge. Numbers too big for their
 	/// field keep their low bits, as they always have.
 	///
-	/// A plan with a room's grid is written as version 8, with the grid's
+	/// A plan with a room's grid is written as version 11, with the grid's
 	/// length and the grid itself after the rest of the plan. One without
-	/// is version 7, as it always was. A non-origin eye selects version 9,
-	/// which adds a room length (zero without a grid) and three i16 offsets
-	/// in millimetres to each tick.
+	/// is version 10. A non-origin eye selects version 12, which adds a
+	/// room length (zero without a grid) and three i16 millimetre offsets
+	/// per tick. Earlier combat versions are refused.
 	pub fn encode(&self) -> Vec<u8> {
 		let plan = &self.plan;
 		let room = plan.room.as_ref().map(RoomGrid::encode);

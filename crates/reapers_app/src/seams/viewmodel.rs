@@ -472,7 +472,9 @@ fn tracer(
 		.hit
 		.filter(|hit| (0..=6).contains(&(hit.tick - props.action_tick)))
 		.map(|hit| hit.at);
-	let target = struck.unwrap_or_else(|| ahead(world, 25.0));
+	let target = struck
+		.or_else(|| scene(world.scene).shot_target(props.action_tick))
+		.unwrap_or_else(|| ahead(world, 25.0));
 	let head = f32::midpoint(frames, 1.0).min(1.0);
 	let tail = ((frames - 0.5) / (TRACER_FRAMES - 1.0)).clamp(0.0, 0.9);
 	Some(Tracer {
@@ -540,6 +542,9 @@ pub fn viewmodel_view(props: &ViewmodelProps) -> Element {
 	mount(&seam);
 	let numbers = seam.borrow().numbers;
 	let id = scene(VIEWMODEL).id();
+	if let Some(world) = props.world {
+		crate::render::pointer::forward(id, scene(world.scene).id());
+	}
 	View()
 		.class("absolute inset-0 overflow-hidden")
 		.test_id("viewmodel")

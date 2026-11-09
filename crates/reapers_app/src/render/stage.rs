@@ -244,7 +244,8 @@ impl Stage {
 		match gesture {
 			Gesture::Drag { dx, .. } => {
 				self.dragging = true;
-				self.turn += dx * DRAG_TURN;
+				// Orbit opposite the finger so the visible surface follows it.
+				self.turn -= dx * DRAG_TURN;
 				self.aim();
 				self.scene.flush();
 			}
@@ -340,9 +341,6 @@ pub fn stage_view(key: Key, show: StageShow) -> (Rc<RefCell<Stage>>, Element) {
 	let mut view = View()
 		.class("absolute inset-0 overflow-hidden")
 		.test_id("reaper-stage");
-	if loading != Loading::Shown {
-		view = view.child(super::silhouette::silhouette(&show.genome));
-	}
 	if loading != Loading::Failed {
 		view = view.child(
 			Scene3d(id)
@@ -350,6 +348,11 @@ pub fn stage_view(key: Key, show: StageShow) -> (Rc<RefCell<Stage>>, Element) {
 				.class("absolute inset-0 w-full h-full")
 				.aria_hidden(true),
 		);
+	}
+	// Keep the GPU view in its first slot when the placeholder disappears:
+	// replacing it during the reveal tears down its native surface.
+	if loading != Loading::Shown {
+		view = view.child(super::silhouette::silhouette(&show.genome));
 	}
 	(stage, view)
 }
@@ -394,6 +397,58 @@ mod tests {
 			false,
 			false,
 		)
+	}
+
+	#[test]
+	fn loading_the_reaper_keeps_its_native_gpu_view() {
+		use leptoskit_testing::Finder;
+		use leptoskit_testing::WidgetTester;
+		use reactive_graph::owner::Owner;
+
+		let owner = Owner::new();
+		let key = Key::Fixed("test-loading-surface");
+		owner.with(crate::ui::install_lasting_owner);
+		let stage = owner.with(|| stage(key));
+		let mut tester = WidgetTester::new(
+			move || {
+				owner.with(|| {
+					View()
+						.class("relative w-full h-screen")
+						.child(stage_view(key, show(5)).1)
+				})
+			},
+			390.0,
+			844.0,
+		)
+		.unwrap();
+		tester.find(&Finder::test_id("reaper-scene")).unwrap();
+		let scene = tester
+			.surface()
+			.backend()
+			.log()
+			.iter()
+			.find_map(|mutation| {
+				match mutation {
+					leptoskit::native::Mutation::Create {
+						id,
+						kind: leptoskit::native::NativeKind::Scene3d,
+						..
+					} => Some(*id),
+					_ => None,
+				}
+			})
+			.unwrap();
+		stage.borrow().loading.set(Loading::Shown);
+		tester.pump();
+		tester.find(&Finder::test_id("reaper-scene")).unwrap();
+		assert!(
+			!tester.surface().backend().log().iter().any(|mutation| {
+				matches!(
+					mutation, leptoskit::native::Mutation::Delete { id } if *id == scene
+				)
+			}),
+			"the loaded model must use the GPU view that was already attached"
+		);
 	}
 
 	#[test]
@@ -470,7 +525,10 @@ mod tests {
 				stage.gesture(gesture);
 			}
 		}
-		assert!(camera(&stage)[0] > 1.0, "the camera has gone round");
+		assert!(
+			camera(&stage)[0] < -1.0,
+			"the figure follows a rightward drag"
+		);
 		assert!(stage.dragging);
 		stage.gesture(Gesture::Up);
 		assert!(!stage.dragging);

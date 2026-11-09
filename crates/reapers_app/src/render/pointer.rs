@@ -75,7 +75,7 @@ mod web {
 		})
 	}
 
-	fn send(id: u32, gesture: Gesture) {
+	pub(super) fn send(id: u32, gesture: Gesture) {
 		let handler = POINTERS.with_borrow(|pointers| pointers.handlers.get(&id).cloned());
 		if let Some(handler) = handler {
 			handler(gesture);
@@ -259,7 +259,7 @@ mod native {
 		static LISTENING: RefCell<HashSet<SceneId>> = RefCell::new(HashSet::new());
 	}
 
-	fn send(scene: SceneId, gesture: Gesture) {
+	pub(super) fn send(scene: SceneId, gesture: Gesture) {
 		let handler = HANDLERS.with_borrow(|handlers| handlers.get(&scene).cloned());
 		if let Some(handler) = handler {
 			handler(gesture);
@@ -307,6 +307,22 @@ pub fn on_gesture(scene: SceneId, handler: impl Fn(Gesture) + 'static) {
 	native::on_gesture(scene, handler);
 	#[cfg(not(all(target_arch = "wasm32", any(feature = "web", feature = "native"))))]
 	let _ = (scene, handler);
+}
+
+/// A decorative scene over a world passes its touches to that world's
+/// handler. Native GPU views receive input even when marked aria-hidden.
+pub fn forward(overlay: SceneId, world: SceneId) {
+	if overlay == world {
+		return;
+	}
+	on_gesture(overlay, move |gesture| {
+		#[cfg(all(target_arch = "wasm32", feature = "web"))]
+		web::send(world.0, gesture);
+		#[cfg(all(target_arch = "wasm32", feature = "native", not(feature = "web")))]
+		native::send(world, gesture);
+		#[cfg(not(all(target_arch = "wasm32", any(feature = "web", feature = "native"))))]
+		let _ = gesture;
+	});
 }
 
 /// Stops listening for `scene`.

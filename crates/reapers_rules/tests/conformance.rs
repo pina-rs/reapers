@@ -917,15 +917,15 @@ fn an_absorption_carries_every_field_its_receipt_signs() {
 
 // The fixtures hold the tables the fight before the crosshair printed. Those
 // numbers were tuned around taps and the reap sweep, so they say nothing
-// about the fight these rules play. Each report is pinned to what the Dart
-// rules printed after the change instead; the table itself is in
-// docs/gameplay.md.
+// about the fight these rules play. Reports track the current combat:
+// off-target melee now swings and breaks cadence, rather than doing nothing.
+// The original fixture files remain untouched.
 
 #[test]
 fn the_pacing_tool_prints_the_crosshair_fight() {
 	let report = pacing::report();
 
-	assert_eq!(digest(report.as_bytes()), "cee7bac19ef7790f", "{report}");
+	assert_eq!(digest(report.as_bytes()), "2dcf082e212969df", "{report}");
 }
 
 #[test]
@@ -939,5 +939,5 @@ fn the_rift_pacing_tool_prints_the_crosshair_fight() {
 fn the_soul_pacing_tool_prints_the_crosshair_fight() {
 	let report = soul_pacing::report();
 
-	assert_eq!(digest(report.as_bytes()), "9206be3939838659", "{report}");
+	assert_eq!(digest(report.as_bytes()), "2a78e581c99d3a88", "{report}");
 }

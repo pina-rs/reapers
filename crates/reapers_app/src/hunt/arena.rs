@@ -5,6 +5,7 @@
 //! A lone hunt and a reaper's seat in a rift are both fought here. The
 //! arena does not know which it is showing.
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use leptoskit::scene3d::Op;
@@ -69,6 +70,7 @@ const TURN_FOLLOW: f64 = 12.0;
 
 /// One husk's arena.
 pub struct Arena {
+	pub environment: Rc<RefCell<super::environment::Environment>>,
 	/// The scene's name.
 	key: Key,
 	pub scene: Rc<GameScene>,
@@ -118,6 +120,18 @@ pub struct Arena {
 }
 
 impl Arena {
+	/// The surface marks from this eye, before the combat HUD is laid over them.
+	pub fn room_marks(
+		&self,
+		lens: &super::overlay::Lens,
+		position: Option<[f64; 3]>,
+	) -> super::overlay::Sketch {
+		let mut marks = super::overlay::Sketch::default();
+		let eye = position.map_or(Vec3::ZERO, reapers_world::from_platform);
+		self.environment.borrow().draw(&mut marks, lens, eye);
+		marks
+	}
+
 	/// An arena under `key` for a husk of `vessel` dressed as `nft`, in a
 	/// fresh scene.
 	pub fn new(key: Key, vessel: Vessel, nft: &Nft, aspect: f64, camera_picture: bool) -> Self {
@@ -129,6 +143,7 @@ impl Arena {
 		let rig = HuskRig::spawn(ops, vessel, nft);
 		scene.flush();
 		Self {
+			environment: Rc::new(RefCell::new(super::environment::Environment::new(key))),
 			key,
 			scene,
 			rig,
@@ -440,6 +455,10 @@ impl Arena {
 			delta
 		};
 		self.rig.place_from(&controller.sim().pose(), eye);
+		self.environment.borrow_mut().advance(delta);
+		let origin = reapers_world::from_platform(self.rig.origin().map(f64::from));
+		let heavy = self.arms.as_ref().map_or(WeaponKind::Scythe, Arms::weapon);
+		self.environment.borrow_mut().hear(&events, origin, pose.forward, heavy);
 		let marks = self.marks();
 		if let (Some(arms), Some(controller)) = (self.arms.as_mut(), self.controller.as_ref()) {
 			let sim = controller.sim();

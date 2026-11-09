@@ -159,6 +159,7 @@ impl RiftState {
 		);
 		arena.height = size.1;
 		let shared = Shared {
+			environment: arena.environment.clone(),
 			scene: Some(arena.scene.id().0),
 			..Shared::default()
 		};
@@ -260,6 +261,9 @@ impl RiftState {
 	}
 
 	fn tick(&mut self, delta: f64) {
+		self.size = platform::viewport();
+		self.arena.aspect = self.size.0 / self.size.1;
+		self.arena.height = self.size.1;
 		self.seconds += delta;
 		let live_pose = {
 			let mut live = self.shared.live.borrow_mut();
@@ -494,7 +498,9 @@ pub fn rift_view(props: &RiftViewProps) -> Element {
 			if let Some(arms) = state.arena.viewmodel() {
 				root = root.child(viewmodel_view(&arms));
 			}
-			let mut marks = Sketch::default();
+			let mut marks = state
+				.arena
+				.room_marks(&lens, state.shared.live.borrow().position);
 			fight(
 				&mut marks,
 				&lens,

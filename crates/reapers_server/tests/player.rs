@@ -480,7 +480,11 @@ async fn when_a_hunt_in_a_room_is_submitted_then_the_replay_walks_the_same_room(
 		..log.clone()
 	};
 
-	assert_eq!(log.encode()[0], 8, "the log carries the room");
+	assert_eq!(
+		log.encode()[0],
+		10,
+		"the log carries the room and current combat rules"
+	);
 	assert!(walked.absorbed());
 	assert_ne!(
 		replay(&without_the_room),

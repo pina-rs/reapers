@@ -565,10 +565,9 @@ fn with_no_charge_left_the_knife_cannot_dive() {
 	sim.set_dive_charges(0);
 
 	assert!(!sim.in_reach(sim.pose().direction()));
-	assert!(
-		sim.step(&fire_at(&sim, sim.pose().direction(), None))
-			.is_empty()
-	);
+	let events = sim.step(&fire_at(&sim, sim.pose().direction(), None));
+	assert!(events.contains(&HuntEvent::Missed(Archetype::Blade)));
+	assert!(!sim.diving());
 }
 
 #[test]
@@ -580,8 +579,48 @@ fn the_knife_does_not_dive_at_a_husk_beyond_its_reach() {
 	let away = Vec3::from_angles(sim.pose().yaw() + 1.0, sim.pose().pitch());
 
 	assert!(!sim.in_reach(away));
-	assert!(sim.step(&fire_at(&sim, away, None)).is_empty());
+	let events = sim.step(&fire_at(&sim, away, None));
+	assert!(events.contains(&HuntEvent::Missed(Archetype::Blade)));
+	assert!(!sim.diving());
 	assert_eq!(sim.dive_charges(), BladeRules::DIVE_CHARGES);
+}
+
+#[test]
+fn a_melee_miss_swings_without_a_dive_and_spends_the_normal_cooldown() {
+	for (slot, archetype) in [
+		(Arsenal::BLADE_SLOT, Archetype::Blade),
+		(Arsenal::HEAVY_SLOT, Archetype::Heavy),
+	] {
+		let mut sim = ambushed();
+		draw(&mut sim, slot);
+		let away = -sim.pose().direction();
+		let ward = sim.ward();
+		let charges = sim.dive_charges();
+		let events = sim.step(&fire_at(&sim, away, None));
+		assert!(events.contains(&HuntEvent::Missed(archetype)));
+		assert!(!sim.diving());
+		assert_eq!(sim.ward(), ward);
+		assert_eq!(sim.dive_charges(), charges);
+		assert!(sim.cooldown_ticks() > 0);
+		let events = sim.step(&fire_at(&sim, away, None));
+		assert!(
+			!events
+				.iter()
+				.any(|event| matches!(event, HuntEvent::Missed(_)))
+		);
+	}
+}
+
+#[test]
+fn earlier_combat_logs_cannot_silently_replay_the_new_missed_swing_rule() {
+	let mut bytes = HuntLog::new(Vec::new()).encode();
+	for old in [7, 8] {
+		bytes[0] = old;
+		assert_eq!(
+			HuntLog::decode(&bytes),
+			Err(HuntLogError::UnsupportedVersion)
+		);
+	}
 }
 
 #[test]

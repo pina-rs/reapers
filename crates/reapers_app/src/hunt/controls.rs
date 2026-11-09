@@ -667,7 +667,7 @@ fn fire(words: &dyn Messages, thumbs: &Thumbs) -> Element {
 	} else {
 		INK
 	};
-	let mut button = View()
+	let mut button = Pressable(words.hunt_fire())
 		.class(format!(
 			"w-[{BUTTON}px] h-[{BUTTON}px] rounded-full border-2 items-center justify-center {} border-[{}]",
 			ground(under),
@@ -721,13 +721,14 @@ fn chip(words: &dyn Messages, thumbs: &Thumbs, index: usize, art: Option<ArtSkil
 		(BONE, INK, "border-transparent".to_owned())
 	};
 	let back = ground(under);
-	let mut chip = View()
+	let mut chip = Pressable(words.hunt_slot_semantics(&name, index as i64 + 1))
 		.class(format!(
 			"flex-row items-center gap-2 min-h-[{TARGET}px] min-w-[{TARGET}px] px-3 rounded-full border {back} {edge}"
 		))
 		.test_id(format!("hunt-slot-{index}"))
 		.accessibility_label(words.hunt_slot_semantics(&name, index as i64 + 1))
 		.aria_selected(selected)
+		.enabled(enabled && thumbs.touchable)
 		.child(figure((index + 1).to_string(), 11, legible(ASH, under)))
 		.child(label(
 			&name,
@@ -770,6 +771,42 @@ mod tests {
 		while sim.phase() == HuntPhase::Stalk {
 			let input = reapers_rules::HuntInput::still(sim.pose().direction(), 0.0);
 			sim.step(&input);
+		}
+	}
+
+	#[test]
+	fn fire_and_the_weapon_rail_are_controls_the_phone_can_press() {
+		use leptoskit_testing::Finder;
+		use leptoskit_testing::WidgetTester;
+		let tester = WidgetTester::new(
+			|| {
+				let sim = sim();
+				View().class("relative w-full h-screen").child(controls(
+					&En,
+					&Thumbs {
+						sim: &sim,
+						slot: 0,
+						carried: [true; 4],
+						weapon: WeaponKind::Scythe,
+						light: BONE,
+						aim: -sim.pose().direction(),
+						lesson: None,
+						touchable: true,
+						on_fire: || {},
+						on_slot: |_| {},
+					},
+				))
+			},
+			390.0,
+			844.0,
+		)
+		.unwrap();
+		for id in ["hunt-fire", "hunt-slot-0", "hunt-slot-1", "hunt-slot-2"] {
+			assert_eq!(
+				tester.find(&Finder::test_id(id)).unwrap().kind,
+				leptoskit::native::NativeKind::Pressable,
+				"{id} must generate a native press even when the crosshair misses"
+			);
 		}
 	}
 

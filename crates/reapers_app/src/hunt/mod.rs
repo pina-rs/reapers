@@ -9,6 +9,7 @@ pub mod arena;
 pub mod arms;
 pub mod controller;
 pub mod controls;
+pub mod environment;
 pub mod hud;
 pub mod lessons;
 pub mod overlay;

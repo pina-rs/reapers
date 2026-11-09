@@ -21,6 +21,7 @@ use leptoskit::scene3d::client::Scene;
 /// no host to send them to).
 pub struct GameScene {
 	scene: Scene,
+	shot_target: RefCell<Option<(i64, super::camera::Point)>>,
 	#[cfg(not(all(target_arch = "wasm32", any(feature = "web", feature = "native"))))]
 	sent: RefCell<Vec<Op>>,
 }
@@ -29,6 +30,7 @@ impl GameScene {
 	fn new(id: SceneId) -> Self {
 		Self {
 			scene: Scene::new(id),
+			shot_target: RefCell::new(None),
 			#[cfg(not(all(target_arch = "wasm32", any(feature = "web", feature = "native"))))]
 			sent: RefCell::new(Vec::new()),
 		}
@@ -41,6 +43,18 @@ impl GameScene {
 	/// The scene, to queue ops on.
 	pub fn ops(&self) -> &Scene {
 		&self.scene
+	}
+
+	/// The real surface a missed shot met, for its tracer to stop there.
+	pub fn set_shot_target(&self, tick: i64, at: super::camera::Point) {
+		*self.shot_target.borrow_mut() = Some((tick, at));
+	}
+
+	pub fn shot_target(&self, tick: i64) -> Option<super::camera::Point> {
+		self.shot_target
+			.borrow()
+			.filter(|(shot, _)| *shot == tick)
+			.map(|(_, at)| at)
 	}
 
 	/// Sends what is queued. The host applies batches in the order they were

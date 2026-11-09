@@ -2072,6 +2072,9 @@ impl HuntSim {
 	/// FIRE with the blade in hand: a stab in arm's reach, or a dive at a
 	/// husk on the crosshair within reach of one.
 	fn thrust(&mut self, aim: Aim, events: &mut Vec<HuntEvent>) {
+		if self.tick < self.next_melee_tick {
+			return;
+		}
 		let current = self.pose();
 		let ray = aim.direction();
 
@@ -2091,6 +2094,9 @@ impl HuntSim {
 			&& self.dive_charges > 0;
 
 		if !reachable {
+			self.engage(events);
+			self.next_melee_tick = self.tick + BladeRules::STAB_INTERVAL_TICKS;
+			self.miss(Archetype::Blade, events);
 			return;
 		}
 
@@ -2108,6 +2114,9 @@ impl HuntSim {
 	/// FIRE with the class weapon in hand: a swing in arm's reach, or a
 	/// dive and a swing at a husk on the crosshair within reach of one.
 	fn heave(&mut self, aim: Aim, events: &mut Vec<HuntEvent>) {
+		if self.tick < self.next_melee_tick {
+			return;
+		}
 		let current = self.pose();
 		let ray = aim.direction();
 
@@ -2126,6 +2135,9 @@ impl HuntSim {
 			&& current.distance_from(self.eye.point()) <= HeavyRules::DIVE_METRES;
 
 		if !reachable {
+			self.engage(events);
+			self.next_melee_tick = self.tick + self.stats.swing_ticks;
+			self.miss(Archetype::Heavy, events);
 			return;
 		}
 

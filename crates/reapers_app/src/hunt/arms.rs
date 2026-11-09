@@ -76,6 +76,11 @@ pub struct Arms {
 }
 
 impl Arms {
+	/// The class weapon whose swing the arms show.
+	pub const fn weapon(&self) -> WeaponKind {
+		self.heavy
+	}
+
 	/// Arms drawing their first weapon as the fight in `sim` begins, with
 	/// `heavy` in the heavy slot.
 	pub fn new(sim: &HuntSim, heavy: WeaponKind) -> Self {

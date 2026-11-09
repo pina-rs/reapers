@@ -31,7 +31,7 @@ leptoskit_plugin_store = { workspace = true }
 # The rifts' live socket.
 leptoskit_plugin_websocket = { workspace = true, features = ["async-host"] }
 # The room around the player: the platform's AR, or its rotation sensor.
-leptoskit_xr = { version = "=0.3.0", features = ["async-host"] }
+leptoskit_xr = { version = "=0.3.0", features = ["scene3d"] }
 # Mobile Wallet Adapter: the `solana-wallet` runtime service and Android platform.
 solana_kit_leptoskit = { workspace = true, features = ["wallet-host"] }
 
