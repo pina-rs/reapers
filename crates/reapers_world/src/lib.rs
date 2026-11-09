@@ -22,6 +22,7 @@ pub mod drawn_room;
 pub mod occlusion_map;
 pub mod pose;
 pub mod rift_placer;
+pub mod room_grid;
 pub mod room_map;
 pub mod room_survey;
 
@@ -39,6 +40,7 @@ pub use pose::SensorPose;
 pub use pose::from_platform;
 pub use pose::to_platform;
 pub use rift_placer::RiftPlacer;
+pub use room_grid::RoomGridBuilder;
 pub use room_map::Furniture;
 pub use room_map::RoomMap;
 pub use room_survey::RoomSurvey;

@@ -16,7 +16,7 @@ const RINGS: usize = 90;
 const RING_SIZE: f64 = 0.07;
 
 /// Every other pixel each way is enough to map a room with.
-const STRIDE: usize = 2;
+pub(crate) const STRIDE: usize = 2;
 
 /// Points a slice needs before it counts as read.
 const POINTS_TO_READ: f64 = 60.0;
@@ -26,7 +26,7 @@ const POINTS_OF_FLOOR: u32 = 3;
 const POINTS_IN_THE_WAY: u32 = 5;
 
 /// Nearer than this, in metres, is the player's own feet and hands.
-const SELF_METRES: f64 = 0.6;
+pub(crate) const SELF_METRES: f64 = 0.6;
 
 /// How far off the floor a point may be and still be floor: a little, and a
 /// little more for every metre away, where depth is less sure.
@@ -159,10 +159,42 @@ struct Clear {
 
 /// One picture as a cloud of points around the player's eye. Points that
 /// were not seen are NaN.
-struct Cloud {
-	xs: Vec<f32>,
-	ys: Vec<f32>,
-	zs: Vec<f32>,
+pub(crate) struct Cloud {
+	pub(crate) xs: Vec<f32>,
+	pub(crate) ys: Vec<f32>,
+	pub(crate) zs: Vec<f32>,
+}
+
+/// The normal of the surface through one point of a [`Cloud`], before it is
+/// scaled to length 1, so that its tilt can be compared without dividing
+/// twice.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct SurfaceNormal {
+	pub(crate) x: f64,
+	pub(crate) y: f64,
+	pub(crate) z: f64,
+	pub(crate) length: f64,
+}
+
+impl SurfaceNormal {
+	/// Whether the surface faces nearly straight up or down: a floor, a
+	/// table top, a ceiling.
+	pub(crate) fn is_level(self) -> bool {
+		self.y.abs() / self.length >= LEVEL_SHARE
+	}
+
+	/// How much of this normal lies in the horizontal plane, from 0 for a
+	/// level surface to 1 for a vertical one.
+	pub(crate) fn horizontal_share(self) -> f64 {
+		math::sqrt(self.x * self.x + self.z * self.z) / self.length
+	}
+
+	/// The direction this surface faces across the floor, folded into one
+	/// quarter turn: a wall and the same wall seen the other way round are
+	/// one axis.
+	pub(crate) fn folded_angle(self) -> f64 {
+		math::atan2(self.x, self.z).rem_euclid(PI / 2.0)
+	}
 }
 
 impl RoomMap {
@@ -273,33 +305,7 @@ impl RoomMap {
 	pub fn add(&mut self, frame: &DepthFrame) -> bool {
 		let columns = frame.width / STRIDE;
 		let rows = frame.height / STRIDE;
-		let count = columns * rows;
-		let mut cloud = Cloud {
-			xs: vec![0.0; count],
-			ys: vec![0.0; count],
-			zs: vec![0.0; count],
-		};
-		let pose = frame.pose;
-
-		for row in 0..rows {
-			for column in 0..columns {
-				let (across, up) = frame.tangents(column * STRIDE, row * STRIDE);
-				let depth = f64::from(frame.depths[row * STRIDE * frame.width + column * STRIDE]);
-				let depth = if depth > 0.0 && depth.is_finite() {
-					depth
-				} else {
-					f64::NAN
-				};
-				let index = row * columns + column;
-
-				cloud.xs[index] =
-					(depth * (pose.forward.x + pose.right.x * across + pose.up.x * up)) as f32;
-				cloud.ys[index] =
-					(depth * (pose.forward.y + pose.right.y * across + pose.up.y * up)) as f32;
-				cloud.zs[index] =
-					(depth * (pose.forward.z + pose.right.z * across + pose.up.z * up)) as f32;
-			}
-		}
+		let cloud = Cloud::of(frame);
 
 		let level = level_points(&cloud, columns, rows);
 		let measured = self.measured_floor;
@@ -757,6 +763,51 @@ impl RoomMap {
 }
 
 impl Cloud {
+	/// One picture's points at every other pixel each way.
+	pub(crate) fn of(frame: &DepthFrame) -> Self {
+		Self::of_filtered(frame, |_, _| true)
+	}
+
+	/// One picture's points at every other pixel each way, leaving out the
+	/// pixels `keep` refuses. `keep` is asked about the sampled pixel's own
+	/// column and row.
+	pub(crate) fn of_filtered(frame: &DepthFrame, keep: impl Fn(usize, usize) -> bool) -> Self {
+		let columns = frame.width / STRIDE;
+		let rows = frame.height / STRIDE;
+		let count = columns * rows;
+		let mut cloud = Self {
+			xs: vec![0.0; count],
+			ys: vec![0.0; count],
+			zs: vec![0.0; count],
+		};
+		let pose = frame.pose;
+
+		for row in 0..rows {
+			for column in 0..columns {
+				let sampled_column = column * STRIDE;
+				let sampled_row = row * STRIDE;
+				let (across, up) = frame.tangents(sampled_column, sampled_row);
+				let depth = f64::from(frame.depths[sampled_row * frame.width + sampled_column]);
+				let depth = if depth > 0.0 && depth.is_finite() && keep(sampled_column, sampled_row)
+				{
+					depth
+				} else {
+					f64::NAN
+				};
+				let index = row * columns + column;
+
+				cloud.xs[index] =
+					(depth * (pose.forward.x + pose.right.x * across + pose.up.x * up)) as f32;
+				cloud.ys[index] =
+					(depth * (pose.forward.y + pose.right.y * across + pose.up.y * up)) as f32;
+				cloud.zs[index] =
+					(depth * (pose.forward.z + pose.right.z * across + pose.up.z * up)) as f32;
+			}
+		}
+
+		cloud
+	}
+
 	/// Point `index` as `(x, y, z)`, how far it is from the player across
 	/// the floor, and the ring it falls in when the floor is `floor` below
 	/// the eye. `None` for a point that was not seen, is the player's own
@@ -778,14 +829,17 @@ impl Cloud {
 	}
 }
 
-/// Which points lie on a level surface: a floor, a table top, a ceiling.
+/// The surface normal at every point of a cloud, or `None` where no surface
+/// can be told: a point next to one that was not seen.
 ///
 /// The surface at a point faces along the cross product of the steps to the
-/// next point across and the next point down. It is level when that points
-/// nearly straight up or down. A point next to one that was not seen has no
-/// surface that can be told.
-fn level_points(cloud: &Cloud, columns: usize, rows: usize) -> Vec<bool> {
-	let mut level = vec![false; cloud.xs.len()];
+/// next point across and the next point down.
+pub(crate) fn surface_normals(
+	cloud: &Cloud,
+	columns: usize,
+	rows: usize,
+) -> Vec<Option<SurfaceNormal>> {
+	let mut normals = vec![None; cloud.xs.len()];
 
 	for row in 0..rows {
 		for column in 0..columns {
@@ -819,14 +873,27 @@ fn level_points(cloud: &Cloud, columns: usize, rows: usize) -> Vec<bool> {
 			let nz = ax * by - ay * bx;
 			let length = math::length(nx, ny, nz);
 
-			// NaN, from a point not seen, fails both.
-			if length > 0.0 && ny.abs() / length >= LEVEL_SHARE {
-				level[at] = true;
+			// NaN, from a point not seen, fails this too.
+			if length > 0.0 {
+				normals[at] = Some(SurfaceNormal {
+					x: nx,
+					y: ny,
+					z: nz,
+					length,
+				});
 			}
 		}
 	}
 
-	level
+	normals
+}
+
+/// Which points lie on a level surface: a floor, a table top, a ceiling.
+fn level_points(cloud: &Cloud, columns: usize, rows: usize) -> Vec<bool> {
+	surface_normals(cloud, columns, rows)
+		.into_iter()
+		.map(|normal| normal.is_some_and(SurfaceNormal::is_level))
+		.collect()
 }
 
 /// How far below the eye the floor in one picture is, or `None` when the
