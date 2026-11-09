@@ -342,7 +342,6 @@ impl HuntState {
 		if plan.room.is_none() {
 			plan.room = self.room_grid();
 		}
-		let grid = plan.room.clone();
 		let without_room = HuntPlan {
 			room: None,
 			..plan.clone()
@@ -354,7 +353,10 @@ impl HuntState {
 		else {
 			return;
 		};
-		self.overlay = grid
+		self.overlay = sim
+			.plan()
+			.room
+			.clone()
 			.filter(|_| crate::config::BuildFlags::current().room_overlay)
 			.map(|grid| RoomOverlay::new(grid, self.brief.nft.collection.vessel()));
 		let occlusion = self
