@@ -6,28 +6,33 @@ This page says how the game does that, where the depth comes from, what was lear
 
 ## In the leptoskit game
 
-The Rust game (`crates/reapers_app`) reads the room differently from the Flutter one, though it keeps every number of the map itself. There is no depth model in it. Depth now comes from the phone's own AR, through `leptoskit_xr`:
+The Rust game (`crates/reapers_app`) reads the room differently from the Flutter one, though it keeps every number of the map itself. Depth comes through `leptoskit_xr`: from the phone's own AR where it measures depth, and from the Flutter game's depth model, run by the `xr` plugin on the camera's picture, where it does not:
 
-1. **Following the phone.** A hunt asks the platform for `PhoneAr` (ARKit, ARCore) with planes and depth, and falls back to `Orientation` (the rotation sensor) where there is no AR, and to a dragged finger where there is neither (`hunt/pose.rs`, `hunt/xr.rs`). The browser asks only for `Orientation`: its `immersive-ar` would take the page away from the game's own canvas.
-2. **Depth without the picture.** The game's Wasm never sees the platform's depth picture; it can only cast a ray and be told how far along it the depth was. So, about once a second while the sigil is traced and the phone is steady, it casts a grid of 12 by 16 rays through the view against the platform's depth, and `reapers_world::DepthFrame::from_rays` turns their distances along each ray into a depth picture, filling between rays only where four of them lie on one flat surface. Each ray is a question the host answers, so the grid is coarse, and that has a price: 12 by 16 rays find the drawn kitchen's floor to a millimetre and its counter's front and height to a few centimetres, but never read the counter's top as a ledge, which takes 48 by 64 (`RayGrid` says why). A husk will hide behind a real counter but not yet leap onto one. Using the hits' surface normals, which the platform also reports, would let far fewer rays find a level top; that is the next thing to try.
-3. **The floor is measured, not found.** The platform's planes give the floor: the lowest plane facing up, or one it calls the floor. Its height under the phone goes to `RoomMap::measure_floor`, and every picture is then scaled to it. The platform's metres are real, unlike the model's, so nothing is divided out.
-4. **The rest is unchanged.** `RoomMap`, `OcclusionMap`, the cover, the ledges and `sigil_plan` are the Flutter arithmetic, ported to `crates/reapers_world` with no camera, sensor or clock in it, and tested there against the same rooms drawn by hand.
-5. **Hiding the husk.** The Flutter game cut the husk away pixel by pixel with a shader. `leptoskit_3d` draws only its own materials, so the game fades the whole husk when the occlusion map says its middle is behind something. Where the host composites the scene over the camera with the platform's depth (`leptoskit_xr::host::scene3d::draw`), real depth hides it exactly; see below for where that is not yet the case.
+1. **Following the phone.** A hunt asks the platform for `ImmersiveAr` (only a Meta Quest offers it), then `PhoneAr` (ARKit, ARCore) with planes, depth and the camera's picture, and falls back to `Orientation` (the rotation sensor, with the camera's picture where the phone has a camera) where there is no AR, and to a dragged finger where there is neither (`hunt/pose.rs`, `hunt/xr.rs`). The browser asks only for `Orientation`: its `immersive-ar` would take the page away from the game's own canvas.
+2. **The camera's picture behind the hunt.** In the native apps the hunt's and the rift's `Scene3d` ask for the camera backdrop. While a session gives the picture, the host draws the scene over it from the platform's own view of the room, and the game drops its veil and its dark ground so the room shows through. The rules place a husk around a player at the origin; the platform draws from where the phone really is, so the husk is placed around the phone's tracked position (`Arena::anchor`).
+3. **Depth without the picture.** The game's Wasm never sees the platform's depth picture; it can only cast a ray and be told how far along it the depth was. So, about once a second while the sigil is traced and the phone is steady, it casts a grid of 12 by 16 rays through the view against the platform's depth, and `reapers_world::DepthFrame::from_rays` turns their distances along each ray into a depth picture, filling between rays only where four of them lie on one flat surface. Each ray is a question the host answers, so the grid is coarse, and that has a price: 12 by 16 rays find the drawn kitchen's floor to a millimetre and its counter's front and height to a few centimetres, but never read the counter's top as a ledge, which takes 48 by 64 (`RayGrid` says why). A husk will hide behind a real counter but not yet leap onto one. Using the hits' surface normals, which the platform also reports, would let far fewer rays find a level top; that is the next thing to try.
+4. **The floor is measured, not found.** The platform's planes give the floor: the lowest plane facing up, or one it calls the floor. Its height under the phone goes to `RoomMap::measure_floor`, and every picture is then scaled to it. The platform's metres are real; the model's are not, and where it reads the depth, scaling to the measured floor is what divides its error out, as it did in the Flutter game. On the Seeker, which finds no planes, the floor is the map's own lowest level surface, as before.
+5. **The rest is unchanged.** `RoomMap`, `OcclusionMap`, the cover, the ledges and `sigil_plan` are the Flutter arithmetic, ported to `crates/reapers_world` with no camera, sensor or clock in it, and tested there against the same rooms drawn by hand.
+6. **Hiding the husk.** The Flutter game cut the husk away pixel by pixel with a shader. `leptoskit_3d` draws only its own materials, so the game fades the whole husk when the occlusion map says its middle is behind something. Where the host composites the scene over the camera with depth (`leptoskit_xr::host::scene3d::draw`), that depth hides it exactly.
+7. **Depth where the phone measures none.** The Seeker, ARCore phones without the Depth API and iPhones without LiDAR get depth from Depth Anything V2 Small, the model the Flutter game shipped (see below), which the `xr` plugin runs on the camera's picture about once a second, off the thread that draws (`leptoskit_depth`). `leptoskit.toml` names it (`[native.plugin-options.xr] depth-model`); it is 27 MB and not committed, so `cargo xtask fetch-depth-model` fetches it, with its Apache-2.0 licence, from the repository's `depth-model-v1` release into `assets/depth`, and `build.rs` bundles it. A build without it runs, and those phones read no room. Rays cast against an estimate meet it from where the phone was when the picture was taken. The frame does not say whether its depth was measured or estimated, so on a phone that finds planes but measures no depth (an ARCore phone without the Depth API, an iPhone without LiDAR) the model's metres are charted against the measured floor, which `RoomMap` trusts as real; the Seeker, which finds no planes, reads each picture against its own floor, as the Flutter game did. Telling the two apart needs the frame to say so.
 
 What runs where:
 
 | Where | Pose | Room read | Behind the husk |
 | --- | --- | --- | --- |
-| iPhone with LiDAR (ARKit) | 6DoF, platform | yes: depth rays and planes | the veil (see below) |
-| Android with ARCore and its Depth API | 6DoF, platform | yes | the veil |
-| Android without ARCore (the Seeker) | rotation sensor | no: the sigil's arc alone | the veil |
+| iPhone with LiDAR (ARKit) | 6DoF, platform | yes: depth rays and planes | the camera's picture |
+| iPhone without LiDAR, Android with ARCore but no Depth API | 6DoF, platform | yes: rays against the model's depth, and planes | the camera's picture |
+| Android with ARCore and its Depth API | 6DoF, platform | yes | the camera's picture |
+| Android without ARCore (the Seeker) | rotation sensor | yes: rays against the model's depth | the camera's picture, through Camera2 |
+| Meta Quest | 6DoF, headset | no | passthrough, in an immersive session over the panel |
 | Browser on a phone | `deviceorientation` | no | the veil |
 | Desktop browser, simulator | a dragged finger | no, or the drawn room | the veil |
 
-**Not yet on a device.** Nothing above has run on a phone: there was none to hand when it was written. Two things are known gaps:
+**Not yet on a device.** Nothing above has run on a phone or a headset: there was none to hand when it was written, so it is tested on recordings, on this Mac's GPU and on photographs only. The first device runs should check:
 
-- **The camera's picture.** The generated iOS and Android hosts draw a `Scene3d` view over the app's own views and do not yet hand it the XR session's camera picture and depth (`Backdrop::Camera` draws as transparent there). Until a host does, the hunt is fought over the veil, as on a simulator, with the husk placed in the real room by the platform's tracking. `leptoskit_xr::host::scene3d::draw` is the piece that would draw it.
-- **The Seeker.** It has no ARCore, and the game no longer carries a depth model, so on the Seeker the room is not read at all and a husk keeps to the sigil's arc in the open. Putting the model back would mean running it in a host plugin, where the camera's picture is.
+- **The camera's picture:** that it sits upright and fills the view on a rotated phone, that the husk stands where the room says, and that the HUD still shows over it on Android.
+- **The Seeker:** Camera2's picture and its orientation, and how long the model takes a picture there. The Flutter game took half a second on two cores through ONNX Runtime; `leptoskit_depth` runs it through `tract`, which was within 1.35× of ONNX Runtime on a Mac. Watch that the game still draws smoothly while it runs.
+- **Meta Quest:** the switch from the panel into the immersive session and back. The 2D marks of the fight (the sigil, the HUD) are drawn by the panel and are not seen in the headset.
 
 `REAPERS_DRAWN_ROOM=true` (debug builds) plays every hunt in the drawn kitchen, read as if the platform had seen it, with its edges drawn where the camera's picture would be. `REAPERS_DEPTH_PROBE=true` opens the depth bench: what the platform reports, and the last grid of rays as a picture, nearest brightest, with how long the look took.
 
@@ -166,7 +171,7 @@ On 3 October 2026 the scan was reported to work, with a request for something cl
 
 ## What it cannot do
 
-- **Read the room on a phone without platform depth.** The Seeker, iPhones without LiDAR and the browser play in the open.
+- **Read the room in the browser.** It turns, but has neither depth nor the camera's picture.
 - **Notice a change.** The plan is made once, before the hunt. Move a chair and the husk walks through it.
 - **Know the ceiling.** A flier's air is capped by its own rules, not by the room.
 - **Tell a sofa from a counter.** It knows how tall something is and whether its top is level, not what it is.
@@ -176,11 +181,10 @@ On 3 October 2026 the scan was reported to work, with a request for something cl
 
 In the order I would do them:
 
-1. **The camera hunt on `leptoskit_xr`**, with the plan made from platform depth, and the husk hidden by the depth image as it is drawn.
-2. **Try it in real rooms and tune it.** Cover and ledges have only been tried in rooms drawn by hand: whether real counters read as ledges, and whether the cut lines up with the real edge, needs a phone in a kitchen.
-3. **Read the room again during the fight**, so a chair that moves stops hiding the husk. Platform depth arrives every frame, so this is a matter of rebuilding the plan, not of taking more pictures.
-4. **A fallback for phones without platform depth**, if the Seeker is to read rooms again: a depth model run through `leptoskit_xr`, starting from the measurements above.
-5. **Naming things, on the server.** It has been said that frames may be sent if it makes things better, and asked that descriptions be sent in place of pictures. The plan is already that description, and already travels with every hunt. What a server could add is meaning: which obstacle is a sofa to hide behind, which is a table to stand on. That needs a few small pictures, a vision model, and a key for it. Nothing here sends a picture anywhere, and I would want a consent screen and a rule about not keeping them before anything did.
+1. **Try it in real rooms and tune it.** Cover and ledges have only been tried in rooms drawn by hand: whether real counters read as ledges, and whether the cut lines up with the real edge, needs a phone in a kitchen.
+2. **Read the room again during the fight**, so a chair that moves stops hiding the husk. Platform depth arrives every frame, so this is a matter of rebuilding the plan, not of taking more pictures.
+3. **Measure the model on the Seeker** and tune how often it looks, against how smoothly the game draws.
+4. **Naming things, on the server.** It has been said that frames may be sent if it makes things better, and asked that descriptions be sent in place of pictures. The plan is already that description, and already travels with every hunt. What a server could add is meaning: which obstacle is a sofa to hide behind, which is a table to stand on. That needs a few small pictures, a vision model, and a key for it. Nothing here sends a picture anywhere, and I would want a consent screen and a rule about not keeping them before anything did.
 
 ## The Seeker's GPU
 

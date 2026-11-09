@@ -241,6 +241,17 @@ static MOTES: LazyLock<Vec<(Vec3, f64, f64)>> = LazyLock::new(|| {
 		.collect()
 });
 
+/// The frame a hunt or a rift is drawn in: the veil's ink under it, unless
+/// the platform draws its camera's picture behind the scene, which the
+/// room must show through.
+pub fn frame_class(camera: bool) -> &'static str {
+	if camera {
+		"relative w-full h-screen overflow-hidden"
+	} else {
+		"relative w-full h-screen overflow-hidden bg-[#07080b]"
+	}
+}
+
 /// The spirit realm with no world behind it: drifting motes and a faint
 /// horizon, for when there is no camera to look through. The motes are
 /// fixed in the hunt's space, so they slide across the screen as the view

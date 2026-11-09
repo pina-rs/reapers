@@ -57,6 +57,10 @@ pub struct LivePose {
 	pub eye_height: Option<f64>,
 	/// Whether the platform measures the room's depth.
 	pub depth: bool,
+	/// Where the platform says the phone is, in its own space, in metres.
+	pub position: Option<[f64; 3]>,
+	/// Whether the platform draws its camera's picture behind the hunt.
+	pub camera: bool,
 }
 
 impl LivePose {
@@ -122,6 +126,8 @@ impl LivePose {
 		self.device = None;
 		self.fov = None;
 		self.depth = false;
+		self.position = None;
+		self.camera = false;
 	}
 
 	/// A touch the platform reported, aiming along `direction`.

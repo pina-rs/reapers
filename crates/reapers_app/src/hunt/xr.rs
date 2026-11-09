@@ -46,6 +46,8 @@ pub struct Shared {
 	pub survey: Rc<RefCell<Option<RoomSurvey>>>,
 	/// Set when the hunt is over and the platform can be let go.
 	pub done: Rc<Cell<bool>>,
+	/// The scene a headset draws into its own frames: the hunt's `Scene3d`.
+	pub scene: Option<u32>,
 }
 
 /// Starts following the platform for `shared`, from a press: browsers only
@@ -80,10 +82,12 @@ mod platform {
 	use super::Shared;
 	use crate::hunt::pose::Tracking;
 
-	/// The modes asked for, best first. The browser's AR would cover the
-	/// page with its own layer, so the browser only turns.
+	/// The modes asked for, best first. A Meta Quest, the only device here
+	/// that offers it, draws the hunt into the headset over its passthrough.
+	/// The browser's AR would cover the page with its own layer, so the
+	/// browser only turns.
 	#[cfg(feature = "native")]
-	const MODES: [Mode; 2] = [Mode::PhoneAr, Mode::Orientation];
+	const MODES: [Mode; 3] = [Mode::ImmersiveAr, Mode::PhoneAr, Mode::Orientation];
 	#[cfg(not(feature = "native"))]
 	const MODES: [Mode; 1] = [Mode::Orientation];
 
@@ -146,8 +150,11 @@ mod platform {
 			}
 			#[cfg_attr(not(feature = "native"), allow(unused_mut))]
 			let mut ready = xr.prepare(mode, false).await.ok()?;
+			// The rotation sensor answers ready without the camera, which a
+			// phone without AR (the Seeker) still shows behind the hunt: ask
+			// for it first there too.
 			#[cfg(feature = "native")]
-			if ready == Availability::NeedsPermission
+			if (ready == Availability::NeedsPermission || mode == Mode::Orientation)
 				&& let Ok(permissions) = leptoskit_plugin_permissions::guest::Permissions::new()
 			{
 				let _ = permissions
@@ -159,13 +166,18 @@ mod platform {
 				continue;
 			}
 			let config = SessionConfig::new(mode)
-				.prefer(Features::PLANES | Features::DEPTH | Features::HIT_TEST)
+				.prefer(
+					Features::PLANES
+						| Features::DEPTH
+						| Features::HIT_TEST
+						| Features::CAMERA_IMAGE,
+				)
 				.frame_rate(30);
 			if let Ok(session) = xr.start(config).await {
-				let tracking = if mode == Mode::PhoneAr {
-					Tracking::World
-				} else {
+				let tracking = if mode == Mode::Orientation {
 					Tracking::Turning
+				} else {
+					Tracking::World
 				};
 				return Some((session, tracking));
 			}
@@ -180,6 +192,10 @@ mod platform {
 		let Some((mut session, tracking)) = start(xr).await else {
 			return;
 		};
+		// A headset draws the hunt's scene itself; a phone's session shows
+		// it in the hunt's own view and ignores this.
+		let _ = session.present(shared.scene).await;
+		shared.live.borrow_mut().camera = session.info().features.contains(Features::CAMERA_IMAGE);
 		let mut planes = Vec::new();
 		let mut planes_revision = u64::MAX;
 		let mut touches: Vec<(u32, f64, bool)> = Vec::new();
@@ -197,6 +213,8 @@ mod platform {
 				live.track(quaternion(&frame), frame.time, tracking);
 				live.fov = fov(&frame);
 				live.depth = frame.depth;
+				let at = frame.viewer.position;
+				live.position = Some([f64::from(at.x), f64::from(at.y), f64::from(at.z)]);
 				if let Some(height) = eye_height(&frame, &planes) {
 					live.eye_height = Some(height);
 				}

@@ -38,6 +38,7 @@ use crate::hunt::hud::status_view;
 use crate::hunt::overlay::Lens;
 use crate::hunt::overlay::Sketch;
 use crate::hunt::overlay::fight;
+use crate::hunt::overlay::frame_class;
 use crate::hunt::overlay::veil;
 use crate::hunt::pose::Tracking;
 use crate::hunt::xr::Shared;
@@ -129,10 +130,22 @@ impl RiftState {
 		let relics = props.site.relics();
 		let first = relics[0];
 		let accent = reapers_rules::NftLook::of(&first).accent;
+		// As the hunt's: the camera's picture behind it in the native apps.
+		let arena = Arena::new(
+			RIFT,
+			props.site.vessel(),
+			&first,
+			size.0 / size.1,
+			cfg!(feature = "native"),
+		);
+		let shared = Shared {
+			scene: Some(arena.scene.id().0),
+			..Shared::default()
+		};
 		Self {
 			site: props.site,
-			arena: Arena::new(RIFT, props.site.vessel(), &first, size.0 / size.1, false),
-			shared: Shared::default(),
+			arena,
+			shared,
 			loadout,
 			autoplay: props.autoplay,
 			report: props.report.clone(),
@@ -233,6 +246,9 @@ impl RiftState {
 			live.advance(delta);
 			live.pose()
 		};
+		if let Some(position) = self.shared.live.borrow().position {
+			self.arena.anchor(position);
+		}
 		if self.arena.controller.is_none() {
 			self.arena.idle(delta, live_pose);
 		} else {
@@ -416,10 +432,15 @@ pub fn rift_view(props: &RiftViewProps) -> Element {
 	let _ = state.drawn.get();
 	let words = use_l10n();
 	let lens = state.lens();
+	// Where the platform draws its camera's picture behind the scene, the
+	// room shows through: no veil, and nothing opaque under the scene.
+	let camera = state.shared.live.borrow().camera;
 	let mut sketch = Sketch::default();
-	veil(&mut sketch, &lens);
+	if !camera {
+		veil(&mut sketch, &lens);
+	}
 	let mut root = View()
-		.class("relative w-full h-screen overflow-hidden bg-[#07080b]")
+		.class(frame_class(camera))
 		.test_id("rift-view")
 		.child(sketch.into_view(state.size.0, state.size.1))
 		.child(

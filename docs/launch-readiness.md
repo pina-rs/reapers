@@ -13,8 +13,12 @@ distinction as a release contract, not a warning hidden in a roadmap.
   native/animated arrival. All four image masters are retained.
 - One leptoskit app for the browser, Android and iOS; no desktop application.
   Every screen is built, and the 3D views and the hunt run on `leptoskit_3d`
-  and `leptoskit_xr`. Nothing has run on a phone or headset yet, and native
-  phones do not yet draw the camera's picture behind the hunt.
+  and `leptoskit_xr`: the camera's picture behind the fight in the native
+  apps, depth from the phone or, where it measures none (the Seeker), from a
+  depth model, and on Meta Quest an immersive session over the panel. The
+  launcher icons, launch screens, portraits and mark come from the bundled
+  images. Nothing has run on a phone or headset yet: see
+  [environment.md](environment.md) for what the first runs should check.
 - Six offices, 18 birth gifts, four temperaments, original gift lore, individual
   soul memories and three earned awakenings. Shared deterministic rules drive
   gameplay, preview, settlement and persistence.
@@ -43,7 +47,7 @@ publicly hosted launch.
 
 | Work | Concrete missing behaviour | Dependency |
 | --- | --- | --- |
-| 3D and the camera hunt | Reapers, husks and the studio drawn on `leptoskit_3d`; the hunt on `leptoskit_xr`'s camera, pose and platform depth, with the room read into a `HuntPlan`. Until then a hunt is fought by the rules' own player. | `leptoskit_3d` and `leptoskit_xr`; a Seeker and an iPhone for device testing. |
+| Device testing | The camera hunt, the depth model's speed on the Seeker, release builds and Quest's immersive switch have only run on recordings, this Mac's GPU and photographs. | A Seeker, an iPhone and a Quest ([environment.md](environment.md)). |
 | Husk acquisition | Read supported real NFTs already owned by a proved wallet, with verified collection/trait mapping. Prototype `Nft.mockMint` and fixed prices are not usable. | Approved collections and rights. Start with bring-your-own NFTs rather than marketplace custody. |
 | Release and absorption | Escrow, a receipt-bound burn and finishing a burn that did not land work on devnet for the demo husks. Still needed: real collections, rejected and expired transactions under load, and recovery tested against a deployed server. | Chosen asset standards, an audit of the program and deployed addresses. The unaudited program and its devnet runbook exist ([program.md](program.md), [deploy.md](deploy.md)); no mainnet program is deployed. |
 | iOS wallet transport | An explicitly supported wallet's sign-message flow, secure return handling, lifecycle recovery and device tests. MWA cannot provide this. | Wallet choice and an iOS distribution plan compatible with NFT functionality. |
@@ -108,15 +112,32 @@ transport. The browser studio intentionally connects no wallet.
 
 ## Release signing
 
-The leptoskit app's release builds (`leptoskit build --release --platform
-android|ios`) have no store signing configured in this repository yet. The
-first game's Android release task refused to sign without a real upload
-keystore, so it could never silently ship with the debug key; the leptoskit
-host must keep that property when its signing is set up. Supply the
-keystore, its passwords and alias, and the iOS provisioning through
-Monosecret around the one build that needs them (for example `msr --reason
-"Sign Reapers release" leptoskit build --release --platform android`), and
-never commit them. iOS simulator builds do not establish App Store signing.
+`leptoskit build --release --platform android|quest|ios` signs for the
+stores from the environment only, and refuses to build a release with the
+debug key or none: a missing variable stops it before anything compiles,
+and a key file inside the repository is refused. Android and Quest produce
+an App Bundle for Google Play and a signed APK for the Solana dApp Store or
+sideloading, under `crates/reapers_app/.leptoskit/release/`; iOS produces an
+`.ipa` from an archive. `--build-number N` sets the store's build number.
+
+| Variable | For |
+| --- | --- |
+| `LEPTOSKIT_ANDROID_KEYSTORE_BASE64` (or `LEPTOSKIT_ANDROID_KEYSTORE`, a path outside the repository) | The upload keystore. |
+| `LEPTOSKIT_ANDROID_KEYSTORE_PASSWORD`, `LEPTOSKIT_ANDROID_KEY_ALIAS`, `LEPTOSKIT_ANDROID_KEY_PASSWORD` | Its passwords and alias. |
+| `LEPTOSKIT_IOS_TEAM_ID` | The Apple team. |
+| `LEPTOSKIT_PUBLISH_APPLE_ISSUER_ID`, `LEPTOSKIT_PUBLISH_APPLE_KEY_ID`, `LEPTOSKIT_PUBLISH_APPLE_KEY` | App Store Connect's API key, for automatic signing. |
+
+Supply them through Monosecret around the one build that needs them, and
+never commit them:
+
+```sh
+cargo xtask fetch-depth-model
+cd crates/reapers_app
+msr --reason "Sign Reapers release" leptoskit build --release --platform android --build-number 1
+```
+
+Nothing here has been signed yet: there is no upload keystore or Apple team
+for Reapers. iOS simulator builds do not establish App Store signing.
 
 ## Deployment order
 

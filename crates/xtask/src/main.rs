@@ -8,12 +8,14 @@
 //! cargo xtask merge --push     # the same, then push main to origin
 //! cargo xtask build-art        # rebuild every model and portrait (Blender, gltfpack)
 //! cargo xtask build-music      # fetch and re-encode the music (curl, ffmpeg)
+//! cargo xtask fetch-depth-model # fetch the phones' depth model and its licence (curl)
 //! ```
 //!
 //! `cargo xtask` is an alias in `.cargo/config.toml`.
 
 mod art;
 mod check;
+mod depth;
 mod git;
 mod hooks;
 mod merge;
@@ -57,6 +59,8 @@ enum Command {
 	BuildArt(art::Options),
 	/// Fetch the music from its makers and re-encode it.
 	BuildMusic,
+	/// Fetch the depth model phones without platform depth read rooms with.
+	FetchDepthModel,
 }
 
 fn main() -> ExitCode {
@@ -68,6 +72,7 @@ fn main() -> ExitCode {
 		Command::Merge { push } => merge::main(&root, push),
 		Command::BuildArt(options) => art::main(&root, &options),
 		Command::BuildMusic => music::main(&root),
+		Command::FetchDepthModel => depth::main(&root),
 	};
 
 	match outcome {

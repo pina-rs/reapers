@@ -90,6 +90,9 @@ pub struct HuskRig {
 	dissolved: f64,
 	/// Where the rules last put it, and which way it faces.
 	placed: Option<([f32; 3], f32)>,
+	/// Where the player stands in the scene's space: zero, unless the
+	/// platform draws the scene from its own view of the room.
+	origin: [f32; 3],
 	/// What was last sent, so a still husk sends nothing.
 	sent: Option<(Transform, Transform, [i32; 6])>,
 }
@@ -137,6 +140,7 @@ impl HuskRig {
 			grounded: true,
 			dissolved: 0.0,
 			placed: None,
+			origin: [0.0; 3],
 			sent: None,
 		};
 		rig.style(scene, 1.0);
@@ -272,6 +276,14 @@ impl HuskRig {
 		));
 	}
 
+	/// Stands the player at `origin` in the scene's space. The rules place a
+	/// husk around a player at the origin; where the platform draws the
+	/// scene over its camera picture, from where the phone really is, the
+	/// husk is placed around the phone instead.
+	pub fn set_origin(&mut self, origin: [f32; 3]) {
+		self.origin = origin;
+	}
+
 	/// A blow lands: on seal `seal` when it struck one, or the body as a
 	/// whole. `strength` runs from 0 to 1, and a `heavy` blow stops time
 	/// for an instant.
@@ -366,9 +378,13 @@ impl HuskRig {
 		let lift_transform = sway(lift, feet, lean_x, lean_z, twist, squash);
 		let size = 1.0 + self.punch * 0.06;
 		let placed = self.placed.unwrap_or(([0.0; 3], 0.0));
-		let root = Transform::from_translation(placed.0[0], placed.0[1], placed.0[2])
-			.with_yaw(placed.1)
-			.with_scale(size as f32);
+		let root = Transform::from_translation(
+			self.origin[0] + placed.0[0],
+			self.origin[1] + placed.0[1],
+			self.origin[2] + placed.0[2],
+		)
+		.with_yaw(placed.1)
+		.with_scale(size as f32);
 		let eye_glow = reaction.eye_glow();
 		// Materials change in steps fine enough to see, coarse enough that
 		// a husk at rest sends nothing.

@@ -37,6 +37,7 @@ use super::hud::status_view;
 use super::overlay::Lens;
 use super::overlay::Sketch;
 use super::overlay::fight;
+use super::overlay::frame_class;
 use super::overlay::sigil;
 use super::overlay::veil;
 use super::pose::Tracking;
@@ -169,20 +170,26 @@ fn light_of(brief: &HuntBrief) -> Rgb {
 impl HuntState {
 	fn new(props: &HuntViewProps) -> Self {
 		let size = platform::viewport();
+		// The native apps ask for the camera's picture behind the hunt; with
+		// no session to give it, it draws as the browser's does.
 		let arena = Arena::new(
 			HUNT,
 			props.brief.nft.collection.vessel(),
 			&props.brief.nft,
 			size.0 / size.1,
-			false,
+			cfg!(feature = "native"),
 		);
+		let shared = Shared {
+			scene: Some(arena.scene.id().0),
+			..Shared::default()
+		};
 		Self {
 			brief: props.brief,
 			difficulty: props.difficulty,
 			autoplay: props.autoplay,
 			stage: Stage::Briefing,
 			arena,
-			shared: Shared::default(),
+			shared,
 			on_finished: props.on_finished.clone(),
 			banner: None,
 			seconds: 0.0,
@@ -324,6 +331,9 @@ impl HuntState {
 		};
 		if let Some(fov) = self.shared.live.borrow().fov {
 			self.arena.fov = fov;
+		}
+		if let Some(position) = self.shared.live.borrow().position {
+			self.arena.anchor(position);
 		}
 		let mut closed = None;
 		if let Stage::Tracing(trace) = &mut self.stage {
@@ -527,13 +537,18 @@ pub fn hunt_view(props: &HuntViewProps) -> Element {
 	let _ = state.drawn.get();
 	let words = use_l10n();
 	let lens = state.lens();
+	// Where the platform draws its camera's picture behind the scene, the
+	// room shows through: no veil, and nothing opaque under the scene.
+	let camera = state.shared.live.borrow().camera;
 	let mut sketch = Sketch::default();
-	veil(&mut sketch, &lens);
+	if !camera {
+		veil(&mut sketch, &lens);
+	}
 	if let Some(room) = &state.room {
 		crate::dev::drawn_room::draw(&mut sketch, &lens, room);
 	}
 	let mut root = View()
-		.class("relative w-full h-screen overflow-hidden bg-[#07080b]")
+		.class(frame_class(camera))
 		.test_id("hunt-view")
 		.child(sketch.into_view(state.size.0, state.size.1))
 		.child(

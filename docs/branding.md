@@ -16,7 +16,7 @@ The sized images are in `assets/branding`, packed from Bound Sigil:
 | `adaptive_foreground.png` | 1080 px, transparent, mark 600 px | Android's adaptive icon, inside its safe inset. |
 | `adaptive_monochrome.png` | 1080 px, white, mark 600 px | Android's themed icon. |
 
-The app's `build.rs` mirrors them into the bundle beside the models. In the browser the mark is `mark.png` and the launch still `splash_mark.png` (`crates/reapers_app/src/brand.rs`); the native hosts cannot name a bundled picture to an image yet, so there the mark is drawn as a vector: the knot's outer strokes, in the same ivory. The native hosts' launcher icons and launch screens are not yet generated from these files.
+The app's `build.rs` mirrors them into the bundle beside the models, and the app shows the mark as `asset://branding/mark.png` and the launch still as `asset://branding/splash_mark.png` on every platform (`crates/reapers_app/src/brand.rs`). `leptoskit build` makes the native launcher icons from `app_icon.png` (`[app] icon` in `crates/reapers_app/leptoskit.toml`): the iOS set, Android's densities and its adaptive icon on the same ink. It makes the launch screens from `splash_mark.png` on `#07080B` (`[app.launch_screen]`): iOS's `UILaunchScreen` and Android 12's splash screen, with a window background before Android 12. `adaptive_foreground.png` and `adaptive_monochrome.png` are not used by that build: leptoskit makes the adaptive foreground from the icon and has no themed icon yet.
 
 ## Rebuilding from another master
 

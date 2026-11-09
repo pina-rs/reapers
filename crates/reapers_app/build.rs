@@ -2,7 +2,8 @@
 //!
 //! The models, music and NFT portraits are built into the repository's own
 //! `assets/` (by `cargo xtask build-art` and `cargo xtask build-music`),
-//! beside the typefaces and the mark. leptoskit bundles the project's
+//! beside the typefaces and the mark, and the depth model is fetched there
+//! by `cargo xtask fetch-depth-model`. leptoskit bundles the project's
 //! `assets/` directory, and only real files in it, so each of those is
 //! mirrored there: copied when it differs, never rewritten when it
 //! does not, so `leptoskit dev`'s watcher does not chase its own tail. The
@@ -21,12 +22,15 @@ use std::path::Path;
 
 /// Each mirror: where it comes from, relative to this crate, and where it
 /// goes under `assets/`.
-const MIRRORS: [(&str, &str); 5] = [
+const MIRRORS: [(&str, &str); 6] = [
 	("../../assets/nfts", "nfts"),
 	("../../assets/music", "music"),
 	("../../assets/models", "models"),
 	("../../assets/fonts", "fonts"),
 	("../../assets/branding", "branding"),
+	// Fetched by `cargo xtask fetch-depth-model`, not committed: the xr
+	// plugin reads rooms with it on phones without platform depth.
+	("../../assets/depth", "depth"),
 ];
 
 /// `glb` without its primitives' `COLOR_0`, or as it is when it is not a

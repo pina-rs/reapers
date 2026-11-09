@@ -89,6 +89,9 @@ pub struct Arena {
 	pub aspect: f64,
 	/// The camera last sent, so a still view sends nothing.
 	camera: Option<([i32; 6], i32)>,
+	/// Whether the scene is drawn over the camera's picture, from the
+	/// platform's own view of the room.
+	camera_picture: bool,
 }
 
 impl Arena {
@@ -117,6 +120,7 @@ impl Arena {
 			fov: HUNT_FOV,
 			aspect,
 			camera: None,
+			camera_picture,
 		}
 	}
 
@@ -161,6 +165,15 @@ impl Arena {
 			.as_ref()
 			.is_some_and(|controller| controller.sim().is_over())
 			&& self.come_apart >= 1.0
+	}
+
+	/// Stands the player where the platform says the phone is, in its space:
+	/// a platform that draws the scene over its camera picture draws it from
+	/// there, not from the origin the scene's own camera stands at.
+	pub fn anchor(&mut self, position: [f64; 3]) {
+		if self.camera_picture {
+			self.rig.set_origin(position.map(|value| value as f32));
+		}
 	}
 
 	/// Points the scene's camera along `pose`, sending it only when it moved.

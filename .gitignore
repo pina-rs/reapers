@@ -41,3 +41,7 @@ crates/reapers_server/config/passwords.toml
 # Solana keys are never committed: deploy keypairs live outside the repository.
 *-keypair.json
 /keys/
+
+# The phones' depth model and its licence, fetched by
+# `cargo xtask fetch-depth-model` from the depth-model-v1 release.
+/assets/depth/
