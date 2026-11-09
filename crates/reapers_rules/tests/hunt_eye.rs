@@ -536,6 +536,7 @@ fn a_moving_eye_hunt_lands_on_the_same_bits_everywhere() {
 	)
 	.unwrap();
 	let mut hash = 0xcbf2_9ce4_8422_2325_u64;
+	let mut inputs = Vec::new();
 	for tick in 0..600 {
 		let eye = Eye::new(((tick % 80) as i16 - 40) * 10, 0, 0);
 		let input = HuntInput::measured(
@@ -547,6 +548,7 @@ fn a_moving_eye_hunt_lands_on_the_same_bits_everywhere() {
 		)
 		.with_eye(eye);
 		let events = sim.step(&input);
+		inputs.push(input);
 		for byte in sim
 			.pose()
 			.position
@@ -561,6 +563,14 @@ fn a_moving_eye_hunt_lands_on_the_same_bits_everywhere() {
 			hash = (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3);
 		}
 	}
+	let log = HuntLog {
+		inputs,
+		plan: sim.plan().clone(),
+		difficulty: Difficulty::Normal,
+	};
+	let bytes = log.encode();
+	assert_eq!(bytes[0], 9);
+	assert_eq!(HuntLog::decode(&bytes), Ok(log));
 	assert_eq!(hash, 0x30a9_9835_023d_48ad);
 }
 
@@ -771,4 +781,77 @@ fn the_simulation_uses_grid_visibility_for_shots_from_either_side() {
 	hidden.step(&HuntInput::measured(blocked_ray, 0.0, false, 0, false).with_eye(other));
 	assert!(visible.seal_open(0));
 	assert!(!hidden.seal_open(0));
+}
+
+#[test]
+fn a_lean_into_dive_range_starts_the_dive_and_spends_a_blade_charge() {
+	use reapers_rules::Archetype;
+	use reapers_rules::Arsenal;
+	use reapers_rules::BladeRules;
+	use reapers_rules::Eye;
+	use reapers_rules::HeavyRules;
+	use reapers_rules::HuntEvent;
+	use reapers_rules::HuntInput;
+	use reapers_rules::Vec3;
+	for (slot, weapon, limit) in [
+		(
+			Arsenal::BLADE_SLOT,
+			Archetype::Blade,
+			BladeRules::DIVE_METRES,
+		),
+		(
+			Arsenal::HEAVY_SLOT,
+			Archetype::Heavy,
+			HeavyRules::DIVE_METRES,
+		),
+	] {
+		let mut found = false;
+		for seed in 0..100 {
+			let mut sim = SimFor {
+				seed,
+				vessel: Vessel::Ape,
+				..SimFor::default()
+			}
+			.sim();
+			for _ in 0..30 {
+				sim.step(&HuntInput::measured(
+					sim.pose().direction(),
+					0.0,
+					false,
+					slot,
+					false,
+				));
+			}
+			let pos = sim.pose().position;
+			let eye = Eye::rounded(Vec3::new(pos.x, 0.0, pos.z).normalized() * 0.95).unwrap();
+			let origin = sim.pose().distance();
+			let moved = sim.pose().distance_from(eye.point());
+			if origin <= limit + 0.1 || moved >= limit - 0.1 || moved <= Arsenal::CLOSE_METRES + 0.1
+			{
+				continue;
+			}
+			let ray = sim.pose().direction_from(eye.point());
+			sim.step(&HuntInput::measured(ray, 0.0, false, slot, false).with_eye(eye));
+			let input = HuntInput::measured(
+				sim.pose().direction_from(eye.point()),
+				0.0,
+				true,
+				slot,
+				false,
+			)
+			.with_eye(eye);
+			assert!(sim.in_reach(input.aim.direction()));
+			let charges = sim.dive_charges();
+			let events = sim.step(&input);
+			if events.contains(&HuntEvent::DiveStarted(weapon)) {
+				assert_eq!(
+					sim.dive_charges(),
+					charges - i64::from(weapon == Archetype::Blade)
+				);
+				found = true;
+				break;
+			}
+		}
+		assert!(found, "a lean starts a {weapon:?} dive");
+	}
 }
