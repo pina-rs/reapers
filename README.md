@@ -180,15 +180,16 @@ cargo xtask fetch-depth-model # fetch the phones' depth model, 27 MB, not commit
 
 `cargo xtask check` needs `pina` 0.24.0 and Agave's `cargo-build-sbf` for the program's build, and PostgreSQL's binaries for the server's tests; it says which is missing, and how to get it, before it starts. Every push to `main` and every pull request runs it on GitHub Actions; [.github/workflows/ci.yml](.github/workflows/ci.yml) installs the same tools.
 
-There are no pull requests. Work happens on a branch and is merged into `main` locally:
+Every change lands as a pull request, and the checks that let it land run on the machine that lands it:
 
 ```sh
 git switch -c feat/your-change
-cargo xtask merge             # run every check, then fast-forward main
-cargo xtask merge --push      # the same, then push main
+cargo xtask merge             # push, open the pull request, check, land
 ```
 
-The hooks make that the only way in: `main` refuses any commit that `cargo xtask merge` has not just checked.
+`cargo xtask merge` pushes the branch, opens a pull request into `main` (or reuses the open one), runs every check, and fast-forwards and pushes `main`. GitHub marks the pull request merged as soon as its head commit is on `main`, so pushing `main` is the merge; the command then comments the check report on the pull request, confirms GitHub marked it merged and deletes the branch on origin. It needs the GitHub CLI, signed in with `gh auth login`.
+
+The hooks make this the only way in: `main` refuses any commit that `cargo xtask merge` has not just checked. Nothing waits on GitHub Actions, which runs the same `cargo xtask check` as a mirror.
 
 | Read | For |
 | --- | --- |

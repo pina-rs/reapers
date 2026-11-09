@@ -40,20 +40,21 @@ Reapers is an AR game for phones: you are a reaper, and you hunt dead NFTs throu
 
 ## Landing a change
 
-There are no pull requests here. Work is merged into `main` locally, and `main` is guarded by git hooks so that the only way in is through the checks.
+Every change lands as a pull request, and `main` is guarded by git hooks so that the only way in is through the checks. The checks stay local: `cargo xtask merge` runs them on the commit it lands, and GitHub Actions repeats them as a mirror it never waits on.
 
 ```sh
 cargo xtask hooks install        # once per clone: guard main
+gh auth login                    # once per machine: open the pull request
 git switch -c feat/your-change   # work and commit on a branch
-cargo xtask merge                # run every check, then fast-forward main
-cargo xtask merge --push         # the same, then push main to origin
+cargo xtask merge                # push, open the pull request, check, land
 ```
 
+- `cargo xtask merge` pushes the branch with `--force-with-lease`, opens a pull request into `main` or reuses the open one, runs every check, fast-forwards and pushes `main`, comments the check report on the pull request, and deletes the branch on origin.
+- Pushing `main` is the merge: GitHub marks a pull request merged as soon as its head commit is on the branch it targets. Never use `gh pr merge`, which rewrites or re-signs the commits it lands; the commits carry GPG signatures.
 - Never commit on `main`, and never move it by hand with `git merge`, `git reset` or `git pull`. The hooks refuse all of these.
 - `main` only fast-forwards. If it has moved since the branch was cut, `git rebase main` first.
 - Clean up `wip:` commits into conventional commits before merging: what lands on `main` is what gets pushed.
-- Do not open pull requests, and do not use `gh pr`.
-- `.github/workflows/ci.yml` runs the same `cargo xtask check` on GitHub for pull requests and pushes to `main`. It is a mirror of the local gate, never a replacement for running the checks before merging.
+- `.github/workflows/ci.yml` runs the same `cargo xtask check` on GitHub for pull requests and pushes to `main`. It is a mirror of the local gate, never a replacement for running the checks before merging, and the landing never waits on it.
 - `REAPERS_SKIP_HOOKS=1` bypasses the hooks. It is for recovery work the user has asked for, never for getting past a failing check.
 
 ## Commands
@@ -63,7 +64,7 @@ Rust is pinned by `rust-toolchain.toml`; rustup installs it on first use.
 ```sh
 cargo xtask check             # fmt, clippy, Wasm and SBF builds, every test, the web build
 cargo xtask check --fast      # the same without the server's PostgreSQL tests
-cargo xtask merge             # the full checks, then merge this branch into main
+cargo xtask merge             # push, open the pull request and land this branch on main
 cargo xtask leptoskit         # move every leptoskit pin to leptoskit main's head
 
 cargo test -p reapers_rules                                  # the rules
@@ -99,4 +100,4 @@ Types from `reapers_rules` that cross the wire are serde types of the rules them
 4. `cargo xtask check`.
 5. Look at the result running. Tests do not show a screen that looks wrong.
 6. Update `docs/gameplay.md` if a rule or a number changed.
-7. `cargo xtask merge` when the branch is ready for `main`.
+7. `cargo xtask merge` when the branch is ready: it opens the pull request and lands it on `main`.

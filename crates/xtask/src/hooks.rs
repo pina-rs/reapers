@@ -1,7 +1,7 @@
 //! Guards `main` against changes the checks have not passed.
 //!
-//! There are no pull requests in this repository. A branch reaches `main` by
-//! being merged locally, and this is what makes that safe: `main` can only
+//! A branch reaches `main` through a pull request that `cargo xtask merge`
+//! opens and lands locally, and this is what makes that safe: `main` can only
 //! move to a commit that `cargo xtask merge` has just checked.
 //!
 //! Git cannot block a fast-forward merge with an ordinary hook:

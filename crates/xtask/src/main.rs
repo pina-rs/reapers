@@ -4,8 +4,7 @@
 //! cargo xtask check            # format, lints, every build and every test
 //! cargo xtask check --fast     # the same without the PostgreSQL-backed server tests
 //! cargo xtask hooks install    # once per clone: guard main
-//! cargo xtask merge            # run every check, then fast-forward main
-//! cargo xtask merge --push     # the same, then push main to origin
+//! cargo xtask merge            # push, open the pull request, check, land it on main
 //! cargo xtask leptoskit        # move every leptoskit pin to leptoskit main's head
 //! cargo xtask build-art        # rebuild every model and portrait (Blender, gltfpack)
 //! cargo xtask build-music      # fetch and re-encode the music (curl, ffmpeg)
@@ -51,12 +50,8 @@ enum Command {
 		#[command(subcommand)]
 		action: Option<hooks::Action>,
 	},
-	/// Check this branch, then fast-forward main to it.
-	Merge {
-		/// Push main to origin once it has moved.
-		#[arg(long)]
-		push: bool,
-	},
+	/// Land this branch on main through a pull request.
+	Merge,
 	/// Move every leptoskit pin to one revision.
 	Leptoskit(leptoskit::Options),
 	/// Build every 3D model and NFT portrait from `art/blender`.
@@ -73,7 +68,7 @@ fn main() -> ExitCode {
 	let outcome = match cli.command {
 		Command::Check { fast } => check::main(&root, fast),
 		Command::Hooks { action } => hooks::main(&git::Git::at(&root), action.unwrap_or_default()),
-		Command::Merge { push } => merge::main(&root, push),
+		Command::Merge => merge::main(&root),
 		Command::Leptoskit(options) => leptoskit::main(&root, &options),
 		Command::BuildArt(options) => art::main(&root, &options),
 		Command::BuildMusic => music::main(&root),

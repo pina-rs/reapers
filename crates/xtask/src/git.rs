@@ -77,6 +77,25 @@ impl Git {
 			.map_err(|error| Failure::new(format!("Could not run git: {error}.")))
 	}
 
+	/// Runs git with its own output on the terminal, and fails when it does
+	/// not succeed. For the commands a person watches run: a push, whose
+	/// progress is worth seeing and whose error git explains itself.
+	pub fn show(&self, arguments: &[&str]) -> Outcome {
+		let status = self
+			.command(arguments)
+			.status()
+			.map_err(|error| Failure::new(format!("Could not run git: {error}.")))?;
+
+		if status.success() {
+			Ok(())
+		} else {
+			Err(Failure::with_code(
+				format!("git {} failed.", arguments.join(" ")),
+				crate::run::exit_code(status.code().unwrap_or(1)),
+			))
+		}
+	}
+
 	/// What git prints, trimmed. Fails with git's own complaint.
 	pub fn read(&self, arguments: &[&str]) -> Outcome<String> {
 		let output = self.output(arguments)?;
