@@ -36,6 +36,20 @@ What runs where:
 
 `REAPERS_DRAWN_ROOM=true` (debug builds) plays every hunt in the drawn kitchen, read as if the platform had seen it, with its edges drawn where the camera's picture would be. `REAPERS_DEPTH_PROBE=true` opens the depth bench: what the platform reports, and the last grid of rays as a picture, nearest brightest, with how long the look took.
 
+## Reading a room into a `RoomGrid`
+
+`crates/reapers_world` also turns the same depth pictures into the game's `RoomGrid`: the 10 cm, gravity-aligned grid of floor, levels, obstacles, walls and hidden floor that `reapers_rules::room` moves a husk through. `RoomGridBuilder` is the phone's side of it. It is arithmetic only, like `RoomMap`, and `crates/reapers_world/tests/room_grid.rs` holds it to rooms drawn by hand: a desk, a desk and chair, a sofa and a counter.
+
+1. **Flying pixels.** A pixel whose depth differs from a 4-neighbour by more than 5% is the model blurring across a silhouette, so it is dropped. One pixel of smear is enough to grow a ramp past a desk's edge; the 4-neighbour test only sees a band that wide.
+2. **Unproject and scale.** Points are unprojected through the picture's pose exactly as `RoomMap` does. Each picture's lengths are divided by its own floor and taken back to the room's metres, so a picture that reads the whole room long or short leaves no trace in the furniture's heights.
+3. **A 5 cm grid, with carving.** Points go into 5 cm cells, each holding a histogram of heights in 4 cm bins. A stride-4 set of rays records the lowest height at which it crossed each cell before hitting something; a point well above that stands in free space the ray saw through, and is dropped.
+4. **Tops, levels and obstacles.** The highest bin with two points is a cell's top. A 3 by 3 plane fit, level within 3 cm and 10°, marks the tops that are level. Those are histogrammed in 1 cm bins, smoothed over 2 cm, and peaks covering at least 0.08 m² become the room's levels. Every top within 6 cm plus 1 cm for every metre away snaps to a level; the rest become obstacles at their own height.
+5. **Room axes.** The horizontal directions of vertical structure are folded to one quarter turn, and the grid is turned to their peak, so a desk's edge is a run of cells rather than a staircase.
+6. **Downsample.** A majority vote of the 5 cm cells into the game's 10 cm grid.
+7. **Hidden floor.** Floor no picture saw, directly behind something standing up from the player's eye, is marked hidden rather than unknown, so a husk may stand there to hide.
+
+The grid is 10 m square, centred on the player, so a drawn room's walls come inside it with a margin. Nothing calls the builder yet; the hunt takes it up when its combat does. The constants and their reasons are in `crates/reapers_world/src/room_grid.rs`, and the pipeline is section 3.2 of [the research](research/husks-in-the-room.md#32-recommended-extraction-pipeline-phone-side-not-deterministic-need-not-be). On this Mac, in release, a 252 by 448 picture takes 5 to 8 ms to chart and a finished grid about 2.6 ms.
+
 The sections below describe the Flutter game, which read the room from the camera's picture with a depth model. Its measurements are kept because they are what the map's numbers were tuned on.
 
 ## What is built (Flutter)
