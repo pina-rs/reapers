@@ -79,6 +79,7 @@ mod what_the_plan_knows_of_cover {
 					fire: true,
 					slot: 2,
 					orb_held: false,
+					eye: reapers_rules::Eye::ORIGIN,
 				},
 				HuntInput::new(Aim::new(-50, 10), 2000),
 			])
@@ -306,6 +307,7 @@ mod a_husk_in_a_furnished_room {
 			fire: true,
 			slot: 0,
 			orb_held: false,
+			eye: reapers_rules::Eye::ORIGIN,
 		});
 
 		assert_eq!(

@@ -597,7 +597,12 @@ impl HuntSim {
 		stats: &HuntStats,
 		log: &HuntLog,
 	) -> Option<HuntOutcome> {
-		if !log.plan.is_well_formed() {
+		if !log.plan.is_well_formed()
+			|| log
+				.inputs
+				.iter()
+				.any(|input| !input.eye.is_within(&log.plan))
+		{
 			return None;
 		}
 

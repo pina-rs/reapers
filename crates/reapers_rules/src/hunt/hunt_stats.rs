@@ -441,6 +441,8 @@ impl HuntRules {
 	pub const STAGING_NEAR_METRES: f64 = 2.5;
 	/// A husk that is never found notices the reaper after this long.
 	pub const STALK_LIMIT_TICKS: i64 = 25 * Self::TICK_RATE;
+	/// Maximum horizontal eye displacement from the hunt origin, in millimetres.
+	pub const STANCE_MILLIMETRES: i32 = 1000;
 	/// Alarm lost each second while the reaper moves slowly.
 	pub const STARTLE_DECAY: f64 = 0.2;
 	/// Alarm added each second for every radian a second above

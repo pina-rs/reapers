@@ -79,6 +79,7 @@ pub use hunt::hunt_event::HuntPhase;
 pub use hunt::hunt_event::HuskRing;
 pub use hunt::hunt_event::ReapGrade;
 pub use hunt::hunt_input::Aim;
+pub use hunt::hunt_input::Eye;
 pub use hunt::hunt_input::HuntInput;
 pub use hunt::hunt_input::HuntLog;
 pub use hunt::hunt_input::HuntLogError;

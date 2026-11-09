@@ -7,6 +7,7 @@ use thiserror::Error;
 use crate::hunt::arsenal::Arsenal;
 use crate::hunt::difficulty::Difficulty;
 use crate::hunt::hunt_plan::HuntPlan;
+use crate::hunt::hunt_stats::HuntRules;
 use crate::math;
 use crate::room::RoomGrid;
 use crate::vec3::Vec3;
@@ -72,6 +73,72 @@ impl fmt::Display for Aim {
 	}
 }
 
+/// The phone's offset from the hunt origin, in whole millimetres.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Eye {
+	/// Displacement to the right.
+	pub x_millimetres: i16,
+	/// Displacement above the original eye.
+	pub y_millimetres: i16,
+	/// Displacement ahead.
+	pub z_millimetres: i16,
+}
+
+impl Eye {
+	/// The eye at the hunt's origin.
+	pub const ORIGIN: Self = Self::new(0, 0, 0);
+
+	/// Constructs a wire-representable eye, without applying stance bounds.
+	pub const fn new(x_millimetres: i16, y_millimetres: i16, z_millimetres: i16) -> Self {
+		Self {
+			x_millimetres,
+			y_millimetres,
+			z_millimetres,
+		}
+	}
+
+	/// Quantises a finite offset, rejecting values outside the wire range.
+	pub fn rounded(offset: Vec3) -> Option<Self> {
+		fn component(value: f64) -> Option<i16> {
+			if !value.is_finite() {
+				return None;
+			}
+			let rounded = math::round(value * 1000.0);
+			i16::try_from(rounded).ok()
+		}
+		Some(Self::new(
+			component(offset.x)?,
+			component(offset.y)?,
+			component(offset.z)?,
+		))
+	}
+
+	/// Whether the eye lies within the provisional stance and height limits.
+	pub fn is_within(&self, plan: &HuntPlan) -> bool {
+		let x = i64::from(self.x_millimetres);
+		let z = i64::from(self.z_millimetres);
+		let radius = i64::from(HuntRules::STANCE_MILLIMETRES);
+		let height = i64::from(plan.eye_centimetres) * 10 + i64::from(self.y_millimetres);
+		x * x + z * z <= radius * radius
+			&& height >= i64::from(HuntPlan::MIN_EYE_CENTIMETRES) * 10
+			&& height <= i64::from(HuntPlan::MAX_EYE_CENTIMETRES) * 10
+	}
+
+	/// The offset in metres, in hunt coordinates.
+	pub fn point(&self) -> Vec3 {
+		Vec3::new(
+			f64::from(self.x_millimetres) / 1000.0,
+			f64::from(self.y_millimetres) / 1000.0,
+			f64::from(self.z_millimetres) / 1000.0,
+		)
+	}
+
+	/// Whether the eye is exactly at the hunt origin.
+	pub const fn is_origin(&self) -> bool {
+		self.x_millimetres == 0 && self.y_millimetres == 0 && self.z_millimetres == 0
+	}
+}
+
 /// Everything the player did during one tick.
 ///
 /// The crosshair is the middle of the screen, so [`aim`](HuntInput::aim) is
@@ -79,6 +146,9 @@ impl fmt::Display for Aim {
 /// where to strike.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct HuntInput {
+	/// Where the phone was relative to the hunt origin.
+	pub eye: Eye,
+
 	/// Where the middle of the phone's view points: the crosshair.
 	pub aim: Aim,
 
@@ -104,6 +174,7 @@ impl HuntInput {
 	/// Aiming along `aim`, turning at `turn_speed`, and doing nothing else.
 	pub const fn new(aim: Aim, turn_speed: i32) -> Self {
 		Self {
+			eye: Eye::ORIGIN,
 			aim,
 			turn_speed,
 			fire: false,
@@ -121,6 +192,7 @@ impl HuntInput {
 		orb_held: bool,
 	) -> Self {
 		Self {
+			eye: Eye::ORIGIN,
 			aim: Aim::from_direction(aim),
 			turn_speed: math::round(turn_radians_per_second * 1000.0)
 				.clamp(0, i64::from(Self::MAX_TURN_SPEED)) as i32,
@@ -139,6 +211,13 @@ impl HuntInput {
 			Arsenal::GUN_SLOT,
 			false,
 		)
+	}
+
+	/// Records the eye used for this tick.
+	#[must_use]
+	pub const fn with_eye(mut self, eye: Eye) -> Self {
+		self.eye = eye;
+		self
 	}
 
 	/// `turn_speed` in radians a second.
@@ -186,6 +265,10 @@ pub enum HuntLogError {
 
 	#[error("Impossible hunt aim")]
 	ImpossibleAim,
+
+	/// The recorded eye is outside the stance or height limits.
+	#[error("Impossible hunt eye")]
+	ImpossibleEye,
 }
 
 /// The complete input of one hunt, tick by tick.
@@ -207,6 +290,8 @@ pub struct HuntLog {
 }
 
 impl HuntLog {
+	const EYE_TICK_BYTES: usize = 14;
+	const EYE_VERSION: u8 = 9;
 	const FIRE_FLAG: u8 = 1;
 	const HEADER_BYTES: usize = 9;
 	const LEDGE_BYTES: usize = HuntPlan::SLICES.div_ceil(8);
@@ -252,7 +337,10 @@ impl HuntLog {
 			return Err(HuntLogError::NoPlan);
 		}
 
-		if bytes[0] != Self::VERSION && bytes[0] != Self::ROOM_VERSION {
+		if bytes[0] != Self::VERSION
+			&& bytes[0] != Self::ROOM_VERSION
+			&& bytes[0] != Self::EYE_VERSION
+		{
 			return Err(HuntLogError::UnsupportedVersion);
 		}
 
@@ -302,8 +390,8 @@ impl HuntLog {
 				.collect()
 		};
 
-		let (room, room_end) = if bytes[0] == Self::ROOM_VERSION {
-			Self::decode_room(bytes, plan_end)?
+		let (room, room_end) = if bytes[0] == Self::ROOM_VERSION || bytes[0] == Self::EYE_VERSION {
+			Self::decode_room(bytes, plan_end, bytes[0] == Self::EYE_VERSION)?
 		} else {
 			(None, plan_end)
 		};
@@ -320,14 +408,34 @@ impl HuntLog {
 			ledges,
 			room,
 		};
+		let inputs = Self::decode_inputs(bytes, offset, &plan)?;
+
+		Ok(Self {
+			inputs,
+			plan,
+			difficulty,
+		})
+	}
+
+	fn decode_inputs(
+		bytes: &[u8],
+		mut offset: usize,
+		plan: &HuntPlan,
+	) -> Result<Vec<HuntInput>, HuntLogError> {
 		let mut inputs = Vec::new();
+
+		let tick_bytes = if bytes[0] == Self::EYE_VERSION {
+			Self::EYE_TICK_BYTES
+		} else {
+			Self::TICK_BYTES
+		};
 
 		while offset < bytes.len() {
 			if inputs.len() >= Self::MAX_TICKS {
 				return Err(HuntLogError::TooLong);
 			}
 
-			if offset + Self::TICK_BYTES > bytes.len() {
+			if offset + tick_bytes > bytes.len() {
 				return Err(HuntLogError::EndsMidTick);
 			}
 
@@ -347,9 +455,22 @@ impl HuntLog {
 				return Err(HuntLogError::ImpossibleAim);
 			}
 
-			offset += Self::TICK_BYTES;
+			let eye = if bytes[0] == Self::EYE_VERSION {
+				let read =
+					|index| i16::from_le_bytes([bytes[offset + index], bytes[offset + index + 1]]);
+				Eye::new(read(8), read(10), read(12))
+			} else {
+				Eye::ORIGIN
+			};
+
+			if bytes[0] == Self::EYE_VERSION && !eye.is_within(plan) {
+				return Err(HuntLogError::ImpossibleEye);
+			}
+
+			offset += tick_bytes;
 
 			inputs.push(HuntInput {
+				eye,
 				aim,
 				turn_speed,
 				fire: flags & Self::FIRE_FLAG != 0,
@@ -358,17 +479,17 @@ impl HuntLog {
 			});
 		}
 
-		Ok(Self {
-			inputs,
-			plan,
-			difficulty,
-		})
+		Ok(inputs)
 	}
 
 	/// Reads the room's grid that starts at `offset`: its length in four
 	/// bytes, then the grid as [`RoomGrid::encode`] writes it. Returns the
 	/// grid and where the bytes after it begin.
-	fn decode_room(bytes: &[u8], offset: usize) -> Result<(Option<RoomGrid>, usize), HuntLogError> {
+	fn decode_room(
+		bytes: &[u8],
+		offset: usize,
+		empty_allowed: bool,
+	) -> Result<(Option<RoomGrid>, usize), HuntLogError> {
 		let start = offset + Self::ROOM_LENGTH_BYTES;
 
 		if bytes.len() < start {
@@ -384,12 +505,16 @@ impl HuntLog {
 		let Some(end) = start.checked_add(length).filter(|&end| end <= bytes.len()) else {
 			return Err(HuntLogError::EndsMidPlan);
 		};
+		if length == 0 && empty_allowed {
+			return Ok((None, end));
+		}
+
 		let room = RoomGrid::decode(&bytes[start..end]).map_err(|_| HuntLogError::BrokenRoom)?;
 
 		Ok((Some(room), end))
 	}
 
-	/// Packs the log into bytes: the plan first, then eight for each tick:
+	/// Packs the log into bytes: the plan first, then eight or fourteen bytes per tick:
 	/// the aim, the turn speed, FIRE and ORB, and the slot selected.
 	///
 	/// The plan is its arc, the height of the player's eye, how far the way
@@ -400,18 +525,28 @@ impl HuntLog {
 	///
 	/// A plan with a room's grid is written as version 8, with the grid's
 	/// length and the grid itself after the rest of the plan. One without
-	/// is version 7, as it always was.
+	/// is version 7, as it always was. A non-origin eye selects version 9,
+	/// which adds a room length (zero without a grid) and three i16 offsets
+	/// in millimetres to each tick.
 	pub fn encode(&self) -> Vec<u8> {
 		let plan = &self.plan;
 		let room = plan.room.as_ref().map(RoomGrid::encode);
+		let has_eye = self.inputs.iter().any(|input| !input.eye.is_origin());
 		let mut bytes = Vec::with_capacity(
 			Self::HEADER_BYTES
 				+ 400
 				+ room.as_ref().map_or(0, Vec::len)
-				+ self.inputs.len() * Self::TICK_BYTES,
+				+ self.inputs.len()
+					* if has_eye {
+						Self::EYE_TICK_BYTES
+					} else {
+						Self::TICK_BYTES
+					},
 		);
 
-		bytes.push(if room.is_some() {
+		bytes.push(if has_eye {
+			Self::EYE_VERSION
+		} else if room.is_some() {
 			Self::ROOM_VERSION
 		} else {
 			Self::VERSION
@@ -438,9 +573,11 @@ impl HuntLog {
 			bytes.extend_from_slice(&ledges);
 		}
 
-		if let Some(room) = room {
-			bytes.extend_from_slice(&(room.len() as u32).to_le_bytes());
-			bytes.extend_from_slice(&room);
+		if has_eye || room.is_some() {
+			bytes.extend_from_slice(&(room.as_ref().map_or(0, Vec::len) as u32).to_le_bytes());
+			if let Some(room) = room {
+				bytes.extend_from_slice(&room);
+			}
 		}
 
 		for input in &self.inputs {
@@ -454,6 +591,15 @@ impl HuntLog {
 					| (if input.orb_held { Self::ORB_FLAG } else { 0 }),
 			);
 			bytes.push(usize::from(input.slot).min(Arsenal::SLOTS - 1) as u8);
+			if has_eye {
+				for coordinate in [
+					input.eye.x_millimetres,
+					input.eye.y_millimetres,
+					input.eye.z_millimetres,
+				] {
+					bytes.extend_from_slice(&coordinate.to_le_bytes());
+				}
+			}
 		}
 
 		bytes
