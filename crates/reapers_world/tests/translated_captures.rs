@@ -71,6 +71,51 @@ fn read(room: &DrawnRoom, moved: bool) -> RoomGrid {
 	builder.finish()
 }
 
+/// Reads `room` from the ten survey pictures as [`read`] does, with the
+/// first taken where the player first stood (it fixes the hunt's frame, as
+/// the first accepted picture does) and the rest from `eyes` in turn.
+fn read_from(room: &DrawnRoom, eyes: &[Vec3]) -> RoomGrid {
+	let mut builder = RoomGridBuilder::new();
+	let mut picture = 0;
+
+	for pitch in PITCHES {
+		for yaw in YAWS {
+			let eye = if picture == 0 {
+				Vec3::ZERO
+			} else {
+				eyes[picture % eyes.len()]
+			};
+
+			builder.add_frame(&room.picture_from(eye, yaw, pitch));
+			picture += 1;
+		}
+	}
+
+	assert!(builder.frames() > 0, "the survey was charted");
+	builder.finish()
+}
+
+/// The ten survey pictures, taken from `eyes` as [`read_from`] takes them.
+fn pictures_from(room: &DrawnRoom, eyes: &[Vec3]) -> Vec<DepthFrame> {
+	let mut frames = Vec::new();
+	let mut picture = 0;
+
+	for pitch in PITCHES {
+		for yaw in YAWS {
+			let eye = if picture == 0 {
+				Vec3::ZERO
+			} else {
+				eyes[picture % eyes.len()]
+			};
+
+			frames.push(room.picture_from(eye, yaw, pitch));
+			picture += 1;
+		}
+	}
+
+	frames
+}
+
 /// Reads `room` into a survey, pictures taken as [`read`] takes them.
 fn survey(room: &DrawnRoom, moved: bool) -> RoomSurvey {
 	let mut survey = RoomSurvey::new(Vessel::Ape);
@@ -298,4 +343,103 @@ fn a_measured_floor_stays_exact_when_the_player_moves() {
 
 	assert_eq!(plan.eye_centimetres, 145);
 	assert_eq!(grid.eye_height_centimetres, 145);
+}
+
+/// Where a player's capture eye rises and stoops to while tracing: onto
+/// their toes, and down into a crouch, around where they first stood.
+const HIGH_EYES: [Vec3; 2] = [Vec3::new(0.2, 0.30, 0.05), Vec3::new(-0.15, -0.25, 0.1)];
+
+#[test]
+fn the_desk_keeps_its_height_when_the_eyes_that_read_it_rise_and_stoop() {
+	let room = desk_room();
+	let still = read(&room, false);
+	let moved = read_from(&room, &HIGH_EYES);
+
+	assert_eq!(still.eye_height_centimetres, 145);
+	assert_eq!(
+		moved.eye_height_centimetres, 145,
+		"the floor moved with the eyes"
+	);
+
+	for grid in [&still, &moved] {
+		let nav = nav(grid);
+
+		assert!(
+			nav.regions.iter().any(|region| {
+				region.is_standable() && (region.height_metres() - 0.75).abs() <= 0.05
+			}),
+			"the desk does not stand where it did: {:?}",
+			grid.levels_centimetres
+		);
+	}
+}
+
+#[test]
+fn a_measured_floor_keeps_the_desks_height_when_the_eyes_rise_and_stoop() {
+	let room = desk_room();
+	let mut builder = RoomGridBuilder::new();
+
+	builder.measure_floor(1.45);
+
+	for frame in pictures_from(&room, &HIGH_EYES) {
+		builder.add_frame(&frame);
+	}
+
+	let grid = builder.finish();
+
+	assert_eq!(grid.eye_height_centimetres, 145);
+
+	let nav = nav(&grid);
+
+	assert!(
+		nav.regions
+			.iter()
+			.any(|region| region.is_standable() && (region.height_metres() - 0.75).abs() <= 0.05),
+		"the desk does not stand where it did: {:?}",
+		grid.levels_centimetres
+	);
+}
+
+#[test]
+fn the_cover_keeps_its_height_when_the_eyes_that_read_it_rise_and_stoop() {
+	let room = desk_room();
+	let mut survey = RoomSurvey::new(Vessel::Ape);
+
+	for frame in pictures_from(&room, &HIGH_EYES) {
+		survey.add(&frame);
+	}
+
+	let desk = survey
+		.map()
+		.furniture(HuntPlan::slice_of(radians(0.0)))
+		.expect("the desk ahead");
+
+	assert!(
+		(desk.cover - 0.75).abs() <= 0.08,
+		"the desk's cover is {} m tall, not 0.75",
+		desk.cover
+	);
+	assert!(desk.ledge, "the desk's top is still level");
+}
+
+#[test]
+fn a_husk_still_hides_behind_the_desk_when_it_was_read_from_rising_eyes() {
+	let room = desk_room();
+	let mut survey = RoomSurvey::new(Vessel::Ape);
+
+	for frame in pictures_from(&room, &HIGH_EYES) {
+		survey.add(&frame);
+	}
+
+	let occlusion = survey.occlusion();
+	let hides = |point: Vec3| occlusion.hides(point.yaw(), point.pitch(), point.length());
+
+	assert!(
+		hides(Vec3::new(0.0, -1.45 + 0.3, 3.4)),
+		"the desk no longer hides what stands behind it"
+	);
+	assert!(
+		!hides(Vec3::new(0.0, -1.45 + 0.05, 1.8)),
+		"the desk hides what stands in front of it"
+	);
 }

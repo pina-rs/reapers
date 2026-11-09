@@ -757,8 +757,15 @@ impl RoomMap {
 				continue;
 			}
 
-			let bin =
-				math::floor(above / floor / HEIGHT_BIN).clamp(0, HEIGHT_BINS as i64 - 1) as usize;
+			// How high it stands, as a share of the hunt's own floor: the
+			// picture's metres scaled to the room's, then taken against the
+			// floor the plan stands on. A picture taken from above or below
+			// the hunt's origin sees the floor that much farther below its
+			// own eye, so its heights must come back to the origin's eye
+			// here too, or the room's furniture reads proportionally lower
+			// than it is.
+			let bin = math::floor(above * scale / unit / HEIGHT_BIN)
+				.clamp(0, HEIGHT_BINS as i64 - 1) as usize;
 
 			self.solid[cell] += 1;
 			self.heights[cell * HEIGHT_BINS + bin] += 1;

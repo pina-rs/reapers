@@ -184,6 +184,24 @@ const FINE_HEIGHT_COUNTS: usize = FINE_CELLS * HEIGHT_BINS;
 /// The grid's own cell, in metres.
 const GRID_CELL: f64 = RoomGrid::CELL_METRES;
 
+/// Where one picture was taken, and how its metres are brought into the
+/// hunt's frame. See [`RoomGridBuilder::placement`].
+#[derive(Clone, Copy, Debug)]
+struct PictureAt {
+	/// Turns the picture's own metres into the room's, along the ground.
+	ground: f64,
+
+	/// How far the floor is below the picture's own eye, in its own metres.
+	picture_floor: f64,
+
+	/// Brings a height above the floor, as a share of the eye that took the
+	/// picture, to a share of the hunt's own eye.
+	heights: f64,
+
+	/// Where the picture's eye was, in the hunt's frame.
+	origin: Vec3,
+}
+
 /// A grid read from depth pictures, before it is finished.
 ///
 /// Feed it every picture the survey takes with
@@ -258,22 +276,42 @@ impl RoomGridBuilder {
 			return false;
 		};
 		let origin = frame.origin;
-
-		// The pictures' floor is the room's metres; until it is known, the
-		// first picture is charted against itself.
-		let scale = match self.room_floor() {
-			Some(floor) => (floor + origin.y) / picture_floor,
-			None => 1.0,
-		};
+		let at = self.placement(picture_floor, origin);
 		let keep = flying_pixels(frame);
 		let cloud = Cloud::of_filtered(frame, |column, row| keep[row * frame.width + column]);
 		let columns = frame.width / STRIDE;
 		let rows = frame.height / STRIDE;
 
-		self.chart(&cloud, columns, rows, scale, picture_floor, origin);
-		self.carve(frame, scale, picture_floor, origin);
+		self.chart(&cloud, columns, rows, at);
+		self.carve(frame, at);
 
 		true
+	}
+
+	/// Where one picture was taken and how its metres are brought into the
+	/// hunt's frame: the floor is `picture_floor` below its own eye, in its
+	/// own metres, and the eye itself was at `origin`.
+	///
+	/// Along the ground, `ground` turns the picture's own metres into the
+	/// room's, so its furniture stands where the other pictures put it. Up,
+	/// a picture taken from above or below the hunt's origin sees the floor
+	/// that much farther below its own eye, so the share of the eye's
+	/// height its furniture stands at has to be brought back to the
+	/// origin's eye by `heights` before `finish` scales every height by the
+	/// room's floor. Without that, a raised eye would read the whole room's
+	/// furniture as proportionally lower: a desk 75 cm tall, read from 30
+	/// cm above where the room was charted, as 62 cm.
+	fn placement(&self, picture_floor: f64, origin: Vec3) -> PictureAt {
+		// The pictures' floor is the room's metres; until it is known, the
+		// first picture is charted against itself.
+		let floor = self.room_floor();
+
+		PictureAt {
+			ground: floor.map_or(1.0, |floor| (floor + origin.y) / picture_floor),
+			picture_floor,
+			heights: floor.map_or(1.0, |floor| (floor + origin.y) / floor),
+			origin,
+		}
 	}
 
 	/// How far below the hunt's origin the room's floor is, in metres: the
@@ -286,23 +324,13 @@ impl RoomGridBuilder {
 	}
 
 	/// Charts one picture's points, and the directions its vertical
-	/// structure faces, into the fine grid.
-	///
-	/// `scale` turns the picture's own metres into the room's, so its
-	/// furniture stands where the other pictures put it. `origin` moves it
-	/// from where it was taken to the hunt's frame. A height is kept as a
-	/// share of the hunt's usual eye height, so the picture's scale is
-	/// divided out of it.
-	fn chart(
-		&mut self,
-		cloud: &Cloud,
-		columns: usize,
-		rows: usize,
-		scale: f64,
-		picture_floor: f64,
-		origin: Vec3,
-	) {
+	/// structure faces, into the fine grid, taken where [`PictureAt`] says
+	/// it was. A height is kept as a share of the hunt's usual eye height,
+	/// divided out of the picture's own scale and brought from its eye's
+	/// floor to the hunt's, so the picture's scale is divided out of it.
+	fn chart(&mut self, cloud: &Cloud, columns: usize, rows: usize, at: PictureAt) {
 		let normals = surface_normals(cloud, columns, rows);
+		let (scale, origin) = (at.ground, at.origin);
 
 		for (index, normal) in normals.into_iter().enumerate() {
 			if let Some(normal) = normal {
@@ -330,7 +358,7 @@ impl RoomGridBuilder {
 				continue;
 			}
 
-			let height = (y + picture_floor) / picture_floor * NOMINAL_FLOOR;
+			let height = (y + at.picture_floor) / at.picture_floor * NOMINAL_FLOOR * at.heights;
 
 			// A point at or a hair under the floor is the floor.
 			if height < -FLOOR_SLACK || height >= HEIGHT_BIN * HEIGHT_BINS as f64 {
@@ -352,8 +380,8 @@ impl RoomGridBuilder {
 	/// Records, for every fine cell a ray crossed before it hit something,
 	/// the lowest height above the floor at which it crossed. A point well
 	/// above that flew, since the ray passed beneath it. The ray starts at
-	/// `origin`, where the picture was taken.
-	fn carve(&mut self, frame: &DepthFrame, scale: f64, picture_floor: f64, origin: Vec3) {
+	/// the eye the picture was taken from, as [`PictureAt`] says.
+	fn carve(&mut self, frame: &DepthFrame, at: PictureAt) {
 		for row in (0..frame.height).step_by(CARVE_STRIDE) {
 			for column in (0..frame.width).step_by(CARVE_STRIDE) {
 				let depth = f64::from(frame.depths[row * frame.width + column]);
@@ -375,16 +403,18 @@ impl RoomGridBuilder {
 				let ray = direction / stretch;
 				let hit = depth * stretch;
 				let hit_cell = fine_cell(
-					ray.x * hit * scale + origin.x,
-					ray.z * hit * scale + origin.z,
+					ray.x * hit * at.ground + at.origin.x,
+					ray.z * hit * at.ground + at.origin.z,
 				);
 				let mut along = SELF_METRES;
 
 				while along < hit - CARVE_MARGIN {
-					let x = ray.x * along * scale + origin.x;
+					let x = ray.x * along * at.ground + at.origin.x;
 					let y = ray.y * along;
-					let z = ray.z * along * scale + origin.z;
-					let height = ((y + picture_floor) / picture_floor * NOMINAL_FLOOR).max(0.0);
+					let z = ray.z * along * at.ground + at.origin.z;
+					let height =
+						((y + at.picture_floor) / at.picture_floor * NOMINAL_FLOOR * at.heights)
+							.max(0.0);
 
 					if let Some(cell) = fine_cell(x, z) {
 						// The surface's own cell is not free space: the ray
