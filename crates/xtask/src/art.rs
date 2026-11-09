@@ -59,10 +59,11 @@ pub const GLTFPACK_VERSION: &str = "0.25";
 pub const GLTFPACK_FLAGS: [&str; 4] = ["-cc", "-kn", "-km", "-ke"];
 
 /// The scripts, and the start of the name of every model each writes.
-const SCRIPTS: [(&str, &str); 3] = [
+const SCRIPTS: [(&str, &str); 4] = [
 	("reapers", "reaper_"),
 	("weapons", "weapons"),
 	("husks", "husk_"),
+	("viewmodel", "viewmodel"),
 ];
 
 const RAW_MODELS: &str = "art/build/models";
@@ -560,7 +561,7 @@ mod tests {
 
 	#[test]
 	fn chooses_scripts() {
-		assert_eq!(chosen(&[]).unwrap().len(), 3);
+		assert_eq!(chosen(&[]).unwrap().len(), 4);
 		assert_eq!(chosen(&["husks".to_owned()]).unwrap(), [("husks", "husk_")]);
 		assert_eq!(chosen(&["sculpture".to_owned()]).unwrap_err().code, USAGE);
 	}

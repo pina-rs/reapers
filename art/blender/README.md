@@ -4,7 +4,7 @@ Every 3D model in the game is built by the scripts in this folder. There are no 
 
 ```sh
 cargo xtask build-art                 # build every model into assets/models, and every portrait into assets/nfts
-cargo xtask build-art husks           # build one script: reapers, weapons or husks
+cargo xtask build-art husks           # build one script: reapers, weapons, husks or viewmodel
 cargo xtask build-art --preview       # also render review sheets into art/build/previews
 cargo xtask build-art --specs-only    # write art/build/vessels.json and motions.json, and stop
 ```
@@ -46,7 +46,8 @@ The versions are pinned in `crates/xtask/src/art.rs` (`BLENDER_RELEASE`, `GLTFPA
 | `reaper_classes/<class>.py` | One module per reaper class. `build()` returns the model's root. |
 | `creature_kinds/<vessel>.py` | One module per husk creature. `build(spec)` returns the model's root. |
 | `weapon_kinds/<kind>.py` | One module per weapon kind. `build()` returns the weapon's root. |
-| `reapers.py`, `weapons.py`, `husks.py` | The drivers `cargo xtask build-art` runs. |
+| `viewmodel_parts/<part>.py` | What the reaper sees of itself: its arms, the grave pistol, the bone knife, the scythe in hand, the capture orb, and the light they throw, painted from one palette (`common.py`). |
+| `reapers.py`, `weapons.py`, `husks.py`, `viewmodel.py` | The drivers `cargo xtask build-art` runs. |
 
 ## Building one thing while you work
 
