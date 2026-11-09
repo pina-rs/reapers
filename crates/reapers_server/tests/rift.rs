@@ -111,7 +111,7 @@ impl Reaper {
 				let seat =
 					RiftSeat::new(frame.seed, frame.site, frame.ward_max, &self.loadout, None)
 						.expect("a valid loadout");
-				let bot = HuntBot::human(&seat.sim);
+				let bot = HuntBot::careful(&seat.sim);
 
 				(seat, bot)
 			});
@@ -276,7 +276,7 @@ async fn when_one_reaper_comes_then_shades_fill_the_circle_and_sealing_pays() {
 	assert_eq!(first.phase, RiftPhase::Gathering);
 	assert_eq!(first.members.len(), 1);
 	assert_eq!(first.members[0].name, before.genome().name());
-	assert_eq!(last.phase, RiftPhase::Sealed);
+	assert_eq!(last.phase, RiftPhase::Sealed, "{last:?}");
 	assert_eq!(last.members.len(), RiftRules::CIRCLE);
 	assert_eq!(last.members.iter().filter(|member| member.shade).count(), 3);
 	assert!(last.you().unwrap().cut.is_some());

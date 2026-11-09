@@ -19,7 +19,7 @@
 //! | 0..8 | the ASCII tag `RPRSABS2`: what this is, and its version |
 //! | 8..40 | the player's wallet address |
 //! | 40..72 | the husk's mint (SPL Token) or asset (Metaplex Core) address |
-//! | 72 | the reap grade: 0 ragged, 1 clean, 2 perfect |
+//! | 72 | the capture grade: 0 plain, 1 great, 2 excellent |
 //! | 73 | the feeding: 0 meagre, 1 fair, 2 rich, 3 feast |
 //! | 74..78 | experience paid, unsigned, little-endian |
 //! | 78..82 | anima paid, unsigned, little-endian |
@@ -58,7 +58,7 @@ pub mod offset {
 	pub const PLAYER: usize = 8;
 	/// The husk's mint or asset address.
 	pub const MINT: usize = 40;
-	/// The reap grade.
+	/// The capture grade.
 	pub const GRADE: usize = 72;
 	/// The feeding.
 	pub const FEEDING: usize = 73;
@@ -72,25 +72,27 @@ pub mod offset {
 	pub const NONCE: usize = 90;
 }
 
-/// How clean the cut was. The values are `ReapGrade::index` in `reapers_rules`.
+/// How well the capturing orb was thrown. The values are
+/// `CaptureGrade::index` in `reapers_rules`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum Grade {
-	/// The cut tore: too fast, or too far from the arc.
-	Ragged = 0,
-	/// A steady cut along the arc.
-	Clean = 1,
-	/// A cut that barely left the arc at all.
-	Perfect = 2,
+	/// Thrown without a hold, with the ring in its outer third, or off the
+	/// husk.
+	Plain = 0,
+	/// Let go with the ring in its middle third.
+	Great = 1,
+	/// Let go with the ring in its inner third.
+	Excellent = 2,
 }
 
 impl Grade {
 	/// The grade stored as `byte`, if there is one.
 	pub const fn from_byte(byte: u8) -> Option<Self> {
 		match byte {
-			0 => Some(Self::Ragged),
-			1 => Some(Self::Clean),
-			2 => Some(Self::Perfect),
+			0 => Some(Self::Plain),
+			1 => Some(Self::Great),
+			2 => Some(Self::Excellent),
 			_ => None,
 		}
 	}
@@ -159,7 +161,7 @@ pub struct Receipt {
 	pub player: [u8; 32],
 	/// The husk's mint (SPL Token) or asset (Metaplex Core) address.
 	pub mint: [u8; 32],
-	/// How clean the cut was.
+	/// How well the capturing orb was thrown.
 	pub grade: Grade,
 	/// How well the reaper fed.
 	pub feeding: Feeding,
@@ -310,7 +312,7 @@ mod tests {
 		Receipt {
 			player: core::array::from_fn(|i| i as u8),
 			mint: core::array::from_fn(|i| 0xff - i as u8),
-			grade: Grade::Perfect,
+			grade: Grade::Excellent,
 			feeding: Feeding::Feast,
 			xp: 300,
 			anima: 60,
@@ -347,7 +349,7 @@ mod tests {
 		assert_eq!(Receipt::decode(&receipt.encode()), Ok(receipt));
 
 		let early = Receipt {
-			grade: Grade::Ragged,
+			grade: Grade::Plain,
 			feeding: Feeding::Meagre,
 			at: -1,
 			..receipt
@@ -388,7 +390,7 @@ mod tests {
 
 	#[test]
 	fn grades_and_feedings_match_the_shared_rules() {
-		for (byte, grade) in [Grade::Ragged, Grade::Clean, Grade::Perfect]
+		for (byte, grade) in [Grade::Plain, Grade::Great, Grade::Excellent]
 			.into_iter()
 			.enumerate()
 		{

@@ -11,6 +11,7 @@ use reapers_api::player::*;
 use reapers_rules::Absorption;
 use reapers_rules::Art;
 use reapers_rules::ArtSkill;
+use reapers_rules::CaptureGrade;
 use reapers_rules::Feeding;
 use reapers_rules::GeoFix;
 use reapers_rules::GeoPoint;
@@ -393,6 +394,17 @@ async fn when_a_played_hunt_is_submitted_then_the_replay_absorbs_the_husk() {
 	assert!(settlement.outcome.absorbed());
 	assert!(settlement.xp > 0);
 	assert_eq!(settlement.state.codex()[0].nft.id(), SAINT);
+
+	// The settlement carries how well the capturing orb was thrown, and the
+	// codex keeps the same grade.
+	let grade = settlement.outcome.grade().unwrap();
+
+	assert_eq!(settlement.state.codex()[0].grade, grade);
+	assert_eq!(
+		grade,
+		CaptureGrade::Excellent,
+		"a careful bot times the ring"
+	);
 	assert_eq!(settlement.state.sightings(), []);
 	assert_eq!(settled.receipt, None, "a stand-in husk is burned nowhere");
 

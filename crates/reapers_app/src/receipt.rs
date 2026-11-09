@@ -30,9 +30,9 @@ pub fn of(player: [u8; 32], mint: [u8; 32], absorption: &Absorption) -> Option<R
 
 #[cfg(test)]
 mod tests {
+	use reapers_rules::CaptureGrade;
 	use reapers_rules::Nft;
 	use reapers_rules::NftCollection;
-	use reapers_rules::ReapGrade;
 	use reapers_rules::Timestamp;
 
 	use super::*;
@@ -41,7 +41,7 @@ mod tests {
 	fn an_absorption_is_the_shared_layout() {
 		let absorption = Absorption {
 			nft: Nft::new(NftCollection::ALL[0], 1),
-			grade: ReapGrade::Perfect,
+			grade: CaptureGrade::Excellent,
 			feeding: reapers_rules::Feeding::Feast,
 			xp: 120,
 			anima: 30,

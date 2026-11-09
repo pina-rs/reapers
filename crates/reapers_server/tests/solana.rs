@@ -347,6 +347,7 @@ async fn verified_nft_growth_follows_a_transfer_and_the_old_owner_loses_use_of_i
 			let mut sim = HuntSim::open(
 				19,
 				nft.collection.vessel(),
+				nft.rarity(),
 				nft.rarity().ward(),
 				&HuntStats::derive(&loose.loadout(), 1.0).expect("a loadout"),
 			);

@@ -334,7 +334,7 @@ fn receipt(player: Pubkey, mint: Pubkey) -> Receipt {
 	Receipt {
 		player: player.to_bytes(),
 		mint: mint.to_bytes(),
-		grade: Grade::Clean,
+		grade: Grade::Great,
 		feeding: Feeding::Rich,
 		xp: 63,
 		anima: 20,

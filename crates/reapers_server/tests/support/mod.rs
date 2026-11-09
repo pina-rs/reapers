@@ -505,6 +505,7 @@ pub fn play(state: &PlayerState, sighting: &Sighting) -> HuntLog {
 	let mut sim = HuntSim::open(
 		sighting.seed,
 		sighting.nft.collection.vessel(),
+		sighting.nft.rarity(),
 		sighting.nft.rarity().ward(),
 		&HuntStats::derive(&state.loadout(), 1.0).expect("a valid loadout"),
 	);

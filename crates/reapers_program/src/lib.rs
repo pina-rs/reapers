@@ -867,7 +867,7 @@ mod tests {
 			Receipt {
 				player: [1; 32],
 				mint: [2; 32],
-				grade: Grade::Clean,
+				grade: Grade::Great,
 				feeding: Feeding::Fair,
 				xp: 50,
 				anima: 20,
