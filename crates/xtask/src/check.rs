@@ -43,6 +43,27 @@ const WASM_CRATES: [&str; 4] = [
 	"reapers_program_client",
 ];
 
+/// The app's Wasm guest, checked for one platform's feature set. The app's
+/// camera and room code is compiled only for `wasm32` with the `web` or
+/// `native` feature, so the host-side clippy and tests never see it and the
+/// optional leptoskit web build is the only step that does — until it is
+/// not installed and a field renamed on one path (but not the other) ships
+/// unnoticed. These checks need no leptoskit CLI and no platform toolchain
+/// beyond the `wasm32` target the `wasm` step already requires.
+fn guest(platform: &'static str) -> Action {
+	cargo(&[
+		"check",
+		"--locked",
+		"--target",
+		"wasm32-unknown-unknown",
+		"--package",
+		"reapers_app",
+		"--no-default-features",
+		"--features",
+		platform,
+	])
+}
+
 /// The crate whose tests start a PostgreSQL cluster.
 const SERVER: &str = "reapers_server";
 
@@ -133,6 +154,8 @@ pub fn steps(plan: &Plan) -> Vec<Step> {
 		wasm.extend(["--package", package]);
 	}
 	steps.push(step("wasm", cargo(&wasm)));
+	steps.push(step("app native guest", guest("native")));
+	steps.push(step("app web guest", guest("web")));
 
 	steps.push(step(
 		"program",
@@ -448,6 +471,8 @@ mod tests {
 				"format",
 				"clippy",
 				"wasm",
+				"app native guest",
+				"app web guest",
 				"program",
 				"program size",
 				"fetch Metaplex Core",
@@ -504,6 +529,27 @@ mod tests {
 	}
 
 	#[test]
+	fn the_apps_guest_is_checked_on_both_platforms_without_the_cli() {
+		let plan = plan(false, false, false);
+
+		for (name, platform) in [("app native guest", "native"), ("app web guest", "web")] {
+			let arguments = arguments(&plan, name);
+
+			assert!(
+				arguments.contains(&"--locked".to_owned()),
+				"{name} is locked"
+			);
+			assert_eq!(arguments[3], "wasm32-unknown-unknown".to_owned(), "{name}");
+			assert!(
+				arguments.contains(&"reapers_app".to_owned())
+					&& arguments.contains(&"native".to_owned()) == (platform == "native")
+					&& arguments.contains(&"web".to_owned()) == (platform == "web"),
+				"{name}: {arguments:?}"
+			);
+		}
+	}
+
+	#[test]
 	fn each_frontend_is_built_in_its_own_directory() {
 		for (name, directory) in [
 			("app web build", "crates/reapers_app"),
@@ -530,7 +576,14 @@ mod tests {
 		assert!(
 			arguments(&plan, "clippy").ends_with(&["--deny".to_owned(), "warnings".to_owned()])
 		);
-		for name in ["clippy", "wasm", "fetch Metaplex Core", "test"] {
+		for name in [
+			"clippy",
+			"wasm",
+			"app native guest",
+			"app web guest",
+			"fetch Metaplex Core",
+			"test",
+		] {
 			assert!(
 				arguments(&plan, name).contains(&"--locked".to_owned()),
 				"{name}"
