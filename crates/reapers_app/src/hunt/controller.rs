@@ -49,6 +49,9 @@ pub struct HuntController {
 	fire_pending: bool,
 	/// Whether ORB is held down.
 	orb_held: bool,
+	/// Whether ORB went down since the last tick: a press as quick as a
+	/// frame is still held for one tick, so that its release is a throw.
+	orb_pressed: bool,
 	/// The weapon slot in hand.
 	slot: usize,
 	unspent: f64,
@@ -72,6 +75,7 @@ impl HuntController {
 			recorded: Vec::new(),
 			fire_pending: false,
 			orb_held: false,
+			orb_pressed: false,
 			slot: Arsenal::GUN_SLOT,
 			unspent: 0.0,
 			bot: None,
@@ -155,6 +159,7 @@ impl HuntController {
 
 	/// Holds ORB down, or lets it go. The tick it comes up is the throw.
 	pub fn hold_orb(&mut self, held: bool) {
+		self.orb_pressed |= held && !self.orb_held;
 		self.orb_held = held;
 	}
 
@@ -227,13 +232,8 @@ impl HuntController {
 			return input;
 		}
 		let fire = std::mem::take(&mut self.fire_pending);
-		HuntInput::measured(
-			pose.forward,
-			pose.turn_speed,
-			fire,
-			self.slot,
-			self.orb_held,
-		)
+		let orb_held = std::mem::take(&mut self.orb_pressed) || self.orb_held;
+		HuntInput::measured(pose.forward, pose.turn_speed, fire, self.slot, orb_held)
 	}
 }
 
@@ -260,6 +260,34 @@ mod tests {
 			Difficulty::default(),
 		)
 		.unwrap()
+	}
+
+	#[test]
+	fn an_orb_pressed_and_let_go_between_two_frames_is_held_for_a_tick() {
+		let mut controller = HuntController::new(Fight::Hunt(sim(3)));
+		controller.hold_orb(true);
+		controller.hold_orb(false);
+		controller.frame(2.0 * HuntController::TICK_SECONDS, &ArPose::AHEAD);
+		let held: Vec<bool> = controller
+			.log()
+			.inputs
+			.iter()
+			.map(|input| input.orb_held)
+			.collect();
+		assert_eq!(held, [true, false], "held for one tick, then let go");
+		// Held across frames, it is held on every tick, and once let go it
+		// is not held again.
+		controller.hold_orb(true);
+		controller.frame(2.0 * HuntController::TICK_SECONDS, &ArPose::AHEAD);
+		controller.hold_orb(false);
+		controller.frame(HuntController::TICK_SECONDS, &ArPose::AHEAD);
+		let held: Vec<bool> = controller
+			.log()
+			.inputs
+			.iter()
+			.map(|input| input.orb_held)
+			.collect();
+		assert_eq!(held, [true, false, true, true, false]);
 	}
 
 	#[test]
