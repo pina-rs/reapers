@@ -271,7 +271,19 @@ impl RoomGridBuilder {
 		if !self.map.add(frame) {
 			return false;
 		}
+		self.chart_frame(frame)
+	}
 
+	/// Takes estimated depth, finding its own floor before calibrating it
+	/// against a platform measurement, as the room survey does.
+	pub fn add_estimated(&mut self, frame: &DepthFrame) -> bool {
+		if !self.map.add_estimated(frame) {
+			return false;
+		}
+		self.chart_frame(frame)
+	}
+
+	fn chart_frame(&mut self, frame: &DepthFrame) -> bool {
 		let Some(picture_floor) = self.map.last_picture_floor() else {
 			return false;
 		};

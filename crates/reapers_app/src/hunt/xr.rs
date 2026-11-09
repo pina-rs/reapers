@@ -458,7 +458,10 @@ mod platform {
 				// the event loop, where a frame can be drawn between the two.
 				crate::platform::sleep(std::time::Duration::ZERO).await;
 				if let Some(cells) = shared.grid.borrow_mut().as_mut() {
-					cells.add_frame(&picture);
+					match source {
+						DepthSource::Measured => cells.add_frame(&picture),
+						DepthSource::Estimated => cells.add_estimated(&picture),
+					};
 				}
 			}
 		}

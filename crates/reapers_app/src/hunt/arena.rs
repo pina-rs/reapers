@@ -458,7 +458,9 @@ impl Arena {
 		self.environment.borrow_mut().advance(delta);
 		let origin = reapers_world::from_platform(self.rig.origin().map(f64::from));
 		let heavy = self.arms.as_ref().map_or(WeaponKind::Scythe, Arms::weapon);
-		self.environment.borrow_mut().hear(&events, origin, pose.forward, heavy);
+		self.environment
+			.borrow_mut()
+			.hear(&events, origin, eye, pose.forward, heavy);
 		let marks = self.marks();
 		if let (Some(arms), Some(controller)) = (self.arms.as_mut(), self.controller.as_ref()) {
 			let sim = controller.sim();

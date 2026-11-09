@@ -116,6 +116,38 @@ fn pictures_from(room: &DrawnRoom, eyes: &[Vec3]) -> Vec<DepthFrame> {
 	frames
 }
 
+#[test]
+fn estimated_depth_keeps_the_measured_room_when_the_eye_moves() {
+	let room = desk_room();
+	let expected = bounds(&nav(&read(&room, false)), DESK.height);
+	for stretch in [0.7_f32, 1.3] {
+		let mut survey = RoomSurvey::new(Vessel::Ape);
+		let mut builder = RoomGridBuilder::new();
+		survey.measure_floor(room.eye_height);
+		builder.measure_floor(room.eye_height);
+		for mut frame in pictures_from(&room, &EYES) {
+			for depth in &mut frame.depths {
+				*depth *= stretch;
+			}
+			if survey.add_estimated(&frame) {
+				assert!(builder.add_estimated(&frame));
+			}
+		}
+		assert_eq!(survey.map().floor_depth(), Some(room.eye_height));
+		assert_eq!(builder.floor_depth(), Some(room.eye_height));
+		let actual = bounds(&nav(&builder.finish()), DESK.height);
+		for (found, want) in [actual.0, actual.1, actual.2, actual.3]
+			.into_iter()
+			.zip([expected.0, expected.1, expected.2, expected.3])
+		{
+			assert!(
+				(found - want).abs() <= 2,
+				"stretch {stretch}: desk {actual:?}, expected {expected:?}"
+			);
+		}
+	}
+}
+
 /// Reads `room` into a survey, pictures taken as [`read`] takes them.
 fn survey(room: &DrawnRoom, moved: bool) -> RoomSurvey {
 	let mut survey = RoomSurvey::new(Vessel::Ape);

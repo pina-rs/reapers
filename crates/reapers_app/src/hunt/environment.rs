@@ -126,10 +126,13 @@ impl Environment {
 	/// Only actual misses mark the room. A hit on the husk must not leave a
 	/// bullet hole on the wall behind it. Reloads and cooldown presses do not
 	/// enqueue anything. Arts use their landing direction, not the gaze now.
+	/// `origin` anchors the hunt in platform space; `eye` is the player's
+	/// current position inside that hunt, as the camera draws it.
 	pub fn hear(
 		&mut self,
 		events: &[(i64, HuntEvent)],
 		origin: Vec3,
+		eye: Vec3,
 		aim: Vec3,
 		heavy: WeaponKind,
 	) {
@@ -143,7 +146,7 @@ impl Environment {
 					at,
 					hit: false,
 					..
-				} => (Kind::Art(*art), at.normalized()),
+				} => (Kind::Art(*art), (*at - eye).normalized()),
 				_ => continue,
 			};
 			if self.pending.len() == MAX_PENDING {
@@ -152,7 +155,7 @@ impl Environment {
 			self.pending.push_back(Request {
 				kind,
 				tick: *tick,
-				origin,
+				origin: origin + eye,
 				direction,
 				issued: self.seconds,
 			});
@@ -418,6 +421,7 @@ mod tests {
 		environment.hear(
 			&[(1, HuntEvent::Missed(kind))],
 			Vec3::ZERO,
+			Vec3::ZERO,
 			Vec3::FORWARD,
 			WeaponKind::Axe,
 		);
@@ -428,6 +432,37 @@ mod tests {
 			distance,
 		};
 		(environment, request, surface)
+	}
+
+	#[test]
+	fn rays_start_at_the_moved_eye_and_arts_point_at_their_landing() {
+		let mut room = Environment::default();
+		let origin = Vec3::new(3.0, 0.2, -2.0);
+		let eye = Vec3::new(0.4, 0.1, 0.3);
+		let at = Vec3::new(0.0, -0.5, 2.0);
+		room.hear(
+			&[
+				(1, HuntEvent::Missed(Archetype::Gun)),
+				(
+					2,
+					HuntEvent::ArtLanded {
+						art: Art::Cinder,
+						at,
+						hit: false,
+						damage: 0.0,
+					},
+				),
+			],
+			origin,
+			eye,
+			Vec3::FORWARD,
+			WeaponKind::Axe,
+		);
+		let rays = room.take_requests();
+		assert_eq!(rays[0].origin, origin + eye);
+		assert_eq!(rays[0].direction, Vec3::FORWARD);
+		assert_eq!(rays[1].origin, origin + eye);
+		assert_eq!(rays[1].direction, (at - eye).normalized());
 	}
 
 	#[test]
@@ -450,6 +485,7 @@ mod tests {
 			height: 844.0,
 			pose: ArPose::AHEAD,
 			fov: 1.0,
+			eye: Vec3::ZERO,
 		};
 		let centre = mark.point(&lens, Vec3::ZERO, 0.0, 0.0).unwrap();
 		assert!((centre.0 - 195.0).abs() < 0.01);

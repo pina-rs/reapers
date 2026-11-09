@@ -373,9 +373,8 @@ impl RoomMap {
 		}
 		let chart = floor.filter(|_| agrees);
 		let unit = self.floor_depth();
-		let scale = chart.map(|floor| {
-			(unit.unwrap_or(floor - frame.origin.y) + frame.origin.y) / floor
-		});
+		let scale =
+			chart.map(|floor| (unit.unwrap_or(floor - frame.origin.y) + frame.origin.y) / floor);
 
 		if let (Some(floor), Some(scale), Some(unit)) = (chart, scale, unit) {
 			if self.vessel.gait() == Gait::Ground {
@@ -387,7 +386,9 @@ impl RoomMap {
 			if estimated && self.measured_floor.is_some() {
 				// Air is classified in metres; the model's floor calibrates
 				// distances from this picture's eye before its origin is added.
-				let Some(scale) = scale else { return false; };
+				let Some(scale) = scale else {
+					return false;
+				};
 				for axis in [&mut cloud.xs, &mut cloud.ys, &mut cloud.zs] {
 					for coordinate in axis {
 						*coordinate *= scale as f32;
