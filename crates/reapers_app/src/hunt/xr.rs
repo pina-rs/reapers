@@ -335,7 +335,7 @@ mod platform {
 			// the survey and the grid learn from it, and from every picture
 			// after, is charted relative to it.
 			shared
-				.frame
+				.room_frame
 				.set(Some([f64::from(eye.x), f64::from(eye.y), f64::from(eye.z)]));
 		}
 		if shared.grid.borrow().is_some() {
