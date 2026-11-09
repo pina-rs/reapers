@@ -82,6 +82,10 @@ const IDENTITY: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
 
 /// One husk in a scene.
 #[derive(Debug)]
+#[allow(
+	clippy::struct_excessive_bools,
+	reason = "each says one thing about the husk's state, not flags for the same decision"
+)]
 pub struct HuskRig {
 	/// The group placed where the rules put the husk.
 	pub root: NodeId,
@@ -130,6 +134,9 @@ pub struct HuskRig {
 	/// The part offsets last sent, so a still husk sends none: each limb,
 	/// the head, the neck, and the shadow's place and look.
 	posed: Posed,
+	/// Whether the last frame was frozen, so the pins that hold the pose
+	/// are sent once when the ice lands and not again while it holds.
+	frozen: bool,
 	/// Where the player stands in the scene's space: zero, unless the
 	/// platform draws the scene from its own view of the room.
 	origin: [f32; 3],
@@ -206,6 +213,7 @@ impl HuskRig {
 				.any(|(material, _)| *material == "shadow"),
 			shadow_placed: Transform::IDENTITY,
 			posed: Posed::default(),
+			frozen: false,
 			origin: [0.0; 3],
 			sent: None,
 		};
@@ -464,9 +472,8 @@ impl HuskRig {
 		);
 		if !frozen {
 			// Ice holds the body as it was: nothing that only time or a
-			// settling foot swings goes on while it is frozen. The host
-			// finishes easing the last part offsets it was given and holds
-			// them there.
+			// settling foot swings goes on while it is frozen. The parts
+			// themselves are pinned below, where the ice lands.
 			self.seconds += played;
 			approach(&mut self.tuck, f64::from(u8::from(self.leaping)), 14.0);
 			let bolt = self.vessel.bolt_speed();
@@ -544,22 +551,45 @@ impl HuskRig {
 			);
 		}
 		self.posed.shadow_look = shadow_look;
-		if !frozen {
-			self.pose_parts(scene, &carriage, delta);
-		}
+		self.pin_or_pose(scene, &carriage, delta, frozen);
 		if self.sent.is_none() {
 			scene.set_visible(self.root, true);
 		}
 		self.sent = Some((root, lift_transform, looks));
 	}
 
+	/// Sends the parts' offsets for this frame. A body free to move has
+	/// them eased; the frame the ice lands pins every pivot at once, with
+	/// no easing, so the host stops the interpolation it was told to do
+	/// where the ice caught it instead of gliding on to the offsets'
+	/// target for up to a tenth of a second after. While the ice holds,
+	/// nothing more is sent: the pose it pinned is the pose drawn.
+	fn pin_or_pose(&mut self, scene: &Scene, carriage: &Carriage, delta: f64, frozen: bool) {
+		if frozen {
+			if !self.frozen {
+				self.frozen = true;
+				let carriage = self.carriage;
+				self.pose_parts(scene, &carriage, 0.0, true);
+			}
+		} else {
+			self.frozen = false;
+			self.pose_parts(scene, carriage, delta, false);
+		}
+	}
+
 	/// Sends the limbs' swings and the head's gaze that changed, for the
-	/// host to ease to over `delta`.
-	fn pose_parts(&mut self, scene: &Scene, carriage: &Carriage, delta: f64) {
+	/// host to ease to over `delta`, or, when `pin`, sends every pivot at
+	/// once with no easing: the pose the ice caught is the pose that is
+	/// held, and the host's interpolation is stopped where it stands.
+	fn pose_parts(&mut self, scene: &Scene, carriage: &Carriage, delta: f64, pin: bool) {
 		let Some(build) = self.gait.build() else {
 			return;
 		};
-		let seconds = delta.clamp(0.0, 0.1) as f32;
+		let seconds = if pin {
+			0.0
+		} else {
+			delta.clamp(0.0, 0.1) as f32
+		};
 		for (slot, limb) in build.limbs.iter().take(MAX_LIMBS).enumerate() {
 			let (swing, spread) = carriage.limbs[slot];
 			let rotation = multiply(
@@ -567,7 +597,7 @@ impl HuskRig {
 				axis_angle([0.0, 0.0, 1.0], spread),
 			);
 			let key = quantize(rotation);
-			if self.posed.limbs[slot] != key {
+			if pin || self.posed.limbs[slot] != key {
 				self.posed.limbs[slot] = key;
 				scene.set_part_offset(self.body, limb.part, turn(rotation), seconds);
 			}
@@ -593,13 +623,13 @@ impl HuskRig {
 			}
 		};
 		let key = quantize(head);
-		if self.posed.head != key {
+		if pin || self.posed.head != key {
 			self.posed.head = key;
 			scene.set_part_offset(self.body, build.head, turn(head), seconds);
 		}
 		if let Some(part) = build.neck {
 			let key = quantize(neck);
-			if self.posed.neck != key {
+			if pin || self.posed.neck != key {
 				self.posed.neck = key;
 				scene.set_part_offset(self.body, part, turn(neck), seconds);
 			}
@@ -1035,10 +1065,27 @@ mod tests {
 			rig.place(&held);
 			rig.animate(&scene, 1.0 / 30.0, frozen, ice);
 			let ops = scene.take_ops();
-			assert!(
-				ops.iter().all(|op| !matches!(op, Op::SetPartOffset { .. })),
-				"frame {frame} moved a limb or the gaze while frozen"
-			);
+			if frame == 0 {
+				// The frame the ice lands pins every pivot at once: no
+				// easing, so the host stops the interpolation it was told
+				// to do instead of gliding on to the offsets' target.
+				assert!(
+					ops.iter()
+						.any(|op| matches!(op, Op::SetPartOffset { seconds: 0.0, .. })),
+					"the ice did not pin the pose it caught"
+				);
+				assert!(
+					!ops.iter().any(
+						|op| matches!(op, Op::SetPartOffset { seconds, .. } if *seconds > 0.0)
+					),
+					"the frame the ice lands still eases a limb or the gaze"
+				);
+			} else {
+				assert!(
+					!ops.iter().any(|op| matches!(op, Op::SetPartOffset { .. })),
+					"frame {frame} moved a limb or the gaze while frozen"
+				);
+			}
 		}
 		let mut resumed = false;
 		for _ in 0..20 {
@@ -1055,6 +1102,330 @@ mod tests {
 				.any(|op| matches!(op, Op::SetPartOffset { .. }));
 		}
 		assert!(resumed, "the gait resumes once the ice thaws");
+	}
+
+	/// The host's own scene, `leptoskit_3d`'s retained world, driven by the
+	/// very ops the rig sends: the pose the player is shown, not the ops
+	/// that ask for it. It needs no GPU, only the models.
+	#[cfg(not(target_arch = "wasm32"))]
+	mod host {
+		use std::sync::Arc;
+
+		use leptoskit_3d::Asset;
+		use leptoskit_3d::Event;
+		use leptoskit_3d::Op;
+		use leptoskit_3d::RequestId;
+		use leptoskit_3d::World;
+
+		/// One host display frame, as the display link drives the scene:
+		/// the guest ticks at thirty, the display draws at sixty, so an
+		/// eased offset the guest sends is still on its way when the next
+		/// guest frame arrives.
+		pub const DISPLAY: f32 = 1.0 / 60.0;
+
+		pub struct Host {
+			world: World,
+		}
+
+		impl Host {
+			/// A host that has taken in everything `scene` queued so far,
+			/// loading every model it asked for from the app's assets.
+			pub fn new(scene: &leptoskit::scene3d::client::Scene) -> Self {
+				let mut host = Self {
+					world: World::new(),
+				};
+
+				host.take(scene);
+				host.world.advance(0.0);
+				host
+			}
+
+			/// Takes the ops `scene` queued into the world.
+			pub fn take(&mut self, scene: &leptoskit::scene3d::client::Scene) {
+				self.apply(scene.take_ops());
+			}
+
+			/// Applies ops to the world, loading every model they ask for
+			/// from the app's assets.
+			pub fn apply(&mut self, ops: impl IntoIterator<Item = Op>) {
+				self.world.apply(ops);
+
+				for (asset, path) in self.world.take_loads() {
+					let file = format!("{}/assets/{path}", env!("CARGO_MANIFEST_DIR"));
+					let bytes =
+						std::fs::read(&file).unwrap_or_else(|error| panic!("{file}: {error}"));
+
+					self.world
+						.asset_loaded(asset, Ok(Arc::new(Asset::from_slice(&bytes).unwrap())));
+				}
+			}
+
+			/// One display frame of the host's own clock.
+			pub fn display(&mut self) {
+				self.world.advance(DISPLAY);
+			}
+
+			/// Where one ray, cast from `origin` along `direction` in the
+			/// world, meets the husk: the part that was hit and the point
+			/// in the world.
+			pub fn ray(
+				&mut self,
+				origin: [f32; 3],
+				direction: [f32; 3],
+			) -> Vec<(String, [f32; 3])> {
+				self.world.apply([Op::Raycast {
+					request: RequestId(1),
+					origin,
+					direction,
+					max_distance: 100.0,
+				}]);
+
+				self.world
+					.take_events()
+					.into_iter()
+					.filter_map(|event| {
+						match event {
+							Event::RaycastHits { hits, .. } => Some(hits),
+							_ => None,
+						}
+					})
+					.flatten()
+					.map(|hit| (hit.part, hit.point))
+					.collect()
+			}
+		}
+	}
+
+	/// Where a point of the world lies in the body's own frame, under the
+	/// transforms the rig last placed it by. Whatever the body as a whole
+	/// does — the root's place, the lift's lean and roll, which the ice
+	/// eases in its own time — is divided out, so only a limb, a head or a
+	/// neck moving can move it.
+	#[cfg(not(target_arch = "wasm32"))]
+	fn in_body(rig: &HuskRig, point: [f32; 3]) -> [f32; 3] {
+		let (root, lift, _) = rig.sent.expect("the husk was placed");
+		let back = |transform: &Transform, point: [f32; 3]| {
+			let moved = [0, 1, 2].map(|axis| point[axis] - transform.translation[axis]);
+			let turned = crate::render::camera::rotate(
+				[
+					-transform.rotation[0],
+					-transform.rotation[1],
+					-transform.rotation[2],
+					transform.rotation[3],
+				],
+				moved,
+			);
+
+			[0, 1, 2].map(|axis| turned[axis] / transform.scale[axis])
+		};
+
+		back(&lift, back(&root, point))
+	}
+
+	/// The pose the host is drawing the husk in: rays held fixed in the
+	/// body's own frame — cast through the transforms that place it, so the
+	/// whole body coming to rest as the ice takes hold cannot slide them
+	/// along its skin — and the hits they make, brought back into that same
+	/// frame. Only a limb, a head or a neck moving can move them.
+	#[cfg(not(target_arch = "wasm32"))]
+	fn body_pose(rig: &HuskRig, host: &mut host::Host) -> Vec<(String, [f32; 3])> {
+		let (root, lift, _) = rig.sent.expect("the husk was placed");
+		let forward = |point: [f32; 3]| apply(&root, apply(&lift, point));
+		let along = |way: [f32; 3]| {
+			crate::render::camera::rotate(
+				root.rotation,
+				crate::render::camera::rotate(lift.rotation, way),
+			)
+		};
+		let behind = [0.0, 0.0, 1.2];
+		let ahead = [0.0, 0.0, -1.0];
+		let mut seen = Vec::new();
+
+		for x in [-0.3_f32, 0.0, 0.3] {
+			for y in [-0.6_f32, -0.3, 0.0, 0.3, 0.6] {
+				let origin = forward([behind[0] + x, behind[1] + y, behind[2]]);
+				let direction = along(ahead);
+
+				seen.extend(
+					host.ray(origin, direction)
+						.into_iter()
+						.map(|(part, point)| (part, in_body(rig, point)))
+						.filter(|(part, _)| part != "shadow"),
+				);
+			}
+		}
+
+		seen
+	}
+
+	/// The ice lands while the host is still easing the offsets it was
+	/// given, as it does whenever the frame the art struck was a long one:
+	/// the pose the player is shown holds from the first frozen frame, and
+	/// the legs move again once it thaws.
+	#[cfg(not(target_arch = "wasm32"))]
+	#[test]
+	fn the_host_holds_the_pose_it_is_drawing_when_the_ice_lands_mid_ease() {
+		let scene = Scene::new(leptoskit::scene3d::SceneId(44));
+		let nft = market_listings()
+			.into_iter()
+			.find(|nft| nft.collection.vessel() == Vessel::Llama)
+			.unwrap();
+		let mut rig = HuskRig::spawn(&scene, Vessel::Llama, &nft);
+		let mut host = host::Host::new(&scene);
+		let guest_frame = |rig: &mut HuskRig,
+		                   host: &mut host::Host,
+		                   z: f64,
+		                   delta: f64,
+		                   mood: HuskMood,
+		                   plight: HuskPlight| {
+			rig.place(&llama_walking(z));
+			rig.animate(&scene, delta, mood, plight);
+			host.take(&scene);
+			host.display();
+			host.display();
+		};
+
+		// Walk, the host drawing every frame, until the stride is well
+		// under way.
+		let mut z = 2.2;
+		let mut poses = Vec::new();
+		for _ in 0..12 {
+			z += 0.02;
+			guest_frame(
+				&mut rig,
+				&mut host,
+				z,
+				1.0 / 30.0,
+				HuskMood::default(),
+				HuskPlight::default(),
+			);
+			poses.push(body_pose(&rig, &mut host));
+		}
+		assert!(
+			poses.iter().any(|pose| pose != poses.first().unwrap()),
+			"the llama walks"
+		);
+
+		// One long frame, as a hitch is: the offsets it sends ease over a
+		// tenth of a second, which the next frames of the display are still
+		// working through when the ice lands.
+		z += 0.02;
+		rig.place(&llama_walking(z));
+		rig.animate(&scene, 0.1, HuskMood::default(), HuskPlight::default());
+		let ops = scene.take_ops();
+
+		assert!(
+			ops.iter()
+				.any(|op| matches!(op, Op::SetPartOffset { seconds, .. } if *seconds >= 0.1)),
+			"the long frame left an ease in flight"
+		);
+
+		host.apply(ops);
+
+		let frozen = (
+			HuskMood {
+				frozen: true,
+				..HuskMood::default()
+			},
+			HuskPlight {
+				frozen: true,
+				..HuskPlight::default()
+			},
+		);
+		// The first frozen frame, drawn twice by the display, is the pose
+		// the ice caught: it holds exactly, and goes on holding. Then the
+		// thaw lets the stride move again.
+		let held = held_pose(&mut rig, &mut host, &scene, z, frozen, 8);
+		let mut resumed = false;
+		for _ in 0..6 {
+			z += 0.02;
+			guest_frame(
+				&mut rig,
+				&mut host,
+				z,
+				1.0 / 30.0,
+				HuskMood::default(),
+				HuskPlight::default(),
+			);
+			resumed |= !close(&body_pose(&rig, &mut host), &held);
+		}
+		assert!(resumed, "the gait resumed once the ice thaws");
+	}
+
+	/// Whether two poses the host drew are the same, to within the f32 the
+	/// world computes in: a fiftieth of a millimetre, far under the
+	/// smallest swing of a limb.
+	#[cfg(not(target_arch = "wasm32"))]
+	fn close(one: &[(String, [f32; 3])], other: &[(String, [f32; 3])]) -> bool {
+		one.len() == other.len()
+			&& one.iter().zip(other).all(|(one, other)| {
+				one.0 == other.0
+					&& one
+						.1
+						.iter()
+						.zip(&other.1)
+						.all(|(one, other)| (one - other).abs() <= 2e-5)
+			})
+	}
+
+	/// A llama of the room's size, walking the floor at `z` metres ahead
+	/// with its eyes on where it is going.
+	#[cfg(not(target_arch = "wasm32"))]
+	fn llama_walking(z: f64) -> HuskPose {
+		HuskPose {
+			scale: Vessel::Llama.locomotion().body_height / (2.0 * Vessel::Llama.half_height()),
+			ground: Some(-1.45),
+			locomotion: Some(reapers_rules::HuskLocomotion {
+				state: reapers_rules::HuskMotionState::Walk,
+				state_fraction: 0.0,
+				support_height: -1.45,
+				next_foothold: Some(reapers_rules::Vec3::new(0.9, -1.0, 3.2)),
+			}),
+			..HuskPose::new(
+				Vessel::Llama,
+				reapers_rules::Vec3::new(0.0, -1.2, z),
+				std::f64::consts::PI,
+			)
+		}
+	}
+
+	/// Freezes the husk where it stands for `frames` guest frames, sampling
+	/// the pose the host draws at every display frame, and answers the pose
+	/// the ice caught: every sample must be exactly it.
+	#[cfg(not(target_arch = "wasm32"))]
+	fn held_pose(
+		rig: &mut HuskRig,
+		host: &mut host::Host,
+		scene: &leptoskit::scene3d::client::Scene,
+		z: f64,
+		frozen: (HuskMood, HuskPlight),
+		frames: usize,
+	) -> Vec<(String, [f32; 3])> {
+		let mut held = None;
+
+		for frame in 0..frames {
+			rig.place(&llama_walking(z));
+			rig.animate(scene, 1.0 / 30.0, frozen.0, frozen.1);
+			host.take(scene);
+			host.display();
+			host.display();
+
+			for _ in 0..2 {
+				let pose = body_pose(rig, host);
+
+				match &held {
+					None => held = Some(pose),
+					Some(held) => {
+						assert!(
+							close(held, &pose),
+							"frozen frame {frame} moved a limb, a head or a neck"
+						);
+					}
+				}
+			}
+		}
+
+		held.expect("at least one frame of the freeze")
 	}
 
 	#[test]
