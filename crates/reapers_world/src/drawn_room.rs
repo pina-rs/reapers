@@ -7,6 +7,7 @@ use reapers_rules::radians;
 
 use crate::depth_frame::DepthFrame;
 use crate::depth_frame::RayGrid;
+use crate::math;
 use crate::pose::ArPose;
 use crate::room_survey::RoomSurvey;
 
@@ -33,6 +34,11 @@ pub struct DrawnRoom {
 	pub eye_height: f64,
 	pub wall: f64,
 	pub blocks: Vec<Block>,
+
+	/// How far the room is turned from the hunt's own axes, in radians to
+	/// the right, about the player. A turned room tests that the grid finds
+	/// the room's axes instead of the hunt's.
+	pub room_yaw: f64,
 }
 
 /// How a picture of a [`DrawnRoom`] is taken: how big it is, and how wrong
@@ -50,6 +56,10 @@ pub struct Shot {
 	/// Where the noise starts from.
 	pub seed: i64,
 
+	/// How many pixels each silhouette is smeared across, as a depth model
+	/// blurs a surface into the one behind it. Zero for a perfect picture.
+	pub flying: usize,
+
 	pub width: usize,
 	pub height: usize,
 }
@@ -60,10 +70,18 @@ impl Default for Shot {
 			stretch: 1.0,
 			noise: 0.0,
 			seed: 1,
+			flying: 0,
 			width: 252,
 			height: 448,
 		}
 	}
+}
+
+impl Shot {
+	/// A step of more than this share between two pixels is a silhouette,
+	/// so a drawn model smears its depth there rather than reading the
+	/// nearer surface clean to its edge.
+	pub const FLYING_EDGE: f64 = 0.10;
 }
 
 impl Default for DrawnRoom {
@@ -72,6 +90,7 @@ impl Default for DrawnRoom {
 			eye_height: 1.45,
 			wall: 4.0,
 			blocks: Vec::new(),
+			room_yaw: 0.0,
 		}
 	}
 }
@@ -152,7 +171,64 @@ impl DrawnRoom {
 			}
 		}
 
+		if shot.flying > 0 {
+			Self::smear_flying(&mut frame.depths, shot.width, shot.height, shot.flying);
+		}
+
 		frame
+	}
+
+	/// Blurs the depth across each silhouette by `pixels` pixels, the way a
+	/// depth model reads a surface into the one behind it, so a filter can
+	/// be held to what it leaves behind.
+	///
+	/// A step of more than [`Shot::FLYING_EDGE`] between two neighbours is a
+	/// silhouette, and the midpoint of the two depths is written into the
+	/// farther side of it. Both directions are swept, so a desk's front and
+	/// its side are both smeared.
+	fn smear_flying(depths: &mut [f32], width: usize, height: usize, pixels: usize) {
+		let source = depths.to_vec();
+		let mut smear = |one: usize, other: usize| {
+			let (near, far) = (source[one], source[other]);
+
+			if !(near > 0.0 && near.is_finite() && far > 0.0 && far.is_finite()) {
+				return;
+			}
+
+			let step = (f64::from(near) - f64::from(far)).abs() / f64::from(near.min(far));
+
+			if step <= Shot::FLYING_EDGE {
+				return;
+			}
+
+			let midpoint = near.midpoint(far);
+
+			// The band lies on the farther side of the silhouette, running
+			// away from the nearer pixel.
+			let (at, stride) = if near < far { (other, 1) } else { (one, -1) };
+
+			for offset in 0..pixels {
+				let at = at as i64 + stride * offset as i64;
+
+				if at < 0 || at >= depths.len() as i64 {
+					break;
+				}
+
+				depths[at as usize] = midpoint;
+			}
+		};
+
+		for row in 0..height {
+			for column in 0..width - 1 {
+				smear(row * width + column, row * width + column + 1);
+			}
+		}
+
+		for column in 0..width {
+			for row in 0..height - 1 {
+				smear(row * width + column, (row + 1) * width + column);
+			}
+		}
 	}
 
 	/// How far along `direction` the first surface is, in metres, as the
@@ -206,6 +282,21 @@ impl DrawnRoom {
 	/// How far along `ray`, in multiples of its length, the first surface
 	/// is.
 	fn depth_along(&self, ray: Vec3) -> f64 {
+		// The room's own coordinates, when it is turned away from the hunt's
+		// axes: the same turn a [`RoomGrid`](reapers_rules::RoomGrid) stores
+		// as `grid_yaw`, applied backwards.
+		let ray = if self.room_yaw == 0.0 {
+			ray
+		} else {
+			let cosine = math::cos(self.room_yaw);
+			let sine = math::sin(self.room_yaw);
+
+			Vec3::new(
+				ray.x * cosine - ray.z * sine,
+				ray.y,
+				ray.x * sine + ray.z * cosine,
+			)
+		};
 		let mut nearest = f64::INFINITY;
 		let mut consider = |distance: f64| {
 			if distance > 1e-6 && distance < nearest {
