@@ -142,6 +142,7 @@ mod what_stands_in_the_room {
 			let mut sim = HuntSim::new(
 				seed,
 				Vessel::Ape,
+				Rarity::Epic,
 				Rarity::Epic.ward(),
 				&stats,
 				plan.clone(),

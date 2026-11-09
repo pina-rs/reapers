@@ -397,7 +397,7 @@ fn receipt_for(player: &Address, asset: &Address) -> Result<Receipt, Error> {
 	Ok(Receipt {
 		player: player.to_bytes(),
 		mint: asset.to_bytes(),
-		grade: Grade::Clean,
+		grade: Grade::Great,
 		feeding: Feeding::Rich,
 		xp: 63,
 		anima: 20,

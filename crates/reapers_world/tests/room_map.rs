@@ -41,6 +41,7 @@ fn sim(vessel: Vessel, plan: HuntPlan) -> HuntSim {
 	HuntSim::new(
 		5,
 		vessel,
+		Rarity::Common,
 		Rarity::Common.ward(),
 		&HuntStats::derive(&HuntLoadout::BORROWED, 1.0).unwrap(),
 		plan,
