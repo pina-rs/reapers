@@ -124,6 +124,33 @@ fn with_rift(action: impl FnOnce(&mut RiftState)) {
 	}
 }
 
+/// Presses FIRE once for the rift on screen.
+fn fire() {
+	with_rift(|rift| {
+		if let Some(controller) = rift.arena.controller.as_mut() {
+			controller.press();
+		}
+	});
+}
+
+/// Draws the weapon in `slot`.
+fn select_slot(slot: usize) {
+	with_rift(|rift| {
+		if let Some(controller) = rift.arena.controller.as_mut() {
+			controller.select(slot);
+		}
+	});
+}
+
+/// Holds ORB down, or lets it go.
+fn hold_orb(held: bool) {
+	with_rift(|rift| {
+		if let Some(controller) = rift.arena.controller.as_mut() {
+			controller.hold_orb(held);
+		}
+	});
+}
+
 impl RiftState {
 	fn new(props: &RiftViewProps, loadout: HuntLoadout) -> Self {
 		let size = platform::viewport();
@@ -252,12 +279,13 @@ impl RiftState {
 		if self.arena.controller.is_none() {
 			self.arena.idle(delta, live_pose);
 		} else {
-			let taps = self.shared.live.borrow_mut().take_taps();
-			if let Some(controller) = self.arena.controller.as_mut() {
-				for tap in taps {
-					controller.tap(tap);
-				}
-				controller.focus = self.shared.live.borrow().holding;
+			if !crate::render::pointer::follows_fingers()
+				&& let Some(controller) = self.arena.controller.as_mut()
+				&& !controller.plays_itself()
+			{
+				let holding = self.shared.live.borrow().holding;
+
+				controller.hold_orb(holding);
 			}
 			let events = self.arena.advance(delta, live_pose);
 			for event in &events {
@@ -321,7 +349,6 @@ impl RiftState {
 			.as_ref()
 			.map(|(banner, _)| banner.text.clone())
 			.hash(&mut hasher);
-		self.arena.slashes.len().hash(&mut hasher);
 		hasher.finish()
 	}
 
@@ -344,11 +371,13 @@ impl RiftState {
 					.borrow_mut()
 					.drag(f64::from(dx) * per_unit, -f64::from(dy) * per_unit);
 			}
-			Gesture::Tap { x, y } => {
-				let live = self.shared.live.borrow().pose();
-				self.arena.strike(f64::from(x), f64::from(y), live);
+			Gesture::Down { x, y } => {
+				if super::super::hunt::controls::orb_area(f64::from(x), f64::from(y)) {
+					hold_orb(true);
+				}
 			}
-			Gesture::Down { .. } | Gesture::Up => {}
+			Gesture::Up => hold_orb(false),
+			Gesture::Tap { .. } => {}
 		}
 	}
 }
@@ -461,31 +490,16 @@ pub fn rift_view(props: &RiftViewProps) -> Element {
 				controller.sim(),
 				state.light,
 				state.arena.wound,
-				&state.arena.slashes,
 				state.loadout.reaper_class.perk() == ClassPerk::Measure,
 			);
 			root = root.child(marks.into_view(state.size.0, state.size.1));
-			if !crate::render::pointer::follows_fingers() {
-				root = root.child(
-					View()
-						.class("absolute inset-0")
-						.test_id("rift-strike")
-						.accessibility_label(words.hunt_prompt_strike())
-						.on_press(|| {
-							with_rift(|rift| {
-								let live = rift.shared.live.borrow().pose();
-								rift.arena.strike(0.5, 0.5, live);
-							});
-						}),
-				);
-			}
 			let live = state.shared.live.borrow();
 			let afterword = match controller.sim().outcome() {
 				Some(outcome) if outcome.grade().is_some() => words.rift_cut_made(),
 				Some(outcome) if outcome.escape() == Some(EscapeCause::Resolve) => {
 					words.rift_cast_out()
 				}
-				Some(outcome) if outcome.escape() == Some(EscapeCause::Reap) => {
+				Some(outcome) if outcome.escape() == Some(EscapeCause::Lapsed) => {
 					words.rift_cut_missed()
 				}
 				_ => "",
@@ -499,12 +513,27 @@ pub fn rift_view(props: &RiftViewProps) -> Element {
 				state.banner.as_ref().map(|(banner, _)| banner.clone()),
 				afterword,
 			);
-			root = root.child(View().class("absolute inset-0").child(status_view(
+			let controls = super::super::hunt::controls::controls(
 				&*words,
-				&shown,
+				controller.sim(),
+				controller.slot(),
+				state.loadout.reaper_class.weapon(),
 				state.light,
-				Some(circle(&*words, frame, state.light)),
-			)));
+				!controller.plays_itself(),
+				fire,
+				select_slot,
+			);
+			root = root.child(
+				View()
+					.class("absolute inset-0")
+					.child(status_view(
+						&*words,
+						&shown,
+						state.light,
+						Some(circle(&*words, frame, state.light)),
+					))
+					.child(controls),
+			);
 		}
 		_ => root = root.child(lobby(props, &state)),
 	}

@@ -47,7 +47,7 @@ pub trait Messages: Send + Sync {
 	fn armory_anima(&self, amount: i64) -> String;
 	/// `{count, plural, =1{One more to go deeper} other{{count} more to go deeper}}`
 	fn armory_art_next(&self, count: i64) -> String;
-	/// `An art is never bought. Your reaper learns it by absorbing the creatures that carry it, and each one it absorbs takes it deeper. In a hunt, hold it, steady the phone on the husk, then flick.`
+	/// `An art is never bought. Your reaper learns it by absorbing the creatures that carry it, and each one it absorbs takes it deeper. In a hunt, pick it on the weapon rail and fire: it flies at the crosshair.`
 	fn armory_art_note(&self) -> &'static str;
 	/// `Rank {rank} of 3`
 	fn armory_art_rank(&self, rank: i64) -> String;
@@ -163,7 +163,7 @@ pub trait Messages: Send + Sync {
 	fn class_weigher(&self) -> &'static str;
 	/// `The judge who measures a spirit before taking it.`
 	fn class_weigher_line(&self) -> &'static str;
-	/// `Nothing yet. Every husk you reap is written here.`
+	/// `Nothing yet. Every husk you capture is written here.`
 	fn codex_empty(&self) -> &'static str;
 	/// `Finish the burn`
 	fn codex_finish_burn(&self) -> &'static str;
@@ -331,7 +331,7 @@ pub trait Messages: Send + Sync {
 	fn gift_hush_lore(&self) -> &'static str;
 	/// `Keening`
 	fn gift_keening(&self) -> &'static str;
-	/// `After an unflinching hold, your next seal strike deals {bonus}% more damage.`
+	/// `After an unflinching hold, your next hit deals {bonus}% more damage.`
 	fn gift_keening_effect(&self, bonus: i64) -> String;
 	/// `The mourner listens until the cry has passed. The next toll carries what was heard.`
 	fn gift_keening_lore(&self) -> &'static str;
@@ -385,32 +385,32 @@ pub trait Messages: Send + Sync {
 	fn hunt_ambush_bonus(&self) -> &'static str;
 	/// `{art} runs deeper: rank {rank} of 3.`
 	fn hunt_art_deepened(&self, art: &str, rank: i64) -> String;
-	/// `Flick`
-	fn hunt_art_flick(&self) -> &'static str;
-	/// `Hold, then flick`
-	fn hunt_art_hint(&self) -> &'static str;
-	/// `Your reaper has learned {art}. Hold it in a hunt, steady the phone, then flick.`
+	/// `Your reaper has learned {art}. In a hunt, pick it on the rail and fire to throw it.`
 	fn hunt_art_learned(&self, art: &str) -> String;
 	/// `Missed`
 	fn hunt_art_missed(&self) -> &'static str;
-	/// `{art}: hold, steady the phone on the husk, then flick the phone to throw`
-	fn hunt_art_semantics(&self, art: &str) -> String;
 	/// `Raise the blade`
 	fn hunt_begin(&self) -> &'static str;
-	/// `Blade ready`
-	fn hunt_blade_ready(&self) -> &'static str;
-	/// `Recovering`
-	fn hunt_blade_recovering(&self) -> &'static str;
 	/// `Ward broken`
 	fn hunt_broken(&self) -> &'static str;
+	/// `Down`
+	fn hunt_broken_window(&self) -> &'static str;
 	/// `It burns`
 	fn hunt_burning(&self) -> &'static str;
 	/// `Cadence ×{hits}`
 	fn hunt_cadence(&self, hits: i64) -> String;
+	/// `Captured`
+	fn hunt_captured(&self) -> &'static str;
+	/// `Captured`
+	fn hunt_captured_label(&self) -> &'static str;
 	/// `Testing difficulty`
 	fn hunt_difficulty(&self) -> &'static str;
-	/// `The reap was left unfinished too often. It is still out there.`
-	fn hunt_escaped_reap(&self) -> &'static str;
+	/// `Dives {charges}`
+	fn hunt_dives(&self, charges: i64) -> String;
+	/// `Drawing`
+	fn hunt_drawing(&self) -> &'static str;
+	/// `It was left lying without an orb too often, and got up and ran. It is still out there.`
+	fn hunt_escaped_lapsed(&self) -> &'static str;
 	/// `You flinched until nothing was left to hold it with. It is still out there.`
 	fn hunt_escaped_resolve(&self) -> &'static str;
 	/// `The fight ran too long and the husk found a way out. It is still out there.`
@@ -423,47 +423,91 @@ pub trait Messages: Send + Sync {
 	fn hunt_failed_title(&self) -> &'static str;
 	/// `Feeding`
 	fn hunt_feeding(&self) -> &'static str;
+	/// `Fire`
+	fn hunt_fire(&self) -> &'static str;
+	/// `Fire the {weapon}`
+	fn hunt_fire_semantics(&self, weapon: &str) -> String;
 	/// `Flinched`
 	fn hunt_flinched(&self) -> &'static str;
 	/// `Frozen`
 	fn hunt_frozen(&self) -> &'static str;
-	/// `A clean reap`
-	fn hunt_grade_clean(&self) -> &'static str;
-	/// `A perfect reap`
-	fn hunt_grade_perfect(&self) -> &'static str;
-	/// `A ragged reap`
-	fn hunt_grade_ragged(&self) -> &'static str;
+	/// `An excellent capture`
+	fn hunt_grade_excellent(&self) -> &'static str;
+	/// `A great capture`
+	fn hunt_grade_great(&self) -> &'static str;
+	/// `A plain capture`
+	fn hunt_grade_plain(&self) -> &'static str;
 	/// `Blown into the open`
 	fn hunt_gusted(&self) -> &'static str;
 	/// `Unflinching`
 	fn hunt_held_firm(&self) -> &'static str;
-	/// `When it runs at you, swing the phone hard across it.`
+	/// `Ward −{damage}`
+	fn hunt_hit(&self, damage: i64) -> String;
+	/// `Seal ×2 · ward −{damage}`
+	fn hunt_hit_seal(&self, damage: i64) -> String;
+	/// `When its ring turns gold, hold ORB and let go as the ring closes on it. That is the capture.`
+	fn hunt_how_capture(&self) -> &'static str;
+	/// `When its ring turns red and it runs at you, swing the phone hard across it.`
 	fn hunt_how_charge(&self) -> &'static str;
-	/// `When it draws breath, freeze. Do not move and do not tap.`
+	/// `Keep it in the crosshair and press FIRE. A lit seal takes twice the harm.`
+	fn hunt_how_fire(&self) -> &'static str;
+	/// `When its ring turns amber, freeze. Do not move and do not fire.`
 	fn hunt_how_hold(&self) -> &'static str;
-	/// `When its ward breaks, sweep the phone slowly along the arc. That is the reap.`
-	fn hunt_how_reap(&self) -> &'static str;
 	/// `Trace its sigil: rest the ring on each light in turn until it catches.`
 	fn hunt_how_sigil(&self) -> &'static str;
-	/// `Find it and hold the ring on it, still, to ambush it.`
+	/// `Find it and hold the crosshair on it, still, to ambush it.`
 	fn hunt_how_stalk(&self) -> &'static str;
-	/// `Tap the lit seals on its body to wear down its ward.`
-	fn hunt_how_strike(&self) -> &'static str;
+	/// `Tap the rail to change weapons: the pistol, the bone knife, your class weapon and your art.`
+	fn hunt_how_weapons(&self) -> &'static str;
+	/// `In reach`
+	fn hunt_in_reach(&self) -> &'static str;
+	/// `Jammed`
+	fn hunt_jammed(&self) -> &'static str;
 	/// `Lower the blade`
 	fn hunt_leave(&self) -> &'static str;
 	/// `Lost`
 	fn hunt_lost_label(&self) -> &'static str;
+	/// `Miss · keep it in the crosshair`
+	fn hunt_missed(&self) -> &'static str;
 	/// `Steady`
 	fn hunt_motion_steady(&self) -> &'static str;
 	/// `Ease your movement`
 	fn hunt_motion_unsteady(&self) -> &'static str;
 	/// `It sees you`
 	fn hunt_noticed(&self) -> &'static str;
+	/// `Orb`
+	fn hunt_orb(&self) -> &'static str;
+	/// `It holds its breath`
+	fn hunt_orb_breath(&self) -> &'static str;
+	/// `It broke free`
+	fn hunt_orb_broke_free(&self) -> &'static str;
+	/// `It is drawn in`
+	fn hunt_orb_drawing(&self) -> &'static str;
+	/// `The orb falls`
+	fn hunt_orb_falling(&self) -> &'static str;
+	/// `The orb is away`
+	fn hunt_orb_flight(&self) -> &'static str;
+	/// `In flight`
+	fn hunt_orb_in_flight(&self) -> &'static str;
+	/// `Need {cost} soul`
+	fn hunt_orb_low_soul(&self, cost: i64) -> String;
+	/// `The orb missed`
+	fn hunt_orb_missed(&self) -> &'static str;
+	/// `Not now`
+	fn hunt_orb_not_fighting(&self) -> &'static str;
+	/// `Weaken it first`
+	fn hunt_orb_not_weakened(&self) -> &'static str;
+	/// `Pulse {pulse} of three`
+	fn hunt_orb_pulse(&self, pulse: i64) -> String;
+	/// `Orb, {soul} soul. Hold to ready it and let go to throw.`
+	fn hunt_orb_semantics(&self, soul: i64) -> String;
+	/// `Out of reach`
+	fn hunt_out_of_reach(&self) -> &'static str;
 	/// `Turned aside`
 	fn hunt_parried(&self) -> &'static str;
 	/// `Hunt this stray again`
 	fn hunt_practice_again(&self) -> &'static str;
-	/// `Longest seal streak`
+	/// `Longest run of hits`
 	fn hunt_practice_cadence(&self) -> &'static str;
 	/// `A stray, so nothing was gained and nothing was owed.`
 	fn hunt_practice_done(&self) -> &'static str;
@@ -473,36 +517,38 @@ pub trait Messages: Send + Sync {
 	fn hunt_practice_label(&self) -> &'static str;
 	/// `Charges turned aside`
 	fn hunt_practice_parries(&self) -> &'static str;
+	/// `It is down. Throw an orb.`
+	fn hunt_prompt_broken(&self) -> &'static str;
+	/// `The orb holds it. Wait.`
+	fn hunt_prompt_capture(&self) -> &'static str;
 	/// `It is coming. Swing across it.`
 	fn hunt_prompt_charge(&self) -> &'static str;
+	/// `Keep it in the crosshair and fire.`
+	fn hunt_prompt_fire(&self) -> &'static str;
 	/// `It is behind something. Wait for it, or throw.`
 	fn hunt_prompt_hidden(&self) -> &'static str;
 	/// `Do not flinch`
 	fn hunt_prompt_hold(&self) -> &'static str;
-	/// `Bring the blade to the mark.`
-	fn hunt_prompt_mark(&self) -> &'static str;
-	/// `It is up out of reach. Strike what shows.`
+	/// `It is weak, but you need more soul. Keep hitting it.`
+	fn hunt_prompt_low_soul(&self) -> &'static str;
+	/// `It is up out of reach. Shoot what shows.`
 	fn hunt_prompt_perched(&self) -> &'static str;
-	/// `Slower. Let the blade follow the arc.`
-	fn hunt_prompt_reap_too_fast(&self) -> &'static str;
+	/// `Fire at the lit seals.`
+	fn hunt_prompt_seals(&self) -> &'static str;
 	/// `Turn slowly. It has not seen you.`
 	fn hunt_prompt_stalk(&self) -> &'static str;
 	/// `Drag to look around. Move slowly: it has not seen you.`
 	fn hunt_prompt_stalk_drag(&self) -> &'static str;
 	/// `Hold steady on it.`
 	fn hunt_prompt_steady(&self) -> &'static str;
-	/// `Strike the open seals.`
-	fn hunt_prompt_strike(&self) -> &'static str;
-	/// `Sweep along the arc. Slowly.`
-	fn hunt_prompt_sweep(&self) -> &'static str;
+	/// `It is stunned. Dive in with the knife.`
+	fn hunt_prompt_stunned(&self) -> &'static str;
+	/// `It is weak. Hold ORB, let go as the ring closes.`
+	fn hunt_prompt_throw(&self) -> &'static str;
 	/// `Slow down. It can feel you moving.`
 	fn hunt_prompt_too_fast(&self) -> &'static str;
 	/// `It is drawing breath.`
 	fn hunt_prompt_windup(&self) -> &'static str;
-	/// `Reap`
-	fn hunt_reap_window(&self) -> &'static str;
-	/// `Reaped`
-	fn hunt_reaped_label(&self) -> &'static str;
 	/// `Receipt`
 	fn hunt_receipt(&self) -> &'static str;
 	/// `Burned by your wallet`
@@ -515,8 +561,26 @@ pub trait Messages: Send + Sync {
 	fn hunt_receipt_unsigned(&self) -> &'static str;
 	/// `It gathers itself`
 	fn hunt_recovered(&self) -> &'static str;
+	/// `Now`
+	fn hunt_reload_now(&self) -> &'static str;
+	/// `Perfect reload`
+	fn hunt_reload_perfect(&self) -> &'static str;
+	/// `Reloading`
+	fn hunt_reloading(&self) -> &'static str;
 	/// `Resolve`
 	fn hunt_resolve(&self) -> &'static str;
+	/// `Red · swing to parry`
+	fn hunt_ring_charging(&self) -> &'static str;
+	/// `Amber · hold still`
+	fn hunt_ring_drawing_breath(&self) -> &'static str;
+	/// `Open · attack`
+	fn hunt_ring_open(&self) -> &'static str;
+	/// `Blue · dive in`
+	fn hunt_ring_stunned(&self) -> &'static str;
+	/// `Gold · throw an orb`
+	fn hunt_ring_weakened(&self) -> &'static str;
+	/// `{rounds} / {magazine}`
+	fn hunt_rounds(&self, rounds: i64, magazine: i64) -> String;
 	/// `Stand still to hunt, and stay aware of what is around you. You only need to turn on the spot.`
 	fn hunt_safety(&self) -> &'static str;
 	/// `{seconds}s`
@@ -525,16 +589,28 @@ pub trait Messages: Send + Sync {
 	fn hunt_shattered(&self) -> &'static str;
 	/// `Husk sighted`
 	fn hunt_sighted_label(&self) -> &'static str;
+	/// `Bone knife`
+	fn hunt_slot_knife(&self) -> &'static str;
+	/// `No art`
+	fn hunt_slot_no_art(&self) -> &'static str;
+	/// `Pistol`
+	fn hunt_slot_pistol(&self) -> &'static str;
+	/// `{weapon}, slot {slot}`
+	fn hunt_slot_semantics(&self, weapon: &str, slot: i64) -> String;
+	/// `Soul {soul}`
+	fn hunt_soul(&self, soul: i64) -> String;
 	/// `Steadfast`
 	fn hunt_steadfast(&self) -> &'static str;
-	/// `Glancing blow · aim for a lit seal`
-	fn hunt_strike_glanced(&self) -> &'static str;
-	/// `Ward −{damage}`
-	fn hunt_strike_hit(&self, damage: i64) -> String;
-	/// `Miss · follow the lit seals`
-	fn hunt_strike_missed(&self) -> &'static str;
 	/// `It struck you`
 	fn hunt_struck(&self) -> &'static str;
+	/// `Excellent throw`
+	fn hunt_throw_excellent(&self) -> &'static str;
+	/// `Great throw`
+	fn hunt_throw_great(&self) -> &'static str;
+	/// `Plain throw`
+	fn hunt_throw_plain(&self) -> &'static str;
+	/// `Throws {charges}`
+	fn hunt_throws(&self, charges: i64) -> String;
 	/// `Ward`
 	fn hunt_ward(&self) -> &'static str;
 	/// `The hunt began with an ambush`
@@ -595,7 +671,7 @@ pub trait Messages: Send + Sync {
 	fn ledger_feeding_odds(&self) -> &'static str;
 	/// `Choose a birth gift`
 	fn ledger_gift(&self) -> &'static str;
-	/// `Reap quality`
+	/// `Capture grade`
 	fn ledger_grade(&self) -> &'static str;
 	/// `A fixed identity makes a reaper recognisable and tradeable. Cosmetic rarity grants no stronger gift. The R1 mapping is permanent; future mappings require a new version.`
 	fn ledger_identity_body(&self) -> &'static str;
@@ -661,7 +737,7 @@ pub trait Messages: Send + Sync {
 	fn ledger_outfit_gate(&self, level: i64, price: i64) -> String;
 	/// `Try remembered hunts`
 	fn ledger_path_marks(&self) -> &'static str;
-	/// `Stillness, a careful ambush, a held shriek and one slow reap make the hunt physically different. Gifts strengthen those existing verbs instead of adding a spell bar.`
+	/// `Stillness, a careful ambush, a held shriek and one well-timed orb make the hunt physically different. Gifts strengthen those existing verbs instead of adding a spell bar.`
 	fn ledger_physical_body(&self) -> &'static str;
 	/// `The phone is the blade`
 	fn ledger_physical_title(&self) -> &'static str;
@@ -879,15 +955,15 @@ pub trait Messages: Send + Sync {
 	fn perk_chain_line(&self) -> &'static str;
 	/// `Chosen blow`
 	fn perk_chosen_blow(&self) -> &'static str;
-	/// `Hold firm through a shriek and the next strike lands three times as hard.`
+	/// `Hold firm through a shriek and your next hit lands three times as hard.`
 	fn perk_chosen_blow_line(&self) -> &'static str;
 	/// `Cleave`
 	fn perk_cleave(&self) -> &'static str;
-	/// `A strike also lands on every open seal near it.`
+	/// `A hit on an open seal also lands on every other open seal, for two fifths of the blow.`
 	fn perk_cleave_line(&self) -> &'static str;
 	/// `Measure`
 	fn perk_measure(&self) -> &'static str;
-	/// `Seals are numbered. Struck in order, they break faster.`
+	/// `Seals are numbered. A hit on the one that opened first lands a fifth harder.`
 	fn perk_measure_line(&self) -> &'static str;
 	/// `Steadfast`
 	fn perk_steadfast(&self) -> &'static str;
@@ -895,7 +971,7 @@ pub trait Messages: Send + Sync {
 	fn perk_steadfast_line(&self) -> &'static str;
 	/// `Toll`
 	fn perk_toll(&self) -> &'static str;
-	/// `Each shriek you hold through lengthens the reap.`
+	/// `Each shriek you hold through keeps a broken husk down longer.`
 	fn perk_toll_line(&self) -> &'static str;
 	/// `Common`
 	fn rarity_common(&self) -> &'static str;
@@ -1491,19 +1567,19 @@ pub trait Messages: Send + Sync {
 	fn temper_sworn(&self) -> &'static str;
 	/// `Hungry`
 	fn temperament_hungry(&self) -> &'static str;
-	/// `Strikes deal 8% more damage. You must hold 8% steadier through a shriek.`
+	/// `Hits deal 8% more damage. You must hold 8% steadier through a shriek.`
 	fn temperament_hungry_help(&self) -> &'static str;
 	/// `Keen`
 	fn temperament_keen(&self) -> &'static str;
-	/// `A wider reach by 0.6°. Four tenths of a second less to reap.`
+	/// `A wider reach by 0.6°. A broken husk stays down four tenths of a second less.`
 	fn temperament_keen_help(&self) -> &'static str;
 	/// `Patient`
 	fn temperament_patient(&self) -> &'static str;
-	/// `Half a second longer to reap. Every swing takes two ticks longer.`
+	/// `A broken husk stays down half a second longer. Every heavy swing takes two ticks longer.`
 	fn temperament_patient_help(&self) -> &'static str;
 	/// `Stalwart`
 	fn temperament_stalwart(&self) -> &'static str;
-	/// `One more resolve. Strikes deal 5% less damage.`
+	/// `One more resolve. Hits deal 5% less damage.`
 	fn temperament_stalwart_help(&self) -> &'static str;
 	/// `Take the oath`
 	fn threshold_oath(&self) -> &'static str;
@@ -1567,7 +1643,7 @@ pub trait Messages: Send + Sync {
 	fn weapon_chain_whip(&self) -> &'static str;
 	/// `Greatsword`
 	fn weapon_greatsword(&self) -> &'static str;
-	/// `Heavy. A blow to a seal stops the husk in its tracks.`
+	/// `Heavy. Every blow that lands stops the husk in its tracks for longer.`
 	fn weapon_greatsword_trait(&self) -> &'static str;
 	/// `Lantern pole`
 	fn weapon_lantern_pole(&self) -> &'static str;
@@ -1604,7 +1680,7 @@ impl Messages for En {
 	}
 
 	fn armory_art_note(&self) -> &'static str {
-		"An art is never bought. Your reaper learns it by absorbing the creatures that carry it, and each one it absorbs takes it deeper. In a hunt, hold it, steady the phone on the husk, then flick."
+		"An art is never bought. Your reaper learns it by absorbing the creatures that carry it, and each one it absorbs takes it deeper. In a hunt, pick it on the weapon rail and fire: it flies at the crosshair."
 	}
 
 	fn armory_art_rank(&self, rank: i64) -> String {
@@ -1828,7 +1904,7 @@ impl Messages for En {
 	}
 
 	fn codex_empty(&self) -> &'static str {
-		"Nothing yet. Every husk you reap is written here."
+		"Nothing yet. Every husk you capture is written here."
 	}
 
 	fn codex_finish_burn(&self) -> &'static str {
@@ -2173,7 +2249,7 @@ impl Messages for En {
 	}
 
 	fn gift_keening_effect(&self, bonus: i64) -> String {
-		format!("After an unflinching hold, your next seal strike deals {bonus}% more damage.")
+		format!("After an unflinching hold, your next hit deals {bonus}% more damage.")
 	}
 
 	fn gift_keening_lore(&self) -> &'static str {
@@ -2286,40 +2362,26 @@ impl Messages for En {
 		format!("{art} runs deeper: rank {rank} of 3.")
 	}
 
-	fn hunt_art_flick(&self) -> &'static str {
-		"Flick"
-	}
-
-	fn hunt_art_hint(&self) -> &'static str {
-		"Hold, then flick"
-	}
-
 	fn hunt_art_learned(&self, art: &str) -> String {
-		format!("Your reaper has learned {art}. Hold it in a hunt, steady the phone, then flick.")
+		format!(
+			"Your reaper has learned {art}. In a hunt, pick it on the rail and fire to throw it."
+		)
 	}
 
 	fn hunt_art_missed(&self) -> &'static str {
 		"Missed"
 	}
 
-	fn hunt_art_semantics(&self, art: &str) -> String {
-		format!("{art}: hold, steady the phone on the husk, then flick the phone to throw")
-	}
-
 	fn hunt_begin(&self) -> &'static str {
 		"Raise the blade"
 	}
 
-	fn hunt_blade_ready(&self) -> &'static str {
-		"Blade ready"
-	}
-
-	fn hunt_blade_recovering(&self) -> &'static str {
-		"Recovering"
-	}
-
 	fn hunt_broken(&self) -> &'static str {
 		"Ward broken"
+	}
+
+	fn hunt_broken_window(&self) -> &'static str {
+		"Down"
 	}
 
 	fn hunt_burning(&self) -> &'static str {
@@ -2330,12 +2392,28 @@ impl Messages for En {
 		format!("Cadence ×{hits}")
 	}
 
+	fn hunt_captured(&self) -> &'static str {
+		"Captured"
+	}
+
+	fn hunt_captured_label(&self) -> &'static str {
+		"Captured"
+	}
+
 	fn hunt_difficulty(&self) -> &'static str {
 		"Testing difficulty"
 	}
 
-	fn hunt_escaped_reap(&self) -> &'static str {
-		"The reap was left unfinished too often. It is still out there."
+	fn hunt_dives(&self, charges: i64) -> String {
+		format!("Dives {charges}")
+	}
+
+	fn hunt_drawing(&self) -> &'static str {
+		"Drawing"
+	}
+
+	fn hunt_escaped_lapsed(&self) -> &'static str {
+		"It was left lying without an orb too often, and got up and ran. It is still out there."
 	}
 
 	fn hunt_escaped_resolve(&self) -> &'static str {
@@ -2362,6 +2440,14 @@ impl Messages for En {
 		"Feeding"
 	}
 
+	fn hunt_fire(&self) -> &'static str {
+		"Fire"
+	}
+
+	fn hunt_fire_semantics(&self, weapon: &str) -> String {
+		format!("Fire the {weapon}")
+	}
+
 	fn hunt_flinched(&self) -> &'static str {
 		"Flinched"
 	}
@@ -2370,16 +2456,16 @@ impl Messages for En {
 		"Frozen"
 	}
 
-	fn hunt_grade_clean(&self) -> &'static str {
-		"A clean reap"
+	fn hunt_grade_excellent(&self) -> &'static str {
+		"An excellent capture"
 	}
 
-	fn hunt_grade_perfect(&self) -> &'static str {
-		"A perfect reap"
+	fn hunt_grade_great(&self) -> &'static str {
+		"A great capture"
 	}
 
-	fn hunt_grade_ragged(&self) -> &'static str {
-		"A ragged reap"
+	fn hunt_grade_plain(&self) -> &'static str {
+		"A plain capture"
 	}
 
 	fn hunt_gusted(&self) -> &'static str {
@@ -2390,16 +2476,28 @@ impl Messages for En {
 		"Unflinching"
 	}
 
+	fn hunt_hit(&self, damage: i64) -> String {
+		format!("Ward −{damage}")
+	}
+
+	fn hunt_hit_seal(&self, damage: i64) -> String {
+		format!("Seal ×2 · ward −{damage}")
+	}
+
+	fn hunt_how_capture(&self) -> &'static str {
+		"When its ring turns gold, hold ORB and let go as the ring closes on it. That is the capture."
+	}
+
 	fn hunt_how_charge(&self) -> &'static str {
-		"When it runs at you, swing the phone hard across it."
+		"When its ring turns red and it runs at you, swing the phone hard across it."
+	}
+
+	fn hunt_how_fire(&self) -> &'static str {
+		"Keep it in the crosshair and press FIRE. A lit seal takes twice the harm."
 	}
 
 	fn hunt_how_hold(&self) -> &'static str {
-		"When it draws breath, freeze. Do not move and do not tap."
-	}
-
-	fn hunt_how_reap(&self) -> &'static str {
-		"When its ward breaks, sweep the phone slowly along the arc. That is the reap."
+		"When its ring turns amber, freeze. Do not move and do not fire."
 	}
 
 	fn hunt_how_sigil(&self) -> &'static str {
@@ -2407,11 +2505,19 @@ impl Messages for En {
 	}
 
 	fn hunt_how_stalk(&self) -> &'static str {
-		"Find it and hold the ring on it, still, to ambush it."
+		"Find it and hold the crosshair on it, still, to ambush it."
 	}
 
-	fn hunt_how_strike(&self) -> &'static str {
-		"Tap the lit seals on its body to wear down its ward."
+	fn hunt_how_weapons(&self) -> &'static str {
+		"Tap the rail to change weapons: the pistol, the bone knife, your class weapon and your art."
+	}
+
+	fn hunt_in_reach(&self) -> &'static str {
+		"In reach"
+	}
+
+	fn hunt_jammed(&self) -> &'static str {
+		"Jammed"
 	}
 
 	fn hunt_leave(&self) -> &'static str {
@@ -2420,6 +2526,10 @@ impl Messages for En {
 
 	fn hunt_lost_label(&self) -> &'static str {
 		"Lost"
+	}
+
+	fn hunt_missed(&self) -> &'static str {
+		"Miss · keep it in the crosshair"
 	}
 
 	fn hunt_motion_steady(&self) -> &'static str {
@@ -2434,6 +2544,62 @@ impl Messages for En {
 		"It sees you"
 	}
 
+	fn hunt_orb(&self) -> &'static str {
+		"Orb"
+	}
+
+	fn hunt_orb_breath(&self) -> &'static str {
+		"It holds its breath"
+	}
+
+	fn hunt_orb_broke_free(&self) -> &'static str {
+		"It broke free"
+	}
+
+	fn hunt_orb_drawing(&self) -> &'static str {
+		"It is drawn in"
+	}
+
+	fn hunt_orb_falling(&self) -> &'static str {
+		"The orb falls"
+	}
+
+	fn hunt_orb_flight(&self) -> &'static str {
+		"The orb is away"
+	}
+
+	fn hunt_orb_in_flight(&self) -> &'static str {
+		"In flight"
+	}
+
+	fn hunt_orb_low_soul(&self, cost: i64) -> String {
+		format!("Need {cost} soul")
+	}
+
+	fn hunt_orb_missed(&self) -> &'static str {
+		"The orb missed"
+	}
+
+	fn hunt_orb_not_fighting(&self) -> &'static str {
+		"Not now"
+	}
+
+	fn hunt_orb_not_weakened(&self) -> &'static str {
+		"Weaken it first"
+	}
+
+	fn hunt_orb_pulse(&self, pulse: i64) -> String {
+		format!("Pulse {pulse} of three")
+	}
+
+	fn hunt_orb_semantics(&self, soul: i64) -> String {
+		format!("Orb, {soul} soul. Hold to ready it and let go to throw.")
+	}
+
+	fn hunt_out_of_reach(&self) -> &'static str {
+		"Out of reach"
+	}
+
 	fn hunt_parried(&self) -> &'static str {
 		"Turned aside"
 	}
@@ -2443,7 +2609,7 @@ impl Messages for En {
 	}
 
 	fn hunt_practice_cadence(&self) -> &'static str {
-		"Longest seal streak"
+		"Longest run of hits"
 	}
 
 	fn hunt_practice_done(&self) -> &'static str {
@@ -2462,8 +2628,20 @@ impl Messages for En {
 		"Charges turned aside"
 	}
 
+	fn hunt_prompt_broken(&self) -> &'static str {
+		"It is down. Throw an orb."
+	}
+
+	fn hunt_prompt_capture(&self) -> &'static str {
+		"The orb holds it. Wait."
+	}
+
 	fn hunt_prompt_charge(&self) -> &'static str {
 		"It is coming. Swing across it."
+	}
+
+	fn hunt_prompt_fire(&self) -> &'static str {
+		"Keep it in the crosshair and fire."
 	}
 
 	fn hunt_prompt_hidden(&self) -> &'static str {
@@ -2474,16 +2652,16 @@ impl Messages for En {
 		"Do not flinch"
 	}
 
-	fn hunt_prompt_mark(&self) -> &'static str {
-		"Bring the blade to the mark."
+	fn hunt_prompt_low_soul(&self) -> &'static str {
+		"It is weak, but you need more soul. Keep hitting it."
 	}
 
 	fn hunt_prompt_perched(&self) -> &'static str {
-		"It is up out of reach. Strike what shows."
+		"It is up out of reach. Shoot what shows."
 	}
 
-	fn hunt_prompt_reap_too_fast(&self) -> &'static str {
-		"Slower. Let the blade follow the arc."
+	fn hunt_prompt_seals(&self) -> &'static str {
+		"Fire at the lit seals."
 	}
 
 	fn hunt_prompt_stalk(&self) -> &'static str {
@@ -2498,12 +2676,12 @@ impl Messages for En {
 		"Hold steady on it."
 	}
 
-	fn hunt_prompt_strike(&self) -> &'static str {
-		"Strike the open seals."
+	fn hunt_prompt_stunned(&self) -> &'static str {
+		"It is stunned. Dive in with the knife."
 	}
 
-	fn hunt_prompt_sweep(&self) -> &'static str {
-		"Sweep along the arc. Slowly."
+	fn hunt_prompt_throw(&self) -> &'static str {
+		"It is weak. Hold ORB, let go as the ring closes."
 	}
 
 	fn hunt_prompt_too_fast(&self) -> &'static str {
@@ -2512,14 +2690,6 @@ impl Messages for En {
 
 	fn hunt_prompt_windup(&self) -> &'static str {
 		"It is drawing breath."
-	}
-
-	fn hunt_reap_window(&self) -> &'static str {
-		"Reap"
-	}
-
-	fn hunt_reaped_label(&self) -> &'static str {
-		"Reaped"
 	}
 
 	fn hunt_receipt(&self) -> &'static str {
@@ -2546,8 +2716,44 @@ impl Messages for En {
 		"It gathers itself"
 	}
 
+	fn hunt_reload_now(&self) -> &'static str {
+		"Now"
+	}
+
+	fn hunt_reload_perfect(&self) -> &'static str {
+		"Perfect reload"
+	}
+
+	fn hunt_reloading(&self) -> &'static str {
+		"Reloading"
+	}
+
 	fn hunt_resolve(&self) -> &'static str {
 		"Resolve"
+	}
+
+	fn hunt_ring_charging(&self) -> &'static str {
+		"Red · swing to parry"
+	}
+
+	fn hunt_ring_drawing_breath(&self) -> &'static str {
+		"Amber · hold still"
+	}
+
+	fn hunt_ring_open(&self) -> &'static str {
+		"Open · attack"
+	}
+
+	fn hunt_ring_stunned(&self) -> &'static str {
+		"Blue · dive in"
+	}
+
+	fn hunt_ring_weakened(&self) -> &'static str {
+		"Gold · throw an orb"
+	}
+
+	fn hunt_rounds(&self, rounds: i64, magazine: i64) -> String {
+		format!("{rounds} / {magazine}")
 	}
 
 	fn hunt_safety(&self) -> &'static str {
@@ -2566,24 +2772,48 @@ impl Messages for En {
 		"Husk sighted"
 	}
 
+	fn hunt_slot_knife(&self) -> &'static str {
+		"Bone knife"
+	}
+
+	fn hunt_slot_no_art(&self) -> &'static str {
+		"No art"
+	}
+
+	fn hunt_slot_pistol(&self) -> &'static str {
+		"Pistol"
+	}
+
+	fn hunt_slot_semantics(&self, weapon: &str, slot: i64) -> String {
+		format!("{weapon}, slot {slot}")
+	}
+
+	fn hunt_soul(&self, soul: i64) -> String {
+		format!("Soul {soul}")
+	}
+
 	fn hunt_steadfast(&self) -> &'static str {
 		"Steadfast"
 	}
 
-	fn hunt_strike_glanced(&self) -> &'static str {
-		"Glancing blow · aim for a lit seal"
-	}
-
-	fn hunt_strike_hit(&self, damage: i64) -> String {
-		format!("Ward −{damage}")
-	}
-
-	fn hunt_strike_missed(&self) -> &'static str {
-		"Miss · follow the lit seals"
-	}
-
 	fn hunt_struck(&self) -> &'static str {
 		"It struck you"
+	}
+
+	fn hunt_throw_excellent(&self) -> &'static str {
+		"Excellent throw"
+	}
+
+	fn hunt_throw_great(&self) -> &'static str {
+		"Great throw"
+	}
+
+	fn hunt_throw_plain(&self) -> &'static str {
+		"Plain throw"
+	}
+
+	fn hunt_throws(&self, charges: i64) -> String {
+		format!("Throws {charges}")
 	}
 
 	fn hunt_ward(&self) -> &'static str {
@@ -2702,7 +2932,7 @@ impl Messages for En {
 	}
 
 	fn ledger_grade(&self) -> &'static str {
-		"Reap quality"
+		"Capture grade"
 	}
 
 	fn ledger_identity_body(&self) -> &'static str {
@@ -2834,7 +3064,7 @@ impl Messages for En {
 	}
 
 	fn ledger_physical_body(&self) -> &'static str {
-		"Stillness, a careful ambush, a held shriek and one slow reap make the hunt physically different. Gifts strengthen those existing verbs instead of adding a spell bar."
+		"Stillness, a careful ambush, a held shriek and one well-timed orb make the hunt physically different. Gifts strengthen those existing verbs instead of adding a spell bar."
 	}
 
 	fn ledger_physical_title(&self) -> &'static str {
@@ -3270,7 +3500,7 @@ impl Messages for En {
 	}
 
 	fn perk_chosen_blow_line(&self) -> &'static str {
-		"Hold firm through a shriek and the next strike lands three times as hard."
+		"Hold firm through a shriek and your next hit lands three times as hard."
 	}
 
 	fn perk_cleave(&self) -> &'static str {
@@ -3278,7 +3508,7 @@ impl Messages for En {
 	}
 
 	fn perk_cleave_line(&self) -> &'static str {
-		"A strike also lands on every open seal near it."
+		"A hit on an open seal also lands on every other open seal, for two fifths of the blow."
 	}
 
 	fn perk_measure(&self) -> &'static str {
@@ -3286,7 +3516,7 @@ impl Messages for En {
 	}
 
 	fn perk_measure_line(&self) -> &'static str {
-		"Seals are numbered. Struck in order, they break faster."
+		"Seals are numbered. A hit on the one that opened first lands a fifth harder."
 	}
 
 	fn perk_steadfast(&self) -> &'static str {
@@ -3302,7 +3532,7 @@ impl Messages for En {
 	}
 
 	fn perk_toll_line(&self) -> &'static str {
-		"Each shriek you hold through lengthens the reap."
+		"Each shriek you hold through keeps a broken husk down longer."
 	}
 
 	fn rarity_common(&self) -> &'static str {
@@ -4484,7 +4714,7 @@ impl Messages for En {
 	}
 
 	fn temperament_hungry_help(&self) -> &'static str {
-		"Strikes deal 8% more damage. You must hold 8% steadier through a shriek."
+		"Hits deal 8% more damage. You must hold 8% steadier through a shriek."
 	}
 
 	fn temperament_keen(&self) -> &'static str {
@@ -4492,7 +4722,7 @@ impl Messages for En {
 	}
 
 	fn temperament_keen_help(&self) -> &'static str {
-		"A wider reach by 0.6°. Four tenths of a second less to reap."
+		"A wider reach by 0.6°. A broken husk stays down four tenths of a second less."
 	}
 
 	fn temperament_patient(&self) -> &'static str {
@@ -4500,7 +4730,7 @@ impl Messages for En {
 	}
 
 	fn temperament_patient_help(&self) -> &'static str {
-		"Half a second longer to reap. Every swing takes two ticks longer."
+		"A broken husk stays down half a second longer. Every heavy swing takes two ticks longer."
 	}
 
 	fn temperament_stalwart(&self) -> &'static str {
@@ -4508,7 +4738,7 @@ impl Messages for En {
 	}
 
 	fn temperament_stalwart_help(&self) -> &'static str {
-		"One more resolve. Strikes deal 5% less damage."
+		"One more resolve. Hits deal 5% less damage."
 	}
 
 	fn threshold_oath(&self) -> &'static str {
@@ -4638,7 +4868,7 @@ impl Messages for En {
 	}
 
 	fn weapon_greatsword_trait(&self) -> &'static str {
-		"Heavy. A blow to a seal stops the husk in its tracks."
+		"Heavy. Every blow that lands stops the husk in its tracks for longer."
 	}
 
 	fn weapon_lantern_pole(&self) -> &'static str {

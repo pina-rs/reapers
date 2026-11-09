@@ -14,7 +14,6 @@ use std::sync::Arc;
 use leptoskit::prelude::*;
 use reapers_rules::ClassPerk;
 use reapers_rules::Difficulty;
-use reapers_rules::HuntEvent;
 use reapers_rules::HuntLog;
 use reapers_rules::HuntOutcome;
 use reapers_rules::HuntPlan;
@@ -78,9 +77,6 @@ const AUTOPLAY_ARC: f64 = reapers_rules::radians(80.0);
 /// How long a finished hunt waits, at most, for its husk to come apart
 /// before it is handed to the books.
 const LINGER_SECONDS: f64 = 2.4;
-/// How long a thrown-ready art waits for its flick before the thumb is
-/// taken to have let go, in seconds.
-const ART_HOLD_SECONDS: f64 = 4.0;
 
 /// Where a hunt has got to.
 #[derive(Clone, Debug, PartialEq)]
@@ -107,8 +103,6 @@ pub struct HuntState {
 	banner: Option<(Banner, f64)>,
 	/// Seconds since the hunt opened.
 	seconds: f64,
-	/// When the art was readied, by the button, in hunt seconds.
-	art_ready_at: Option<f64>,
 	over_for: f64,
 	mounted: u32,
 	ticking: bool,
@@ -193,7 +187,6 @@ impl HuntState {
 			on_finished: props.on_finished.clone(),
 			banner: None,
 			seconds: 0.0,
-			art_ready_at: None,
 			over_for: 0.0,
 			mounted: 0,
 			ticking: false,
@@ -211,6 +204,7 @@ impl HuntState {
 		HuntSim::new(
 			self.brief.seed,
 			self.brief.nft.collection.vessel(),
+			self.brief.nft.rarity(),
 			self.brief.nft.rarity().ward(),
 			&stats,
 			plan,
@@ -318,10 +312,6 @@ impl HuntState {
 		}
 	}
 
-	fn ready_art(&mut self) {
-		self.art_ready_at = Some(self.seconds);
-	}
-
 	fn tick(&mut self, delta: f64) {
 		self.seconds += delta;
 		let live_pose = {
@@ -369,25 +359,22 @@ impl HuntState {
 	}
 
 	fn fight(&mut self, delta: f64, live_pose: reapers_world::ArPose) {
-		let taps = self.shared.live.borrow_mut().take_taps();
-		let holding = self.shared.live.borrow().holding;
-		if let Some(controller) = self.arena.controller.as_mut() {
-			for tap in taps {
-				controller.tap(tap);
-			}
-			let readied = self
-				.art_ready_at
-				.is_some_and(|since| self.seconds - since < ART_HOLD_SECONDS);
-			controller.focus = holding || readied;
+		// A phone has no press over a scene to hear: a finger resting on the
+		// screen is the hold. The browser hears ORB itself, through the
+		// view's gestures.
+		if !crate::render::pointer::follows_fingers()
+			&& let Some(controller) = self.arena.controller.as_mut()
+			&& !controller.plays_itself()
+		{
+			let holding = self.shared.live.borrow().holding;
+
+			controller.hold_orb(holding);
 		}
 		let events = self.arena.advance(delta, live_pose);
 		for event in &events {
 			knock_for(event);
 			if let Some(banner) = banner_for(words(), event) {
 				self.banner = Some((banner, self.seconds));
-			}
-			if matches!(event, HuntEvent::ArtThrown(_)) {
-				self.art_ready_at = None;
 			}
 		}
 		let Some(controller) = self.arena.controller.as_ref() else {
@@ -440,7 +427,6 @@ impl HuntState {
 			.as_ref()
 			.map(|(banner, _)| banner.text.clone())
 			.hash(&mut hasher);
-		self.arena.slashes.len().hash(&mut hasher);
 		hasher.finish()
 	}
 
@@ -455,11 +441,13 @@ impl HuntState {
 					.borrow_mut()
 					.drag(f64::from(dx) * per_unit, -f64::from(dy) * per_unit);
 			}
-			Gesture::Tap { x, y } => {
-				let live = self.shared.live.borrow().pose();
-				self.arena.strike(f64::from(x), f64::from(y), live);
+			Gesture::Down { x, y } => {
+				if super::controls::orb_area(f64::from(x), f64::from(y)) {
+					hold_orb(true);
+				}
 			}
-			Gesture::Down { .. } | Gesture::Up => {}
+			Gesture::Up => hold_orb(false),
+			Gesture::Tap { .. } => {}
 		}
 	}
 }
@@ -535,7 +523,6 @@ pub fn hunt_view(props: &HuntViewProps) -> Element {
 	let state = hunt.borrow();
 	// Drawn again whenever the hunt says something changed.
 	let _ = state.drawn.get();
-	let words = use_l10n();
 	let lens = state.lens();
 	// Where the platform draws its camera's picture behind the scene, the
 	// room shows through: no veil, and nothing opaque under the scene.
@@ -567,7 +554,6 @@ pub fn hunt_view(props: &HuntViewProps) -> Element {
 					controller.sim(),
 					state.light,
 					state.arena.wound,
-					&state.arena.slashes,
 					state.brief.loadout.reaper_class.perk() == ClassPerk::Measure,
 				);
 			}
@@ -576,23 +562,6 @@ pub fn hunt_view(props: &HuntViewProps) -> Element {
 	}
 	if !marks.is_empty() {
 		root = root.child(marks.into_view(state.size.0, state.size.1));
-	}
-	// Where the platform reports no touches, a press anywhere strikes
-	// straight ahead: the phone is the blade. The browser hears the exact
-	// place through the pointer instead.
-	if state.stage == Stage::Fighting && !crate::render::pointer::follows_fingers() {
-		root = root.child(
-			View()
-				.class("absolute inset-0")
-				.test_id("hunt-strike")
-				.accessibility_label(words.hunt_prompt_strike())
-				.on_press(|| {
-					with_hunt(|hunt| {
-						let live = hunt.shared.live.borrow().pose();
-						hunt.arena.strike(0.5, 0.5, live);
-					});
-				}),
-		);
 	}
 	root = match &state.stage {
 		Stage::Briefing => root.child(briefing(&state, props)),
@@ -619,30 +588,48 @@ fn fighting(state: &HuntState) -> Element {
 		state.banner.as_ref().map(|(banner, _)| banner.clone()),
 		"",
 	);
-	let mut view =
-		View()
-			.class("absolute inset-0")
-			.child(status_view(&*words, &shown, state.light, None));
-	// The art is readied with a press and thrown with a flick of the phone.
-	if controller.sim().stats().art.is_some()
-		&& !controller.sim().is_over()
-		&& !controller.plays_itself()
-	{
-		let readied = state.art_ready_at.is_some() || live.holding;
-		view = view.child(
-			View().class("absolute right-5 bottom-28 pb-safe").child(
-				LedgerButton::new(if readied {
-					words.hunt_art_flick()
-				} else {
-					words.hunt_art_hint()
-				})
-				.quiet()
-				.test_id("hunt-art")
-				.on_press(|| with_hunt(HuntState::ready_art)),
-			),
-		);
-	}
-	view
+	let touchable = !controller.plays_itself();
+	let controls = super::controls::controls(
+		&*words,
+		controller.sim(),
+		controller.slot(),
+		state.brief.loadout.reaper_class.weapon(),
+		state.light,
+		touchable,
+		fire,
+		select_slot,
+	);
+	View()
+		.class("absolute inset-0")
+		.child(status_view(&*words, &shown, state.light, None))
+		.child(controls)
+}
+
+/// Presses FIRE once for the fight on screen.
+fn fire() {
+	with_hunt(|hunt| {
+		if let Some(controller) = hunt.arena.controller.as_mut() {
+			controller.press();
+		}
+	});
+}
+
+/// Draws the weapon in `slot`.
+fn select_slot(slot: usize) {
+	with_hunt(|hunt| {
+		if let Some(controller) = hunt.arena.controller.as_mut() {
+			controller.select(slot);
+		}
+	});
+}
+
+/// Holds ORB down, or lets it go.
+fn hold_orb(held: bool) {
+	with_hunt(|hunt| {
+		if let Some(controller) = hunt.arena.controller.as_mut() {
+			controller.hold_orb(held);
+		}
+	});
 }
 
 fn scan(state: &HuntState, trace: &SigilTrace) -> Element {
@@ -713,10 +700,11 @@ fn briefing(state: &HuntState, props: &HuntViewProps) -> Element {
 	for (step, line) in [
 		words.hunt_how_sigil(),
 		words.hunt_how_stalk(),
-		words.hunt_how_strike(),
+		words.hunt_how_fire(),
+		words.hunt_how_weapons(),
 		words.hunt_how_hold(),
 		words.hunt_how_charge(),
-		words.hunt_how_reap(),
+		words.hunt_how_capture(),
 	]
 	.into_iter()
 	.enumerate()

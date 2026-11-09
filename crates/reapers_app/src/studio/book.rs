@@ -5,6 +5,7 @@
 //! rules' own.
 
 use leptoskit::prelude::*;
+use reapers_rules::CaptureGrade;
 use reapers_rules::Feeding;
 use reapers_rules::GenomeChanges;
 use reapers_rules::HuntDeeds;
@@ -14,7 +15,6 @@ use reapers_rules::Outfit;
 use reapers_rules::PlayerState;
 use reapers_rules::Progression;
 use reapers_rules::Rarity;
-use reapers_rules::ReapGrade;
 use reapers_rules::ReaperClass;
 use reapers_rules::ReaperGenome;
 use reapers_rules::ReaperGift;
@@ -84,7 +84,7 @@ pub struct Book {
 	pub marks: i64,
 	pub temperament: Temperament,
 	pub rarity: Rarity,
-	pub grade: ReapGrade,
+	pub grade: CaptureGrade,
 	pub ambush: bool,
 	/// The feeding last rolled for this scenario.
 	pub feeding: Option<Feeding>,
@@ -102,7 +102,7 @@ impl Default for Book {
 			marks: 0,
 			temperament: Temperament::Patient,
 			rarity: Rarity::Common,
-			grade: ReapGrade::Clean,
+			grade: CaptureGrade::Great,
 			ambush: false,
 			feeding: None,
 			birth: None,
@@ -528,7 +528,7 @@ fn chance(state: &Book) -> Element {
 		))
 		.child(ledger_heading(words.ledger_grade(), None))
 		.child(chips(
-			ReapGrade::ALL
+			CaptureGrade::ALL
 				.into_iter()
 				.map(|item| {
 					chip(

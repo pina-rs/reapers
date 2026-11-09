@@ -45,25 +45,6 @@ const GATHER_SECONDS: f64 = 1.1;
 const WOUND_SECONDS: f64 = 0.9;
 /// How far a husk whose ward has broken has already come apart.
 const BROKEN_DISSOLVE: f64 = 0.2;
-/// How long a slash stays on the screen.
-const SLASH_SECONDS: f64 = 0.35;
-
-/// A cut on the screen where a strike went: where, from 0 to 1 across and
-/// down the view, at what angle, and how old it is.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Slash {
-	pub x: f64,
-	pub y: f64,
-	pub angle: f64,
-	pub age: f64,
-}
-
-impl Slash {
-	/// How much of the cut is left, from 1 (fresh) to 0 (gone).
-	pub fn left(&self) -> f64 {
-		(1.0 - self.age / SLASH_SECONDS).clamp(0.0, 1.0)
-	}
-}
 
 /// One husk's arena.
 pub struct Arena {
@@ -79,8 +60,6 @@ pub struct Arena {
 	pub wound: f64,
 	gathered: f64,
 	over_for: f64,
-	pub slashes: Vec<Slash>,
-	slash_count: u32,
 	/// The room as it was seen, to hide the husk behind, where it was.
 	pub occlusion: Option<OcclusionMap>,
 	/// The vertical field of view the husk is drawn with.
@@ -114,8 +93,6 @@ impl Arena {
 			wound: 0.0,
 			gathered: 1.0,
 			over_for: 0.0,
-			slashes: Vec::new(),
-			slash_count: 0,
 			occlusion: None,
 			fov: HUNT_FOV,
 			aspect,
@@ -153,7 +130,6 @@ impl Arena {
 		self.come_apart = 0.0;
 		self.over_for = 0.0;
 		self.wound = 0.0;
-		self.slashes.clear();
 		self.rest(controller.sim().pose());
 		self.controller = Some(controller);
 		self.occlusion = occlusion.filter(|map| map.pictures() > 0);
@@ -225,37 +201,29 @@ impl Arena {
 		};
 		let pose = controller.pose(live);
 		let events = controller.frame(delta, &pose);
-		let plays_itself = controller.plays_itself();
 		for event in &events {
 			match event {
-				HuntEvent::StrikeLanded {
+				HuntEvent::HitLanded {
 					empowered,
 					seal,
 					cleaved,
+					critical,
 					..
 				} => {
-					self.rig.flash(if *empowered { 1.0 } else { 0.7 });
+					self.rig
+						.flash(if *empowered || *critical { 1.0 } else { 0.7 });
 					self.rig.hit(
-						Some(*seal),
-						if *empowered { 1.0 } else { 0.75 },
-						*empowered || !cleaved.is_empty(),
+						*seal,
+						if *empowered || *critical { 1.0 } else { 0.75 },
+						*empowered || *critical || !cleaved.is_empty(),
 					);
-					if plays_itself {
-						let direction = self
-							.controller
-							.as_ref()
-							.map(|controller| controller.sim().pose().seal_direction(*seal));
-						if let Some(direction) = direction {
-							self.mark_strike(&pose, direction);
-						}
-					}
-				}
-				HuntEvent::StrikeGlanced { .. } => {
-					self.rig.flash(0.3);
-					self.rig.hit(None, 0.3, false);
 				}
 				HuntEvent::Struck { .. } => self.wound = 1.0,
-				HuntEvent::Parried | HuntEvent::Broken | HuntEvent::IceShattered => {
+				HuntEvent::Parried
+				| HuntEvent::Broken { .. }
+				| HuntEvent::HuskCaptured(_)
+				| HuntEvent::OrbBrokeFree(_)
+				| HuntEvent::IceShattered => {
 					self.rig.flash(1.0);
 					self.rig.hit(None, 1.0, true);
 				}
@@ -307,58 +275,8 @@ impl Arena {
 			.dissolve(if hidden { dissolve.max(0.92) } else { dissolve });
 		self.rig.animate(self.scene.ops(), delta, mood, plight);
 		self.aim(&pose);
-		for slash in &mut self.slashes {
-			slash.age += delta;
-		}
-		self.slashes.retain(|slash| slash.left() > 0.0);
 		self.scene.flush();
 		events
-	}
-
-	/// A tap at `x` and `y`, from 0 to 1 across and down the view: a strike
-	/// along the ray through that point.
-	pub fn strike(&mut self, x: f64, y: f64, live: ArPose) {
-		let fov = self.fov;
-		let aspect = self.aspect;
-		let Some(controller) = self.controller.as_mut() else {
-			return;
-		};
-		let striking = matches!(
-			controller.sim().phase(),
-			HuntPhase::Stalk
-				| HuntPhase::Fight
-				| HuntPhase::Windup
-				| HuntPhase::Shriek
-				| HuntPhase::Charge
-		);
-		if !striking {
-			return;
-		}
-		let pose = controller.pose(live);
-		controller.tap(pose.ray_through(x * 2.0 - 1.0, 1.0 - y * 2.0, fov, aspect));
-		self.add_slash(x, y);
-	}
-
-	/// Leaves a slash where `direction` falls on the screen.
-	fn mark_strike(&mut self, pose: &ArPose, direction: Vec3) {
-		if let Some((x, y)) = pose.project(direction, self.fov, self.aspect) {
-			self.add_slash(f64::midpoint(x, 1.0), (1.0 - y) / 2.0);
-		}
-	}
-
-	fn add_slash(&mut self, x: f64, y: f64) {
-		self.slash_count += 1;
-		self.slashes.push(Slash {
-			x,
-			y,
-			// Cuts alternate direction, like a blade drawn back and forth.
-			angle: if self.slash_count.is_multiple_of(2) {
-				-0.6
-			} else {
-				0.6
-			} + x * 0.8,
-			age: 0.0,
-		});
 	}
 }
 
@@ -387,12 +305,8 @@ pub fn mood_of(sim: &HuntSim) -> (HuskMood, HuskPlight) {
 			fighting: sim.phase() != HuntPhase::Stalk,
 			fury,
 			staggered: sim.staggered(),
-			broken: sim.phase() == HuntPhase::Broken,
-			reap: if sim.phase() == HuntPhase::Broken && sim.reap_begun() {
-				sim.reap_progress()
-			} else {
-				0.0
-			},
+			broken: matches!(sim.phase(), HuntPhase::Broken | HuntPhase::Capture),
+			reap: 0.0,
 			dying: sim.phase() == HuntPhase::Absorbed,
 			frozen: sim.frozen(),
 		},

@@ -5,6 +5,7 @@
 //! advance at their own fixed rate, so the same play gives the same hunt
 //! on a 30 Hz guest and a 120 Hz screen.
 
+use reapers_rules::Arsenal;
 use reapers_rules::HuntBot;
 use reapers_rules::HuntEvent;
 use reapers_rules::HuntInput;
@@ -12,7 +13,6 @@ use reapers_rules::HuntLog;
 use reapers_rules::HuntRules;
 use reapers_rules::HuntSim;
 use reapers_rules::RiftSeat;
-use reapers_rules::Vec3;
 use reapers_world::ArPose;
 
 /// What is fought: a lone hunt, or a seat in a rift, which counts the ward
@@ -45,9 +45,12 @@ pub struct HuntController {
 	fight: Fight,
 	/// Every tick's input so far, in order.
 	recorded: Vec<HuntInput>,
-	pending_taps: Vec<Vec3>,
-	/// Whether the player's thumb is on their art, gathering it to throw.
-	pub focus: bool,
+	/// Whether FIRE was pressed since the last tick: one press, one shot.
+	fire_pending: bool,
+	/// Whether ORB is held down.
+	orb_held: bool,
+	/// The weapon slot in hand.
+	slot: usize,
 	unspent: f64,
 	/// The simulated player, when the hunt plays itself: it has a person's
 	/// limits, needing a moment to react, and it misses.
@@ -67,8 +70,9 @@ impl HuntController {
 		Self {
 			fight,
 			recorded: Vec::new(),
-			pending_taps: Vec::new(),
-			focus: false,
+			fire_pending: false,
+			orb_held: false,
+			slot: Arsenal::GUN_SLOT,
 			unspent: 0.0,
 			bot: None,
 			bot_turn_speed: 0.0,
@@ -120,10 +124,31 @@ impl HuntController {
 		}
 	}
 
-	/// Registers a tap that points along `ray`. It is played on the next
-	/// tick.
-	pub fn tap(&mut self, ray: Vec3) {
-		self.pending_taps.push(ray);
+	/// The slot in hand, from 0 to [`Arsenal::SLOTS`] - 1.
+	pub const fn slot(&self) -> usize {
+		self.slot
+	}
+
+	/// Selects a weapon slot. It is drawn on the next tick.
+	pub fn select(&mut self, slot: usize) {
+		if slot < Arsenal::SLOTS {
+			self.slot = slot;
+		}
+	}
+
+	/// Presses FIRE once. Holding it down does not fire again.
+	pub fn press(&mut self) {
+		self.fire_pending = true;
+	}
+
+	/// Holds ORB down, or lets it go. The tick it comes up is the throw.
+	pub fn hold_orb(&mut self, held: bool) {
+		self.orb_held = held;
+	}
+
+	/// Whether ORB is down.
+	pub const fn orb_held(&self) -> bool {
+		self.orb_held
 	}
 
 	/// The record of this hunt, for the server to replay.
@@ -167,16 +192,23 @@ impl HuntController {
 	}
 
 	/// What the player did this tick: where the phone points, how fast it
-	/// is turning, and any taps since the last tick.
+	/// is turning, whether FIRE was pressed, the slot in hand and whether
+	/// ORB is held.
 	fn read_input(&mut self, pose: &ArPose) -> HuntInput {
 		if let Some(bot) = self.bot.as_mut() {
 			let input = bot.decide(self.fight.sim());
 			self.bot_turn_speed = input.turn_radians_per_second();
-			self.pending_taps.clear();
+			self.fire_pending = false;
 			return input;
 		}
-		let taps = std::mem::take(&mut self.pending_taps);
-		HuntInput::measured(pose.forward, pose.turn_speed, &taps, self.focus)
+		let fire = std::mem::take(&mut self.fire_pending);
+		HuntInput::measured(
+			pose.forward,
+			pose.turn_speed,
+			fire,
+			self.slot,
+			self.orb_held,
+		)
 	}
 }
 
@@ -196,6 +228,7 @@ mod tests {
 		HuntSim::new(
 			seed,
 			nft.collection.vessel(),
+			nft.rarity(),
 			nft.rarity().ward(),
 			&stats,
 			HuntPlan::OPEN,
@@ -229,13 +262,21 @@ mod tests {
 	}
 
 	#[test]
-	fn taps_are_played_once_on_the_next_tick() {
+	fn a_fire_press_is_played_once_on_the_next_tick() {
 		let mut controller = HuntController::new(Fight::Hunt(sim(5)));
-		controller.tap(Vec3::FORWARD);
+		controller.press();
+		controller.select(Arsenal::BLADE_SLOT);
+		controller.hold_orb(true);
 		controller.frame(HuntController::TICK_SECONDS * 2.0, &ArPose::AHEAD);
 		let log = controller.log();
-		assert_eq!(log.inputs[0].taps.len(), 1);
-		assert_eq!(log.inputs[1].taps.len(), 0);
+		assert!(log.inputs[0].fire);
+		assert_eq!(log.inputs[0].slot as usize, Arsenal::BLADE_SLOT);
+		assert!(log.inputs[0].orb_held);
+		assert!(!log.inputs[1].fire);
+		assert!(log.inputs[1].orb_held, "the thumb is still down");
+		controller.hold_orb(false);
+		controller.frame(HuntController::TICK_SECONDS, &ArPose::AHEAD);
+		assert!(!controller.log().inputs[2].orb_held);
 	}
 
 	/// What the view hands `on_finished` is a log the keeper's replay
@@ -259,6 +300,7 @@ mod tests {
 			let replayed = HuntSim::replay(
 				seed,
 				nft.collection.vessel(),
+				nft.rarity(),
 				nft.rarity().ward(),
 				&stats,
 				&read,

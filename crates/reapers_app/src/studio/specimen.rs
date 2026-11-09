@@ -2,6 +2,7 @@
 //! plain data. Every figure comes from `reapers_rules`; this only keeps the
 //! choices the Flutter `ReaperStudio` kept in its hooks.
 
+use reapers_rules::CaptureGrade;
 use reapers_rules::Feeding;
 use reapers_rules::GenomeChanges;
 use reapers_rules::HuntDeeds;
@@ -12,7 +13,6 @@ use reapers_rules::MotionGroup;
 use reapers_rules::Outfit;
 use reapers_rules::Progression;
 use reapers_rules::Rarity;
-use reapers_rules::ReapGrade;
 use reapers_rules::ReaperClass;
 use reapers_rules::ReaperGenome;
 use reapers_rules::ReaperGift;
@@ -188,9 +188,8 @@ impl Specimen {
 			soul,
 			..HuntLoadout::new(calling, 1, Weapon::new(calling.weapon(), Temper::Shrouded))
 		};
-		let damage = |loadout: &HuntLoadout| {
-			HuntStats::derive(loadout, 1.0).map_or(0.0, |stats| stats.strike_damage)
-		};
+		let damage =
+			|loadout: &HuntLoadout| HuntStats::derive(loadout, 1.0).map_or(0.0, |stats| stats.hit);
 		(damage(&now), damage(&start))
 	}
 
@@ -277,7 +276,7 @@ impl Specimen {
 	/// It never submits a claim or touches a save.
 	pub fn absorb(&mut self, path: Option<SoulPath>) -> i64 {
 		let outcome = HuntOutcome::absorbed_with(
-			ReapGrade::Clean,
+			CaptureGrade::Great,
 			path == Some(SoulPath::Unseen),
 			0,
 			HuntDeeds {
@@ -483,7 +482,7 @@ mod tests {
 		assert_eq!(specimen.genome.head, 1);
 
 		let earned = specimen.absorb(None);
-		let fair = HuntOutcome::absorbed_with(ReapGrade::Clean, false, 0, HuntDeeds::default())
+		let fair = HuntOutcome::absorbed_with(CaptureGrade::Great, false, 0, HuntDeeds::default())
 			.xp_for(Rarity::Rare, Feeding::Fair);
 		assert_eq!(earned, fair);
 		assert_eq!(specimen.reward, Some(fair));

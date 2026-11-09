@@ -12,6 +12,7 @@ use reapers_rules::HuntEvent;
 use reapers_rules::HuntPhase;
 use reapers_rules::HuntRules;
 use reapers_rules::HuntSim;
+use reapers_rules::OrbBlock;
 
 use crate::l10n::Messages;
 use crate::lookups::gift_name;
@@ -27,7 +28,7 @@ use crate::ui::label;
 use crate::ui::ledger_meter;
 use crate::ui::ledger_pip;
 
-/// Fresh feedback with its own lifetime. Routine strikes are quieter than
+/// Fresh feedback with its own lifetime. Routine hits are quieter than
 /// changes of phase.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Banner {
@@ -59,8 +60,8 @@ pub fn banner_for(words: &dyn Messages, event: &HuntEvent) -> Option<Banner> {
 		HuntEvent::HeldFirm => words.hunt_held_firm().to_owned(),
 		HuntEvent::Parried => words.hunt_parried().to_owned(),
 		HuntEvent::Struck { .. } => words.hunt_struck().to_owned(),
-		HuntEvent::Broken => words.hunt_broken().to_owned(),
-		HuntEvent::ReapRecovered { .. } => words.hunt_recovered().to_owned(),
+		HuntEvent::Broken { .. } => words.hunt_broken().to_owned(),
+		HuntEvent::Recovered { .. } => words.hunt_recovered().to_owned(),
 		HuntEvent::ArtLanded { hit: false, .. } => words.hunt_art_missed().to_owned(),
 		HuntEvent::ArtLanded {
 			art: Art::Cinder, ..
@@ -68,42 +69,57 @@ pub fn banner_for(words: &dyn Messages, event: &HuntEvent) -> Option<Banner> {
 		HuntEvent::ArtLanded { art: Art::Rime, .. } => words.hunt_frozen().to_owned(),
 		HuntEvent::ArtLanded { art: Art::Gale, .. } => words.hunt_gusted().to_owned(),
 		HuntEvent::IceShattered => words.hunt_shattered().to_owned(),
-		HuntEvent::StrikeLanded { damage, .. } => words.hunt_strike_hit(damage.round() as i64),
-		HuntEvent::StrikeGlanced { .. } => words.hunt_strike_glanced().to_owned(),
-		HuntEvent::StrikeWhiffed => words.hunt_strike_missed().to_owned(),
-		HuntEvent::ArtThrown(_)
+		HuntEvent::HitLanded { damage, seal, .. } => {
+			let damage = damage.round() as i64;
+
+			if seal.is_some() {
+				words.hunt_hit_seal(damage)
+			} else {
+				words.hunt_hit(damage)
+			}
+		}
+		HuntEvent::Missed(_) => words.hunt_missed().to_owned(),
+		HuntEvent::OrbBrokeFree(_) => words.hunt_orb_broke_free().to_owned(),
+		HuntEvent::OrbMissed => words.hunt_orb_missed().to_owned(),
+		HuntEvent::HuskCaptured(_) => words.hunt_captured().to_owned(),
+		HuntEvent::OrbThrown { .. }
+		| HuntEvent::OrbImpact { .. }
+		| HuntEvent::OrbAbsorbed
+		| HuntEvent::OrbLanded
+		| HuntEvent::OrbPulse(_)
+		| HuntEvent::ArtThrown(_)
+		| HuntEvent::WeaponDrawn(_)
+		| HuntEvent::ShotFired { .. }
+		| HuntEvent::ReloadStarted
+		| HuntEvent::ReloadJammed
+		| HuntEvent::ReloadFinished { .. }
+		| HuntEvent::DiveStarted(_)
+		| HuntEvent::DiveEnded
 		| HuntEvent::Leapt(_)
 		| HuntEvent::SealOpened(_)
 		| HuntEvent::ShriekWindup
 		| HuntEvent::ShriekBegan
 		| HuntEvent::ChargeBegan
 		| HuntEvent::Relocating
-		| HuntEvent::ReapBegan
-		| HuntEvent::HuskAbsorbed(_)
 		| HuntEvent::HuskEscaped(_) => return None,
 	};
 	Some(Banner {
 		text,
-		strike: matches!(
-			event,
-			HuntEvent::StrikeLanded { .. }
-				| HuntEvent::StrikeGlanced { .. }
-				| HuntEvent::StrikeWhiffed
-		),
+		strike: matches!(event, HuntEvent::HitLanded { .. } | HuntEvent::Missed(_)),
 	})
 }
 
-/// How hard `event` knocks in the player's hand: the phone is the blade,
-/// so what the blade meets should be felt.
+/// How hard `event` knocks in the player's hand: the phone is the weapon,
+/// so what the weapon meets should be felt.
 pub fn knock_for(event: &HuntEvent) {
 	match event {
-		HuntEvent::StrikeLanded {
+		HuntEvent::HitLanded {
 			empowered: true, ..
 		}
 		| HuntEvent::ShriekBegan
 		| HuntEvent::Parried
-		| HuntEvent::Broken
-		| HuntEvent::HuskAbsorbed(_)
+		| HuntEvent::Broken { .. }
+		| HuntEvent::HuskCaptured(_)
 		| HuntEvent::HuskEscaped(_)
 		| HuntEvent::ArtLanded { hit: true, .. }
 		| HuntEvent::IceShattered
@@ -113,8 +129,9 @@ pub fn knock_for(event: &HuntEvent) {
 		| HuntEvent::HeldFirm
 		| HuntEvent::ChargeBegan
 		| HuntEvent::ArtThrown(_)
-		| HuntEvent::StrikeLanded { .. }
-		| HuntEvent::StrikeGlanced { .. } => platform::tap(),
+		| HuntEvent::HitLanded { .. }
+		| HuntEvent::Missed(_)
+		| HuntEvent::OrbBrokeFree(_) => platform::tap(),
 		_ => {}
 	}
 }
@@ -122,12 +139,10 @@ pub fn knock_for(event: &HuntEvent) {
 /// The meter under the banner, when the phase has one.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Gauge {
-	/// The blade, filling as it recovers from the last swing.
-	Blade { fraction: f64, ready: bool },
 	/// How steady the phone is while the husk shrieks.
 	Steadiness { fraction: f64, steady: bool },
-	/// What is left of the window to reap.
-	Reap { fraction: f64 },
+	/// What is left of the window to land an orb.
+	Broken { fraction: f64 },
 }
 
 /// Everything the fight's ledger shows, read off the rules.
@@ -169,6 +184,7 @@ pub fn status(
 ) -> Status {
 	let phase = sim.phase();
 	let stats = sim.stats();
+	let any_seal_open = (0..sim.vessel().seals().len()).any(|seal| sim.seal_open(seal));
 	let prompt = match phase {
 		HuntPhase::Stalk if turn_speed > HuntRules::STARTLE_SPEED => words.hunt_prompt_too_fast(),
 		HuntPhase::Stalk if sim.steadiness() > 0.05 => words.hunt_prompt_steady(),
@@ -180,38 +196,35 @@ pub fn status(
 		HuntPhase::Fight if sim.footing() == Footing::Ledge && !sim.leaping() => {
 			words.hunt_prompt_perched()
 		}
-		HuntPhase::Fight => words.hunt_prompt_strike(),
+		HuntPhase::Fight if sim.stunned() => words.hunt_prompt_stunned(),
+		HuntPhase::Fight if sim.orb_block().is_none() => words.hunt_prompt_throw(),
+		HuntPhase::Fight if sim.orb_block() == Some(OrbBlock::LowSoul) => {
+			words.hunt_prompt_low_soul()
+		}
+		HuntPhase::Fight if any_seal_open => words.hunt_prompt_seals(),
+		HuntPhase::Fight => words.hunt_prompt_fire(),
 		HuntPhase::Windup => words.hunt_prompt_windup(),
 		HuntPhase::Shriek => words.hunt_prompt_hold(),
 		HuntPhase::Charge => words.hunt_prompt_charge(),
-		HuntPhase::Broken if turn_speed > HuntRules::REAP_SPEED_LIMIT => {
-			words.hunt_prompt_reap_too_fast()
-		}
-		HuntPhase::Broken if sim.reap_begun() => words.hunt_prompt_sweep(),
-		HuntPhase::Broken => words.hunt_prompt_mark(),
+		HuntPhase::Broken => words.hunt_prompt_broken(),
+		HuntPhase::Capture => words.hunt_prompt_capture(),
 		HuntPhase::Absorbed | HuntPhase::Escaped => afterword,
 	};
 	let gauge = match phase {
-		HuntPhase::Fight | HuntPhase::Charge => {
-			Some(Gauge::Blade {
-				fraction: step(1.0 - sim.strike_ticks_left() as f64 / stats.swing_ticks as f64),
-				ready: sim.strike_ticks_left() == 0,
-			})
-		}
 		HuntPhase::Shriek => {
 			Some(Gauge::Steadiness {
 				fraction: step(turn_speed / stats.flinch_speed),
 				steady: turn_speed <= stats.flinch_speed,
 			})
 		}
-		HuntPhase::Broken => {
-			Some(Gauge::Reap {
-				fraction: step(sim.capture_ticks_left() as f64 / sim.capture_ticks() as f64),
+		HuntPhase::Broken if sim.broken_ticks() > 0 => {
+			Some(Gauge::Broken {
+				fraction: step(sim.broken_ticks_left() as f64 / sim.broken_ticks() as f64),
 			})
 		}
 		_ => None,
 	};
-	// A routine strike is said only while there is something to strike.
+	// A routine hit is said only while there is something to hit.
 	let banner = banner
 		.filter(|banner| !banner.strike || phase == HuntPhase::Fight || phase == HuntPhase::Charge);
 	Status {
@@ -309,17 +322,6 @@ pub fn status_view(
 	column = column.child(View().class("flex-1"));
 	if let Some(gauge) = &status.gauge {
 		let (name, fraction, colour) = match gauge {
-			Gauge::Blade { fraction, ready } => {
-				(
-					if *ready {
-						words.hunt_blade_ready()
-					} else {
-						words.hunt_blade_recovering()
-					},
-					*fraction,
-					light,
-				)
-			}
 			Gauge::Steadiness { fraction, steady } => {
 				(
 					if *steady {
@@ -331,7 +333,7 @@ pub fn status_view(
 					if *steady { light } else { WOUND },
 				)
 			}
-			Gauge::Reap { fraction } => (words.hunt_reap_window(), *fraction, BONE),
+			Gauge::Broken { fraction } => (words.hunt_broken_window(), *fraction, BONE),
 		};
 		column = column.child(
 			View()
@@ -371,6 +373,7 @@ mod tests {
 		HuntSim::new(
 			7,
 			nft.collection.vessel(),
+			nft.rarity(),
 			nft.rarity().ward(),
 			&HuntStats::derive(&HuntLoadout::BORROWED, 1.0).unwrap(),
 			HuntPlan::OPEN,
@@ -380,22 +383,24 @@ mod tests {
 	}
 
 	#[test]
-	fn a_strike_is_quiet_and_a_phase_change_is_loud() {
+	fn a_hit_is_quiet_and_a_phase_change_is_loud() {
 		let words = En;
 		let hit = banner_for(
 			&words,
-			&HuntEvent::StrikeLanded {
-				seal: 0,
+			&HuntEvent::HitLanded {
+				weapon: reapers_rules::Archetype::Gun,
 				damage: 6.4,
 				cadence: 1,
+				critical: false,
 				empowered: false,
+				seal: None,
 				cleaved: Vec::new(),
 			},
 		)
 		.unwrap();
 		assert!(hit.strike);
-		assert_eq!(hit.text, words.hunt_strike_hit(6));
-		let broken = banner_for(&words, &HuntEvent::Broken).unwrap();
+		assert_eq!(hit.text, words.hunt_hit(6));
+		let broken = banner_for(&words, &HuntEvent::Broken { window_ticks: 300 }).unwrap();
 		assert!(!broken.strike);
 		assert_eq!(
 			banner_for(&words, &HuntEvent::HuskEscaped(EscapeCause::Time)),

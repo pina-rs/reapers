@@ -7,6 +7,7 @@
 
 pub mod arena;
 pub mod controller;
+pub mod controls;
 pub mod hud;
 pub mod overlay;
 pub mod pose;

@@ -25,7 +25,7 @@ fn assert_close(actual: f64, expected: f64, within: f64) {
 
 fn hunt_of(rarity: Rarity) -> HuntSim {
 	let stats = HuntStats::derive(&HuntLoadout::BORROWED, 1.0).expect("the borrowed reaper");
-	HuntSim::open(4, Vessel::Ape, rarity.ward(), &stats)
+	HuntSim::open(4, Vessel::Ape, rarity, rarity.ward(), &stats)
 }
 
 fn hunt() -> HuntSim {
@@ -33,7 +33,7 @@ fn hunt() -> HuntSim {
 }
 
 fn still(sim: &HuntSim) -> HuntInput {
-	HuntInput::measured(sim.pose().direction(), 0.0, &[], false)
+	HuntInput::measured(sim.pose().direction(), 0.0, false, 0, false)
 }
 
 /// Looks at the husk and swings at a charge, so the hunt runs on.
@@ -43,7 +43,7 @@ fn wary(sim: &HuntSim) -> HuntInput {
 	} else {
 		0.0
 	};
-	HuntInput::measured(sim.pose().direction(), turn, &[], false)
+	HuntInput::measured(sim.pose().direction(), turn, false, 0, false)
 }
 
 fn until(sim: &mut HuntSim, stop: impl Fn(&HuntSim) -> bool) {

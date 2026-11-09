@@ -172,7 +172,7 @@ pub fn hunt_mix(sim: &HuntSim) -> Mix {
 				veil: 0.0,
 			}
 		}
-		HuntPhase::Broken => {
+		HuntPhase::Broken | HuntPhase::Capture => {
 			Mix {
 				volume: 0.45,
 				veil: 0.45,

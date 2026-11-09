@@ -264,7 +264,7 @@ fn result(game: Game, brief: &HuntBrief, reward: &HuntReward) -> Element {
 				match cause {
 					EscapeCause::Resolve => words.hunt_escaped_resolve(),
 					EscapeCause::Time => words.hunt_escaped_time(),
-					EscapeCause::Reap => words.hunt_escaped_reap(),
+					EscapeCause::Lapsed => words.hunt_escaped_lapsed(),
 				}
 				.to_owned(),
 			)
@@ -285,7 +285,7 @@ fn result(game: Game, brief: &HuntBrief, reward: &HuntReward) -> Element {
 	column = column
 		.child(label(
 			if absorbed {
-				words.hunt_reaped_label()
+				words.hunt_captured_label()
 			} else {
 				words.hunt_lost_label()
 			},

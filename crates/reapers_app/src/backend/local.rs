@@ -423,6 +423,7 @@ mod tests {
 		let mut sim = reapers_rules::HuntSim::open(
 			sighting.seed,
 			saint.collection.vessel(),
+			saint.rarity(),
 			saint.rarity().ward(),
 			&reapers_rules::HuntStats::derive(&released.loadout(), 1.0).unwrap(),
 		);

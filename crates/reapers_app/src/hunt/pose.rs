@@ -6,7 +6,6 @@
 //! kept here, with the touches and the room they bring, for the hunt's
 //! clock to read.
 
-use reapers_rules::Vec3;
 use reapers_world::ArPose;
 use reapers_world::DragPose;
 use reapers_world::PoseSource;
@@ -47,11 +46,8 @@ pub struct LivePose {
 	/// The vertical field of view of the platform's view, when it reports
 	/// one: the camera's own lens.
 	pub fov: Option<f64>,
-	/// Strikes the platform's touches made since they were last taken, as
-	/// directions out from the player.
-	taps: Vec<Vec3>,
 	/// Whether a finger is resting on the screen long enough to be holding
-	/// the art ready.
+	/// ORB ready.
 	pub holding: bool,
 	/// How far above the floor the phone is, from the platform's planes.
 	pub eye_height: Option<f64>,
@@ -128,16 +124,6 @@ impl LivePose {
 		self.depth = false;
 		self.position = None;
 		self.camera = false;
-	}
-
-	/// A touch the platform reported, aiming along `direction`.
-	pub fn touch(&mut self, direction: Vec3) {
-		self.taps.push(direction);
-	}
-
-	/// The touches since the last call.
-	pub fn take_taps(&mut self) -> Vec<Vec3> {
-		std::mem::take(&mut self.taps)
 	}
 }
 

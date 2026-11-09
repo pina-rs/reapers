@@ -116,6 +116,7 @@ pub fn autoplay_log(brief: &HuntBrief, difficulty: Difficulty) -> Option<(HuntLo
 	let mut sim = HuntSim::new(
 		brief.seed,
 		vessel,
+		brief.nft.rarity(),
 		brief.nft.rarity().ward(),
 		&stats,
 		HuntPlan::OPEN,

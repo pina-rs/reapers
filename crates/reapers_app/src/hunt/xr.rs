@@ -76,7 +76,6 @@ mod platform {
 	use leptoskit_xr::Xr;
 	use reapers_world::DepthFrame;
 	use reapers_world::RayGrid;
-	use reapers_world::from_platform;
 	use reapers_world::to_platform;
 
 	use super::Shared;
@@ -227,14 +226,7 @@ mod platform {
 					.collect();
 				for input in &present {
 					if !touches.iter().any(|(id, ..)| *id == input.id) {
-						let forward = input.target_ray.forward();
-						let direction = from_platform([
-							f64::from(forward.x),
-							f64::from(forward.y),
-							f64::from(forward.z),
-						]);
 						touches.push((input.id, frame.time, false));
-						live.touch(direction);
 					}
 				}
 				touches.retain(|(id, ..)| present.iter().any(|input| input.id == *id));

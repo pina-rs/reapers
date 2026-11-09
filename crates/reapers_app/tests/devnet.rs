@@ -534,6 +534,7 @@ fn a_wallet_releases_a_real_husk_and_burns_it_after_the_hunt() {
 		let mut sim = HuntSim::open(
 			sighting.seed,
 			sighting.nft.collection.vessel(),
+			sighting.nft.rarity(),
 			sighting.nft.rarity().ward(),
 			&HuntStats::derive(&before.loadout(), 1.0).expect("a valid loadout"),
 		);

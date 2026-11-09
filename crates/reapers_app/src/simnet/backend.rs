@@ -304,6 +304,7 @@ mod tests {
 		let mut sim = HuntSim::open(
 			sighting.seed,
 			sighting.nft.collection.vessel(),
+			sighting.nft.rarity(),
 			sighting.nft.rarity().ward(),
 			&HuntStats::derive(&state.loadout(), 1.0).unwrap(),
 		);

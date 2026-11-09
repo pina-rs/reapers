@@ -7,6 +7,7 @@
 use reapers_program_client::errors::ReapersProgramError;
 use reapers_rules::Art;
 use reapers_rules::Aura;
+use reapers_rules::CaptureGrade;
 use reapers_rules::ClassPerk;
 use reapers_rules::Difficulty;
 use reapers_rules::Feeding;
@@ -14,7 +15,6 @@ use reapers_rules::HuntRules;
 use reapers_rules::Omen;
 use reapers_rules::Outfit;
 use reapers_rules::Rarity;
-use reapers_rules::ReapGrade;
 use reapers_rules::ReaperClass;
 use reapers_rules::ReaperGift;
 use reapers_rules::Refusal;
@@ -158,11 +158,11 @@ pub fn feeding_name(words: &dyn Messages, value: Feeding) -> &'static str {
 	}
 }
 
-pub fn grade_name(words: &dyn Messages, value: ReapGrade) -> &'static str {
+pub fn grade_name(words: &dyn Messages, value: CaptureGrade) -> &'static str {
 	match value {
-		ReapGrade::Perfect => words.hunt_grade_perfect(),
-		ReapGrade::Clean => words.hunt_grade_clean(),
-		ReapGrade::Ragged => words.hunt_grade_ragged(),
+		CaptureGrade::Excellent => words.hunt_grade_excellent(),
+		CaptureGrade::Great => words.hunt_grade_great(),
+		CaptureGrade::Plain => words.hunt_grade_plain(),
 	}
 }
 
