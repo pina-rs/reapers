@@ -27,6 +27,12 @@ from . import common
 HAND_SCALE = 1.08
 GRIP_RADIUS = 0.019
 
+# The left hand comes up close to the eye in a reload, palm open toward it,
+# so it is smaller than the right: at the right's scale it filled a third of
+# the view. It still cups the spare drum, `LEFT_GRIP` across.
+LEFT_HAND_SCALE = 0.8
+LEFT_GRIP = 0.028
+
 # How far the right hand's wrist sits behind the haft it holds, along +Y.
 WRIST = GRIP_RADIUS + 0.112 * HAND_SCALE
 
@@ -44,8 +50,8 @@ def build_right(parent):
     arm = core.empty("vm_right", parent)
     wrist = core.empty("vm_wrist_r", arm, location=(0.0, WRIST, 0.0))
     # The hand alone hangs from the wrist, so it is painted on its own.
-    common.paint(_hand(wrist, "arm_r", curl=1.0, side=1, grip_radius=GRIP_RADIUS, keep=0.3, origin=(0.0, -WRIST, 0.0)))
-    _forearm(arm, "arm_r_forearm", side=1, grip_radius=GRIP_RADIUS)
+    common.paint(_hand(wrist, "arm_r", curl=1.0, side=1, grip_radius=GRIP_RADIUS, scale=HAND_SCALE, keep=0.3, origin=(0.0, -WRIST, 0.0)))
+    _forearm(arm, "arm_r_forearm", side=1, grip_radius=GRIP_RADIUS, scale=HAND_SCALE)
     common.merge(arm, "arm_r_forearm")
 
     socket = core.empty("socket_weapon", wrist, location=(0.0, -WRIST, 0.0))
@@ -57,27 +63,29 @@ def build_left(parent):
     """The left arm under `parent`. Returns its palm socket."""
 
     arm = core.empty("vm_left", parent)
-    _hand(arm, "arm_l_hand", curl=0.52, side=-1, grip_radius=0.028, keep=0.24, origin=(0.0, 0.0, 0.0))
-    _forearm(arm, "arm_l_forearm", side=-1, grip_radius=0.028)
+    # Built about a wider grip, so that once scaled down it still fits the drum.
+    _hand(arm, "arm_l_hand", curl=0.52, side=-1, grip_radius=LEFT_GRIP / LEFT_HAND_SCALE, scale=LEFT_HAND_SCALE, keep=0.24, origin=(0.0, 0.0, 0.0))
+    _forearm(arm, "arm_l_forearm", side=-1, grip_radius=LEFT_GRIP, scale=LEFT_HAND_SCALE)
     common.merge(arm, "arm_l")
 
     return core.empty("socket_palm", arm, location=(-0.004, -0.004, 0.0))
 
 
-def _hand(parent, label, curl, side, grip_radius, keep, origin):
-    """A skeletal hand closed around a grip at `origin` in `parent`'s frame.
-    Seen from a hand's width away, the knot of wrist bones needs far fewer
-    faces than voxel remeshing gives it, so it is decimated to `keep`."""
+def _hand(parent, label, curl, side, grip_radius, scale, keep, origin):
+    """A skeletal hand closed around a grip at `origin` in `parent`'s frame,
+    `scale` times life size. Seen from a hand's width away, the knot of wrist
+    bones needs far fewer faces than voxel remeshing gives it, so it is
+    decimated to `keep`."""
 
-    hand = anatomy.hand(label, parent, grip_radius=grip_radius, curl=curl, side=side, scale=HAND_SCALE)
+    hand = anatomy.hand(label, parent, grip_radius=grip_radius, curl=curl, side=side, scale=scale)
     hand.location = origin
     core.decimate(hand, keep)
 
     return hand
 
 
-def _forearm(parent, label, side, grip_radius):
-    wrist = Vector((0.0, grip_radius + 0.112 * HAND_SCALE, 0.0))
+def _forearm(parent, label, side, grip_radius, scale):
+    wrist = Vector((0.0, grip_radius + 0.112 * scale, 0.0))
     elbow = Vector((ELBOW[0] * side, ELBOW[1], ELBOW[2]))
     anatomy.forearm(f"{label}_bones", parent, wrist, elbow)
 

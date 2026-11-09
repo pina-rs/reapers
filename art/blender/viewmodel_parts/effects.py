@@ -229,12 +229,16 @@ def muzzle_flashes(muzzle):
 TRAIL_DEGREES = 120
 TRAIL_SEGMENTS = 20
 TRAIL_HEIGHT = 0.16
+# Where along the arc the trail is brightest. Past it the light runs on out
+# to the spot's far edge and the arc rounds off, so the head is soft: it
+# once ended on its brightest line.
+TRAIL_PEAK = 0.85
 
 
 def trail(parent):
     """An arc of light, a unit's radius about the origin in the horizontal
     plane, from the tail at angle 0 round to the head at 120 degrees: dim at
-    its tail and brightest at its head."""
+    its tail, brightest just behind its head, and soft at both ends."""
 
     quads = []
 
@@ -244,9 +248,17 @@ def trail(parent):
         for step, v, z in ((segment, 0.0, -TRAIL_HEIGHT / 2), (segment + 1, 0.0, -TRAIL_HEIGHT / 2), (segment + 1, 1.0, TRAIL_HEIGHT / 2), (segment, 1.0, TRAIL_HEIGHT / 2)):
             share = step / TRAIL_SEGMENTS
             angle = math.radians(TRAIL_DEGREES) * share
-            # Thinner toward the tail.
+            # Thinner toward the tail, and rounded off at the head.
             height = z * (0.35 + 0.65 * share)
-            corners.append(((math.cos(angle), math.sin(angle), height), (0.5 * share, v)))
+
+            if share <= TRAIL_PEAK:
+                u = 0.5 * share / TRAIL_PEAK
+            else:
+                past = (share - TRAIL_PEAK) / (1.0 - TRAIL_PEAK)
+                u = 0.5 + 0.5 * past
+                height *= math.sqrt(max(0.0, 1.0 - past * past))
+
+            corners.append(((math.cos(angle), math.sin(angle), height), (u, v)))
 
         quads.append(corners)
 
