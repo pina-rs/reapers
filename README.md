@@ -54,7 +54,7 @@ You need the leptoskit CLI, at the revision the workspace pins:
 
 ```sh
 cargo install --locked --git https://github.com/leptoskit/leptoskit \
-  --rev 6f7114d8355acef2a1e98cba223a58c5a7a15f5b leptoskit_cli
+  --rev 33ad5e1171f97f4086bf6ec9290e75aef956cdc0 leptoskit_cli
 ```
 
 ### In the browser
