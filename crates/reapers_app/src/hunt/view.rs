@@ -763,9 +763,14 @@ pub fn hunt_view(props: &HuntViewProps) -> Element {
 	// targets above it so the very thing the player must find stays visible.
 	// Combat marks stay below the weapon controls.
 	if let Stage::Tracing(trace) = &state.stage {
-		return root
+		let tracing = root
 			.child(scan(&state, trace))
 			.child(marks.into_view(state.size.0, state.size.1));
+		return if let Some(skip) = scan_skip(trace) {
+			tracing.child(skip)
+		} else {
+			tracing
+		};
 	}
 	if !marks.is_empty() {
 		root = root.child(marks.into_view(state.size.0, state.size.1));
@@ -912,24 +917,26 @@ fn scan(state: &HuntState, trace: &SigilTrace) -> Element {
 			ASH,
 		));
 	}
-	let mut view = View().class("absolute inset-0").child(
+	View().class("absolute inset-0").child(
 		View()
 			.class("absolute left-3 right-3 top-0 pt-2 pt-safe")
 			.child(column),
-	);
-	if trace.seconds() > SKIP_AFTER {
-		view = view.child(
-			View()
-				.class("absolute left-3 right-3 bottom-8 pb-safe")
-				.child(
-					LedgerButton::new(words.scan_skip())
-						.quiet()
-						.test_id("hunt-skip")
-						.on_press(|| with_hunt(HuntState::skip)),
-				),
-		);
-	}
-	view
+	)
+}
+
+/// The action stays above the sigil's non-interactive drawing layer.
+fn scan_skip(trace: &SigilTrace) -> Option<Element> {
+	let words = use_l10n();
+	(trace.seconds() > SKIP_AFTER).then(|| {
+		View()
+			.class("absolute left-3 right-3 bottom-8 pb-safe")
+			.child(
+				LedgerButton::new(words.scan_skip())
+					.quiet()
+					.test_id("hunt-skip")
+					.on_press(|| with_hunt(HuntState::skip)),
+			)
+	})
 }
 
 /// What to do about the next light, in words that match the arrow and the
