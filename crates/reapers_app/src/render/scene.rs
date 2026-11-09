@@ -6,6 +6,7 @@
 //! changes, so a scene is never made by a render: each place that shows one
 //! names its slot, and the slot keeps its scene from one render to the next.
 
+use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -21,6 +22,9 @@ use leptoskit::scene3d::client::Scene;
 /// no host to send them to).
 pub struct GameScene {
 	scene: Scene,
+	closed: Cell<bool>,
+	#[cfg(all(target_arch = "wasm32", any(feature = "web", feature = "native")))]
+	submissions: super::submissions::Submissions,
 	shot_target: RefCell<Option<(i64, super::camera::Point)>>,
 	#[cfg(not(all(target_arch = "wasm32", any(feature = "web", feature = "native"))))]
 	sent: RefCell<Vec<Op>>,
@@ -28,18 +32,21 @@ pub struct GameScene {
 
 impl GameScene {
 	fn new(id: SceneId) -> Self {
+		#[cfg(all(target_arch = "wasm32", any(feature = "web", feature = "native")))]
+		let submissions = super::submissions::Submissions::default();
 		#[cfg(all(target_arch = "wasm32", feature = "native", not(feature = "web")))]
 		{
 			// Android can restart the guest inside the same process. Its
 			// host still owns the old IDs, assets and loading-event queues.
-			// close sends immediately, before this scene's first batch.
+			// Wait for the reset's acknowledgement before the first batch.
 			let closed = Scene::new(id).close();
-			crate::platform::spawn(async move {
-				let _ = closed.await;
-			});
+			let _reset = submissions.after(move || closed);
 		}
 		Self {
 			scene: Scene::new(id),
+			closed: Cell::new(false),
+			#[cfg(all(target_arch = "wasm32", any(feature = "web", feature = "native")))]
+			submissions,
 			shot_target: RefCell::new(None),
 			#[cfg(not(all(target_arch = "wasm32", any(feature = "web", feature = "native"))))]
 			sent: RefCell::new(Vec::new()),
@@ -71,12 +78,22 @@ impl GameScene {
 	/// sent; a failure is logged, never shown: a scene that cannot draw
 	/// leaves its view empty.
 	pub fn flush(&self) {
-		if self.scene.pending() == 0 {
+		if self.closed.get() || self.scene.pending() == 0 {
 			return;
 		}
 		#[cfg(all(target_arch = "wasm32", any(feature = "web", feature = "native")))]
 		{
-			let sent = self.scene.flush();
+			let ops = self.scene.take_ops();
+			let id = self.id();
+			let sent = self.submissions.after(move || {
+				async move {
+					let batch = Scene::new(id);
+					for op in ops {
+						batch.push(op);
+					}
+					batch.flush().await
+				}
+			});
 			crate::platform::spawn(async move {
 				if let Err(error) = sent.await {
 					crate::platform::log(&format!("a scene's ops were not taken: {error}"));
@@ -90,7 +107,22 @@ impl GameScene {
 	/// Waits for what the host has to say about the scene.
 	#[cfg(all(target_arch = "wasm32", any(feature = "web", feature = "native")))]
 	pub async fn events(&self) -> Vec<Event> {
+		if self.submissions.ready().await.is_err() {
+			return Vec::new();
+		}
 		self.scene.next_events().await.unwrap_or_default()
+	}
+
+	fn close(&self) {
+		self.closed.set(true);
+		#[cfg(all(target_arch = "wasm32", any(feature = "web", feature = "native")))]
+		{
+			let id = self.id();
+			let closed = self.submissions.after(move || Scene::new(id).close());
+			crate::platform::spawn(async move {
+				let _ = closed.await;
+			});
+		}
 	}
 
 	/// Without a host there is nothing to say.
@@ -158,15 +190,17 @@ pub fn forget(key: Key) {
 	let Some(scene) = SCENES.with_borrow_mut(|scenes| scenes.remove(&key)) else {
 		return;
 	};
-	#[cfg(all(target_arch = "wasm32", any(feature = "web", feature = "native")))]
-	if let Ok(scene) = Rc::try_unwrap(scene) {
-		let closed = scene.scene.close();
-		crate::platform::spawn(async move {
-			let _ = closed.await;
-		});
-	}
-	#[cfg(not(all(target_arch = "wasm32", any(feature = "web", feature = "native"))))]
-	drop(scene);
+	scene.close();
+}
+
+/// Pointer polling must not mistake a scene whose first batch is in flight
+/// for a closed scene. Asset polling waits on the same acknowledgement.
+#[cfg(all(target_arch = "wasm32", feature = "native", not(feature = "web")))]
+pub async fn wait_for_scene(id: SceneId) -> Result<(), leptoskit::scene3d::client::ClientError> {
+	let scene =
+		SCENES.with_borrow(|scenes| scenes.values().find(|scene| scene.id() == id).cloned());
+	let scene = scene.ok_or(leptoskit::scene3d::client::ClientError::Unavailable)?;
+	scene.submissions.ready().await
 }
 
 /// The light a reaper stands in alone in the dark: a cold key from above
@@ -202,4 +236,26 @@ pub fn light_hunt(scene: &Scene, camera: bool) {
 		Backdrop::Transparent
 	}));
 	scene.push(Op::SetExposure(1.0));
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	#[test]
+	fn forgetting_a_scene_closes_it_even_while_a_view_keeps_a_reference() {
+		let key = Key::Fixed("test-forget-retained-scene");
+		let retained = scene(key);
+		retained.ops().group();
+		retained.flush();
+		let sent = retained.sent().len();
+		forget(key);
+		retained.ops().group();
+		retained.flush();
+		assert_eq!(
+			retained.sent().len(),
+			sent,
+			"a stale view must not recreate the forgotten host scene"
+		);
+		assert_ne!(scene(key).id(), retained.id());
+	}
 }

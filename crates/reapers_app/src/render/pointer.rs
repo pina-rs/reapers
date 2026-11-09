@@ -272,6 +272,10 @@ mod native {
 			return;
 		}
 		crate::platform::spawn(async move {
+			if crate::render::scene::wait_for_scene(id).await.is_err() {
+				LISTENING.with_borrow_mut(|listening| listening.remove(&id));
+				return;
+			}
 			let scene = Scene::new(id);
 			let mut gestures = NativeGestures::default();
 			loop {

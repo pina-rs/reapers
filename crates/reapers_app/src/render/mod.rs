@@ -29,6 +29,11 @@ pub mod rig;
 pub mod scene;
 pub mod silhouette;
 pub mod stage;
+#[cfg(any(
+	test,
+	all(target_arch = "wasm32", any(feature = "web", feature = "native"))
+))]
+mod submissions;
 pub mod swings;
 pub mod ticker;
 pub mod turn;
