@@ -123,6 +123,43 @@ pub enum OrbStage {
 	Missed,
 }
 
+impl OrbStage {
+	/// The stage of an orb `ticks` after ORB was let go: thrown `on_target`
+	/// or not, with `broke_on` the pulse it broke out on once it has, and
+	/// `held` once it has held. The hunt reports its own orbs this way
+	/// ([`HuntSim::orb`](crate::HuntSim::orb)); a view that plays an orb on
+	/// its own, such as a bench, can call it to tell the same story.
+	pub const fn at(ticks: i64, on_target: bool, broke_on: Option<i64>, held: bool) -> Self {
+		if !on_target {
+			return if ticks < CaptureRules::IMPACT_TICK {
+				Self::Flight
+			} else {
+				Self::Missed
+			};
+		}
+
+		if broke_on.is_some() {
+			return Self::BrokeFree;
+		}
+
+		if held {
+			return Self::Captured;
+		}
+
+		if ticks < CaptureRules::IMPACT_TICK {
+			Self::Flight
+		} else if ticks < CaptureRules::DRAWN_TICK {
+			Self::Drawing
+		} else if ticks < CaptureRules::LANDED_TICK {
+			Self::Falling
+		} else if ticks < CaptureRules::PULSE_TICKS[2] {
+			Self::Pulsing
+		} else {
+			Self::Breath
+		}
+	}
+}
+
 /// An orb the reaper threw, as the view sees it.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct OrbView {
@@ -277,6 +314,20 @@ impl CaptureRules {
 	/// `seed`, counting from 0. The same hunt always rolls the same.
 	pub fn roll(seed: i64, attempt: i64) -> f64 {
 		SeededRandom::new(mix_seed(&[seed, 0x0B5, attempt])).next_double()
+	}
+
+	/// How many times an orb has pulsed `ticks` after ORB was let go, from 0
+	/// to 3: none after the pulse it broke out on, `broke_on`, once it has.
+	pub fn pulses_at(ticks: i64, broke_on: Option<i64>) -> i64 {
+		let pulses = Self::PULSE_TICKS
+			.iter()
+			.filter(|&&pulse| ticks >= pulse)
+			.count() as i64;
+
+		match broke_on {
+			Some(broke) => pulses.min(broke - 1),
+			None => pulses,
+		}
 	}
 
 	/// The pulse an orb with `chance` breaks on, given its `roll`, or `None`

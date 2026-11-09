@@ -229,3 +229,45 @@ fn an_orb_breaks_later_the_nearer_it_came() {
 	assert_eq!(CaptureRules::break_pulse(0.95, chance), Some(1));
 	assert_eq!(CaptureRules::break_pulse(0.999, chance), Some(1));
 }
+
+#[test]
+fn an_orb_tells_its_story_on_the_rules_ticks() {
+	use reapers_rules::OrbStage;
+
+	let stage = |ticks| OrbStage::at(ticks, true, None, false);
+	assert_eq!(stage(0), OrbStage::Flight);
+	assert_eq!(stage(CaptureRules::IMPACT_TICK), OrbStage::Drawing);
+	assert_eq!(stage(CaptureRules::DRAWN_TICK), OrbStage::Falling);
+	assert_eq!(stage(CaptureRules::LANDED_TICK), OrbStage::Pulsing);
+	assert_eq!(stage(CaptureRules::PULSE_TICKS[2]), OrbStage::Breath);
+	assert_eq!(
+		OrbStage::at(CaptureRules::RESULT_TICK, true, None, true),
+		OrbStage::Captured
+	);
+	assert_eq!(
+		OrbStage::at(CaptureRules::PULSE_TICKS[1], true, Some(2), false),
+		OrbStage::BrokeFree
+	);
+	assert_eq!(
+		OrbStage::at(CaptureRules::IMPACT_TICK - 1, false, None, false),
+		OrbStage::Flight
+	);
+	assert_eq!(
+		OrbStage::at(CaptureRules::IMPACT_TICK, false, None, false),
+		OrbStage::Missed
+	);
+	assert_eq!(
+		CaptureRules::pulses_at(CaptureRules::LANDED_TICK - 1, None),
+		0
+	);
+	assert_eq!(
+		CaptureRules::pulses_at(CaptureRules::PULSE_TICKS[1], None),
+		2
+	);
+	assert_eq!(
+		CaptureRules::pulses_at(CaptureRules::PULSE_TICKS[1], Some(2)),
+		1,
+		"the pulse it broke on is not counted"
+	);
+	assert_eq!(CaptureRules::pulses_at(CaptureRules::RESULT_TICK, None), 3);
+}

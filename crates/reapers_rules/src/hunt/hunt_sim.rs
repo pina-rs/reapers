@@ -306,49 +306,12 @@ struct Orb {
 }
 
 impl Orb {
-	fn stage_at(&self, ticks: i64) -> OrbStage {
-		if !self.on_target {
-			return if ticks < CaptureRules::IMPACT_TICK {
-				OrbStage::Flight
-			} else {
-				OrbStage::Missed
-			};
-		}
-
-		if self.broke_on.is_some() {
-			return OrbStage::BrokeFree;
-		}
-
-		if self.held {
-			return OrbStage::Captured;
-		}
-
-		if ticks < CaptureRules::IMPACT_TICK {
-			OrbStage::Flight
-		} else if ticks < CaptureRules::DRAWN_TICK {
-			OrbStage::Drawing
-		} else if ticks < CaptureRules::LANDED_TICK {
-			OrbStage::Falling
-		} else if ticks < CaptureRules::PULSE_TICKS[2] {
-			OrbStage::Pulsing
-		} else {
-			OrbStage::Breath
-		}
+	const fn stage_at(&self, ticks: i64) -> OrbStage {
+		OrbStage::at(ticks, self.on_target, self.broke_on, self.held)
 	}
 
 	fn pulses_at(&self, ticks: i64) -> i64 {
-		let mut pulses = 0;
-
-		for pulse in CaptureRules::PULSE_TICKS {
-			if ticks >= pulse {
-				pulses += 1;
-			}
-		}
-
-		match self.broke_on {
-			Some(broke) => pulses.min(broke - 1),
-			None => pulses,
-		}
+		CaptureRules::pulses_at(ticks, self.broke_on)
 	}
 }
 
