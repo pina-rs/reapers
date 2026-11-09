@@ -1063,3 +1063,102 @@ async fn a_production_keeper_judges_only_the_games_own_difficulty() {
 		Refusal::MarketUnavailable,
 	);
 }
+
+#[tokio::test]
+async fn moving_eye_settlement_matches_the_decoded_local_replay() {
+	use reapers_rules::Eye;
+	let world = World::new().await;
+	let player = world.player().await;
+	let saint = Nft::new(NftCollection::DegenApes, 1);
+	let before = PlayerState::initial()
+		.take_oath(ROOM_REPLAY_OATH_SEED)
+		.unwrap()
+		.acquire(saint)
+		.unwrap()
+		.release(
+			saint,
+			ROOM_REPLAY_HUSK_SEED,
+			Timestamp::from_unix_seconds(0),
+		)
+		.unwrap();
+	world.call(player, Load {}).await.unwrap();
+	world.store(player, before.clone()).await;
+	let sighting = before.sightings()[0];
+	let plan = HuntPlan {
+		room: Some(desk_room()),
+		..HuntPlan::new(0, 6000)
+	};
+	let origin = play_in(&before, &sighting, plan);
+	let stats = HuntStats::derive(&before.loadout(), 1.0).unwrap();
+	let replay = |log: &HuntLog| {
+		HuntSim::replay(
+			sighting.seed,
+			sighting.nft.collection.vessel(),
+			sighting.nft.rarity(),
+			sighting.nft.rarity().ward(),
+			&stats,
+			log,
+		)
+	};
+	let release = origin
+		.inputs
+		.windows(2)
+		.position(|pair| pair[0].orb_held && !pair[1].orb_held)
+		.expect("orb release")
+		+ 1;
+	assert_eq!(release, 854);
+	let mut log = origin.clone();
+	for input in &mut log.inputs[release - 50..=release] {
+		input.eye = Eye::new(-500, 0, 0);
+	}
+
+	let bytes = log.encode();
+	assert_eq!(bytes[0], 9);
+	let decoded = HuntLog::decode(&bytes).unwrap();
+	let expected = replay(&decoded).expect("the moving-eye fixture finishes");
+	assert_eq!(expected.grade(), Some(CaptureGrade::Plain));
+	assert_eq!(
+		replay(&origin).unwrap().grade(),
+		Some(CaptureGrade::Excellent)
+	);
+	assert_ne!(
+		Some(expected),
+		replay(&origin),
+		"ignoring the eye changes this fixed replay"
+	);
+	let settled = world
+		.call(
+			player,
+			SettleHunt {
+				sighting: sighting.id,
+				log: STANDARD.encode(bytes),
+			},
+		)
+		.await
+		.unwrap();
+	assert_eq!(settled.settlement.outcome, expected);
+}
+
+#[tokio::test]
+async fn invalid_eye_settlement_changes_nothing() {
+	use reapers_rules::Eye;
+	let world = World::new().await;
+	let player = world.player().await;
+	let before = with_loose_husk(&world, player).await;
+	let sighting = before.sightings()[0];
+	let mut log = play(&before, &sighting);
+	log.inputs[0].eye = Eye::new(1001, 0, 0);
+	assert_refused(
+		world
+			.call(
+				player,
+				SettleHunt {
+					sighting: sighting.id,
+					log: packed(&log),
+				},
+			)
+			.await,
+		Refusal::HuntUnproven,
+	);
+	assert_eq!(world.call(player, Load {}).await.unwrap(), before);
+}
