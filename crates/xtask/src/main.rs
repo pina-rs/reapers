@@ -6,6 +6,7 @@
 //! cargo xtask hooks install    # once per clone: guard main
 //! cargo xtask merge            # run every check, then fast-forward main
 //! cargo xtask merge --push     # the same, then push main to origin
+//! cargo xtask leptoskit        # move every leptoskit pin to leptoskit main's head
 //! cargo xtask build-art        # rebuild every model and portrait (Blender, gltfpack)
 //! cargo xtask build-music      # fetch and re-encode the music (curl, ffmpeg)
 //! cargo xtask fetch-depth-model # fetch the phones' depth model and its licence (curl)
@@ -18,6 +19,7 @@ mod check;
 mod depth;
 mod git;
 mod hooks;
+mod leptoskit;
 mod merge;
 mod music;
 mod run;
@@ -55,6 +57,8 @@ enum Command {
 		#[arg(long)]
 		push: bool,
 	},
+	/// Move every leptoskit pin to one revision.
+	Leptoskit(leptoskit::Options),
 	/// Build every 3D model and NFT portrait from `art/blender`.
 	BuildArt(art::Options),
 	/// Fetch the music from its makers and re-encode it.
@@ -70,6 +74,7 @@ fn main() -> ExitCode {
 		Command::Check { fast } => check::main(&root, fast),
 		Command::Hooks { action } => hooks::main(&git::Git::at(&root), action.unwrap_or_default()),
 		Command::Merge { push } => merge::main(&root, push),
+		Command::Leptoskit(options) => leptoskit::main(&root, &options),
 		Command::BuildArt(options) => art::main(&root, &options),
 		Command::BuildMusic => music::main(&root),
 		Command::FetchDepthModel => depth::main(&root),
