@@ -282,6 +282,8 @@ pub fn seed_breaking_on(pulse: Option<i64>, chance: f64) -> i64 {
 
 // rooms ----------------------------------------------------------------
 
+pub mod room;
+
 /// A kitchen: a counter 92 cm high runs across the room ahead, from 35
 /// degrees left to 35 degrees right, with its front 2.2 m away and room to
 /// hide behind it 3.2 m out. Its top is level. Everywhere else the floor is
