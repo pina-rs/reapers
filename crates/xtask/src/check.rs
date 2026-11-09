@@ -7,10 +7,11 @@
 //!
 //! In order: formatting, clippy over every target, the Wasm builds of the
 //! crates the game and the server share, the program's SBF build and its
-//! size, every test, and the web build of the app when the leptoskit CLI is
-//! installed. It stops at the first step that fails and exits with that
-//! step's code. `cargo xtask merge` runs the same checks, in full, before it
-//! lets a branch into main, and CI runs them on every pull request.
+//! size, every test, and, when the leptoskit CLI is installed, the check of
+//! `leptoskit.workspace.toml` and the web builds of the app and the landing.
+//! It stops at the first step that fails and exits with that step's code.
+//! `cargo xtask merge` runs the same checks, in full, before it lets a branch
+//! into main, and CI runs them on every pull request.
 
 use std::fs;
 use std::path::Path;
@@ -69,7 +70,8 @@ pub struct Step {
 pub struct Plan {
 	/// Skip the server's tests.
 	pub fast: bool,
-	/// The leptoskit CLI is installed, so the app's web build can run.
+	/// The leptoskit CLI is installed, so the workspace check and the app's
+	/// and the landing's web builds can run.
 	pub leptoskit: bool,
 	/// Metaplex Core still has to be fetched for the program's tests.
 	pub fetch_core: bool,
@@ -91,6 +93,14 @@ fn cargo(arguments: &[&str]) -> Action {
 		program: "cargo",
 		arguments: arguments.iter().map(ToString::to_string).collect(),
 		directory: ".",
+	}
+}
+
+fn leptoskit(arguments: &[&str], directory: &'static str) -> Action {
+	Action::Run {
+		program: "leptoskit",
+		arguments: arguments.iter().map(ToString::to_string).collect(),
+		directory,
 	}
 }
 
@@ -166,16 +176,16 @@ pub fn steps(plan: &Plan) -> Vec<Step> {
 
 	if plan.leptoskit {
 		steps.push(step(
+			"leptoskit workspace",
+			leptoskit(&["workspace", "check"], "."),
+		));
+		steps.push(step(
 			"app web build",
-			Action::Run {
-				program: "leptoskit",
-				arguments: vec![
-					"build".to_owned(),
-					"--platform".to_owned(),
-					"web".to_owned(),
-				],
-				directory: "crates/reapers_app",
-			},
+			leptoskit(&["build", "--platform", "web"], "crates/reapers_app"),
+		));
+		steps.push(step(
+			"landing web build",
+			leptoskit(&["build", "--platform", "web"], "crates/reapers_landing"),
 		));
 	}
 
@@ -190,7 +200,11 @@ pub fn skipped(plan: &Plan) -> Vec<String> {
 		skipped.push(format!("the {SERVER} tests (--fast)"));
 	}
 	if !plan.leptoskit {
-		skipped.push("the app's web build (no leptoskit CLI on PATH)".to_owned());
+		skipped.push(
+			"the leptoskit workspace check and the app's and the landing's web builds (no \
+			 leptoskit CLI on PATH)"
+				.to_owned(),
+		);
 	}
 
 	skipped
@@ -438,7 +452,9 @@ mod tests {
 				"program size",
 				"fetch Metaplex Core",
 				"test",
+				"leptoskit workspace",
 				"app web build",
+				"landing web build",
 			]
 		);
 		assert_eq!(skipped(&plan(false, true, false)), Vec::<String>::new());
@@ -473,12 +489,38 @@ mod tests {
 	}
 
 	#[test]
-	fn the_web_build_runs_only_with_the_cli() {
-		assert!(!names(&plan(false, false, false)).contains(&"app web build".to_owned()));
+	fn the_web_builds_run_only_with_the_cli() {
+		let names = names(&plan(false, false, false));
+		for name in ["leptoskit workspace", "app web build", "landing web build"] {
+			assert!(!names.contains(&name.to_owned()), "{name}");
+		}
 		assert_eq!(
 			skipped(&plan(false, false, false)),
-			["the app's web build (no leptoskit CLI on PATH)"]
+			[
+				"the leptoskit workspace check and the app's and the landing's web builds (no \
+				 leptoskit CLI on PATH)"
+			]
 		);
+	}
+
+	#[test]
+	fn each_frontend_is_built_in_its_own_directory() {
+		for (name, directory) in [
+			("app web build", "crates/reapers_app"),
+			("landing web build", "crates/reapers_landing"),
+		] {
+			let action = steps(&plan(false, true, false))
+				.into_iter()
+				.find(|step| step.name == name)
+				.map(|step| step.action);
+			match action {
+				Some(Action::Run {
+					directory: built_in,
+					..
+				}) => assert_eq!(built_in, directory, "{name}"),
+				other => panic!("{name}: {other:?}"),
+			}
+		}
 	}
 
 	#[test]
