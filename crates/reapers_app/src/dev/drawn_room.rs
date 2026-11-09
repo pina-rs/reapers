@@ -65,7 +65,7 @@ pub fn draw(sketch: &mut Sketch, lens: &Lens, room: &DrawnRoom) {
 		let points: Vec<_> = (0..=16)
 			.map(|step| {
 				let t = f64::from(step) / 16.0;
-				lens.place(from * (1.0 - t) + to * t)
+				lens.place_point(from * (1.0 - t) + to * t)
 			})
 			.collect();
 		sketch.line_through(&points, BONE, alpha, width);
@@ -235,12 +235,59 @@ mod tests {
 		let room = kitchen();
 		let survey = room.survey(Vessel::Penguin);
 		let occlusion = survey.occlusion();
-		assert!(!hidden_by(occlusion, &penguin_on(0.0, 0.92, 2.5)));
-		assert!(!hidden_by(occlusion, &penguin_on(-1.2, 0.92, 2.6)));
-		assert!(!hidden_by(occlusion, &penguin_on(0.8, 0.45, 2.0)));
+		assert!(!hidden_by(
+			occlusion,
+			&penguin_on(0.0, 0.92, 2.5),
+			Vec3::ZERO
+		));
+		assert!(!hidden_by(
+			occlusion,
+			&penguin_on(-1.2, 0.92, 2.6),
+			Vec3::ZERO
+		));
+		assert!(!hidden_by(
+			occlusion,
+			&penguin_on(0.8, 0.45, 2.0),
+			Vec3::ZERO
+		));
 		// The stool's own middle: a top never hides the husk standing on it.
-		assert!(!hidden_by(occlusion, &penguin_on(1.15, 0.45, 1.95)));
-		assert!(hidden_by(occlusion, &penguin_on(0.0, 0.0, 3.4)));
+		assert!(!hidden_by(
+			occlusion,
+			&penguin_on(1.15, 0.45, 1.95),
+			Vec3::ZERO
+		));
+		assert!(hidden_by(occlusion, &penguin_on(0.0, 0.0, 3.4), Vec3::ZERO));
+	}
+
+	#[test]
+	fn cover_is_read_from_the_eye_that_looks_not_the_eye_that_charted() {
+		// A desk 1.2 m across, 2.5 m ahead: from where the room was charted
+		// it hides a husk standing behind it, and from a pace to the side —
+		// where the player can be by the time the fight begins — the line
+		// of sight passes outside it.
+		let room = DrawnRoom::with(&[Block {
+			left: -0.6,
+			right: 0.6,
+			near: 2.5,
+			far: 3.1,
+			height: 0.75,
+		}]);
+		let survey = room.survey(Vessel::Penguin);
+		let occlusion = survey.occlusion();
+		let husk = HuskPose::new(
+			Vessel::Penguin,
+			Vec3::new(0.0, -1.45 + 0.30, 3.4),
+			std::f64::consts::PI,
+		);
+
+		assert!(
+			hidden_by(occlusion, &husk, Vec3::ZERO),
+			"behind the desk from where the room was charted"
+		);
+		assert!(
+			!hidden_by(occlusion, &husk, Vec3::new(1.2, 0.0, 0.0)),
+			"the desk no longer covers the line of sight from a pace to the side"
+		);
 	}
 
 	#[test]

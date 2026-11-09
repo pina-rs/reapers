@@ -104,6 +104,12 @@ pub struct Arena {
 	/// drawn in the room's own frame rather than around wherever the phone is
 	/// now. `None` until then, and the husk follows the phone.
 	room_frame: Option<[f32; 3]>,
+	/// Where the room was charted from, in the platform's space: the first
+	/// accepted picture's eye. The hunt's frame begins there, so the fight's
+	/// marks and cover are read from how far the phone has moved since.
+	room_anchor: Option<[f64; 3]>,
+	/// Where the platform last said the phone's eye is, in its space.
+	platform_eye: Option<[f64; 3]>,
 	/// Whether the scene is drawn over the camera's picture, from the
 	/// platform's own view of the room.
 	camera_picture: bool,
@@ -141,6 +147,8 @@ impl Arena {
 			camera: None,
 			turned: [0.0, 0.0, 0.0, 1.0],
 			room_frame: None,
+			room_anchor: None,
+			platform_eye: None,
 			camera_picture,
 		}
 	}
@@ -201,6 +209,7 @@ impl Arena {
 	/// room has been charted, the fight stays in the chart's frame and does
 	/// not follow the phone.
 	pub fn anchor(&mut self, position: [f64; 3]) {
+		self.platform_eye = Some(position);
 		if self.camera_picture && self.room_frame.is_none() {
 			self.rig.set_origin(position.map(|value| value as f32));
 		}
@@ -218,8 +227,33 @@ impl Arena {
 		} else {
 			[0.0; 3]
 		};
+		self.room_anchor = Some(origin.map(f64::from));
 		self.room_frame = Some(origin);
 		self.rig.set_origin(origin);
+	}
+
+	/// Where the phone's eye is in the hunt's frame: how far the player has
+	/// moved from the eye the room was charted from, in the hunt's own axes.
+	/// This is where the platform's camera draws the scene from, so the
+	/// fight's marks, the room's grid and its cover are all read from here,
+	/// and they stay where they are on the screen the camera shows. Zero
+	/// until the fight is grounded in a charted room, and always zero in a
+	/// scene the game draws itself, whose camera stands at the hunt's origin.
+	pub fn eye(&self) -> Vec3 {
+		if !self.camera_picture {
+			return Vec3::ZERO;
+		}
+
+		match (self.room_anchor, self.platform_eye) {
+			(Some(anchor), Some(eye)) => {
+				reapers_world::from_platform([
+					eye[0] - anchor[0],
+					eye[1] - anchor[1],
+					eye[2] - anchor[2],
+				])
+			}
+			_ => Vec3::ZERO,
+		}
 	}
 
 	/// Points the scene's camera along `pose`, sending it only when it moved.
@@ -439,7 +473,7 @@ impl Arena {
 		let hidden = self
 			.occlusion
 			.as_ref()
-			.is_some_and(|room| hidden_by(room, &husk));
+			.is_some_and(|room| hidden_by(room, &husk, self.eye()));
 		// A soul an orb draws in goes into it; one that breaks out gathers
 		// itself again, never at once.
 		let taken = sim
@@ -456,17 +490,18 @@ impl Arena {
 	}
 }
 
-/// Whether the room, where it was seen, hides `husk`: whether anything
-/// stands nearer than the husk in its direction. The occlusion map is a
-/// quarter-degree picture of the room; the husk is hidden whole or not at
-/// all, by whether its middle is behind. A top it stands on is under its
-/// middle, so it never hides it.
-pub fn hidden_by(room: &OcclusionMap, husk: &HuskPose) -> bool {
-	room.hides(
-		husk.yaw(),
-		husk.pitch(),
-		husk.distance() - husk.half_width(),
-	)
+/// Whether the room, where it was seen, hides `husk` from `eye`, the hunt's
+/// frame place the camera draws from: whether anything stands nearer than the
+/// husk along the line of sight there. The occlusion map is a quarter-degree
+/// picture of the room charted from the eye that first read it; a player who
+/// has moved since is asked about the line they actually look along, which is
+/// the best that one chart can answer. A husk is hidden whole or not at all,
+/// by whether its middle is behind. A top it stands on is under its middle,
+/// so it never hides it.
+pub fn hidden_by(room: &OcclusionMap, husk: &HuskPose, eye: Vec3) -> bool {
+	let way = husk.position - eye;
+
+	room.hides(way.yaw(), way.pitch(), way.length() - husk.half_width())
 }
 
 /// What the rules say a husk is doing and suffering, for the rig to act.
@@ -506,6 +541,7 @@ pub fn mood_of(sim: &HuntSim) -> (HuskMood, HuskPlight) {
 mod tests {
 	use reapers_rules::Vessel;
 	use reapers_rules::market_listings;
+	use reapers_world::from_platform;
 
 	use super::*;
 	use crate::render::scene::HUNT;
@@ -543,6 +579,42 @@ mod tests {
 			arena.rig.origin(),
 			[0.0; 3],
 			"the game's own camera stands at the hunt's origin"
+		);
+		assert_eq!(
+			arena.eye(),
+			Vec3::ZERO,
+			"and its marks are read from there, wherever the phone is"
+		);
+	}
+
+	#[test]
+	fn the_fights_eye_is_how_far_the_player_has_moved_from_the_room_frame() {
+		let nft = penguin();
+		let mut arena = Arena::new(HUNT, nft.collection.vessel(), &nft, 0.5, true);
+
+		// Before the room is charted the fight follows the phone, and the
+		// marks are read from the origin.
+		arena.anchor([1.0, 1.5, -2.0]);
+		assert_eq!(arena.eye(), Vec3::ZERO);
+
+		let anchor = [1.0, 1.5, -2.0];
+		arena.ground_in_room(anchor);
+		arena.anchor([1.35, 1.55, -2.3]);
+
+		assert!(
+			(arena.eye() - from_platform([0.35, 0.05, -0.3])).length() <= 1e-6,
+			"the eye is the platform's move, in the hunt's axes: {:?}",
+			arena.eye()
+		);
+
+		// However the player moves on, the eye follows: the marks stay
+		// where the camera shows the room.
+		arena.anchor([0.8, 1.44, -1.9]);
+
+		assert!(
+			(arena.eye() - from_platform([-0.2, -0.06, 0.1])).length() <= 1e-6,
+			"{:?}",
+			arena.eye()
 		);
 	}
 }

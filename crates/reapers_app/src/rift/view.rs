@@ -353,6 +353,7 @@ impl RiftState {
 			height: self.size.1,
 			pose: self.arena.pose(live.pose()),
 			fov: self.arena.view_fov(),
+			eye: self.arena.eye(),
 		}
 	}
 

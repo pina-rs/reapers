@@ -29,13 +29,21 @@ use crate::theme::BONE;
 use crate::theme::Rgb;
 use crate::theme::WOUND;
 
-/// The view: its size in layout units, how it is pointed, and its lens.
+/// The view: its size in layout units, how it is pointed, its lens, and
+/// where its eye is.
 #[derive(Clone, Copy, Debug)]
 pub struct Lens {
 	pub width: f64,
 	pub height: f64,
 	pub pose: ArPose,
 	pub fov: f64,
+	/// Where the eye is in the hunt's frame, when the platform draws the
+	/// scene over its camera picture from wherever the phone really is: the
+	/// room was charted around the first picture's eye, and the player can
+	/// have moved since. What is anchored to the world — a husk, its seals,
+	/// the room's grid — is drawn from here, so it sits where the camera
+	/// shows it. Zero, and immaterial, in a scene the game draws itself.
+	pub eye: Vec3,
 }
 
 impl Lens {
@@ -53,6 +61,15 @@ impl Lens {
 					(1.0 - y) / 2.0 * self.height,
 				)
 			})
+	}
+
+	/// Where the point `point`, anchored to the hunt's world, falls on the
+	/// screen as the eye sees it, or `None` behind it. The camera the
+	/// platform draws with stands at the eye, not at the hunt's origin, so
+	/// this — and not [`place`](Self::place) — is where a husk, a seal or a
+	/// line of the room's grid is drawn once the player has moved.
+	pub fn place_point(&self, point: Vec3) -> Option<(f64, f64)> {
+		self.place(point - self.eye)
 	}
 
 	fn centre(&self) -> (f64, f64) {
@@ -419,11 +436,15 @@ pub fn fight(
 	show_order: bool,
 ) {
 	let seconds = sim.tick() as f64 / HuntRules::TICK_RATE as f64;
-	let husk = sim.pose().direction();
+	let pose = sim.pose();
+	// How the husk is seen from where the camera is, not from the hunt's
+	// origin: the marks sit on what the player is shown.
+	let way = pose.position - lens.eye;
+	let seen = || lens.place_point(pose.position);
 	let pulse = 0.55 + 0.45 * (sim.tick() as f64 / 9.0).sin();
 	let pointer = |sketch: &mut Sketch| {
-		if lens.place(husk).is_none_or(|(x, y)| off_screen(lens, x, y)) {
-			edge_pointer(sketch, lens, husk, light, pulse);
+		if seen().is_none_or(|(x, y)| off_screen(lens, x, y)) {
+			edge_pointer(sketch, lens, way, light, pulse);
 		}
 	};
 	match sim.phase() {
@@ -450,7 +471,7 @@ pub fn fight(
 			crosshair(sketch, lens, sim, light);
 			if sim.phase() == HuntPhase::Charge {
 				// A ring that closes on the husk as it comes.
-				if let Some(at) = lens.place(husk) {
+				if let Some(at) = seen() {
 					let left = 1.0 - sim.charge_progress();
 					sketch.ring(
 						at,
@@ -535,7 +556,7 @@ fn seals(
 		if !sim.seal_open(index) {
 			continue;
 		}
-		let Some(at) = lens.place(pose.seal_direction(index)) else {
+		let Some(at) = lens.place_point(pose.seal_position(index)) else {
 			continue;
 		};
 		let rank = sim.seal_rank(index).unwrap_or(0);
@@ -615,11 +636,12 @@ fn husk_ring(sketch: &mut Sketch, lens: &Lens, sim: &HuntSim, seconds: f64) {
 	let pose = sim.pose();
 	let half_width = pose.half_width();
 	let half_height = pose.half_height();
-	let below = (pose.position - Vec3::new(0.0, half_height * 0.85, 0.0)).normalized();
-	let across = (pose.position - Vec3::new(0.0, half_height * 0.85, 0.0)
-		+ Vec3::new(half_width * 1.3, 0.0, 0.0))
-	.normalized();
-	let (Some(at), Some(edge)) = (lens.place(below), lens.place(across)) else {
+	// Two points of the room the ring is drawn round: under the middle of
+	// the body, and a half a body out to one side, placed as the eye that
+	// draws the scene sees them.
+	let below = pose.position - Vec3::new(0.0, half_height * 0.85, 0.0);
+	let across = below + Vec3::new(half_width * 1.3, 0.0, 0.0);
+	let (Some(at), Some(edge)) = (lens.place_point(below), lens.place_point(across)) else {
 		return;
 	};
 	let radius = f64::max(28.0, (edge.0 - at.0).hypot(edge.1 - at.1));
@@ -731,13 +753,15 @@ fn orb_ring(sketch: &mut Sketch, lens: &Lens, sim: &HuntSim) {
 	let Some(progress) = sim.orb_ring() else {
 		return;
 	};
+	let pose = sim.pose();
 	let husk = lens
-		.place(sim.pose().direction())
+		.place_point(pose.position)
 		.unwrap_or_else(|| lens.centre());
 	let (cx, cy) = husk;
 	let husk_radius = f64::max(
 		24.0,
-		sim.pose().half_height() / sim.pose().distance() / (lens.fov / 2.0).tan() * lens.height
+		pose.half_height() / (pose.position - lens.eye).length() / (lens.fov / 2.0).tan()
+			* lens.height
 			/ 2.0,
 	);
 	let outer = f64::min(lens.width, lens.height) * 0.48;
@@ -772,6 +796,7 @@ mod tests {
 			height: 844.0,
 			pose: ArPose::AHEAD,
 			fov: super::super::arena::HUNT_FOV,
+			eye: Vec3::ZERO,
 		}
 	}
 
@@ -785,6 +810,34 @@ mod tests {
 		assert!(right > 195.0, "the hunt's yaw turns right");
 		let (_, up) = lens.place(Vec3::from_angles(0.0, 0.2)).unwrap();
 		assert!(up < 422.0, "and its pitch looks up");
+	}
+
+	#[test]
+	fn a_moved_eye_sees_the_world_where_the_camera_shows_it() {
+		// The player charted the room where they first stood, then moved
+		// half a pace before the fight. The camera draws from where they
+		// are, so the world's marks are placed from there — and pointing
+		// the phone at a husk puts it under the crosshair, which the
+		// direction from the origin (the rule the marks used to follow)
+		// would miss by the width of the player's step on screen.
+		let eye = Vec3::new(0.35, 0.05, -0.30);
+		let husk = Vec3::new(0.0, -1.2, 2.4);
+		let lens = Lens {
+			pose: ArPose::looking((husk - eye).normalized(), 0.0),
+			eye,
+			..lens()
+		};
+		let (x, y) = lens.place_point(husk).unwrap();
+
+		assert!((x - 195.0).abs() <= 1e-6 && (y - 422.0).abs() <= 1e-6);
+
+		let (old_x, old_y) = lens.place(husk.normalized()).unwrap();
+		let drift = (old_x - 195.0).hypot(old_y - 422.0);
+
+		assert!(
+			drift > 40.0,
+			"the origin's direction is {drift} units from the middle, not far from it"
+		);
 	}
 
 	#[test]

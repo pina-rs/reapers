@@ -162,19 +162,20 @@ impl RoomOverlay {
 		&mut self.strokes[index].points
 	}
 
-	/// Draws the overlay where it falls on the screen.
+	/// Draws the overlay where it falls on the screen, as the eye that
+	/// draws the scene sees it.
 	pub fn draw(&self, sketch: &mut Sketch, lens: &Lens) {
 		for stroke in &self.strokes {
 			let points: Vec<_> = stroke
 				.points
 				.iter()
-				.map(|point| point.and_then(|point| lens.place(point)))
+				.map(|point| point.and_then(|point| lens.place_point(point)))
 				.collect();
 			sketch.line_through(&points, stroke.tint, stroke.pen.alpha(), stroke.pen.width());
 		}
 		for (tint, points) in &self.spots {
 			sketch.dots(
-				points.iter().filter_map(|&point| lens.place(point)),
+				points.iter().filter_map(|&point| lens.place_point(point)),
 				2.5,
 				colour(*tint, 0.9),
 			);
@@ -258,14 +259,20 @@ fn runs(values: &mut [i64]) -> Vec<(i64, i64)> {
 
 #[cfg(test)]
 mod tests {
+	use reapers_world::ArPose;
+
 	use super::*;
 
-	#[test]
-	fn the_kitchen_is_drawn_with_a_leap_for_every_link() {
+	fn grid() -> reapers_rules::RoomGrid {
 		let mut grid = reapers_world::RoomGridBuilder::new();
 		let room = crate::dev::drawn_room::kitchen();
 		crate::dev::drawn_room::read_grid(&room, &mut grid);
-		let grid = grid.finish();
+		grid.finish()
+	}
+
+	#[test]
+	fn the_kitchen_is_drawn_with_a_leap_for_every_link() {
+		let grid = grid();
 		let nav = RoomNav::for_hunt(
 			grid.clone(),
 			Vessel::Penguin.locomotion(),
@@ -294,5 +301,41 @@ mod tests {
 	fn runs_join_neighbours_and_break_at_gaps() {
 		assert_eq!(runs(&mut [3, 1, 2, 7, 8, 5]), [(1, 3), (5, 5), (7, 8)]);
 		assert_eq!(runs(&mut []), []);
+	}
+
+	#[test]
+	fn the_grid_is_drawn_where_the_moved_eye_sees_it() {
+		// The overlay's spots and lines are places in the room, drawn
+		// through the lens from the eye that draws the scene. A player who
+		// has moved since the room was charted still sees the grid on the
+		// surfaces it names: aiming the phone at a spot from where they
+		// stand puts it under the crosshair, which the direction from the
+		// room's origin would miss by their step.
+		let nav = RoomNav::for_hunt(
+			grid(),
+			Vessel::Penguin.locomotion(),
+			HuntRules::STAGING_FAR_METRES,
+			HuntRules::NEAREST_METRES,
+		);
+		let spot = nav.spots.first().expect("a spot to aim at").point;
+		let eye = Vec3::new(0.4, 0.05, 0.3);
+		let lens = Lens {
+			width: 390.0,
+			height: 844.0,
+			pose: ArPose::looking((spot - eye).normalized(), 0.0),
+			fov: crate::hunt::arena::HUNT_FOV,
+			eye,
+		};
+
+		let (x, y) = lens.place_point(spot).unwrap();
+
+		assert!((x - 195.0).abs() <= 1e-6 && (y - 422.0).abs() <= 1e-6);
+
+		let (old_x, old_y) = lens.place(spot.normalized()).unwrap();
+
+		assert!(
+			(old_x - 195.0).hypot(old_y - 422.0) > 40.0,
+			"the origin's direction misses the middle of the screen"
+		);
 	}
 }
