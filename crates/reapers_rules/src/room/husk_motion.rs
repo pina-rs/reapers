@@ -1,5 +1,8 @@
 //! One husk's place in the room, moved one tick at a time.
 
+use core::marker::PhantomData;
+use core::ops::Deref;
+
 use crate::hunt::hunt_stats::HuntRules;
 use crate::math;
 use crate::room::leap::Leap;
@@ -71,9 +74,14 @@ pub enum HuskMotionState {
 /// The only variation comes from `random`: how long a crouch gathers,
 /// and how long a landing takes to stand up. The same seed and the same
 /// commands make the same motion, bit for bit.
-pub struct HuskMotion<'a> {
+///
+/// It reads the room through `N`: a borrowed [`RoomNav`] by default, or a
+/// shared one (an `Arc<RoomNav>`) for a hunt that owns the husk's body
+/// for as long as it runs.
+#[derive(Clone, Debug)]
+pub struct HuskMotion<'a, N = &'a RoomNav> {
 	/// The room this husk moves through.
-	pub nav: &'a RoomNav,
+	pub nav: N,
 
 	/// Where chance comes from: only the lengths of a crouch and a
 	/// recovery read it.
@@ -124,15 +132,20 @@ pub struct HuskMotion<'a> {
 	flight_index: usize,
 	perch_target: Option<RoomSpot>,
 	perched: bool,
+
+	room: PhantomData<&'a RoomNav>,
 }
 
-impl<'a> HuskMotion<'a> {
+impl<N: Deref<Target = RoomNav>> HuskMotion<'_, N> {
 	/// How fast a walking body may change its speed, in metres a second
 	/// squared.
 	pub const ACCELERATION: f64 = 4.0;
 	/// How close a walking body must come to a waypoint to have reached
 	/// it.
 	pub const ARRIVAL_RADIUS: f64 = 0.02;
+	/// How wide of the way on a body may swing as it turns a corner, in
+	/// metres.
+	pub const CORNER_SWING: f64 = 0.05;
 	/// How far a walking body may turn in one second, in radians.
 	pub const TURN_RATE: f64 = radians(240.0);
 
@@ -141,12 +154,7 @@ impl<'a> HuskMotion<'a> {
 	///
 	/// Returns nothing when there is nowhere near `start` the body can
 	/// stand, which a room too narrow for this vessel causes.
-	pub fn new(
-		nav: &'a RoomNav,
-		random: SeededRandom,
-		start: Option<Vec3>,
-		heading: f64,
-	) -> Option<Self> {
+	pub fn new(nav: N, random: SeededRandom, start: Option<Vec3>, heading: f64) -> Option<Self> {
 		let place = start.unwrap_or_else(|| {
 			nav.grid
 				.centre_of(i64::from(nav.grid.player_x), i64::from(nav.grid.player_z))
@@ -162,11 +170,12 @@ impl<'a> HuskMotion<'a> {
 		} else {
 			nav.grid.centre_of(nav.grid.x_of(cell), nav.grid.z_of(cell))
 		};
+		let half_height = nav.profile.half_height();
 
 		Some(Self {
 			nav,
 			random,
-			position: Vec3::new(here.x, support_height + nav.profile.half_height(), here.z),
+			position: Vec3::new(here.x, support_height + half_height, here.z),
 			heading: wrap_angle(heading),
 			state: HuskMotionState::Idle,
 			state_fraction: 0.0,
@@ -204,6 +213,7 @@ impl<'a> HuskMotion<'a> {
 			flight_index: 0,
 			perch_target: None,
 			perched: false,
+			room: PhantomData,
 		})
 	}
 
@@ -325,8 +335,10 @@ impl<'a> HuskMotion<'a> {
 		self.arrival_facing = spot.facing;
 	}
 
-	/// Stops the husk where it is. A leap already begun cannot be
-	/// stopped: the husk lands first.
+	/// Stops the husk where it is, in its tracks: a body stopped by a blow
+	/// or by drawing breath does not slide on, over an edge or towards the
+	/// player. A leap already begun cannot be stopped: the husk lands
+	/// first.
 	pub fn halt(&mut self) {
 		self.pending_target = None;
 		self.pending_spot = None;
@@ -337,18 +349,44 @@ impl<'a> HuskMotion<'a> {
 		self.flight_waypoints = Vec::new();
 		self.arrival_facing = None;
 
-		if self.speed == 0.0
-			&& !matches!(
-				self.state,
-				HuskMotionState::Air
-					| HuskMotionState::Crouch
-					| HuskMotionState::Land
-					| HuskMotionState::Recover
-			) {
+		if !matches!(
+			self.state,
+			HuskMotionState::Air
+				| HuskMotionState::Crouch
+				| HuskMotionState::Land
+				| HuskMotionState::Recover
+		) {
+			self.speed = 0.0;
 			self.state = HuskMotionState::Idle;
 			self.state_fraction = 0.0;
 			self.look_at = None;
 		}
+	}
+
+	/// Puts the body down at `place`, stopped and facing `heading`
+	/// radians to the right of straight ahead: where something the hunt
+	/// moved itself, such as a charge, left it.
+	///
+	/// It stands on the surface under `place`, or keeps the one it stood
+	/// on where nothing there can be stood on. The place need not be one
+	/// its body fits: its next route starts by walking to the nearest one
+	/// that does.
+	pub fn set_down(&mut self, place: Vec3, heading: f64) {
+		self.halt();
+		self.leap = None;
+		self.landing_cell = -1;
+		self.landing_region = -1;
+		self.speed = 0.0;
+		self.state = HuskMotionState::Idle;
+		self.state_fraction = 0.0;
+		self.look_at = None;
+		self.face_target = None;
+		self.halt_requested = false;
+
+		let level = self.nav.level_of(self.cell_at(place));
+
+		self.settle_on(place, level);
+		self.heading = wrap_angle(heading);
 	}
 
 	/// Turns the body to face `direction`, in place when it is standing
@@ -388,7 +426,7 @@ impl<'a> HuskMotion<'a> {
 	}
 }
 
-impl HuskMotion<'_> {
+impl<N: Deref<Target = RoomNav>> HuskMotion<'_, N> {
 	/// The room this husk moves through, as its grid.
 	pub(crate) fn grid(&self) -> &RoomGrid {
 		&self.nav.grid
@@ -446,7 +484,7 @@ impl HuskMotion<'_> {
 		let wanted = if must_turn || turn_only {
 			0.0
 		} else {
-			self.target_speed
+			math::min(self.target_speed, self.corner_speed(&step, distance))
 		};
 
 		self.speed = move_towards(
@@ -507,6 +545,36 @@ impl HuskMotion<'_> {
 	}
 
 	/// The step the husk is making for, when there is one ahead.
+	/// The fastest the body may come up to `step`, `distance` away, and
+	/// still take the way on from it: slow enough that, turning as fast
+	/// as it turns, it swings no more than
+	/// [`HuskMotion::CORNER_SWING`] wide of the way on, and to a stand
+	/// where the way bends harder than a walk turns. It slows for a
+	/// corner as it slows for an edge, so it never has to slide past one.
+	fn corner_speed(&self, step: &RoomStep, distance: f64) -> f64 {
+		let Some(next) = self
+			.steps
+			.as_ref()
+			.and_then(|steps| steps.get(self.step_index + 1))
+		else {
+			return f64::INFINITY;
+		};
+		// It comes up to the step the way it is facing, whichever way
+		// the route meant it to.
+		let out = math::atan2(next.point.x - step.point.x, next.point.z - step.point.z);
+		let turn = wrap_angle(out - self.heading).abs();
+		let swing = 1.0 - math::cos(turn);
+		let at_corner = if turn > radians(60.0) {
+			0.0
+		} else if swing > 0.0 {
+			Self::CORNER_SWING * Self::TURN_RATE / swing
+		} else {
+			return f64::INFINITY;
+		};
+
+		math::sqrt(at_corner * at_corner + 2.0 * Self::ACCELERATION * distance)
+	}
+
 	fn current_step(&self) -> Option<RoomStep> {
 		self.steps
 			.as_ref()
@@ -596,8 +664,17 @@ impl HuskMotion<'_> {
 		let turn_step = Self::TURN_RATE / HuntRules::TICK_RATE as f64;
 
 		self.heading = wrap_angle(self.heading + math::clamp(error, -turn_step, turn_step));
+		// A body that came to the edge already at a stand, as one does
+		// that lands right by its next take-off, steps up to it at the
+		// slowest a walk starts, rather than stand short of it for good.
+		let pace = if self.speed > 0.0 {
+			self.speed
+		} else {
+			Self::ACCELERATION / HuntRules::TICK_RATE as f64
+		};
+
 		self.speed = math::min(
-			self.speed,
+			pace,
 			math::sqrt(2.0 * Self::ACCELERATION * math::max(distance, 0.0)),
 		);
 
@@ -970,7 +1047,7 @@ fn move_towards(value: f64, target: f64, step: f64) -> f64 {
 	}
 }
 
-impl HuskMotion<'_> {
+impl<N: Deref<Target = RoomNav>> HuskMotion<'_, N> {
 	/// A flier holds the air instead of walking: it drifts to its place,
 	/// round anything in the way, and lands on a perch it was given.
 	fn advance_flight(&mut self) {

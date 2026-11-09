@@ -201,6 +201,7 @@ pub(crate) const ORTHOGONAL_NEIGHBOURS: [(i64, i64); 4] = [(-1, 0), (1, 0), (0, 
 /// visits cells in index order and breaks ties by cell index, so the same
 /// room and the same body always give the same answer, wherever it is
 /// computed.
+#[derive(Debug)]
 pub struct RoomNav {
 	/// The room.
 	pub grid: RoomGrid,
@@ -249,10 +250,50 @@ impl RoomNav {
 	/// `range` metres from the player and never closer than
 	/// `near_metres`.
 	pub fn new(grid: RoomGrid, profile: LocomotionProfile, range: f64, near_metres: f64) -> Self {
+		Self::derive(grid, profile, range, near_metres, 0.0)
+	}
+
+	/// The room as a hunt reads it: as [`RoomNav::new`] derives it, with
+	/// no place to stand nearer the player than `near_metres`.
+	///
+	/// The ring kept clear is a cell wider than `near_metres`, since a
+	/// straight walk between two cells can pass up to half a cell nearer
+	/// than either. Every route, leap and spot is found around it, so a
+	/// husk walking past the player goes round them.
+	pub fn for_hunt(
+		grid: RoomGrid,
+		profile: LocomotionProfile,
+		range: f64,
+		near_metres: f64,
+	) -> Self {
+		Self::derive(
+			grid,
+			profile,
+			range,
+			near_metres,
+			near_metres + RoomGrid::CELL_METRES,
+		)
+	}
+
+	fn derive(
+		grid: RoomGrid,
+		profile: LocomotionProfile,
+		range: f64,
+		near_metres: f64,
+		keep_clear: f64,
+	) -> Self {
 		let level = build_levels(&grid);
 		let (region, region_cells) = build_regions(&grid, &level);
 		let inset = build_inset(&grid, &region);
-		let standable = build_standable(&grid, &profile, range, &region, &region_cells, &inset);
+		let standable = build_standable(
+			&grid,
+			&profile,
+			range,
+			keep_clear,
+			&region,
+			&region_cells,
+			&inset,
+		);
 		let regions = assemble_regions(&grid, &region, &level, &region_cells, &standable);
 		let edges = build_edges(&grid, &region, &standable);
 		let links = build_links(&grid, &profile, &regions, &region, &standable, &edges);
@@ -324,6 +365,17 @@ impl RoomNav {
 	/// nearest place its body fits, rather than being allowed to balance
 	/// on the edge.
 	pub fn standable_cell_near(&self, point: Vec3, max_radius: i64) -> Option<usize> {
+		self.standable_cell_near_where(point, max_radius, |_| true)
+	}
+
+	/// The standable cell nearest `point` that passes `keep`, searched as
+	/// [`RoomNav::standable_cell_near`] searches.
+	pub(crate) fn standable_cell_near_where(
+		&self,
+		point: Vec3,
+		max_radius: i64,
+		keep: impl Fn(usize) -> bool,
+	) -> Option<usize> {
 		let start_x = self.grid.cell_x_at(point.x, point.z);
 		let start_z = self.grid.cell_z_at(point.x, point.z);
 		let mut best_distance = f64::INFINITY;
@@ -343,11 +395,16 @@ impl RoomNav {
 						continue;
 					}
 
+					let cell = self.grid.index_of(x, z);
+
+					if !keep(cell) {
+						continue;
+					}
+
 					let centre = self.grid.centre_of(x, z);
 					let away_x = centre.x - point.x;
 					let away_z = centre.z - point.z;
 					let distance = away_x * away_x + away_z * away_z;
-					let cell = self.grid.index_of(x, z);
 
 					// Both distances are squares of whole offsets, so the
 					// tie is exact, and the lower cell index wins it.
@@ -375,6 +432,30 @@ impl RoomNav {
 	/// Every spot of `kind`, in cell order.
 	pub fn spots_of(&self, kind: RoomSpotKind) -> Vec<&RoomSpot> {
 		self.spots.iter().filter(|spot| spot.kind == kind).collect()
+	}
+
+	/// Which regions a husk standing in region `from` can get to, by
+	/// walking and leaping: one entry per region, in region order.
+	pub fn reachable_from(&self, from: usize) -> Vec<bool> {
+		let mut reached = vec![false; self.regions.len()];
+		let mut queue = vec![from];
+
+		if let Some(start) = reached.get_mut(from) {
+			*start = true;
+		} else {
+			return reached;
+		}
+
+		while let Some(region) = queue.pop() {
+			for link in &self.links {
+				if link.from_region == region && !reached[link.to_region] {
+					reached[link.to_region] = true;
+					queue.push(link.to_region);
+				}
+			}
+		}
+
+		reached
 	}
 }
 
@@ -563,10 +644,18 @@ fn foot_clear(
 /// stand in the middle of it, however far away the player is. The margin
 /// grows with the range, because a depth reading is less certain farther
 /// away, but it never grows past what the region itself allows.
+///
+/// No cell whose middle is nearer the player than `keep_clear` metres is
+/// standable; zero keeps none clear.
+#[allow(
+	clippy::too_many_arguments,
+	reason = "the mask reads the grid, the body and the regions"
+)]
 fn build_standable(
 	grid: &RoomGrid,
 	profile: &LocomotionProfile,
 	range: f64,
+	keep_clear: f64,
 	region: &[i64],
 	region_cells: &[Vec<usize>],
 	inset: &[i64],
@@ -595,6 +684,14 @@ fn build_standable(
 
 		if inset[index] < erosion {
 			continue;
+		}
+
+		if keep_clear > 0.0 {
+			let centre = grid.centre_of(grid.x_of(index), grid.z_of(index));
+
+			if centre.x * centre.x + centre.z * centre.z < keep_clear * keep_clear {
+				continue;
+			}
 		}
 
 		standable[index] = foot_clear(grid, profile, region, index, foot_cells);
@@ -985,24 +1082,7 @@ fn facing_toward(grid: &RoomGrid, from_x: i64, from_z: i64, cell: usize) -> Opti
 
 /// Whether a person standing at the eye can see the top of `point`.
 fn seen_from_eye(grid: &RoomGrid, point: Vec3) -> bool {
-	let away = math::sqrt(point.x * point.x + point.z * point.z);
-	let steps = math::ceil_int(away / RoomGrid::CELL_METRES).max(1);
-
-	for step in 0..=steps {
-		let along = step as f64 / steps as f64;
-		let x = point.x * along;
-		let z = point.z * along;
-		let line = point.y * along;
-		let top = (grid.top_centimetres_at_world(x, z) - i64::from(grid.eye_height_centimetres))
-			as f64
-			/ 100.0;
-
-		if top > line + 1e-9 {
-			return false;
-		}
-	}
-
-	true
+	!grid.hides(point)
 }
 
 /// The hidden cells in index order, and how deep into the hidden floor

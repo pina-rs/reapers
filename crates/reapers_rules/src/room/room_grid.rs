@@ -414,6 +414,57 @@ impl RoomGrid {
 		)
 	}
 
+	/// Whether something in the room stands between the player's eye and
+	/// `point`, in the hunt's frame: whether the line of sight to it
+	/// passes below the top of any cell it crosses.
+	///
+	/// The line is sampled a cell's width apart from the eye to the
+	/// point, both ends included, so the cell under the point counts too.
+	/// Beyond the grid the room is taken to be a wall.
+	pub fn hides(&self, point: Vec3) -> bool {
+		let away = math::sqrt(point.x * point.x + point.z * point.z);
+		let steps = math::ceil_int(away / Self::CELL_METRES).max(1);
+
+		for step in 0..=steps {
+			let along = step as f64 / steps as f64;
+			let top = self.top_metres_at_world(point.x * along, point.z * along);
+
+			if top > point.y * along + 1e-9 {
+				return true;
+			}
+		}
+
+		false
+	}
+
+	/// How far out along `ray`, a unit direction from the player's eye,
+	/// the first surface of the room stands, in metres: the floor, the top
+	/// of something or the face of a wall. No farther than `farthest`.
+	///
+	/// The ray is sampled a cell's width apart, so where it lands is good
+	/// to a cell.
+	pub fn surface_along(&self, ray: Vec3, farthest: f64) -> f64 {
+		let steps = math::ceil_int(farthest / Self::CELL_METRES).max(1);
+
+		for step in 1..=steps {
+			let metres = farthest * step as f64 / steps as f64;
+			let point = ray * metres;
+
+			if point.y <= self.top_metres_at_world(point.x, point.z) {
+				return metres;
+			}
+		}
+
+		farthest
+	}
+
+	/// The top of the cell under a world point, in metres from the eye.
+	fn top_metres_at_world(&self, world_x: f64, world_z: f64) -> f64 {
+		(self.top_centimetres_at_world(world_x, world_z) - i64::from(self.eye_height_centimetres))
+			as f64
+			/ 100.0
+	}
+
 	/// Whether this grid is one a phone or a test could have made.
 	pub fn is_well_formed(&self) -> bool {
 		if !(30..=300).contains(&self.eye_height_centimetres)
@@ -564,6 +615,24 @@ impl RoomGrid {
 		}
 
 		Ok(grid)
+	}
+}
+
+// The turn's cosine and sine are never NaN, so equality is an
+// equivalence. They follow from `grid_yaw`, so the hash leaves them out.
+impl Eq for RoomGrid {}
+
+impl core::hash::Hash for RoomGrid {
+	fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+		self.eye_height_centimetres.hash(state);
+		self.pivot_arm_centimetres.hash(state);
+		self.grid_yaw.hash(state);
+		self.width.hash(state);
+		self.depth.hash(state);
+		self.player_x.hash(state);
+		self.player_z.hash(state);
+		self.levels_centimetres.hash(state);
+		self.cells.hash(state);
 	}
 }
 

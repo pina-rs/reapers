@@ -29,7 +29,7 @@ impl RoomNav {
 	/// penguin can go floor, chair, desk when it cannot reach the desk in
 	/// one bound.
 	pub fn path(&self, from: Vec3, to: Vec3) -> Option<RoomPath> {
-		let from_cell = self.standable_cell_near(from, 20)?;
+		let from_cell = self.start_cell(from)?;
 		let to_cell = self.standable_cell_near(to, 20)?;
 		let from_region = self.region[from_cell];
 		let to_region = self.region[to_cell];
@@ -72,6 +72,21 @@ impl RoomNav {
 		Self::add_steps(&mut steps, self.steps_of(self.pull(walking)));
 
 		Some(RoomPath { steps })
+	}
+
+	/// The standable cell a route from a body at `from` starts on: the
+	/// nearest on the surface its feet are on, so a body standing off its
+	/// footing, where a charge left it, walks back onto the floor it is on
+	/// rather than up onto the desk beside it. Where that surface has none
+	/// near, the nearest of any.
+	fn start_cell(&self, from: Vec3) -> Option<usize> {
+		let feet = from.y - self.profile.half_height();
+
+		self.standable_cell_near_where(from, 20, |cell| {
+			self.support_height_of(cell)
+				.is_some_and(|height| (height - feet).abs() < 0.005)
+		})
+		.or_else(|| self.standable_cell_near(from, 20))
 	}
 
 	/// The cheapest chain of links from one region to another, in ticks,
