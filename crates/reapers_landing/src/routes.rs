@@ -63,6 +63,14 @@ impl ::leptoskit_router::Routable for Route {
 		}
 	}
 }
+/// Paths for [`leptos_axum::LeptosRoutes::leptos_routes`].
+pub fn axum_route_list() -> ::std::vec::Vec<::std::string::String> {
+	::std::vec![
+		::leptoskit_router::Pattern::new(&[]).axum_path(),
+		::leptoskit_router::Pattern::new(&[::leptoskit_router::Segment::OptionalRest("path")])
+			.axum_path()
+	]
+}
 /// The app's router: pages and layouts that take a `navigation` prop
 /// receive it, to navigate with and to build links.
 pub type Navigation = ::leptoskit_router::Router<Route>;

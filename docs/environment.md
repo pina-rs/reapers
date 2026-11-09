@@ -30,7 +30,7 @@ What runs where:
 | Browser on a phone | `deviceorientation` | no | the veil |
 | Desktop browser, simulator | a dragged finger | no, or the drawn room | the veil |
 
-**Not yet on a device.** Nothing above has run on a phone or a headset: there was none to hand when it was written, so it is tested on recordings, on this Mac's GPU and on photographs only. The first device runs should check:
+**Hardware verification.** Native models and cold-launch loading have been checked on the USB-connected Saga (Adreno 730), using `leptoskit device`. The native host must install its asset reader before the guest queues the first model; waiting until the first scene view exists leaves that first scene showing its fallback outline. The app also keeps the GPU view mounted when its loading placeholder disappears. Both phone packages build, and the rules, room mapping and surface impacts have automated coverage. These live checks remain:
 
 - **The camera's picture:** that it sits upright and fills the view on a rotated phone, that the husk stands where the room says, and that the HUD still shows over it on Android.
 - **The sigil's first breath:** that the screen says it is finding its bearing until the first pose arrives, then hangs the first light where the phone points, and that a gap in tracking frames freezes the light instead of swinging it. The player-facing wording for turning, holding still and dragging is in `hunt/view.rs` and `locales/en.arb`.
