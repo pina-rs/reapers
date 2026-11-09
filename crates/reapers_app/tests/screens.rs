@@ -237,6 +237,26 @@ fn a_practice_hunt_fought_by_the_rules_own_player_ends_in_a_verdict() {
 }
 
 #[test]
+fn a_first_practice_teaches_one_thing_at_a_time() {
+	let mut harness = Harness::autoplay();
+	harness.open(Route::Practice);
+	harness.tap("hunt-begin");
+	let mut taught = 0;
+	while !reapers_app::hunt::view::play_on(0.5) {
+		harness.settle();
+		if harness.has("hunt-lesson") {
+			taught += 1;
+			assert!(
+				!harness.has("hunt-prompt"),
+				"a lesson and the ledger's hint at once\n{}",
+				harness.tester.tree()
+			);
+		}
+	}
+	assert!(taught > 0, "a first practice teaches");
+}
+
+#[test]
 fn a_finger_on_a_hunt_turns_it_holds_orb_and_lets_go() {
 	// The browser hands each gesture to the hunt while the hunt is
 	// borrowed. A gesture that borrowed it again aborted the game on the

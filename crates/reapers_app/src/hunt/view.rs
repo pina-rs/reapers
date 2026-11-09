@@ -638,7 +638,7 @@ fn fighting(state: &HuntState) -> Element {
 	};
 	let live = state.shared.live.borrow();
 	let pose = state.arena.pose(live.pose());
-	let shown = status(
+	let mut shown = status(
 		&*words,
 		&state.brief.nft.title(),
 		controller.sim(),
@@ -647,6 +647,16 @@ fn fighting(state: &HuntState) -> Element {
 		state.banner.as_ref().map(|(banner, _)| banner.clone()),
 		"",
 	);
+	let lesson = state
+		.teacher
+		.as_ref()
+		.and_then(|teacher| teacher.prompt(controller.sim()));
+	// One thing to read at a time: while the caption teaches, the ledger's
+	// hint, which says much the same in other words, keeps quiet.
+	if super::controls::caption(&*words, controller.sim(), lesson).is_some_and(|line| line.teaching)
+	{
+		shown.prompt.clear();
+	}
 	let thumbs = super::controls::Thumbs {
 		sim: controller.sim(),
 		slot: controller.slot(),
@@ -654,10 +664,7 @@ fn fighting(state: &HuntState) -> Element {
 		weapon: state.brief.loadout.weapon.kind,
 		light: state.light,
 		aim: pose.forward,
-		lesson: state
-			.teacher
-			.as_ref()
-			.and_then(|teacher| teacher.prompt(controller.sim())),
+		lesson,
 		touchable: !controller.plays_itself(),
 		on_fire: fire,
 		on_slot: select_slot,

@@ -392,8 +392,8 @@ const SEAL_RADIUS: f64 = 26.0;
 
 /// Everything over a fight: the ring under the husk, the crosshair, the
 /// seals, the shriek's edge, the orb's ring and the bruise of a blow. The
-/// orb itself is in the world, with the reaper's arms. `show_order` numbers open seals in the order they opened (the
-/// Weigher's perk).
+/// orb itself is in the world, with the reaper's arms. `show_order` numbers
+/// open seals in the order they opened (the Weigher's perk).
 pub fn fight(
 	sketch: &mut Sketch,
 	lens: &Lens,

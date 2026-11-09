@@ -362,21 +362,23 @@ pub fn status_view(
 		column = column.child(gap(12)).child(company);
 	}
 	// What to do now, and the phase's meter, under the ledger: the bottom
-	// of the screen is the thumbs'.
+	// of the screen is the thumbs'. A hint with nothing to say is not drawn.
 	column = column.child(gap(12));
-	let prompt = if status.loud {
-		display(status.prompt.clone(), 28, BONE)
-	} else {
-		body(status.prompt.clone(), 14, BONE)
-	};
-	column = column.child(
-		View().class("items-center").child(
-			View()
-				.class("max-w-[320px] px-3 py-[5px] rounded-[6px] bg-[#07080bb8] items-center")
-				.test_id("hunt-prompt")
-				.child(prompt.class("text-center")),
-		),
-	);
+	if !status.prompt.is_empty() {
+		let prompt = if status.loud {
+			display(status.prompt.clone(), 28, BONE)
+		} else {
+			body(status.prompt.clone(), 14, BONE)
+		};
+		column = column.child(
+			View().class("items-center").child(
+				View()
+					.class("max-w-[320px] px-3 py-[5px] rounded-[6px] bg-[#07080bb8] items-center")
+					.test_id("hunt-prompt")
+					.child(prompt.class("text-center")),
+			),
+		);
+	}
 	if let Some(gauge) = &status.gauge {
 		let (name, fraction, colour) = match gauge {
 			Gauge::Steadiness { fraction, steady } => {
