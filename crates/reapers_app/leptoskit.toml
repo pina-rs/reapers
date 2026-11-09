@@ -13,6 +13,15 @@ version = "0.1.0"
 default_platform = "web"
 platforms = ["web", "ios", "android", "quest"]
 render = "csr"
+# The launcher icon on every platform, from the Bound Sigil (docs/branding.md):
+# leptoskit makes the iOS set and Android's densities and adaptive icon from it.
+icon = "../../assets/branding/app_icon.png"
+
+# The launch screen: the mark's still on the veil's ink, framed for
+# Android 12's safe circle (docs/branding.md).
+[app.launch_screen]
+background = "#07080b"
+image = "../../assets/branding/splash_mark.png"
 
 # Agents and people alike write builder calls here: the compiler checks them
 # directly, and there is no markup to keep in step.
@@ -58,6 +67,11 @@ plugins = ["store", "secure-store", "http", "websocket", "crypto", "linking", "h
 # only be skipped.
 [native.plugin-options.xr]
 max-frame-rate = 30
+# Phones without platform depth (the Seeker, ARCore phones without the
+# Depth API, iPhones without LiDAR) read the room from the camera's picture
+# with this model, under the app's assets/. `cargo xtask fetch-depth-model`
+# puts it there; without it those phones read no room.
+depth-model = "depth/depth_anything_v2_metric_indoor_small.onnx"
 
 # On a Quest the game opens as a panel in the player's space: its screens are
 # ordinary leptoskit views, which an immersive session would not show. The
