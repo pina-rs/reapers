@@ -100,6 +100,10 @@ pub struct Arena {
 	/// The camera last sent, so a still view sends nothing, and its turn.
 	camera: Option<([i32; 10], i32)>,
 	turned: [f32; 4],
+	/// Where the room was charted from, in the scene's space, once a fight is
+	/// drawn in the room's own frame rather than around wherever the phone is
+	/// now. `None` until then, and the husk follows the phone.
+	room_frame: Option<[f32; 3]>,
 	/// Whether the scene is drawn over the camera's picture, from the
 	/// platform's own view of the room.
 	camera_picture: bool,
@@ -136,6 +140,7 @@ impl Arena {
 			aspect,
 			camera: None,
 			turned: [0.0, 0.0, 0.0, 1.0],
+			room_frame: None,
 			camera_picture,
 		}
 	}
@@ -192,11 +197,29 @@ impl Arena {
 
 	/// Stands the player where the platform says the phone is, in its space:
 	/// a platform that draws the scene over its camera picture draws it from
-	/// there, not from the origin the scene's own camera stands at.
+	/// there, not from the origin the scene's own camera stands at. Once the
+	/// room has been charted, the fight stays in the chart's frame and does
+	/// not follow the phone.
 	pub fn anchor(&mut self, position: [f64; 3]) {
-		if self.camera_picture {
+		if self.camera_picture && self.room_frame.is_none() {
 			self.rig.set_origin(position.map(|value| value as f32));
 		}
+	}
+
+	/// Draws the fight in the frame the room was charted in: `origin` is where
+	/// the phone's eye was when the first accepted picture was taken, in the
+	/// scene's space. The husk then stands where the plan puts it in the room,
+	/// however the player moves, and the room's occlusion is measured from the
+	/// same place. A scene the game draws itself stands at the hunt's origin,
+	/// so only a camera's picture needs the phone's own.
+	pub fn ground_in_room(&mut self, origin: [f64; 3]) {
+		let origin = if self.camera_picture {
+			origin.map(|value| value as f32)
+		} else {
+			[0.0; 3]
+		};
+		self.room_frame = Some(origin);
+		self.rig.set_origin(origin);
 	}
 
 	/// Points the scene's camera along `pose`, sending it only when it moved.
@@ -477,4 +500,49 @@ pub fn mood_of(sim: &HuntSim) -> (HuskMood, HuskPlight) {
 			frozen: sim.frozen(),
 		},
 	)
+}
+
+#[cfg(test)]
+mod tests {
+	use reapers_rules::Vessel;
+	use reapers_rules::market_listings;
+
+	use super::*;
+	use crate::render::scene::HUNT;
+
+	fn penguin() -> Nft {
+		market_listings()
+			.into_iter()
+			.find(|nft| nft.collection.vessel() == Vessel::Penguin)
+			.expect("a penguin on the market")
+	}
+
+	#[test]
+	fn a_charted_fight_is_drawn_in_the_room_frame() {
+		let nft = penguin();
+		let mut arena = Arena::new(HUNT, nft.collection.vessel(), &nft, 0.5, true);
+
+		arena.ground_in_room([1.0, 1.5, -2.0]);
+
+		assert_eq!(arena.rig.origin(), [1.0, 1.5, -2.0]);
+
+		// The player walking after the room was read does not drag it along.
+		arena.anchor([9.0, 9.0, 9.0]);
+
+		assert_eq!(arena.rig.origin(), [1.0, 1.5, -2.0]);
+	}
+
+	#[test]
+	fn a_scene_the_game_draws_keeps_its_own_origin() {
+		let nft = penguin();
+		let mut arena = Arena::new(HUNT, nft.collection.vessel(), &nft, 0.5, false);
+
+		arena.ground_in_room([1.0, 1.5, -2.0]);
+
+		assert_eq!(
+			arena.rig.origin(),
+			[0.0; 3],
+			"the game's own camera stands at the hunt's origin"
+		);
+	}
 }

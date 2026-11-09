@@ -299,6 +299,9 @@ impl HuntState {
 	fn begin(&mut self) {
 		follow(&self.shared);
 		let vessel = self.brief.nft.collection.vessel();
+		// A new reading starts its own frame: the first picture it accepts
+		// places the room.
+		self.shared.room_frame.set(None);
 		// A room drawn by hand is read whole at once, as if the platform had
 		// seen all of it.
 		*self.shared.survey.borrow_mut() = Some(
@@ -365,6 +368,12 @@ impl HuntState {
 			.borrow_mut()
 			.take()
 			.map(|survey| survey.occlusion().clone());
+		// The room's pictures were charted in the frame of the first one. The
+		// fight is drawn there too, so the husk and the furniture it hides
+		// behind stay in one room.
+		if let Some(frame) = self.shared.room_frame.get() {
+			self.arena.ground_in_room(frame);
+		}
 		let controller = if self.autoplay {
 			HuntController::autoplay(Fight::Hunt(sim))
 		} else {

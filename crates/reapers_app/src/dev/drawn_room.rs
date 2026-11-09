@@ -238,6 +238,8 @@ mod tests {
 		assert!(!hidden_by(occlusion, &penguin_on(0.0, 0.92, 2.5)));
 		assert!(!hidden_by(occlusion, &penguin_on(-1.2, 0.92, 2.6)));
 		assert!(!hidden_by(occlusion, &penguin_on(0.8, 0.45, 2.0)));
+		// The stool's own middle: a top never hides the husk standing on it.
+		assert!(!hidden_by(occlusion, &penguin_on(1.15, 0.45, 1.95)));
 		assert!(hidden_by(occlusion, &penguin_on(0.0, 0.0, 3.4)));
 	}
 
@@ -263,9 +265,13 @@ mod tests {
 		.expect("a hunt in the kitchen");
 		let floor = -kitchen().eye_height;
 		let mut tops = Vec::new();
+		let mut walked = 0.0;
+		let mut last = sim.pose().position;
 		for _ in 0..60 * 40 {
 			sim.step(&HuntInput::still(sim.pose().direction(), 0.0));
 			let pose = sim.pose();
+			walked += (pose.position - last).length();
+			last = pose.position;
 			let locomotion = pose.locomotion.expect("a walker's pose");
 			if locomotion.state != HuskMotionState::Air {
 				let top = ((locomotion.support_height - floor) * 100.0).round() as i64;
@@ -280,5 +286,7 @@ mod tests {
 				.all(|&top| [0, 45, 92].iter().any(|level| (top - level).abs() <= 5)),
 			"stood at {tops:?} cm",
 		);
+		// A husk that only gathered support heights could have stood still.
+		assert!(walked > 0.5, "the walker covered {walked:.2} m");
 	}
 }

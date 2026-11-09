@@ -48,6 +48,10 @@ pub struct Shared {
 	/// The same room read cell by cell, for a husk that walks it: every
 	/// picture the survey takes goes into it too.
 	pub grid: Rc<RefCell<Option<RoomGridBuilder>>>,
+	/// Where the phone's eye was when the first picture the survey accepted
+	/// was taken, in the platform's own space. Every later picture is
+	/// charted relative to it, and the fight is drawn in the same frame.
+	pub room_frame: Rc<Cell<Option<[f64; 3]>>>,
 	/// Set when the hunt is over and the platform can be let go.
 	pub done: Rc<Cell<bool>>,
 	/// The scene a headset draws into its own frames: the hunt's `Scene3d`.
@@ -78,8 +82,10 @@ mod platform {
 	use leptoskit_xr::Ray;
 	use leptoskit_xr::SessionConfig;
 	use leptoskit_xr::Xr;
+	use reapers_rules::Vec3;
 	use reapers_world::DepthFrame;
 	use reapers_world::RayGrid;
+	use reapers_world::from_platform;
 	use reapers_world::to_platform;
 
 	use super::Shared;
@@ -272,15 +278,22 @@ mod platform {
 			columns: LOOK_COLUMNS,
 			rows: LOOK_ROWS,
 		};
-		let origin = frame.viewer.position;
+		let eye = frame.viewer.position;
+		let anchor = shared.room_frame.get();
+		// Where this picture's eye is in the frame the hunt is charted and
+		// drawn in: the first picture's eye, or this one when it is first.
+		let origin = anchor.map_or(Vec3::ZERO, |anchor| {
+			from_platform([
+				f64::from(eye.x) - anchor[0],
+				f64::from(eye.y) - anchor[1],
+				f64::from(eye.z) - anchor[2],
+			])
+		});
 		let started = crate::platform::now();
 		let mut distances = Vec::with_capacity(LOOK_COLUMNS * LOOK_ROWS);
 		for direction in grid.rays() {
 			let [x, y, z] = to_platform(direction);
-			let ray = Ray::new(
-				origin,
-				leptoskit_xr::Vec3::new(x as f32, y as f32, z as f32),
-			);
+			let ray = Ray::new(eye, leptoskit_xr::Vec3::new(x as f32, y as f32, z as f32));
 			let hit = match ray {
 				Some(ray) => {
 					session
@@ -303,28 +316,43 @@ mod platform {
 			distances: distances.clone(),
 			millis: crate::platform::now().millis() - started.millis(),
 		});
-		let picture = DepthFrame::from_rays(&grid, &distances);
-		let surveyed = match shared.survey.borrow_mut().as_mut() {
-			Some(survey) => {
-				if let Some(height) = eye_height {
-					survey.measure_floor(height);
-				}
-				survey.add(&picture)
-			}
-			None => false,
-		};
-		if !surveyed {
-			return;
-		}
-		// Charting the picture into the grid costs about as much again as
-		// the survey did, so it waits for the next turn of the event loop,
-		// where a frame can be drawn between the two.
-		crate::platform::sleep(std::time::Duration::ZERO).await;
-		if let Some(cells) = shared.grid.borrow_mut().as_mut() {
+		let picture = DepthFrame::from_rays_at(&grid, &distances, origin);
+		let surveyed = {
+			let mut survey = shared.survey.borrow_mut();
+			let Some(survey) = survey.as_mut() else {
+				return;
+			};
 			if let Some(height) = eye_height {
-				cells.measure_floor(height);
+				// The platform measures the floor below the eye that is
+				// looking, which is not where the hunt's frame begins when
+				// the player has moved.
+				survey.measure_floor(height - origin.y);
 			}
-			cells.add_frame(&picture);
+			survey.add(&picture)
+		};
+		if surveyed && shared.room_frame.get().is_none() {
+			// The first picture that teaches anything fixes the frame. What
+			// the survey and the grid learn from it, and from every picture
+			// after, is charted relative to it.
+			shared
+				.frame
+				.set(Some([f64::from(eye.x), f64::from(eye.y), f64::from(eye.z)]));
+		}
+		if shared.grid.borrow().is_some() {
+			if let Some(height) = eye_height
+				&& let Some(cells) = shared.grid.borrow_mut().as_mut()
+			{
+				cells.measure_floor(height - origin.y);
+			}
+			if surveyed {
+				// Charting the picture into the grid costs about as much
+				// again as the survey did, so it waits for the next turn of
+				// the event loop, where a frame can be drawn between the two.
+				crate::platform::sleep(std::time::Duration::ZERO).await;
+				if let Some(cells) = shared.grid.borrow_mut().as_mut() {
+					cells.add_frame(&picture);
+				}
+			}
 		}
 	}
 }
