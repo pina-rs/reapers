@@ -224,6 +224,11 @@ impl HostedRift {
 			let mut played = 0;
 			let mut interval = tokio::time::interval(beat);
 
+			// A beat the host was too busy to take is not owed a replay: run
+			// back to back, they would move the rift through a whole reap
+			// window before a reaper's report could come back.
+			interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
 			interval.tick().await;
 
 			loop {
