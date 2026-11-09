@@ -759,6 +759,14 @@ pub fn hunt_view(props: &HuntViewProps) -> Element {
 		}
 		Stage::Briefing | Stage::Aligning | Stage::Finished => {}
 	}
+	// A light can project into the instruction panel. Keep the tracing
+	// targets above it so the very thing the player must find stays visible.
+	// Combat marks stay below the weapon controls.
+	if let Stage::Tracing(trace) = &state.stage {
+		return root
+			.child(scan(&state, trace))
+			.child(marks.into_view(state.size.0, state.size.1));
+	}
 	if !marks.is_empty() {
 		root = root.child(marks.into_view(state.size.0, state.size.1));
 	}
