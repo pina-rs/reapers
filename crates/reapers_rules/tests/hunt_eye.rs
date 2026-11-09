@@ -57,19 +57,22 @@ fn digest(bytes: &[u8]) -> u64 {
 }
 
 #[test]
-fn logs_from_the_origin_keep_their_version_seven_and_eight_bytes() {
+fn origin_logs_use_the_current_combat_versions() {
 	for (roomed, version, expected) in [
-		(false, 7, 0x1f83_52a2_a8ee_121e),
-		(true, 8, 0x120e_d4e0_421d_bb5c),
+		(false, 10, 0x1f83_52a2_a8ee_121e),
+		(true, 11, 0x120e_d4e0_421d_bb5c),
 	] {
-		let bytes = played(roomed).encode();
+		let mut bytes = played(roomed).encode();
 		assert_eq!(bytes[0], version);
+		// The combat header changes deliberately. Keep the older payload
+		// pins intact so a new version cannot hide an accidental layout change.
+		bytes[0] = if roomed { 8 } else { 7 };
 		assert_eq!(digest(&bytes), expected);
 	}
 }
 
 #[test]
-fn version_nine_round_trips_with_and_without_a_room() {
+fn version_twelve_round_trips_with_and_without_a_room() {
 	use reapers_rules::Aim;
 	use reapers_rules::Eye;
 	use reapers_rules::HuntInput;
@@ -77,7 +80,7 @@ fn version_nine_round_trips_with_and_without_a_room() {
 		let mut log = played(roomed);
 		log.inputs[0] = HuntInput::new(Aim::AHEAD, 0).with_eye(Eye::new(400, -100, 200));
 		let bytes = log.encode();
-		assert_eq!(bytes[0], 9);
+		assert_eq!(bytes[0], 12);
 		if !roomed {
 			assert_eq!(&bytes[9..13], &[0; 4]);
 		}
@@ -86,7 +89,7 @@ fn version_nine_round_trips_with_and_without_a_room() {
 }
 
 #[test]
-fn version_nine_refuses_truncation_bad_room_lengths_and_unknown_versions() {
+fn version_twelve_refuses_truncation_bad_room_lengths_and_unknown_versions() {
 	use reapers_rules::Aim;
 	use reapers_rules::Eye;
 	use reapers_rules::HuntInput;
@@ -110,7 +113,7 @@ fn version_nine_refuses_truncation_bad_room_lengths_and_unknown_versions() {
 	let mut bad = bytes.clone();
 	bad[9..13].copy_from_slice(&u32::MAX.to_le_bytes());
 	assert_eq!(HuntLog::decode(&bad), Err(HuntLogError::EndsMidPlan));
-	bad[0] = 10;
+	bad[0] = 13;
 	assert_eq!(HuntLog::decode(&bad), Err(HuntLogError::UnsupportedVersion));
 	let mut origin = bytes;
 	let end = origin.len();
@@ -267,7 +270,7 @@ fn longest_encoded_log_fits_the_rpc_request_limit() {
 }
 
 #[test]
-fn version_nine_tick_has_the_specified_wire_bytes() {
+fn version_twelve_tick_has_the_specified_wire_bytes() {
 	use reapers_rules::Aim;
 	use reapers_rules::Eye;
 	use reapers_rules::HuntInput;
@@ -569,7 +572,7 @@ fn a_moving_eye_hunt_lands_on_the_same_bits_everywhere() {
 		difficulty: Difficulty::Normal,
 	};
 	let bytes = log.encode();
-	assert_eq!(bytes[0], 9);
+	assert_eq!(bytes[0], 12);
 	assert_eq!(HuntLog::decode(&bytes), Ok(log));
 	assert_eq!(hash, 0x30a9_9835_023d_48ad);
 }

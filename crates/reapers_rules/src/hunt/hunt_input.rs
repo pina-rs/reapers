@@ -301,11 +301,11 @@ impl HuntLog {
 	const ORB_FLAG: u8 = 2;
 	/// The bytes that say how long the room's grid is.
 	const ROOM_LENGTH_BYTES: usize = 4;
-	/// The same combat as version 9, with the room's grid after the plan.
+	/// The same combat as version 10, with the room's grid after the plan.
 	const ROOM_VERSION: u8 = 11;
 	const TICK_BYTES: usize = 8;
-	// Version 9 lets melee weapons swing at empty space. A missed swing
-	// now spends its cooldown and breaks cadence, so versions 7 and 8
+	// Version 10 lets melee weapons swing at empty space. A missed swing
+	// now spends its cooldown and breaks cadence, so versions 7, 8 and 9
 	// cannot be replayed under these rules.
 	const VERSION: u8 = 10;
 

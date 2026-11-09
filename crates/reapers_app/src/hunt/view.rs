@@ -1050,6 +1050,7 @@ mod tests {
 	use reapers_rules::Vec3;
 	use reapers_world::ArPose;
 	use reapers_world::to_platform;
+
 	use crate::render::camera::look_at;
 	#[test]
 	fn pause_guidance_uses_the_localized_action_for_each_state() {

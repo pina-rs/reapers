@@ -74,7 +74,6 @@ impl Lens {
 	fn centre(&self) -> (f64, f64) {
 		(self.width / 2.0, self.height / 2.0)
 	}
-
 }
 
 /// A flat drawing being put together.
@@ -445,9 +444,10 @@ pub(crate) fn bearing(lens: &Lens, target: Vec3) -> f64 {
 		return (-up / ahead / half_height).atan2(across / ahead / (half_height * lens.aspect()));
 	}
 
-	let turn = wrap_angle(target.yaw() - aim.forward.yaw());
-
-	if turn.abs() >= PI - BEHIND_SETTLE {
+	// Keep the rear dead zone in the camera's frame too. World yaw can
+	// call a clearly left-hand target "exactly behind" on a rolled phone.
+	let side = across.atan2(-ahead);
+	if side.abs() <= BEHIND_SETTLE {
 		return 0.0;
 	}
 
@@ -1037,7 +1037,7 @@ mod tests {
 			}
 			// A target behind the phone still gives a finite, correct side
 			// to turn toward; perspective projection alone cannot do this.
-			for right in [-0.1, 0.1] {
+			for right in [-0.3, 0.3] {
 				let target = (pose.forward * -1.0 + pose.right * right).normalized();
 				let angle = bearing(&lens, target);
 				assert!(angle.is_finite());

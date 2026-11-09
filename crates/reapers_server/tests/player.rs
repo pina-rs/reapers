@@ -1117,7 +1117,7 @@ async fn moving_eye_settlement_matches_the_decoded_local_replay() {
 	}
 
 	let bytes = log.encode();
-	assert_eq!(bytes[0], 9);
+	assert_eq!(bytes[0], 10);
 	let decoded = HuntLog::decode(&bytes).unwrap();
 	let expected = replay(&decoded).expect("the moving-eye fixture finishes");
 	assert_eq!(expected.grade(), Some(CaptureGrade::Plain));
