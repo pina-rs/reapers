@@ -28,7 +28,7 @@ env:
   # The program's build tool. Keep in step with `pina` in Cargo.toml.
   PINA_VERSION: 0.24.0
   # The leptoskit CLI, at the revision the workspace patches leptoskit to.
-  LEPTOSKIT_REV: 44cfd118a6ab5aa6e98eb641048fa307c91e47d2
+  LEPTOSKIT_REV: 699596553f7afc86c6586fd59eede903c09e6292
   # The server's tests start their own cluster with these.
   POSTGRES_MAJOR: 17
 
