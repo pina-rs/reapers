@@ -17,6 +17,11 @@ use leptoskit_db::Id;
 use leptoskit_db::Json;
 use leptoskit_db::Timestamp;
 use leptoskit_db::table;
+// `reapers_api` is here for the features it unifies, not for anything this
+// crate calls: linking the rpc pack turns on `leptoskit_rpc`'s server for the
+// whole build, which compiles the operations' bodies, and their `server`
+// feature gives those bodies the keeper they call. See `Cargo.toml`.
+use reapers_api as _;
 use reapers_rules::Absorption;
 use reapers_rules::GeoFix;
 use reapers_rules::PlayerState;

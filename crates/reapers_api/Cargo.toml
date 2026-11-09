@@ -29,6 +29,13 @@ web = ["leptoskit_rpc/web"]
 # Calls from a native app's Wasm guest.
 guest = ["leptoskit_rpc/guest"]
 # The keeper: operations' bodies, on Postgres, with live streams.
+#
+# Cargo unifies `leptoskit_rpc`'s features across every crate in a build, so
+# `#[rpc::query]` and `#[rpc::mutation]` keep their bodies, and with them the
+# `keeper` this crate's gates name, whenever *any* crate in the build turns on
+# `leptoskit_rpc/postgres`. Every such crate must turn this feature on too, or
+# the bodies compile without the keeper they call; `reapers_db` says why it
+# does. `web` and `guest` never do.
 server = ["leptoskit_rpc/postgres", "leptoskit_rpc/live"]
 
 [lints]

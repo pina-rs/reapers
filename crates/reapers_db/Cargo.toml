@@ -19,6 +19,11 @@ leptoskit_auth = { workspace = true, features = ["postgres"] }
 leptoskit_db = { workspace = true, features = ["postgres"] }
 leptoskit_db_schema = { workspace = true }
 leptoskit_rpc = { workspace = true, features = ["postgres"] }
+# Linking the rpc pack above turns `leptoskit_rpc`'s server on for every crate
+# in the build, so reapers_api's operation bodies are compiled here whether or
+# not the keeper is. Its `server` feature gives those bodies the keeper they
+# call; without it, `cargo xtask check --fast` compiles the bodies alone.
+reapers_api = { workspace = true, features = ["server"] }
 reapers_rules = { workspace = true }
 thiserror = { workspace = true }
 

@@ -6370,6 +6370,7 @@ dependencies = [
  "leptoskit_db",
  "leptoskit_db_schema",
  "leptoskit_rpc",
+ "reapers_api",
  "reapers_rules",
  "thiserror 2.0.21",
 ]
