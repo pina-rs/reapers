@@ -23,6 +23,7 @@ use reapers_world::to_platform;
 
 use super::arms::Arms;
 use super::arms::HuskMarks;
+use super::controller::FrameEye;
 use super::controller::HuntController;
 use crate::render::camera::look_at;
 use crate::render::husk::HuskMood;
@@ -402,7 +403,7 @@ impl Arena {
 			return Vec::new();
 		};
 		let pose = controller.pose(live);
-		let events = controller.frame(delta, &pose);
+		let events = controller.frame(delta, &pose, FrameEye::Origin);
 		let marks = self.marks();
 		if let (Some(arms), Some(controller)) = (self.arms.as_mut(), self.controller.as_ref()) {
 			let sim = controller.sim();

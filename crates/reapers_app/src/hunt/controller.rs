@@ -6,6 +6,7 @@
 //! on a 30 Hz guest and a 120 Hz screen.
 
 use reapers_rules::Arsenal;
+use reapers_rules::Eye;
 use reapers_rules::HuntBot;
 use reapers_rules::HuntEvent;
 use reapers_rules::HuntInput;
@@ -13,7 +14,33 @@ use reapers_rules::HuntLog;
 use reapers_rules::HuntRules;
 use reapers_rules::HuntSim;
 use reapers_rules::RiftSeat;
+use reapers_rules::Vec3;
 use reapers_world::ArPose;
+
+/// The eye supplied by the current tracking source for one frame.
+#[derive(Clone, Copy, Debug)]
+pub enum FrameEye {
+	Origin,
+	World(Vec3),
+	Unavailable,
+}
+
+/// Why the simulation is held, or whether it is playing.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PauseStatus {
+	Playing,
+	Tracking,
+	ReturnToStance,
+	ResumeHeldOrb,
+}
+
+/// Physical and queued orb input, independent of the rules' held ring.
+#[derive(Clone, Copy, Debug, Default)]
+struct OrbInput {
+	held: bool,
+	pressed: bool,
+	down: bool,
+}
 
 /// What is fought: a lone hunt, or a seat in a rift, which counts the ward
 /// it takes off toward the circle's.
@@ -47,11 +74,8 @@ pub struct HuntController {
 	recorded: Vec<HuntInput>,
 	/// Whether FIRE was pressed since the last tick: one press, one shot.
 	fire_pending: bool,
-	/// Whether ORB is held down.
-	orb_held: bool,
-	/// Whether ORB went down since the last tick: a press as quick as a
-	/// frame is still held for one tick, so that its release is a throw.
-	orb_pressed: bool,
+	orb: OrbInput,
+	pause: PauseStatus,
 	/// The weapon slot in hand.
 	slot: usize,
 	unspent: f64,
@@ -74,8 +98,12 @@ impl HuntController {
 			fight,
 			recorded: Vec::new(),
 			fire_pending: false,
-			orb_held: false,
-			orb_pressed: false,
+			orb: OrbInput {
+				held: false,
+				pressed: false,
+				down: false,
+			},
+			pause: PauseStatus::Playing,
 			slot: Arsenal::GUN_SLOT,
 			unspent: 0.0,
 			bot: None,
@@ -154,18 +182,36 @@ impl HuntController {
 
 	/// Presses FIRE once. Holding it down does not fire again.
 	pub fn press(&mut self) {
-		self.fire_pending = true;
+		if self.pause == PauseStatus::Playing {
+			self.fire_pending = true;
+		}
 	}
 
 	/// Holds ORB down, or lets it go. The tick it comes up is the throw.
 	pub fn hold_orb(&mut self, held: bool) {
-		self.orb_pressed |= held && !self.orb_held;
-		self.orb_held = held;
+		let pressed = held && !self.orb.down;
+		self.orb.down = held;
+		if self.pause == PauseStatus::ResumeHeldOrb && pressed {
+			self.pause = PauseStatus::Playing;
+			self.orb.held = true;
+			self.orb.pressed = true;
+			return;
+		}
+		if self.pause != PauseStatus::Playing {
+			return;
+		}
+		self.orb.pressed |= held && !self.orb.held;
+		self.orb.held = held;
 	}
 
 	/// Whether ORB is down.
 	pub const fn orb_held(&self) -> bool {
-		self.orb_held
+		self.orb.held
+	}
+
+	/// Current gameplay pause, for the tracking and recovery guidance.
+	pub const fn pause_status(&self) -> PauseStatus {
+		self.pause
 	}
 
 	/// The record of this hunt, for the server to replay.
@@ -185,7 +231,44 @@ impl HuntController {
 	/// Advances the hunt by `delta` seconds of real time, with the phone at
 	/// `pose`, and returns what happened, each with the rules' tick it
 	/// happened on.
-	pub fn frame(&mut self, delta: f64, pose: &ArPose) -> Vec<(i64, HuntEvent)> {
+	pub fn frame(&mut self, delta: f64, pose: &ArPose, eye: FrameEye) -> Vec<(i64, HuntEvent)> {
+		let eye = if self.bot.is_some() || matches!(self.fight, Fight::Rift(_)) {
+			Ok(Eye::ORIGIN)
+		} else {
+			match eye {
+				FrameEye::Origin => Ok(Eye::ORIGIN),
+				FrameEye::Unavailable => Err(PauseStatus::Tracking),
+				FrameEye::World(point) => {
+					match Eye::rounded(point) {
+						Some(eye) if eye.is_within(self.sim().plan()) => Ok(eye),
+						Some(_) => Err(PauseStatus::ReturnToStance),
+						None => Err(PauseStatus::Tracking),
+					}
+				}
+			}
+		};
+		let eye = match eye {
+			Ok(eye) => eye,
+			Err(reason) => {
+				self.pause = reason;
+				self.unspent = 0.0;
+				self.fire_pending = false;
+				self.orb.held = false;
+				self.orb.pressed = false;
+				return Vec::new();
+			}
+		};
+		if self.pause != PauseStatus::Playing {
+			if self.pause != PauseStatus::ResumeHeldOrb {
+				self.pause = if self.sim().orb_ring().is_some() {
+					PauseStatus::ResumeHeldOrb
+				} else {
+					PauseStatus::Playing
+				};
+			}
+			self.unspent = 0.0;
+			return Vec::new();
+		}
 		if self.sim().is_over() || !delta.is_finite() || delta <= 0.0 {
 			return Vec::new();
 		}
@@ -196,7 +279,7 @@ impl HuntController {
 			&& self.unspent >= Self::TICK_SECONDS
 			&& !self.sim().is_over()
 		{
-			let input = self.read_input(pose);
+			let input = self.read_input(pose).with_eye(eye);
 			self.unspent -= Self::TICK_SECONDS;
 			let tick = self.sim().tick();
 			events.extend(
@@ -232,7 +315,7 @@ impl HuntController {
 			return input;
 		}
 		let fire = std::mem::take(&mut self.fire_pending);
-		let orb_held = std::mem::take(&mut self.orb_pressed) || self.orb_held;
+		let orb_held = std::mem::take(&mut self.orb.pressed) || self.orb.held;
 		HuntInput::measured(pose.forward, pose.turn_speed, fire, self.slot, orb_held)
 	}
 }
@@ -263,11 +346,224 @@ mod tests {
 	}
 
 	#[test]
+	fn unavailable_tracking_discards_time_and_fire() {
+		let mut controller = HuntController::new(Fight::Hunt(sim(3)));
+		controller.press();
+		controller.frame(1.0, &ArPose::AHEAD, FrameEye::Unavailable);
+		assert_eq!(controller.ticks(), 0);
+		controller.press();
+		controller.frame(
+			HuntController::TICK_SECONDS,
+			&ArPose::AHEAD,
+			FrameEye::Origin,
+		);
+		assert_eq!(controller.ticks(), 0);
+		controller.frame(
+			HuntController::TICK_SECONDS,
+			&ArPose::AHEAD,
+			FrameEye::Origin,
+		);
+		assert_eq!(controller.ticks(), 1);
+		assert!(!controller.log().inputs[0].fire);
+		controller.press();
+		controller.frame(
+			HuntController::TICK_SECONDS,
+			&ArPose::AHEAD,
+			FrameEye::Origin,
+		);
+		assert!(controller.log().inputs[1].fire);
+	}
+
+	#[test]
+	fn measured_eyes_are_recorded_per_tick_and_origin_modes_stay_at_origin() {
+		let mut controller = HuntController::new(Fight::Hunt(sim(3)));
+		for point in [Vec3::new(0.4, 0.0, 0.0), Vec3::new(-0.2, 0.1, 0.3)] {
+			controller.frame(
+				2.0 * HuntController::TICK_SECONDS,
+				&ArPose::AHEAD,
+				FrameEye::World(point),
+			);
+		}
+		let eyes: Vec<_> = controller
+			.log()
+			.inputs
+			.iter()
+			.map(|input| input.eye)
+			.collect();
+		assert_eq!(
+			eyes,
+			[
+				Eye::new(400, 0, 0),
+				Eye::new(400, 0, 0),
+				Eye::new(-200, 100, 300),
+				Eye::new(-200, 100, 300)
+			]
+		);
+		controller.frame(
+			HuntController::TICK_SECONDS,
+			&ArPose::AHEAD,
+			FrameEye::Origin,
+		);
+		assert_eq!(controller.log().inputs.last().unwrap().eye, Eye::ORIGIN);
+		let mut bot = HuntController::autoplay(Fight::Hunt(sim(3)));
+		bot.frame(
+			HuntController::TICK_SECONDS,
+			&ArPose::AHEAD,
+			FrameEye::Unavailable,
+		);
+		assert_eq!(bot.log().inputs[0].eye, Eye::ORIGIN);
+		let seat = RiftSeat::new(
+			5,
+			reapers_rules::RiftSite::LondonBridge,
+			1000.0,
+			&HuntLoadout::BORROWED,
+			None,
+		)
+		.unwrap();
+		let mut rift = HuntController::new(Fight::Rift(seat));
+		rift.frame(
+			HuntController::TICK_SECONDS,
+			&ArPose::AHEAD,
+			FrameEye::World(Vec3::new(0.5, 0.0, 0.0)),
+		);
+		assert_eq!(rift.log().inputs[0].eye, Eye::ORIGIN);
+	}
+
+	#[test]
+	fn stance_and_tracking_failures_pause_without_time_debt() {
+		let mut controller = HuntController::new(Fight::Hunt(sim(3)));
+		let height = f64::from(controller.sim().plan().eye_centimetres) / 100.0;
+		for point in [
+			Vec3::new(0.6, 0.0, 0.8),
+			Vec3::new(0.0, 0.5 - height, 0.0),
+			Vec3::new(0.0, 2.2 - height, 0.0),
+		] {
+			controller.frame(
+				HuntController::TICK_SECONDS,
+				&ArPose::AHEAD,
+				FrameEye::World(point),
+			);
+			assert_eq!(controller.pause_status(), PauseStatus::Playing);
+		}
+		for (point, reason) in [
+			(Vec3::new(0.601, 0.0, 0.8), PauseStatus::ReturnToStance),
+			(
+				Vec3::new(0.0, 0.499 - height, 0.0),
+				PauseStatus::ReturnToStance,
+			),
+			(
+				Vec3::new(0.0, 2.201 - height, 0.0),
+				PauseStatus::ReturnToStance,
+			),
+			(Vec3::new(f64::NAN, 0.0, 0.0), PauseStatus::Tracking),
+			(Vec3::new(f64::INFINITY, 0.0, 0.0), PauseStatus::Tracking),
+		] {
+			let ticks = controller.ticks();
+			controller.frame(20.0, &ArPose::AHEAD, FrameEye::World(point));
+			assert_eq!(controller.pause_status(), reason);
+			controller.frame(20.0, &ArPose::AHEAD, FrameEye::Origin);
+			assert_eq!(controller.ticks(), ticks);
+			controller.frame(
+				HuntController::TICK_SECONDS,
+				&ArPose::AHEAD,
+				FrameEye::Origin,
+			);
+			assert_eq!(controller.ticks(), ticks + 1);
+		}
+	}
+
+	#[test]
+	fn queued_orb_is_discarded_on_pause() {
+		let mut controller = HuntController::new(Fight::Hunt(sim(3)));
+		controller.hold_orb(true);
+		controller.hold_orb(false);
+		controller.frame(1.0, &ArPose::AHEAD, FrameEye::Unavailable);
+		controller.frame(1.0, &ArPose::AHEAD, FrameEye::Origin);
+		controller.frame(
+			HuntController::TICK_SECONDS,
+			&ArPose::AHEAD,
+			FrameEye::Origin,
+		);
+		assert!(!controller.log().inputs[0].orb_held);
+		assert_eq!(controller.sim().orb_ring(), None);
+	}
+
+	#[test]
+	fn a_held_orb_needs_a_fresh_press_after_tracking_recovers() {
+		let seed = 3;
+		let mut initial = sim(seed);
+		let mut bot = HuntBot::careful(&initial);
+		let mut prefix = Vec::new();
+		while initial.phase() != reapers_rules::HuntPhase::Broken {
+			assert!(prefix.len() < 10000 && !initial.is_over());
+			let input = bot.decide(&initial);
+			initial.step(&input);
+			prefix.push(input);
+		}
+		let mut controller = HuntController::new(Fight::Hunt(initial));
+		let aim = ArPose::looking(controller.sim().pose().direction(), 0.0);
+		controller.hold_orb(true);
+		controller.frame(HuntController::TICK_SECONDS, &aim, FrameEye::Origin);
+		assert!(controller.sim().orb_ring().is_some());
+		controller.frame(2.0, &aim, FrameEye::Unavailable);
+		controller.hold_orb(false);
+		controller.hold_orb(true);
+		controller.press();
+		controller.frame(2.0, &aim, FrameEye::Origin);
+		assert_eq!(controller.pause_status(), PauseStatus::ResumeHeldOrb);
+		controller.hold_orb(true);
+		assert_eq!(controller.pause_status(), PauseStatus::ResumeHeldOrb);
+		controller.hold_orb(false);
+		controller.press();
+		assert_eq!(controller.frame(2.0, &aim, FrameEye::Origin), []);
+		assert_eq!(controller.ticks(), 1);
+		controller.hold_orb(true);
+		controller.frame(HuntController::TICK_SECONDS, &aim, FrameEye::Origin);
+		assert_eq!(controller.pause_status(), PauseStatus::Playing);
+		assert!(!controller.log().inputs[1].fire);
+		controller.hold_orb(false);
+		let events = controller.frame(HuntController::TICK_SECONDS, &aim, FrameEye::Origin);
+		assert!(
+			events
+				.iter()
+				.any(|(_, event)| matches!(event, HuntEvent::OrbThrown { .. }))
+		);
+		let mut log = controller.log();
+		prefix.append(&mut log.inputs);
+		let mut finished = controller.sim().clone();
+		let mut bot = HuntBot::careful(&finished);
+		while !finished.is_over() {
+			assert!(prefix.len() < 21600);
+			let input = bot.decide(&finished);
+			finished.step(&input);
+			prefix.push(input);
+		}
+		log.inputs = prefix;
+		let nft = market_listings()[seed as usize % 8];
+		let stats = HuntStats::derive(&HuntLoadout::BORROWED, 1.0).unwrap();
+		assert_eq!(
+			HuntSim::replay(
+				seed,
+				nft.collection.vessel(),
+				nft.rarity(),
+				nft.rarity().ward(),
+				&stats,
+				&log
+			),
+			finished.outcome()
+		);
+	}
+
+	#[test]
 	fn an_orb_pressed_and_let_go_between_two_frames_is_held_for_a_tick() {
 		let mut controller = HuntController::new(Fight::Hunt(sim(3)));
 		controller.hold_orb(true);
 		controller.hold_orb(false);
-		controller.frame(2.0 * HuntController::TICK_SECONDS, &ArPose::AHEAD);
+		controller.frame(
+			2.0 * HuntController::TICK_SECONDS,
+			&ArPose::AHEAD,
+			FrameEye::Origin,
+		);
 		let held: Vec<bool> = controller
 			.log()
 			.inputs
@@ -278,9 +574,17 @@ mod tests {
 		// Held across frames, it is held on every tick, and once let go it
 		// is not held again.
 		controller.hold_orb(true);
-		controller.frame(2.0 * HuntController::TICK_SECONDS, &ArPose::AHEAD);
+		controller.frame(
+			2.0 * HuntController::TICK_SECONDS,
+			&ArPose::AHEAD,
+			FrameEye::Origin,
+		);
 		controller.hold_orb(false);
-		controller.frame(HuntController::TICK_SECONDS, &ArPose::AHEAD);
+		controller.frame(
+			HuntController::TICK_SECONDS,
+			&ArPose::AHEAD,
+			FrameEye::Origin,
+		);
 		let held: Vec<bool> = controller
 			.log()
 			.inputs
@@ -295,10 +599,10 @@ mod tests {
 		let mut fast = HuntController::new(Fight::Hunt(sim(3)));
 		let mut slow = HuntController::new(Fight::Hunt(sim(3)));
 		for _ in 0..120 {
-			fast.frame(1.0 / 120.0, &ArPose::AHEAD);
+			fast.frame(1.0 / 120.0, &ArPose::AHEAD, FrameEye::Origin);
 		}
 		for _ in 0..30 {
-			slow.frame(1.0 / 30.0, &ArPose::AHEAD);
+			slow.frame(1.0 / 30.0, &ArPose::AHEAD, FrameEye::Origin);
 		}
 		assert_eq!(fast.ticks(), HuntRules::TICK_RATE as usize);
 		assert_eq!(slow.ticks(), fast.ticks());
@@ -308,9 +612,9 @@ mod tests {
 	#[test]
 	fn a_stalled_frame_catches_up_only_a_little() {
 		let mut controller = HuntController::new(Fight::Hunt(sim(4)));
-		controller.frame(5.0, &ArPose::AHEAD);
+		controller.frame(5.0, &ArPose::AHEAD, FrameEye::Origin);
 		assert_eq!(controller.ticks(), 6);
-		controller.frame(f64::NAN, &ArPose::AHEAD);
+		controller.frame(f64::NAN, &ArPose::AHEAD, FrameEye::Origin);
 		assert_eq!(controller.ticks(), 6);
 	}
 
@@ -320,7 +624,11 @@ mod tests {
 		controller.press();
 		controller.select(Arsenal::BLADE_SLOT);
 		controller.hold_orb(true);
-		controller.frame(HuntController::TICK_SECONDS * 2.0, &ArPose::AHEAD);
+		controller.frame(
+			HuntController::TICK_SECONDS * 2.0,
+			&ArPose::AHEAD,
+			FrameEye::Origin,
+		);
 		let log = controller.log();
 		assert!(log.inputs[0].fire);
 		assert_eq!(log.inputs[0].slot as usize, Arsenal::BLADE_SLOT);
@@ -328,7 +636,11 @@ mod tests {
 		assert!(!log.inputs[1].fire);
 		assert!(log.inputs[1].orb_held, "the thumb is still down");
 		controller.hold_orb(false);
-		controller.frame(HuntController::TICK_SECONDS, &ArPose::AHEAD);
+		controller.frame(
+			HuntController::TICK_SECONDS,
+			&ArPose::AHEAD,
+			FrameEye::Origin,
+		);
 		assert!(!controller.log().inputs[2].orb_held);
 	}
 
@@ -359,7 +671,7 @@ mod tests {
 		let mut seconds = 0.0;
 		while !autoplay.sim().is_over() && seconds < 60.0 {
 			let pose = autoplay.pose(ArPose::AHEAD);
-			autoplay.frame(1.0 / 30.0, &pose);
+			autoplay.frame(1.0 / 30.0, &pose, FrameEye::Origin);
 			seconds += 1.0 / 30.0;
 		}
 		assert!(
@@ -380,7 +692,7 @@ mod tests {
 			let mut seconds = 0.0;
 			while !controller.sim().is_over() && seconds < 200.0 {
 				let pose = controller.pose(ArPose::AHEAD);
-				controller.frame(1.0 / 30.0, &pose);
+				controller.frame(1.0 / 30.0, &pose, FrameEye::Origin);
 				seconds += 1.0 / 30.0;
 			}
 			let outcome = controller.sim().outcome().expect("the hunt ends");
