@@ -1,0 +1,16 @@
+# The frontends this repository ships, each its own leptoskit application
+# with its own leptoskit.toml, build and deploy. `leptoskit workspace check`
+# validates them; `leptoskit workspace explain` lists them.
+#
+# The landing page links to the game by its URL (REAPERS_APP_URL when the
+# landing is built); nothing else is shared between them.
+
+format_version = 1
+
+[applications.landing]
+path = "crates/reapers_landing"
+kind = "landing"
+
+[applications.app]
+path = "crates/reapers_app"
+kind = "product"

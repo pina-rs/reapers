@@ -1,0 +1,6 @@
+/.leptoskit
+/dist
+# Mirrored by build.rs from the repository's assets.
+/assets/fonts
+/assets/branding
+/assets/nfts

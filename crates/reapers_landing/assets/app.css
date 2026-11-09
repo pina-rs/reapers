@@ -1,0 +1,176 @@
+/* The landing page's web shell: what leptoskit has no utility for.
+
+   leptoskit's classes set the page's colours, sizes and layout. This sets
+   the rest, by element and by a few ids the page gives its parts:
+
+   - the two faces, Fraunces for headings and DM Sans for everything else,
+     both under the SIL Open Font License (see fonts/);
+   - line height and letter spacing, which leptoskit does not set;
+   - the glows behind the drawings, which are gradients;
+   - the capture's stage, which pins its orb while the page scrolls past,
+     and only where the browser can drive it from the scroll.
+
+   leptoskit's own rules sit inside `:where()`, so these win without
+   `!important`. */
+
+@font-face {
+  font-family: "Fraunces";
+  src: url("fonts/Fraunces.ttf") format("truetype");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DM Sans";
+  src: url("fonts/DMSans.ttf") format("truetype");
+  font-weight: 100 1000;
+  font-display: swap;
+}
+
+html {
+  background: #07080b;
+  color: #e9e4d4;
+  color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: #07080b;
+  overflow-x: clip;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body,
+body * {
+  font-family: "DM Sans", system-ui, sans-serif;
+}
+
+::selection {
+  background: #ffc65a;
+  color: #07080b;
+}
+
+/* Names: Fraunces at its sharpest cut, set tight. */
+h1,
+h2,
+h3,
+#wordmark,
+#premise-statement,
+#premise-statement * {
+  font-family: "Fraunces", Georgia, serif;
+  font-optical-sizing: auto;
+  font-variation-settings: "SOFT" 0, "WONK" 1;
+  letter-spacing: -0.022em;
+  line-height: 1;
+  text-wrap: balance;
+}
+
+h1 {
+  letter-spacing: -0.035em;
+  line-height: 0.94;
+}
+
+h3 {
+  line-height: 1.08;
+}
+
+#premise-statement {
+  line-height: 1.12;
+  font-size: clamp(30px, 4.6vw, 54px);
+}
+
+p {
+  margin: 0;
+  line-height: 1.55;
+  text-wrap: pretty;
+  max-width: 62ch;
+}
+
+a {
+  text-decoration: none;
+  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+
+a:hover {
+  color: #e9e4d4;
+}
+
+a:focus-visible {
+  outline: 2px solid #ffc65a;
+  outline-offset: 3px;
+}
+
+/* The page's one call to act fills with the soul's light when pressed or
+   pointed at, as the game's ledger actions fill with the reaper's. */
+a[class~="border"]:hover,
+a[class~="border"]:active {
+  background-color: #e9e4d4;
+  color: #07080b;
+}
+
+a[class~="border"]:hover *,
+a[class~="border"]:active * {
+  color: #07080b;
+}
+
+/* The glow the husk is drawn out of. */
+#hero-art::before {
+  content: "";
+  position: absolute;
+  inset: -12% -8%;
+  background: radial-gradient(closest-side, rgb(255 198 90 / 0.14), rgb(255 198 90 / 0) 70%);
+  pointer-events: none;
+}
+
+/* The capture's count, and the hunt's numerals, are names too. */
+#capture-words,
+#capture-words *,
+[id^="numeral-"] {
+  font-family: "Fraunces", Georgia, serif;
+  font-variation-settings: "SOFT" 0, "WONK" 1;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+#capture-words {
+  max-width: none;
+}
+
+/* The orb's own light. */
+#capture-orb::before {
+  content: "";
+  position: absolute;
+  inset: -45%;
+  background: radial-gradient(closest-side, rgb(255 198 90 / 0.22), rgb(255 198 90 / 0) 72%);
+  pointer-events: none;
+}
+
+/* The capture's stage: three screens of scroll with its middle pinned, so
+   the reader's scrolling counts the pulses. Only where the browser drives
+   animations from the scroll, and only for those who have not asked for
+   less motion; everyone else reads it at rest in one screen. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    #capture {
+      height: 320vh;
+    }
+
+    #capture-pin {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      height: 100svh;
+      min-height: 0;
+    }
+  }
+}

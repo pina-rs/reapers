@@ -6375,6 +6375,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "reapers_landing"
+version = "0.1.0"
+dependencies = [
+ "console_error_panic_hook",
+ "leptos",
+ "leptoskit",
+ "leptoskit_build",
+ "leptoskit_l10n",
+ "leptoskit_router",
+ "leptoskit_testing",
+ "reactive_graph",
+ "reapers_rules",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "reapers_ops"
 version = "0.1.0"
 dependencies = [

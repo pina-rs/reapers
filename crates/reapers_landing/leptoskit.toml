@@ -1,0 +1,55 @@
+#:schema https://leptoskit.dev/schemas/leptoskit.v0.schema.json
+
+schema_version = 0
+
+# The landing page: what Reapers is, and a way into the game. It is the
+# `landing` application of the repository's `leptoskit.workspace.toml`, a
+# separate frontend from the game (`crates/reapers_app`), with its own build
+# and its own deploy. It is web only and renders in the browser, so
+# `leptoskit build` makes a static site: `dist/` for any static host.
+[app]
+name = "reapers_landing"
+version = "0.1.0"
+default_platform = "web"
+platforms = ["web"]
+render = "csr"
+
+# leptoskit turns on a client's `csr` feature by itself only when the crate
+# also builds for native hosts; this one is web only, so it asks.
+[build]
+backend = false
+client_package = "reapers_landing"
+features = ["csr"]
+
+# Beside the game's 3010.
+[serve]
+address = "127.0.0.1"
+port = 3011
+
+# A landing page is the first thing anyone loads, so every byte counts:
+# release builds compile the client as small as it goes and ship brotli and
+# gzip copies beside every file.
+[bundle]
+optimize = "smallest"
+wasm_opt = true
+precompress = true
+
+# Builder calls, as in the game: the compiler checks them directly.
+[lint]
+markup = "builder"
+
+[lint.rules]
+markup_style = "deny"
+component_attribute = "deny"
+
+# One page, as a file route, with the scaffold's layout and not-found
+# route; `leptoskit build` writes src/routes.rs.
+[[plugins]]
+name = "router"
+
+# Every string the page shows is in locales/en.arb; `leptoskit build` writes
+# src/l10n.rs from it.
+[l10n]
+dir = "locales"
+output = "src/l10n.rs"
+template = "en"
