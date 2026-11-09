@@ -3,6 +3,7 @@
 use reapers_rules::Gait;
 use reapers_rules::HuntPlan;
 use reapers_rules::HuntRules;
+use reapers_rules::Vec3;
 use reapers_rules::Vessel;
 
 use crate::depth_frame::DepthFrame;
@@ -86,6 +87,10 @@ const FLOOR_SHARE: f64 = 0.15;
 /// keeps one picture's floor and furniture in step with the next one's, and
 /// it puts a husk's feet on the floor the camera shows even when the
 /// model's metres are off.
+///
+/// A picture carries where its eye was when it was taken
+/// ([`DepthFrame::origin`]), so a player who moves while the room is read
+/// charts one room rather than one room per place they stood.
 ///
 /// Where the platform has measured the floor itself, in real metres, that
 /// is trusted instead: see [`measure_floor`](Self::measure_floor).
@@ -231,17 +236,20 @@ impl RoomMap {
 		self.frames
 	}
 
-	/// How far below the eye the floor was in the last picture taken in, in
-	/// that picture's own metres. Each picture is read against its own
-	/// floor, and this is how far to scale it to agree with
+	/// How far below the eye of the last picture the floor was in that
+	/// picture's own metres. Each picture is read against its own floor, and
+	/// this is how far to scale it to agree with
 	/// [`floor_depth`](Self::floor_depth).
 	pub const fn last_picture_floor(&self) -> Option<f64> {
 		self.last_picture_floor
 	}
 
-	/// How far the floor is below the player's eye, in metres: as the
-	/// platform measured it, or else the middle of what every picture made
-	/// of it. `None` until either has happened.
+	/// How far the floor is below the hunt's origin, in metres: as the
+	/// platform measured it, or else the mean of what every accepted picture
+	/// made of it, brought back to the hunt's origin.
+	///
+	/// The mean is the one estimate the plan and the room's grid both use, so
+	/// the grid a husk walks is always one the plan agrees with.
 	pub fn floor_depth(&self) -> Option<f64> {
 		if self.measured_floor.is_some() {
 			return self.measured_floor;
@@ -251,11 +259,7 @@ impl RoomMap {
 			return None;
 		}
 
-		let mut sorted = self.floors.clone();
-
-		sorted.sort_by(f64::total_cmp);
-
-		Some(sorted[sorted.len() / 2])
+		Some(self.floors.iter().sum::<f64>() / self.floors.len() as f64)
 	}
 
 	/// Whether the floor's depth was measured by the platform rather than
@@ -264,7 +268,7 @@ impl RoomMap {
 		self.measured_floor.is_some()
 	}
 
-	/// Takes the floor as `eye_height` metres below the eye, as the
+	/// Takes the floor as `eye_height` metres below the hunt's origin, as the
 	/// platform measured it. Answers whether it was taken: a height no
 	/// phone could be held at is not.
 	///
@@ -283,6 +287,10 @@ impl RoomMap {
 	///   in multiples of the floor's depth, so a picture read against its own
 	///   floor and one read against the measured floor land in the same
 	///   rings, and only the metres they come to change.
+	///
+	/// A picture taken from `origin` elsewhere has the measured floor below
+	/// its own eye, so [`add`](Self::add) takes the origin's height into
+	/// account before charting it.
 	///
 	/// It may be measured again, as the platform refines the plane; the last
 	/// measurement stands. Only depth in real metres should be read against
@@ -320,38 +328,58 @@ impl RoomMap {
 			self.floor_depth()
 		};
 
-		if let Some(own) = own {
-			self.floors.push(own);
-		}
-
-		// The floor this picture is charted against.
-		let floor = measured.or(own);
+		// The floor below this picture's own eye, in its own metres: the
+		// measured floor is below the hunt's origin, so a picture taken from
+		// above or below it sees the floor that much farther away.
+		let floor = measured.map(|floor| floor + frame.origin.y).or(own);
+		// The same floor below the hunt's origin. Every picture is measured
+		// against this, so a picture taken from elsewhere still says what the
+		// room is.
+		let floor_at_origin = floor.map(|floor| floor - frame.origin.y);
 		// A picture with a table across it and hardly any floor takes the
 		// table for the floor. Once a few pictures agree where the floor is,
 		// one that puts it somewhere else altogether is not charted.
-		let agrees = |floor: f64| {
+		let agrees = floor_at_origin.is_some_and(|floor| {
 			measured.is_some()
 				|| agreed.is_none_or(|agreed| (floor / agreed - 1.0).abs() <= FLOOR_LEEWAY)
-		};
+		});
 
 		if self.vessel.gait() == Gait::Ground {
 			let Some(floor) = floor else {
 				return false;
 			};
 
-			if !agrees(floor) {
+			if !agrees {
 				return false;
 			}
 
-			self.chart_floor(&cloud, floor);
+			// A picture that is charted counts towards the floor. One that is
+			// set aside does not: it must not move the floor the others found.
+			if let Some(own) = own {
+				self.floors.push(own - frame.origin.y);
+			}
+
+			let unit = self
+				.floor_depth()
+				.unwrap_or(floor_at_origin.unwrap_or(floor));
+			let scale = (unit + frame.origin.y) / floor;
+
+			self.chart_floor(&cloud, floor, scale, frame.origin, unit);
 		} else {
-			self.chart_air(&cloud, &level);
+			if agrees && let Some(own) = own {
+				self.floors.push(own - frame.origin.y);
+			}
+
+			self.chart_air(&cloud, &level, frame.origin);
 		}
 
-		if let Some(floor) = floor
-			&& agrees(floor)
-		{
-			self.chart_furniture(&cloud, &level, floor);
+		if let (Some(floor), true) = (floor, agrees) {
+			let unit = self
+				.floor_depth()
+				.unwrap_or(floor_at_origin.unwrap_or(floor));
+			let scale = (unit + frame.origin.y) / floor;
+
+			self.chart_furniture(&cloud, &level, floor, scale, frame.origin, unit);
 		}
 
 		self.last_picture_floor = floor;
@@ -667,12 +695,15 @@ impl RoomMap {
 	}
 
 	/// Charts one picture for a husk that walks. Every length is divided by
-	/// `floor`, the picture's own floor depth, before it goes on the map.
-	fn chart_floor(&mut self, cloud: &Cloud, floor: f64) {
+	/// `floor`, the picture's own floor depth, before it goes on the map, and
+	/// `scale` brings it from the picture's metres to the hunt's. `origin`
+	/// is where the picture was taken, so its furniture lands where it is in
+	/// the room.
+	fn chart_floor(&mut self, cloud: &Cloud, floor: f64, scale: f64, origin: Vec3, unit: f64) {
 		let top = 2.0 * self.vessel.half_height() + 0.2;
 
 		for index in 0..cloud.xs.len() {
-			let Some((x, y, z, away, ring)) = cloud.point(index, floor) else {
+			let Some((x, y, z, away, ring)) = cloud.point(index, scale, origin, unit) else {
 				continue;
 			};
 			let above = floor + y;
@@ -695,9 +726,17 @@ impl RoomMap {
 	///
 	/// Only what is no higher than the eye is charted. Anything taller is a
 	/// wall as far as a husk is concerned, and a ceiling is not furniture.
-	fn chart_furniture(&mut self, cloud: &Cloud, level: &[bool], floor: f64) {
+	fn chart_furniture(
+		&mut self,
+		cloud: &Cloud,
+		level: &[bool],
+		floor: f64,
+		scale: f64,
+		origin: Vec3,
+		unit: f64,
+	) {
 		for (index, level) in level.iter().enumerate() {
-			let Some((x, y, z, away, ring)) = cloud.point(index, floor) else {
+			let Some((x, y, z, away, ring)) = cloud.point(index, scale, origin, unit) else {
 				continue;
 			};
 
@@ -735,14 +774,14 @@ impl RoomMap {
 	///
 	/// A level surface is left out. A ceiling or a floor that the band
 	/// brushes is not a wall, and would otherwise close off the whole room.
-	fn chart_air(&mut self, cloud: &Cloud, level: &[bool]) {
+	fn chart_air(&mut self, cloud: &Cloud, level: &[bool], origin: Vec3) {
 		let low = self.vessel.low_metres() - self.vessel.half_height() - 0.1;
 		let high = self.vessel.high_metres() + self.vessel.half_height() + 0.1;
 
 		for index in 0..cloud.xs.len() {
-			let x = f64::from(cloud.xs[index]);
-			let y = f64::from(cloud.ys[index]);
-			let z = f64::from(cloud.zs[index]);
+			let x = f64::from(cloud.xs[index]) + origin.x;
+			let y = f64::from(cloud.ys[index]) + origin.y;
+			let z = f64::from(cloud.zs[index]) + origin.z;
 			let away = math::sqrt(x * x + z * z);
 			let in_the_band = away >= SELF_METRES && !level[index] && y >= low && y <= high;
 
@@ -808,14 +847,24 @@ impl Cloud {
 		cloud
 	}
 
-	/// Point `index` as `(x, y, z)`, how far it is from the player across
-	/// the floor, and the ring it falls in when the floor is `floor` below
-	/// the eye. `None` for a point that was not seen, is the player's own
-	/// hands and feet, or lies beyond the map.
-	fn point(&self, index: usize, floor: f64) -> Option<(f64, f64, f64, f64, usize)> {
-		let x = f64::from(self.xs[index]);
+	/// Point `index` in the hunt's frame as `(x, y, z)`, how far it is from
+	/// the hunt's origin across the floor, and the ring it falls in when the
+	/// floor is `unit` below the origin. `None` for a point that was not
+	/// seen, is the player's own hands and feet, or lies beyond the map.
+	///
+	/// `scale` brings the picture's metres to the hunt's; `origin` is where
+	/// its eye was. `y` stays relative to that eye, which is what says how
+	/// high the point is above the floor.
+	fn point(
+		&self,
+		index: usize,
+		scale: f64,
+		origin: Vec3,
+		unit: f64,
+	) -> Option<(f64, f64, f64, f64, usize)> {
 		let y = f64::from(self.ys[index]);
-		let z = f64::from(self.zs[index]);
+		let x = f64::from(self.xs[index]) * scale + origin.x;
+		let z = f64::from(self.zs[index]) * scale + origin.z;
 		let away = math::sqrt(x * x + z * z);
 
 		// A point that was not seen is NaN, and fails this too.
@@ -823,7 +872,7 @@ impl Cloud {
 			return None;
 		}
 
-		let ring = math::floor(away / floor / RING_SIZE);
+		let ring = math::floor(away / unit / RING_SIZE);
 
 		(ring < RINGS as i64).then_some((x, y, z, away, ring as usize))
 	}

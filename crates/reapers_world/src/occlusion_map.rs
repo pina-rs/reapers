@@ -13,8 +13,10 @@ use crate::math;
 /// phone only ever turns where the player stands, so a picture taken while
 /// the sigil was traced still lines up with the view from the same spot
 /// during the fight, whichever way the phone points then: nothing has to be
-/// read again. The floor is left out. A husk stands on the floor, and is
-/// never hidden by it.
+/// read again. A picture taken from somewhere else is brought back to the
+/// hunt's origin first, so a player who moved while tracing still hides a
+/// husk behind the furniture they really stood in front of. The floor is
+/// left out. A husk stands on the floor, and is never hidden by it.
 ///
 /// Like [`RoomMap`](crate::RoomMap) this is arithmetic and nothing else, so
 /// that it can be tested against rooms drawn by hand.
@@ -66,11 +68,13 @@ impl OcclusionMap {
 		self.pictures
 	}
 
-	/// Takes in one picture whose floor is `floor` metres below the eye in
+	/// Takes in one picture whose floor is `floor` metres below its eye in
 	/// its own metres, scaling every length by `scale` to agree with the
-	/// floor the hunt stands on.
+	/// floor the hunt stands on and moving it from where it was taken to the
+	/// hunt's origin.
 	pub fn add(&mut self, frame: &DepthFrame, floor: f64, scale: f64) {
 		let pose = frame.pose;
+		let origin = frame.origin;
 
 		for row in 0..frame.height {
 			for column in 0..frame.width {
@@ -81,9 +85,12 @@ impl OcclusionMap {
 					continue;
 				}
 
-				let x = depth * (pose.forward.x + pose.right.x * across + pose.up.x * up);
-				let y = depth * (pose.forward.y + pose.right.y * across + pose.up.y * up);
-				let z = depth * (pose.forward.z + pose.right.z * across + pose.up.z * up);
+				let local_x = depth * (pose.forward.x + pose.right.x * across + pose.up.x * up);
+				let local_y = depth * (pose.forward.y + pose.right.y * across + pose.up.y * up);
+				let local_z = depth * (pose.forward.z + pose.right.z * across + pose.up.z * up);
+				let x = local_x * scale + origin.x;
+				let y = local_y * scale + origin.y;
+				let z = local_z * scale + origin.z;
 				let away = math::sqrt(x * x + z * z);
 				let distance = math::sqrt(away * away + y * y);
 
@@ -94,8 +101,8 @@ impl OcclusionMap {
 				let Some(cell) = Self::cell_of(math::atan2(x, z), math::atan2(y, away)) else {
 					continue;
 				};
-				let on_floor =
-					(floor + y).abs() <= Self::FLOOR_SLACK + Self::FLOOR_SLACK_PER_METRE * away;
+				let on_floor = (floor + local_y).abs()
+					<= Self::FLOOR_SLACK + Self::FLOOR_SLACK_PER_METRE * away;
 
 				if on_floor {
 					if self.metres[cell] == 0.0 {
@@ -105,7 +112,7 @@ impl OcclusionMap {
 					continue;
 				}
 
-				let metres = (distance * scale).min(Self::FARTHEST) as f32;
+				let metres = distance.min(Self::FARTHEST) as f32;
 				let known = self.metres[cell];
 
 				if known == 0.0 || metres < known {

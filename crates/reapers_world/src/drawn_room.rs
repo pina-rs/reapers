@@ -141,7 +141,7 @@ impl DrawnRoom {
 
 	/// The picture of the room a perfect depth model would hand back with
 	/// the phone turned `yaw` degrees to the right and tipped `pitch`
-	/// degrees up.
+	/// degrees up, taken where the player stands.
 	pub fn picture(&self, yaw: f64, pitch: f64) -> DepthFrame {
 		self.picture_with(yaw, pitch, &Shot::default())
 	}
@@ -149,12 +149,26 @@ impl DrawnRoom {
 	/// The picture of the room as [`picture`](Self::picture), taken as
 	/// `shot` says.
 	pub fn picture_with(&self, yaw: f64, pitch: f64, shot: &Shot) -> DepthFrame {
+		self.picture_from_with(Vec3::ZERO, yaw, pitch, shot)
+	}
+
+	/// The picture a perfect depth model would hand back from `eye`, turned
+	/// `yaw` degrees to the right and tipped `pitch` degrees up, with the
+	/// room's origin where the player first stood.
+	pub fn picture_from(&self, eye: Vec3, yaw: f64, pitch: f64) -> DepthFrame {
+		self.picture_from_with(eye, yaw, pitch, &Shot::default())
+	}
+
+	/// The picture of the room as [`picture_from`](Self::picture_from), taken
+	/// as `shot` says.
+	pub fn picture_from_with(&self, eye: Vec3, yaw: f64, pitch: f64, shot: &Shot) -> DepthFrame {
 		let pose = Self::pose(yaw, pitch);
 		let mut frame = DepthFrame {
 			width: shot.width,
 			height: shot.height,
 			depths: vec![0.0; shot.width * shot.height],
 			pose,
+			origin: eye,
 			tan_half_width: Self::TAN_HALF_WIDTH,
 			tan_half_height: Self::TAN_HALF_HEIGHT,
 		};
@@ -167,7 +181,7 @@ impl DrawnRoom {
 				let wobble = 1.0 + shot.noise * (random.next_double() * 2.0 - 1.0);
 
 				frame.depths[row * shot.width + column] =
-					(self.depth_along(ray) * shot.stretch * wobble) as f32;
+					(self.depth_along_from(eye, ray) * shot.stretch * wobble) as f32;
 			}
 		}
 
@@ -232,31 +246,52 @@ impl DrawnRoom {
 	}
 
 	/// How far along `direction` the first surface is, in metres, as the
-	/// platform's hit test against its depth would answer: `None` where it
-	/// is not hit.
+	/// platform's hit test against its depth would answer from where the
+	/// player stands: `None` where it is not hit.
 	pub fn hit(&self, direction: Vec3) -> Option<f64> {
-		let metres = self.depth_along(direction.normalized());
+		self.hit_from(Vec3::ZERO, direction)
+	}
+
+	/// How far along `direction` the first surface is from `eye`, in metres,
+	/// as the platform's hit test against its depth would answer: `None`
+	/// where it is not hit.
+	pub fn hit_from(&self, eye: Vec3, direction: Vec3) -> Option<f64> {
+		let metres = self.depth_along_from(eye, direction.normalized());
 
 		metres.is_finite().then_some(metres)
 	}
 
 	/// The answers the platform would give to every ray of `grid`, in the
-	/// order of [`RayGrid::rays`].
+	/// order of [`RayGrid::rays`], from where the player stands.
 	pub fn hits(&self, grid: &RayGrid) -> Vec<Option<f64>> {
-		grid.rays().map(|ray| self.hit(ray)).collect()
+		self.hits_from(Vec3::ZERO, grid)
+	}
+
+	/// The answers the platform would give to every ray of `grid`, in the
+	/// order of [`RayGrid::rays`], cast from `eye`.
+	pub fn hits_from(&self, eye: Vec3, grid: &RayGrid) -> Vec<Option<f64>> {
+		grid.rays().map(|ray| self.hit_from(eye, ray)).collect()
 	}
 
 	/// The picture of the room a phone held as [`picture`](Self::picture)
 	/// says would make from the platform's depth: a grid of rays, through
 	/// the same view, made into a frame by [`DepthFrame::from_rays`].
 	pub fn ray_picture(&self, yaw: f64, pitch: f64) -> DepthFrame {
+		self.ray_picture_from(Vec3::ZERO, yaw, pitch)
+	}
+
+	/// The picture of the room a phone held as
+	/// [`picture_from`](Self::picture_from) says, from `eye`, would make from
+	/// the platform's depth: a grid of rays through the same view, made into
+	/// a frame by [`DepthFrame::from_rays_at`].
+	pub fn ray_picture_from(&self, eye: Vec3, yaw: f64, pitch: f64) -> DepthFrame {
 		let grid = RayGrid::new(
 			Self::pose(yaw, pitch),
 			Self::TAN_HALF_WIDTH,
 			Self::TAN_HALF_HEIGHT,
 		);
 
-		DepthFrame::from_rays(&grid, &self.hits(&grid))
+		DepthFrame::from_rays_at(&grid, &self.hits_from(eye, &grid), eye)
 	}
 
 	/// The room read as a careful player tracing a long sigil would read
@@ -279,23 +314,24 @@ impl DrawnRoom {
 		survey
 	}
 
-	/// How far along `ray`, in multiples of its length, the first surface
-	/// is.
-	fn depth_along(&self, ray: Vec3) -> f64 {
-		// The room's own coordinates, when it is turned away from the hunt's
-		// axes: the same turn a [`RoomGrid`](reapers_rules::RoomGrid) stores
-		// as `grid_yaw`, applied backwards.
-		let ray = if self.room_yaw == 0.0 {
-			ray
+	/// How far along `ray`, in multiples of its length, the first surface is
+	/// from `eye`.
+	fn depth_along_from(&self, eye: Vec3, ray: Vec3) -> f64 {
+		// The room's own coordinates, when it is turned away from the
+		// hunt's axes: the same turn a
+		// [`RoomGrid`](reapers_rules::RoomGrid) stores as `grid_yaw`,
+		// applied backwards, to the eye as well as the ray.
+		let (eye, ray) = if self.room_yaw == 0.0 {
+			(eye, ray)
 		} else {
 			let cosine = math::cos(self.room_yaw);
 			let sine = math::sin(self.room_yaw);
+			let turn = |x: f64, z: f64| (x * cosine - z * sine, x * sine + z * cosine);
 
-			Vec3::new(
-				ray.x * cosine - ray.z * sine,
-				ray.y,
-				ray.x * sine + ray.z * cosine,
-			)
+			let (x, z) = turn(eye.x, eye.z);
+			let (ray_x, ray_z) = turn(ray.x, ray.z);
+
+			(Vec3::new(x, eye.y, z), Vec3::new(ray_x, ray.y, ray_z))
 		};
 		let mut nearest = f64::INFINITY;
 		let mut consider = |distance: f64| {
@@ -305,22 +341,22 @@ impl DrawnRoom {
 		};
 
 		if ray.y != 0.0 {
-			consider(-self.eye_height / ray.y);
-			consider(1.0 / ray.y);
+			consider((-self.eye_height - eye.y) / ray.y);
+			consider((1.0 - eye.y) / ray.y);
 		}
 
 		if ray.x != 0.0 {
-			consider(self.wall / ray.x);
-			consider(-self.wall / ray.x);
+			consider((self.wall - eye.x) / ray.x);
+			consider((-self.wall - eye.x) / ray.x);
 		}
 
 		if ray.z != 0.0 {
-			consider(self.wall / ray.z);
-			consider(-self.wall / ray.z);
+			consider((self.wall - eye.z) / ray.z);
+			consider((-self.wall - eye.z) / ray.z);
 		}
 
 		for block in &self.blocks {
-			if let Some(distance) = self.block_along(ray, block) {
+			if let Some(distance) = self.block_along(eye, ray, block) {
 				consider(distance);
 			}
 		}
@@ -328,26 +364,31 @@ impl DrawnRoom {
 		nearest
 	}
 
-	/// Where `ray` enters `block`, or `None` when it misses.
-	fn block_along(&self, ray: Vec3, block: &Block) -> Option<f64> {
+	/// Where a ray from `eye` enters `block`, or `None` when it misses.
+	fn block_along(&self, eye: Vec3, ray: Vec3, block: &Block) -> Option<f64> {
 		let mut enter: f64 = 0.0;
 		let mut leave = f64::INFINITY;
 
-		for (direction, low, high) in [
-			(ray.x, block.left, block.right),
-			(ray.y, -self.eye_height, -self.eye_height + block.height),
-			(ray.z, block.near, block.far),
+		for (origin, direction, low, high) in [
+			(eye.x, ray.x, block.left, block.right),
+			(
+				eye.y,
+				ray.y,
+				-self.eye_height,
+				-self.eye_height + block.height,
+			),
+			(eye.z, ray.z, block.near, block.far),
 		] {
 			if direction == 0.0 {
-				if low > 0.0 || high < 0.0 {
+				if low - origin > 0.0 || high - origin < 0.0 {
 					return None;
 				}
 
 				continue;
 			}
 
-			let one = low / direction;
-			let other = high / direction;
+			let one = (low - origin) / direction;
+			let other = (high - origin) / direction;
 
 			enter = enter.max(one.min(other));
 			leave = leave.min(one.max(other));

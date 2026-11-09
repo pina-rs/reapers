@@ -65,7 +65,9 @@ impl RoomSurvey {
 	}
 
 	/// Takes the floor as measured by the platform: see
-	/// [`RoomMap::measure_floor`].
+	/// [`RoomMap::measure_floor`]. It is the floor below the hunt's origin;
+	/// a picture taken from above or below it has the origin's height taken
+	/// into account.
 	pub fn measure_floor(&mut self, eye_height: f64) -> bool {
 		self.map.measure_floor(eye_height)
 	}
@@ -75,13 +77,16 @@ impl RoomSurvey {
 		let learnt = self.map.add(frame);
 
 		// Each picture is scaled to the floor the hunt will stand on, as the
-		// map of the room is.
+		// map of the room is. A picture taken from above or below the hunt's
+		// origin saw the floor that much farther away, so its own expected
+		// floor is the hunt's plus its height.
 		if learnt
 			&& let (Some(picture_floor), Some(floor)) =
 				(self.map.last_picture_floor(), self.map.floor_depth())
 		{
-			self.occlusion
-				.add(frame, picture_floor, floor / picture_floor);
+			let scale = (floor + frame.origin.y) / picture_floor;
+
+			self.occlusion.add(frame, picture_floor, scale);
 		}
 
 		learnt

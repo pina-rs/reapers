@@ -5,8 +5,8 @@ use reapers_rules::Vec3;
 use crate::math;
 use crate::pose::ArPose;
 
-/// One look at the room: how far away everything in a picture is, and where
-/// the phone was pointing when it was taken.
+/// One look at the room: how far away everything in a picture is, where the
+/// phone was pointing when it was taken, and where it stood.
 ///
 /// Depths are z-depths: how far each pixel is along the direction the
 /// camera faced, not along its own ray. A pixel `a` across and `b` up from
@@ -24,6 +24,16 @@ pub struct DepthFrame {
 
 	/// Where the phone was pointing.
 	pub pose: ArPose,
+
+	/// Where the phone's eye was when the picture was taken, in the hunt's
+	/// space: x to the player's right, y up, z ahead of the hunt's origin.
+	///
+	/// A picture is measured from its own eye. Charting adds this to every
+	/// point, so pictures taken from different places while the player moved
+	/// land in one room instead of each being charted around itself. Zero is
+	/// the hunt's origin, where the player stood when the room was first
+	/// read.
+	pub origin: Vec3,
 
 	/// How much the picture takes in: the tangent of half its view across
 	/// and of half its view up and down.
@@ -74,6 +84,16 @@ impl DepthFrame {
 	/// rows passes the first test but not the second. So a grid needs three
 	/// rays each way at the least.
 	pub fn from_rays(grid: &RayGrid, distances: &[Option<f64>]) -> Self {
+		Self::from_rays_at(grid, distances, Vec3::ZERO)
+	}
+
+	/// The depth picture that the platform's answers to `grid`'s rays make,
+	/// taken from `origin`: where the phone's eye was, in the hunt's space.
+	///
+	/// See [`from_rays`](Self::from_rays) for how the answers become a
+	/// picture. The origin is kept so that the picture charts where it was
+	/// taken rather than where the hunt began.
+	pub fn from_rays_at(grid: &RayGrid, distances: &[Option<f64>], origin: Vec3) -> Self {
 		let width = (math::round(2.0 * grid.tan_half_width / Self::PIXEL).max(0) as usize)
 			.max(grid.columns);
 		let height =
@@ -83,6 +103,7 @@ impl DepthFrame {
 			height,
 			depths: vec![f32::NAN; width * height],
 			pose: grid.pose,
+			origin,
 			tan_half_width: grid.tan_half_width,
 			tan_half_height: grid.tan_half_height,
 		};

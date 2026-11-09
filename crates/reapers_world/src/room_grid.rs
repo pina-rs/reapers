@@ -11,6 +11,8 @@
 //! 1. Drop flying pixels, the depth a model blurs across a silhouette.
 //! 2. Unproject with the picture's pose, and scale every length by the
 //!    room's floor: one picture's feet are not trusted, only its shape.
+//!    Add where the picture was taken, so pictures taken from different
+//!    places chart one room.
 //! 3. Chart the points into 5 cm cells, each holding a histogram of what
 //!    stands above the floor. Carve the cells a ray crossed before it hit
 //!    something, so a point above free space is dropped.
@@ -31,6 +33,7 @@ use reapers_rules::HuntRules;
 use reapers_rules::RoomCell;
 use reapers_rules::RoomCellKind;
 use reapers_rules::RoomGrid;
+use reapers_rules::Vec3;
 use reapers_rules::Vessel;
 
 use crate::depth_frame::DepthFrame;
@@ -201,11 +204,6 @@ pub struct RoomGridBuilder {
 
 	/// How much vertical structure faces each degree of one quarter turn.
 	yaw_weights: [f64; YAW_BINS],
-
-	/// The sum of every picture's own floor, in metres, and how many were
-	/// added: their mean is the room's floor.
-	floor_sum: f64,
-	floor_pictures: usize,
 }
 
 impl Default for RoomGridBuilder {
@@ -224,8 +222,6 @@ impl RoomGridBuilder {
 			counts: vec![0; FINE_HEIGHT_COUNTS],
 			clear: vec![f32::INFINITY; FINE_CELLS],
 			yaw_weights: [0.0; YAW_BINS],
-			floor_sum: 0.0,
-			floor_pictures: 0,
 		}
 	}
 
@@ -241,15 +237,18 @@ impl RoomGridBuilder {
 		self.map.frames()
 	}
 
-	/// How far the floor is below the player's eye, in metres, as the
-	/// pictures so far have it.
+	/// How far the floor is below the hunt's origin, in metres, as the
+	/// pictures so far have it: the same estimate the hunt's plan uses.
 	pub fn floor_depth(&self) -> Option<f64> {
-		self.room_floor()
+		self.map.floor_depth()
 	}
 
 	/// Takes in one picture. Answers whether it was charted: a picture with
 	/// no floor of its own, or one that disagrees with the floor the others
 	/// found, teaches the grid nothing.
+	///
+	/// The picture's own eye is taken into account: a picture taken from
+	/// elsewhere is charted where it was taken, in the room's own frame.
 	pub fn add_frame(&mut self, frame: &DepthFrame) -> bool {
 		if !self.map.add(frame) {
 			return false;
@@ -258,44 +257,41 @@ impl RoomGridBuilder {
 		let Some(picture_floor) = self.map.last_picture_floor() else {
 			return false;
 		};
+		let origin = frame.origin;
 
-		self.floor_sum += picture_floor;
-		self.floor_pictures += 1;
-
-		// The pictures' mean floor is the room's metres; until it is known,
-		// the first picture is charted against itself.
-		let scale = self.room_floor().unwrap_or(picture_floor) / picture_floor;
+		// The pictures' floor is the room's metres; until it is known, the
+		// first picture is charted against itself.
+		let scale = match self.room_floor() {
+			Some(floor) => (floor + origin.y) / picture_floor,
+			None => 1.0,
+		};
 		let keep = flying_pixels(frame);
 		let cloud = Cloud::of_filtered(frame, |column, row| keep[row * frame.width + column]);
 		let columns = frame.width / STRIDE;
 		let rows = frame.height / STRIDE;
 
-		self.chart(&cloud, columns, rows, scale, picture_floor);
-		self.carve(frame, scale, picture_floor);
+		self.chart(&cloud, columns, rows, scale, picture_floor, origin);
+		self.carve(frame, scale, picture_floor, origin);
 
 		true
 	}
 
-	/// How far below the eye the room's floor is, in metres: the mean of
-	/// every picture's own floor, or the platform's measurement.
+	/// How far below the hunt's origin the room's floor is, in metres: the
+	/// platform's measurement, or the mean of every picture's own floor,
+	/// brought back to the origin. This is the same estimate
+	/// [`RoomMap`](crate::RoomMap)'s plan uses, so the plan and the grid
+	/// always agree about the floor.
 	fn room_floor(&self) -> Option<f64> {
-		if self.map.floor_is_measured() {
-			return self.map.floor_depth();
-		}
-
-		if self.floor_pictures == 0 {
-			return None;
-		}
-
-		Some(self.floor_sum / self.floor_pictures as f64)
+		self.map.floor_depth()
 	}
 
 	/// Charts one picture's points, and the directions its vertical
 	/// structure faces, into the fine grid.
 	///
 	/// `scale` turns the picture's own metres into the room's, so its
-	/// furniture stands where the other pictures put it. A height is kept as
-	/// a share of the hunt's usual eye height, so the picture's scale is
+	/// furniture stands where the other pictures put it. `origin` moves it
+	/// from where it was taken to the hunt's frame. A height is kept as a
+	/// share of the hunt's usual eye height, so the picture's scale is
 	/// divided out of it.
 	fn chart(
 		&mut self,
@@ -304,6 +300,7 @@ impl RoomGridBuilder {
 		rows: usize,
 		scale: f64,
 		picture_floor: f64,
+		origin: Vec3,
 	) {
 		let normals = surface_normals(cloud, columns, rows);
 
@@ -318,9 +315,9 @@ impl RoomGridBuilder {
 				}
 			}
 
-			let x = f64::from(cloud.xs[index]) * scale;
+			let x = f64::from(cloud.xs[index]) * scale + origin.x;
 			let y = f64::from(cloud.ys[index]);
-			let z = f64::from(cloud.zs[index]) * scale;
+			let z = f64::from(cloud.zs[index]) * scale + origin.z;
 
 			// A point that was not seen is NaN, and fails this.
 			if !(x.is_finite() && y.is_finite() && z.is_finite()) {
@@ -354,8 +351,9 @@ impl RoomGridBuilder {
 
 	/// Records, for every fine cell a ray crossed before it hit something,
 	/// the lowest height above the floor at which it crossed. A point well
-	/// above that flew, since the ray passed beneath it.
-	fn carve(&mut self, frame: &DepthFrame, scale: f64, picture_floor: f64) {
+	/// above that flew, since the ray passed beneath it. The ray starts at
+	/// `origin`, where the picture was taken.
+	fn carve(&mut self, frame: &DepthFrame, scale: f64, picture_floor: f64, origin: Vec3) {
 		for row in (0..frame.height).step_by(CARVE_STRIDE) {
 			for column in (0..frame.width).step_by(CARVE_STRIDE) {
 				let depth = f64::from(frame.depths[row * frame.width + column]);
@@ -376,13 +374,16 @@ impl RoomGridBuilder {
 
 				let ray = direction / stretch;
 				let hit = depth * stretch;
-				let hit_cell = fine_cell(ray.x * hit * scale, ray.z * hit * scale);
+				let hit_cell = fine_cell(
+					ray.x * hit * scale + origin.x,
+					ray.z * hit * scale + origin.z,
+				);
 				let mut along = SELF_METRES;
 
 				while along < hit - CARVE_MARGIN {
-					let x = ray.x * along * scale;
+					let x = ray.x * along * scale + origin.x;
 					let y = ray.y * along;
-					let z = ray.z * along * scale;
+					let z = ray.z * along * scale + origin.z;
 					let height = ((y + picture_floor) / picture_floor * NOMINAL_FLOOR).max(0.0);
 
 					if let Some(cell) = fine_cell(x, z) {
@@ -1034,6 +1035,7 @@ mod tests {
 			height: 1,
 			depths: depths.to_vec(),
 			pose: ArPose::AHEAD,
+			origin: Vec3::ZERO,
 			tan_half_width: 0.4,
 			tan_half_height: 0.7,
 		}
