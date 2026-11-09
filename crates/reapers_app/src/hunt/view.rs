@@ -32,6 +32,7 @@ use reapers_world::sigil_plan;
 use super::arena::Arena;
 use super::controller::Fight;
 use super::controller::HuntController;
+use super::controller::PauseStatus;
 use super::controls::SCRIM;
 use super::hud::Banner;
 use super::hud::banner_for;
@@ -408,12 +409,7 @@ impl HuntState {
 			.clone()
 			.filter(|_| crate::config::BuildFlags::current().room_overlay)
 			.map(|grid| RoomOverlay::new(grid, self.brief.nft.collection.vessel()));
-		let occlusion = self
-			.shared
-			.survey
-			.borrow_mut()
-			.take()
-			.map(|survey| survey.occlusion().clone());
+		self.shared.survey.borrow_mut().take();
 		// The room's pictures were charted in the frame of the first one. The
 		// fight is drawn there too, so the husk and the furniture it hides
 		// behind stay in one room.
@@ -426,7 +422,7 @@ impl HuntState {
 			HuntController::new(Fight::Hunt(sim))
 		};
 		self.arena
-			.engage(controller, occlusion, self.brief.loadout.weapon.kind);
+			.engage(controller, self.brief.loadout.weapon.kind);
 		self.stage = Stage::Fighting;
 		self.banner = Some((
 			Banner {
@@ -472,7 +468,11 @@ impl HuntState {
 			self.arena.fov = fov;
 		}
 		if let Some(position) = self.shared.live.borrow().position {
-			self.arena.anchor(position);
+			if self.shared.live.borrow().world_tracking() == Some(true) {
+				self.arena.anchor_world(position);
+			} else {
+				self.arena.anchor(position);
+			}
 		}
 		let mut hung = false;
 		if self.stage == Stage::Aligning {
@@ -548,7 +548,8 @@ impl HuntState {
 
 			controller.hold_orb(holding);
 		}
-		let events = self.arena.advance(delta, live_pose);
+		let world = self.shared.live.borrow().world_tracking();
+		let events = self.arena.advance(delta, live_pose, world);
 		let mut learned = false;
 		for (_, event) in &events {
 			knock_for(event);
@@ -607,7 +608,10 @@ impl HuntState {
 		}
 		if let Some(controller) = &self.arena.controller {
 			controller.ticks().hash(&mut hasher);
+			std::mem::discriminant(&controller.pause_status()).hash(&mut hasher);
 		}
+		let eye = self.arena.eye();
+		(quantum(eye.x), quantum(eye.y), quantum(eye.z)).hash(&mut hasher);
 		self.banner
 			.as_ref()
 			.map(|(banner, _)| banner.text.clone())
@@ -743,6 +747,7 @@ pub fn hunt_view(props: &HuntViewProps) -> Element {
 					state.light,
 					state.arena.wound,
 					state.brief.loadout.reaper_class.perk() == ClassPerk::Measure,
+					controller.pause_status() != PauseStatus::Playing,
 				);
 			}
 		}
@@ -777,6 +782,10 @@ fn fighting(state: &HuntState) -> Element {
 		state.banner.as_ref().map(|(banner, _)| banner.clone()),
 		"",
 	);
+	let pause = pause_words(&*words, controller.pause_status());
+	if pause.is_some() {
+		shown.prompt.clear();
+	}
 	let lesson = state
 		.teacher
 		.as_ref()
@@ -799,11 +808,41 @@ fn fighting(state: &HuntState) -> Element {
 		on_fire: fire,
 		on_slot: select_slot,
 	};
-	let controls = super::controls::controls(&*words, &thumbs);
-	View()
-		.class("absolute inset-0")
-		.child(status_view(&*words, &shown, state.light, None))
-		.child(controls)
+	let mut screen =
+		View()
+			.class("absolute inset-0")
+			.child(status_view(&*words, &shown, state.light, None));
+	if pause.is_none() {
+		screen = screen.child(super::controls::controls(&*words, &thumbs));
+	} else {
+		screen = screen.child(
+			View()
+				.class("absolute left-3 bottom-4 pb-safe px-3 py-2 rounded-[8px] bg-black")
+				.child(label(words.hunt_orb(), 16, BONE)),
+		);
+	}
+	if let Some(message) = pause {
+		screen = screen.child(
+			View()
+				.class("absolute left-3 right-3 top-0 pt-safe pt-3")
+				.child(
+					View()
+						.class(format!("px-3 py-2 rounded-[8px] {SCRIM}"))
+						.test_id("hunt-pause-guidance")
+						.child(body(message, 14, BONE).aria_live(leptoskit::native::Live::Polite)),
+				),
+		);
+	}
+	screen
+}
+
+fn pause_words(words: &dyn Messages, pause: PauseStatus) -> Option<&'static str> {
+	match pause {
+		PauseStatus::Playing => None,
+		PauseStatus::Tracking => Some(words.hunt_tracking_pause()),
+		PauseStatus::ReturnToStance => Some(words.hunt_stance_pause()),
+		PauseStatus::ResumeHeldOrb => Some(words.hunt_orb_resume()),
+	}
 }
 
 /// Presses FIRE once for the fight on screen.
@@ -1001,6 +1040,26 @@ fn briefing(state: &HuntState, props: &HuntViewProps) -> Element {
 
 #[cfg(test)]
 mod tests {
+	#[test]
+	fn pause_guidance_uses_the_localized_action_for_each_state() {
+		use super::PauseStatus;
+		use super::pause_words;
+		use super::words;
+		let words = words();
+		assert_eq!(pause_words(words, PauseStatus::Playing), None);
+		assert_eq!(
+			pause_words(words, PauseStatus::Tracking),
+			Some(words.hunt_tracking_pause())
+		);
+		assert_eq!(
+			pause_words(words, PauseStatus::ReturnToStance),
+			Some(words.hunt_stance_pause())
+		);
+		assert_eq!(
+			pause_words(words, PauseStatus::ResumeHeldOrb),
+			Some(words.hunt_orb_resume())
+		);
+	}
 	use std::sync::Arc;
 
 	use reapers_rules::HuntLoadout;

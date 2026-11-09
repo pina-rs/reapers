@@ -26,6 +26,7 @@ use reapers_rules::Gait;
 use reapers_rules::HuskPose;
 use reapers_rules::Nft;
 use reapers_rules::NftLook;
+use reapers_rules::Vec3;
 use reapers_rules::Vessel;
 use reapers_rules::wrap_angle;
 
@@ -339,11 +340,16 @@ impl HuskRig {
 
 	/// Puts the husk where the rules say it is, facing the way they say.
 	pub fn place(&mut self, pose: &HuskPose) {
+		self.place_from(pose, Vec3::ZERO);
+	}
+
+	/// Places the husk and directs its response away from the current eye.
+	pub fn place_from(&mut self, pose: &HuskPose, eye: Vec3) {
 		self.pose = Some(*pose);
 		let at = pose.position;
 		self.leaping = pose.leaping;
 		self.grounded = pose.ground.is_some() && !pose.leaping;
-		let away = (pose.direction().x, pose.direction().z);
+		let away = (pose.position.x - eye.x, pose.position.z - eye.z);
 		let length = away.0.hypot(away.1);
 		if length > 1e-6 {
 			// Into the model's frame, which faces −z.

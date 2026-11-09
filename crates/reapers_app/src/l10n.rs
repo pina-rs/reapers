@@ -621,6 +621,8 @@ pub trait Messages: Send + Sync {
 	///
 	/// `Hold to throw`
 	fn hunt_orb_ready(&self) -> &'static str;
+	/// `Release ORB, then press and hold it again to resume your throw.`
+	fn hunt_orb_resume(&self) -> &'static str;
 	/// `Orb, {soul} soul. Hold to ready it and let go to throw.`
 	fn hunt_orb_semantics(&self, soul: i64) -> String;
 	/// `Out of reach`
@@ -733,6 +735,8 @@ pub trait Messages: Send + Sync {
 	fn hunt_slot_semantics(&self, weapon: &str, slot: i64) -> String;
 	/// `Soul {soul}`
 	fn hunt_soul(&self, soul: i64) -> String;
+	/// `Return to where you started and hold your phone within reach of that spot.`
+	fn hunt_stance_pause(&self) -> &'static str;
 	/// `Steadfast`
 	fn hunt_steadfast(&self) -> &'static str;
 	/// `It struck you`
@@ -769,6 +773,8 @@ pub trait Messages: Send + Sync {
 	fn hunt_throw_plain(&self) -> &'static str;
 	/// `Throws {charges}`
 	fn hunt_throws(&self, charges: i64) -> String;
+	/// `Tracking paused. Hold your phone still and look around until tracking returns.`
+	fn hunt_tracking_pause(&self) -> &'static str;
 	/// `Ward`
 	fn hunt_ward(&self) -> &'static str;
 	/// `The hunt began with an ambush`
@@ -2960,6 +2966,10 @@ impl Messages for En {
 		"Hold to throw"
 	}
 
+	fn hunt_orb_resume(&self) -> &'static str {
+		"Release ORB, then press and hold it again to resume your throw."
+	}
+
 	fn hunt_orb_semantics(&self, soul: i64) -> String {
 		format!("Orb, {soul} soul. Hold to ready it and let go to throw.")
 	}
@@ -3172,6 +3182,10 @@ impl Messages for En {
 		format!("Soul {soul}")
 	}
 
+	fn hunt_stance_pause(&self) -> &'static str {
+		"Return to where you started and hold your phone within reach of that spot."
+	}
+
 	fn hunt_steadfast(&self) -> &'static str {
 		"Steadfast"
 	}
@@ -3218,6 +3232,10 @@ impl Messages for En {
 
 	fn hunt_throws(&self, charges: i64) -> String {
 		format!("Throws {charges}")
+	}
+
+	fn hunt_tracking_pause(&self) -> &'static str {
+		"Tracking paused. Hold your phone still and look around until tracking returns."
 	}
 
 	fn hunt_ward(&self) -> &'static str {

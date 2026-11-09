@@ -189,8 +189,9 @@ On 3 October 2026 the scan was reported to work, with a request for something cl
 ## What it cannot do
 
 - **Read the room in the browser.** It turns, but has neither depth nor the camera's picture.
-- **Aim from where the player has walked to.** The rules play every hunt from the origin the room was charted around: the crosshair's hit, the orb's grade and the ranges are angles around that one place, and the log the server replays records them as such. What is drawn — the husk, its seals, the grid, the cover's fading — follows the eye the camera draws with, so a player who moves between the sigil and the fight sees every mark where the room shows what it names, but the rules' decisions still lag by the parallax of their step. Giving them the player's position needs a new input in the hunt's log — a version nine — and is a decision yet to be made.
-- **A chart older than the fight.** The occlusion the husk fades behind was measured from the eye that first read the room. A player who moves is asked about the line they actually look along, but the chart itself is still the one from the origin, so what cover that line crosses is the chart's best answer, not a fresh reading of the room.
+- **Validate positional aim on a phone yet.** A positional hunt records the phone's eye relative to the chart and judges shots, reach, orbs and visibility from that eye. The fight pauses when tracking is unreliable or the eye leaves the provisional one-metre stance. The Seeker reports rotation only and plays from the origin. Positional alignment still needs ARKit or ARCore hardware validation.
+- **Trust Studio after resuming on the Seeker yet.** A black Studio view after resume and the GPU's recovery still need a fresh device check; this change has not verified either.
+- **See a fresh room during the fight.** Visibility follows the current eye through the charted grid or the plan's thin walls, but the chart is still the one read before the fight. A heightfield cannot describe what lies under an overhang.
 - **Notice a change.** The plan is made once, before the hunt. Move a chair and the husk walks through it.
 - **Know the ceiling.** A flier's air is capped by its own rules, not by the room.
 - **Tell a sofa from a counter.** It knows how tall something is and whether its top is level, not what it is.

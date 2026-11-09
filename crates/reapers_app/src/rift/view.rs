@@ -230,8 +230,7 @@ impl RiftState {
 				} else {
 					HuntController::new(Fight::Rift(seat))
 				};
-				self.arena
-					.engage(controller, None, self.loadout.weapon.kind);
+				self.arena.engage(controller, self.loadout.weapon.kind);
 			}
 		} else if !engaged && !self.rested {
 			// Nothing is being fought yet, but the husk already stands where
@@ -281,7 +280,7 @@ impl RiftState {
 
 				controller.hold_orb(holding);
 			}
-			let events = self.arena.advance(delta, live_pose);
+			let events = self.arena.advance(delta, live_pose, None);
 			for (_, event) in &events {
 				knock_for(event);
 				if let Some(banner) = banner_for(words(), event) {
@@ -503,6 +502,7 @@ pub fn rift_view(props: &RiftViewProps) -> Element {
 				state.light,
 				state.arena.wound,
 				state.loadout.reaper_class.perk() == ClassPerk::Measure,
+				false,
 			);
 			root = root.child(marks.into_view(state.size.0, state.size.1));
 			let live = state.shared.live.borrow();

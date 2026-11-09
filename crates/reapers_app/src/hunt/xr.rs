@@ -26,6 +26,18 @@ use reapers_world::RoomSurvey;
 
 use super::pose::LivePose;
 
+/// Whether a platform frame can safely supply a camera and room picture.
+#[cfg(any(
+	test,
+	all(target_arch = "wasm32", any(feature = "web", feature = "native"))
+))]
+fn usable_frame(normal: bool, rotation: [f64; 4], position: [f64; 3], time: f64) -> bool {
+	normal
+		&& time.is_finite()
+		&& position.iter().all(|value| value.is_finite())
+		&& super::pose::pose_of(rotation).is_some()
+}
+
 /// One look at the room through the platform's depth: the grid's distances
 /// along each ray, row by row from the top, and how long it took.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -150,6 +162,7 @@ mod platform {
 			.filter(|plane| plane.orientation == PlaneOrientation::HorizontalUp)
 			.filter(|plane| plane.label == PlaneLabel::Floor || plane.label == PlaneLabel::Unknown)
 			.map(|plane| f64::from(plane.pose.position.y))
+			.filter(|floor| floor.is_finite())
 			.filter(|floor| eye - floor > 0.3)
 			.fold(None, |lowest: Option<f64>, floor| {
 				Some(lowest.map_or(floor, |lowest| lowest.min(floor)))
@@ -209,6 +222,9 @@ mod platform {
 			shared.live.borrow_mut().no_sensor();
 			return;
 		};
+		if tracking == Tracking::World {
+			shared.live.borrow_mut().world_source();
+		}
 		// A headset draws the hunt's scene itself; a phone's session shows
 		// it in the hunt's own view and ignores this.
 		let _ = session.present(shared.scene).await;
@@ -221,25 +237,37 @@ mod platform {
 			let Ok(frame) = session.next_frame().await else {
 				break;
 			};
-			if frame.planes_revision != planes_revision {
-				planes_revision = frame.planes_revision;
-				planes.clone_from(&frame.planes);
-			}
-			{
+			let at = frame.viewer.position;
+			let position = [f64::from(at.x), f64::from(at.y), f64::from(at.z)];
+			let normal = super::usable_frame(
+				frame.tracking == TrackingState::Normal,
+				quaternion(&frame),
+				position,
+				frame.time,
+			);
+			let reliable = {
 				let mut live = shared.live.borrow_mut();
-				if frame.tracking == TrackingState::NotAvailable {
+				let reliable = if tracking == Tracking::World {
+					live.world_frame(quaternion(&frame), position, frame.time, normal)
+				} else if !normal {
 					// The platform says this pose is stale or absent: hold the
 					// view where it was rather than follow a pose it cannot
 					// vouch for.
 					live.untracked();
+					false
 				} else {
 					live.track(quaternion(&frame), frame.time, tracking);
+					true
+				};
+				if reliable {
+					if frame.planes_revision != planes_revision {
+						planes_revision = frame.planes_revision;
+						planes.clone_from(&frame.planes);
+					}
+					live.fov = fov(&frame);
 				}
-				live.fov = fov(&frame);
 				live.depth = frame.depth;
-				let at = frame.viewer.position;
-				live.position = Some([f64::from(at.x), f64::from(at.y), f64::from(at.z)]);
-				if let Some(height) = eye_height(&frame, &planes) {
+				if reliable && let Some(height) = eye_height(&frame, &planes) {
 					live.eye_height = Some(height);
 				}
 				// A touch that lifts before it is held is a strike along its
@@ -258,11 +286,9 @@ mod platform {
 				live.holding = touches
 					.iter()
 					.any(|(_, since, _)| frame.time - since > HOLD_SECONDS);
-			}
-			if frame.tracking != TrackingState::NotAvailable
-				&& frame.depth
-				&& frame.time - last_look > LOOK_EVERY
-			{
+				reliable
+			};
+			if reliable && frame.depth && frame.time - last_look > LOOK_EVERY {
 				last_look = frame.time;
 				look(&shared, &session, &frame).await;
 			}
@@ -328,6 +354,11 @@ mod platform {
 			};
 			distances.push(hit);
 		}
+		// Ray casts can outlive the frame they came from. Never chart one
+		// after that source has gone silent.
+		if !shared.live.borrow().follows_device() {
+			return;
+		}
 		*shared.last_look.borrow_mut() = Some(super::Look {
 			columns: LOOK_COLUMNS,
 			rows: LOOK_ROWS,
@@ -372,5 +403,21 @@ mod platform {
 				}
 			}
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::usable_frame;
+
+	#[test]
+	fn room_capture_requires_a_normal_finite_frame() {
+		let rotation = [0.0, 0.0, 0.0, 1.0];
+		let position = [1.0, 1.5, 2.0];
+		assert!(usable_frame(true, rotation, position, 1.0));
+		assert!(!usable_frame(false, rotation, position, 1.0));
+		assert!(!usable_frame(true, [0.0; 4], position, 1.0));
+		assert!(!usable_frame(true, rotation, [f64::NAN, 0.0, 0.0], 1.0));
+		assert!(!usable_frame(true, rotation, position, f64::NAN));
 	}
 }

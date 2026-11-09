@@ -309,6 +309,8 @@ impl Arms {
 pub struct HuskMarks {
 	/// Where the rules' origin, the player's eye, is in the scene.
 	pub origin: Point,
+	/// The camera in hunt coordinates.
+	pub eye: Vec3,
 	/// The husk's light, in linear RGB.
 	pub light: [f32; 3],
 }
@@ -317,9 +319,10 @@ impl HuskMarks {
 	/// A blow seen to strike on `tick` at `at`, a point in the hunt's space
 	/// on the husk, drawn on its near side.
 	fn hit(&self, tick: i64, at: Vec3, damage: f64, crit: bool) -> HitView {
-		let distance = at.length();
+		let way = at - self.eye;
+		let distance = way.length();
 		let near = if distance > NEAR_SIDE * 2.0 {
-			at * ((distance - NEAR_SIDE) / distance)
+			at - way * (NEAR_SIDE / distance)
 		} else {
 			at
 		};
@@ -340,5 +343,22 @@ impl HuskMarks {
 			self.origin[1] + at.y as f32,
 			self.origin[2] - at.z as f32,
 		]
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn impact_is_on_the_side_facing_the_moved_eye() {
+		let marks = HuskMarks {
+			origin: [1.0, 2.0, 3.0],
+			eye: Vec3::new(1.0, 0.0, 0.0),
+			light: [1.0; 3],
+		};
+		let hit = marks.hit(0, Vec3::new(0.0, 0.0, 2.0), 1.0, false);
+		assert!(hit.at[0] > 1.0);
+		assert!(hit.at[2] > 1.0);
 	}
 }

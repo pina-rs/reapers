@@ -55,6 +55,14 @@ pub enum Tracking {
 	World,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum WorldSource {
+	#[default]
+	None,
+	Unavailable,
+	Reliable,
+}
+
 /// The phone's pose, wherever it comes from.
 #[derive(Clone, Debug, Default)]
 pub struct LivePose {
@@ -62,6 +70,7 @@ pub struct LivePose {
 	device: Option<DevicePose>,
 	silent_for: f64,
 	tracking: Tracking,
+	world: WorldSource,
 	sensor: Sensor,
 	/// Yaw and pitch added to the drag pose so the view keeps the heading it
 	/// had when the platform last let go.
@@ -87,10 +96,49 @@ pub struct LivePose {
 }
 
 impl LivePose {
+	/// Selects the positional source independently of its current freshness.
+	pub fn world_source(&mut self) {
+		self.world = WorldSource::Unavailable;
+	}
+
+	/// Whether a positional source has been selected and is reliable now.
+	pub fn world_tracking(&self) -> Option<bool> {
+		(self.world != WorldSource::None)
+			.then_some(self.world == WorldSource::Reliable && self.follows_device())
+	}
+
+	/// Accepts a World pose only when both orientation and position are valid.
+	pub fn world_frame(
+		&mut self,
+		rotation: [f64; 4],
+		position: [f64; 3],
+		time: f64,
+		normal: bool,
+	) -> bool {
+		let valid = normal
+			&& time.is_finite()
+			&& position.iter().all(|n| n.is_finite())
+			&& pose_of(rotation).is_some()
+			&& (self.tracking != Tracking::World
+				|| self.device.is_none_or(|before| time > before.time));
+		self.world = if valid {
+			WorldSource::Reliable
+		} else {
+			WorldSource::Unavailable
+		};
+		if valid {
+			self.track(rotation, time, Tracking::World);
+			self.position = Some(position);
+		} else {
+			self.untracked();
+		}
+		valid
+	}
+
 	/// Where the phone points now.
 	pub fn pose(&self) -> ArPose {
 		match self.device {
-			Some(device) if self.follows_device() => device.pose,
+			Some(device) if self.follows_device() || self.world != WorldSource::None => device.pose,
 			_ => self.drag_pose(),
 		}
 	}
@@ -160,14 +208,21 @@ impl LivePose {
 	/// has not answered yet may still do so.
 	pub fn no_sensor(&mut self) {
 		let shown = self.pose();
-		self.device = None;
-		self.adopt_drag(shown);
+		if self.world == WorldSource::None {
+			self.device = None;
+			self.adopt_drag(shown);
+		} else {
+			self.world = WorldSource::Unavailable;
+		}
 		self.sensor = Sensor::Missing;
 	}
 
 	/// The platform says this frame's pose cannot be trusted. The view
 	/// stops following it, keeping the heading it was last given.
 	pub fn untracked(&mut self) {
+		if self.world != WorldSource::None {
+			self.world = WorldSource::Unavailable;
+		}
 		let shown = self.pose();
 		self.silent_for = SILENCE;
 		self.adopt_drag(shown);
@@ -242,17 +297,22 @@ impl LivePose {
 
 	/// Forgets the platform: its session ended.
 	pub fn lose_device(&mut self) {
+		if self.world != WorldSource::None {
+			self.world = WorldSource::Unavailable;
+		}
 		self.no_sensor();
 		self.fov = None;
 		self.depth = false;
-		self.position = None;
+		if self.world == WorldSource::None {
+			self.position = None;
+		}
 		self.camera = false;
 	}
 }
 
 /// A finite, non-zero quaternion as a pose, or `None` for a frame that
 /// cannot say where the phone points.
-fn pose_of(rotation: [f64; 4]) -> Option<ArPose> {
+pub(super) fn pose_of(rotation: [f64; 4]) -> Option<ArPose> {
 	let [x, y, z, w] = rotation;
 	let length = (x * x + y * y + z * z + w * w).sqrt();
 
@@ -285,6 +345,31 @@ mod tests {
 
 	fn yaw(live: &LivePose) -> f64 {
 		live.pose().forward.yaw()
+	}
+
+	#[test]
+	fn world_source_survives_unreliable_and_stale_frames() {
+		let mut live = LivePose::default();
+		let position = [1.0, 1.5, -2.0];
+		assert!(live.world_frame(turned(0.4), position, 1.0, true));
+		let pose = live.pose();
+		assert!(!live.world_frame(turned(1.0), [9.0; 3], 2.0, false));
+		assert_eq!(live.world_tracking(), Some(false));
+		assert_eq!(live.position, Some(position));
+		assert_eq!(live.pose(), pose);
+		assert!(!live.world_frame([0.0; 4], [9.0; 3], 3.0, true));
+		assert_eq!(live.position, Some(position));
+		assert!(live.world_frame(turned(0.5), position, 4.0, true));
+		assert_eq!(live.world_tracking(), Some(true));
+		assert!(!live.world_frame(turned(1.0), [9.0; 3], 4.0, true));
+		assert_eq!(live.world_tracking(), Some(false));
+		assert_eq!(live.position, Some(position));
+		assert!(live.world_frame(turned(0.5), position, 5.0, true));
+		live.advance(2.0);
+		assert_eq!(live.world_tracking(), Some(false));
+		live.lose_device();
+		assert_eq!(live.world_tracking(), Some(false));
+		assert_eq!(live.position, Some(position));
 	}
 
 	#[test]

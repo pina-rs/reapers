@@ -533,6 +533,9 @@
   "refusalHuntUnproven": "The record of that hunt does not hold up.",
   "refusalNotAttuned": "This rift only answers a reaper who carries one of its dead. Absorb an NFT from its collection first.",
 
+  "huntTrackingPause": "Tracking paused. Hold your phone still and look around until tracking returns.",
+  "huntStancePause": "Return to where you started and hold your phone within reach of that spot.",
+  "huntOrbResume": "Release ORB, then press and hold it again to resume your throw.",
   "scanLabel": "Drawing it out",
   "scanTitle": "Something is nearby.",
   "scanStarting": "Finding where you face. Keep the phone pointed where you will hunt.",

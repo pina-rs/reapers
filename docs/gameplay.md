@@ -601,7 +601,7 @@ The veil is a low-pass filter: clear is everything up to 16 kHz, full is only wh
 
 The game asks people to hold a phone up outdoors, so:
 
-- The recorded eye must stay within a 1.0 m horizontal circle of the stance and between 0.50 m and 2.20 m above the floor. The bound is provisional until tested on phones; it limits input, not proof that a sensor was really there. The app's out-of-stance and tracking pause is still to be implemented.
+- The recorded eye must stay within a 1.0 m horizontal circle of the stance and between 0.50 m and 2.20 m above the floor. The fight pauses outside that stance or when positional tracking is unreliable. The bound is provisional until tested on phones; it limits input, not proof that a sensor was really there.
 - You only ever turn on the spot. Nothing in the game asks you to walk while looking at the screen, and every hunt opens with a line saying so.
 - Nothing flashes. A strike lights the husk in its own colour rather than to white, and the shriek warning darkens the screen instead of flashing it.
 - Everything the hunt needs is on screen as text as well as colour, and every target is at least 44 points across.
@@ -613,14 +613,14 @@ What the game does, on a phone that can see:
 - It shows the real camera feed, drawn through the camera's own lens so that husks hold their place as you turn.
 - It measures how far down the floor is, and husks that walk stand on it with a soft shadow under them.
 - It finds what stands on the floor and how far away, how tall it is and whether its top is level, and husks go round it, leap onto it and hide behind it.
-- It hides whatever part of a husk is behind something, so the counter in front of it covers it.
+- It fades the husk when the room hides the middle of its body, using the same visibility answer as the fight.
 - It only puts a husk where you traced its sigil.
 
 On a phone that cannot see, the floor is taken to be 1.45 m down and nothing is known about the furniture.
 
 What it still does not know anywhere:
 
-- **Tracking movement.** The rules can replay a recorded eye offset, but the app has not yet wired positional tracking into hunt inputs. The intended experience keeps the husk fixed in the room and pauses actions when tracking is invalid or the eye leaves the stance.
+- **Tracking movement.** Positional hunts keep the husk in the charted room and judge actions from the phone's recorded eye. The Seeker only reports rotation and uses the origin; the positional experience still needs validation on ARKit or ARCore hardware.
 - **Anything it has not been shown.** The room is read once, before the hunt. Move a chair during it and the husk walks through the chair, and the chair's old place still hides it.
 - **Behind what it could not see.** A husk hides behind something only where the camera saw floor or a wall beyond it. Behind a cupboard taller than your eye, nothing is known, so nothing hides there.
 - **The ceiling.** A husk that flies keeps clear of walls and cupboards, but its band of air tops out 0.85 m above your eye whatever the ceiling's height.

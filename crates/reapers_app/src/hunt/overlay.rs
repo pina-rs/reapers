@@ -562,6 +562,7 @@ pub fn fight(
 	light: Rgb,
 	wound: f64,
 	show_order: bool,
+	paused: bool,
 ) {
 	let seconds = sim.tick() as f64 / HuntRules::TICK_RATE as f64;
 	let pose = sim.pose();
@@ -595,8 +596,10 @@ pub fn fight(
 			pointer(sketch);
 			husk_ring(sketch, lens, sim, seconds);
 			seals(sketch, lens, sim, light, seconds, show_order);
-			orb_ring(sketch, lens, sim);
-			crosshair(sketch, lens, sim, light);
+			if !paused {
+				orb_ring(sketch, lens, sim);
+				crosshair(sketch, lens, sim, light);
+			}
 			if sim.phase() == HuntPhase::Charge {
 				// A ring that closes on the husk as it comes.
 				if let Some(at) = seen() {
@@ -628,8 +631,10 @@ pub fn fight(
 		HuntPhase::Broken => {
 			pointer(sketch);
 			husk_ring(sketch, lens, sim, seconds);
-			orb_ring(sketch, lens, sim);
-			crosshair(sketch, lens, sim, light);
+			if !paused {
+				orb_ring(sketch, lens, sim);
+				crosshair(sketch, lens, sim, light);
+			}
 		}
 		HuntPhase::Capture => husk_ring(sketch, lens, sim, seconds),
 		HuntPhase::Absorbed | HuntPhase::Escaped => {}
