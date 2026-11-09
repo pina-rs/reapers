@@ -41,7 +41,7 @@ ops() { cargo run -q --release -p reapers_ops -- "$@"; }
 git status                                  # build from a clean, committed tree
 (cd crates/reapers_program && pina build)   # target/deploy/reapers_program.so
 shasum -a 256 target/deploy/reapers_program.so | tee target/deploy/reapers_program.sha256
-ls -l target/deploy/reapers_program.so      # 49,352 bytes at the time of writing
+ls -l target/deploy/reapers_program.so      # 46,792 bytes with cargo-build-sbf 4.5.0
 
 ops fixtures                                # Metaplex Core, for the tests: target/fixtures/mpl_core.so
 cargo test -p reapers_receipt -p reapers_program -p reapers_program_client -p reapers_ops
@@ -121,7 +121,7 @@ shasum -a 256 target/deploy/deployed.so target/deploy/reapers_program.so
 ops status --url devnet
 ```
 
-`show` must name the deployer as `Authority` and a data length of 49,352 bytes. The two hashes must be identical: the cluster runs exactly the file you built. `status` must say the program is executable and the config is not initialized.
+`show` must name the deployer as `Authority` and a data length equal to the size `ls -l` printed for the file you built (46,792 bytes with `cargo-build-sbf` 4.5.0 and platform-tools v1.57; another toolchain gives another size). The two hashes must be identical: the cluster runs exactly the file you built. `status` must say the program is executable and the config is not initialized.
 
 The explorer: <https://explorer.solana.com/address/HuskN1zeKqNaWUZbxwymyoW3S8CxMNneycZWDoXc98XP?cluster=devnet>.
 

@@ -21,7 +21,7 @@ use crate::run::Failure;
 use crate::run::Outcome;
 use crate::run::UNAVAILABLE;
 
-/// The largest the deployed program may be, in bytes. It is 49,352 today
+/// The largest the deployed program may be, in bytes. It is 46,792 today
 /// (`docs/program.md`); the ceiling leaves room to grow and still fails a
 /// build that lost its fat LTO (20-35% larger) or kept `core::fmt` for
 /// `verbose-logs`. Rent and the deploy's write buffer are paid by the byte.

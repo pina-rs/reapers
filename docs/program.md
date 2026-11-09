@@ -6,8 +6,8 @@ The on-chain half of [the NFT design](nfts.md): a husk goes into escrow when it 
 | --- | --- |
 | Program id | `HuskN1zeKqNaWUZbxwymyoW3S8CxMNneycZWDoXc98XP` |
 | Keypair | `~/.config/solana/reapers/program-devnet-keypair.json`, outside the repository |
-| Size | 49,352 bytes (`opt-level = 2`, fat LTO) |
-| Rent | 0.2516 SOL on devnet for the program data account (49,397 bytes), and about as much again for the write buffer while deploying |
+| Size | 46,792 bytes (`opt-level = 2`, fat LTO, `cargo-build-sbf` 4.5.0 with platform-tools v1.57; 49,352 with the toolchain before it) |
+| Rent | 0.2386 SOL on devnet for the program data account (46,837 bytes), and about as much again for the write buffer while deploying |
 | Upgradeable | yes, by the upgrade authority |
 
 How to deploy it is in [deploy.md](deploy.md).
@@ -199,7 +199,7 @@ Run them as `crates/reapers_program/README.md` says. The Mollusk suite needs the
 | `2` | **48,232** | 11,037 | 10,306 |
 | `1` | 93,960 | 11,645 | 10,975 |
 
-Level 2 is both the smallest and within 2% of level 3's compute units, so the workspace builds the program at level 2 (`[profile.release.package.reapers_program]` in the root `Cargo.toml`). `"z"` is larger and slower. The program is 49,352 bytes with the fixed-supply check. No build reported a stack frame over the 4 KB limit.
+Level 2 is both the smallest and within 2% of level 3's compute units, so the workspace builds the program at level 2 (`[profile.release.package.reapers_program]` in the root `Cargo.toml`). `"z"` is larger and slower. The program was 49,352 bytes with the fixed-supply check when these were measured, and is 46,792 bytes built by `cargo-build-sbf` 4.5.0, with no change to its source. No build reported a stack frame over the 4 KB limit.
 
 ## Candidates for pina
 
