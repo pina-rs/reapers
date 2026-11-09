@@ -42,6 +42,7 @@ Everything is Rust: the rules, the server, the program, the tools and every scre
 | [`reapers_db`](crates/reapers_db) | The server's tables and their migrations. |
 | [`reapers_server`](crates/reapers_server) | The keeper: the server, on leptoskit's server crates and PostgreSQL. |
 | [`reapers_app`](crates/reapers_app) | The game, on [leptoskit](https://github.com/leptoskit/leptoskit): one tree of screens for the browser and the iOS and Android apps. |
+| [`reapers_landing`](crates/reapers_landing) | The landing page: what the game is and a way into it, a static site on leptoskit. |
 | [`reapers_ops`](crates/reapers_ops) | Deploys, configures and rehearses the program; brings up a localnet. |
 | [`xtask`](crates/xtask) | The repository's own tools: the checks, the guard on `main`, the merge, the art and music builds, and the depth model's fetch. |
 
@@ -65,6 +66,18 @@ leptoskit build --platform web        # dist/, for any static host
 ```
 
 That is the whole game with no server: the player's books are kept in the browser.
+
+### The landing page
+
+The landing page is a second leptoskit frontend beside the game, web only. [`leptoskit.workspace.toml`](leptoskit.workspace.toml) names the two; `leptoskit workspace check` checks it.
+
+```sh
+cd crates/reapers_landing
+leptoskit dev                         # http://127.0.0.1:3011, beside the game's 3010
+leptoskit build --release             # dist/, a static site, with brotli and gzip copies
+```
+
+Its ways into the game go to `http://127.0.0.1:3010/`, the game's `leptoskit dev`, unless the build names where the game is deployed: `REAPERS_APP_URL=https://play.example/ leptoskit build --release`. A release build optimizes the Wasm with `wasm-opt`, from [Binaryen](https://github.com/WebAssembly/binaryen), which must be on `PATH`.
 
 ### On iOS and Android
 

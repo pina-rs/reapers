@@ -14,6 +14,7 @@ Reapers is an AR game for phones: you are a reaper, and you hunt dead NFTs throu
 | `crates/reapers_db/` | The server's tables and migrations. |
 | `crates/reapers_server/` | The keeper: the server. |
 | `crates/reapers_app/` | The game, on leptoskit. |
+| `crates/reapers_landing/` | The landing page, a second leptoskit frontend (web only). |
 | `crates/reapers_ops/` | Deploys and rehearses the program; brings up a localnet. |
 | `crates/xtask/` | `cargo xtask`: the checks, the hooks, the merge, the art and music builds. |
 | `assets/` | What the game ships: compressed models, music, portraits, typefaces, the mark. |
@@ -72,6 +73,7 @@ cargo test -p reapers_server                                 # needs PostgreSQL'
 cargo test -p reapers_app                                    # the screens, keepers and clients
 (cd crates/reapers_program && pina build)                    # the program, for its tests
 (cd crates/reapers_app && leptoskit dev --platform web)      # the game in a browser
+(cd crates/reapers_landing && leptoskit dev)                 # the landing page, on 3011
 cargo run -p reapers_server                                  # the server, on the PostgreSQL in passwords.toml
 ```
 

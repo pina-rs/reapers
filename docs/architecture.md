@@ -13,11 +13,13 @@ reapers/
 │   ├── reapers_db/              The keeper's tables and migrations.
 │   ├── reapers_server/          The keeper, on leptoskit and PostgreSQL.
 │   ├── reapers_app/             The game, on leptoskit: browser, iOS and Android.
+│   ├── reapers_landing/         The landing page, on leptoskit: a static site.
 │   ├── reapers_ops/             Deploys and rehearses the program; brings up a localnet.
 │   └── xtask/                   The checks, the guard on main, the art and music builds.
 ├── assets/       The models, music, portraits, typefaces and mark the game ships.
 ├── art/blender/  The scripts every 3D model is built from.
-└── docs/
+├── docs/
+└── leptoskit.workspace.toml  The two leptoskit frontends: the game and the landing page.
 ```
 
 It is one Cargo workspace, pinned by `rust-toolchain.toml` to the nightly leptoskit uses. leptoskit comes from git at one revision, patched in by name under `[patch.crates-io]`, and Solana Kit at one revision too, both in the root `Cargo.toml`. The on-chain program is the exception to the toolchain: `pina build` compiles it with Solana's platform tools.
@@ -81,6 +83,27 @@ The screens are written builder-style (`View().class(…).child(…)`), which `l
 
 **Autoplay.** `REAPERS_AUTOPLAY=true` has a simulated player fight every hunt and rift.
 
+## The landing page
+
+`crates/reapers_landing` is the page that says what Reapers is and leads into the game. It is a second leptoskit frontend, the `landing` application of the root `leptoskit.workspace.toml` beside the game's `product`, with its own build and its own port (3011; the game's is 3010). It is web only and renders in the browser, so `leptoskit build` makes a static site in `dist/` for any static host. Release builds compile the Wasm for size, run `wasm-opt`, and write brotli and gzip copies of every file.
+
+```
+src/
+├── lib.rs           Mounts the page in the browser.
+├── config.rs        Where the game is: REAPERS_APP_URL when the page is built, or the game's leptoskit dev.
+├── routes/          One page, and the same page for any other address.
+├── page/            The sections, in reading order: the hook, why, the hunt in four beats, the capture,
+│                    the six callings, the husks, the chain, the way in, the colophon.
+└── l10n.rs          Generated from locales/en.arb.
+web/                 The page's HTML shell; its title, description and noscript line are held to en.arb by a test.
+assets/app.css       What leptoskit has no utility for: the two typefaces, line height, the glows,
+                     and the capture's scroll-pinned stage.
+```
+
+It shares the game's look (the funeral ledger: ink, bone and ash, Fraunces over DM Sans) but none of its code: it depends on `reapers_rules` only in its tests, to hold the callings it shows to the rules'. Its drawings are leptoskit vectors and its pictures are the husks' portraits from the art build, which `build.rs` mirrors from `assets/` with the typefaces and the mark; no screenshot of a camera is shown, since a camera's picture is someone's home. Its motion is CSS, driven by the scroll where the browser can, and still for anyone who asks for reduced motion. Its strings are in `locales/en.arb`, and the music's credit lines on it are `assets/music/CREDITS.md`'s, held word for word by a test.
+
+`tests/page.rs` builds the page headlessly at a phone's and a desk's width with leptoskit's layout engine, which also checks every Tailwind class: in the browser, a class leptoskit cannot draw is a blank page.
+
 ## Art
 
 There are no hand-made model files. Every reaper, weapon and husk is built by a Python script run inside headless Blender, driven by `cargo xtask build-art`, then compressed by gltfpack (meshopt, quantized, every named node, material and extra kept) into `assets/models`. The husk scripts read their dimensions and seal positions from `reapers_rules`' `Vessel`, written to `art/build/vessels.json`, and fail the build if a creature does not fit them, so the model and the hit-testing cannot disagree. The same build renders every NFT's portrait from its creature and its look, into `assets/nfts` as WebP. See `art/blender/README.md`.
@@ -89,7 +112,7 @@ There are no hand-made model files. Every reaper, weapon and husk is built by a 
 
 `cargo xtask` (`crates/xtask`, aliased in `.cargo/config.toml`) is every tool the repository has:
 
-- `check` runs, in order and stopping at the first failure: `cargo fmt --check`; clippy over every target, denying warnings; the Wasm builds of `reapers_rules`, `reapers_receipt`, `reapers_api` and `reapers_program_client`; `pina build` and a 56 KiB ceiling on the program; Metaplex Core fetched once for the program's tests; every test of the workspace's default members (`--fast` leaves out `reapers_server`, whose tests start PostgreSQL); and `leptoskit build --platform web` for the app when the CLI is installed. Before it starts, it fails with the fix when a tool it needs is missing.
+- `check` runs, in order and stopping at the first failure: `cargo fmt --check`; clippy over every target, denying warnings; the Wasm builds of `reapers_rules`, `reapers_receipt`, `reapers_api` and `reapers_program_client`; `pina build` and a 56 KiB ceiling on the program; Metaplex Core fetched once for the program's tests; every test of the workspace's default members (`--fast` leaves out `reapers_server`, whose tests start PostgreSQL); and, when the leptoskit CLI is installed, `leptoskit workspace check` and `leptoskit build --platform web` for the app and for the landing page. Before it starts, it fails with the fix when a tool it needs is missing.
 - `hooks install` writes the `reference-transaction` and `pre-commit` hooks that let `main` move only to a commit with a verification record.
 - `merge [--push]` refuses on `main`, with uncommitted work, without the hooks or when `main` has moved on; runs every check; refuses if the checks changed the tree; writes the record, fast-forwards `main` and deletes the record whether or not that worked.
 - `build-art` and `build-music` build the assets.
