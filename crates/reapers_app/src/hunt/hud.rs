@@ -14,10 +14,13 @@ use reapers_rules::HuntRules;
 use reapers_rules::HuntSim;
 use reapers_rules::OrbBlock;
 
+use super::controls::SCRIM;
+use super::controls::legible;
 use crate::l10n::Messages;
 use crate::lookups::gift_name;
 use crate::platform;
 use crate::theme::BONE;
+use crate::theme::INK;
 use crate::theme::Rgb;
 use crate::theme::WOUND;
 use crate::ui::body;
@@ -339,11 +342,15 @@ pub fn status_view(
 	}
 	resolve = resolve.child(View().class("flex-1"));
 	if status.cadence > 1 {
-		resolve = resolve.child(label(&words.hunt_cadence(status.cadence), 11, light));
+		resolve = resolve.child(label(
+			&words.hunt_cadence(status.cadence),
+			11,
+			legible(light, INK),
+		));
 	}
 	// The ledger sits on ink, so that it reads over a bright room.
 	let mut ledger = View()
-		.class("px-3 pt-2 pb-3 rounded-[8px] bg-[#07080ba6]")
+		.class(format!("px-3 pt-2 pb-3 rounded-[8px] {SCRIM}"))
 		.child(top)
 		.child(gap(8))
 		.child(ledger_meter(words.hunt_ward(), status.ward, light))
@@ -373,7 +380,9 @@ pub fn status_view(
 		column = column.child(
 			View().class("items-center").child(
 				View()
-					.class("max-w-[320px] px-3 py-[5px] rounded-[6px] bg-[#07080bb8] items-center")
+					.class(format!(
+						"max-w-[320px] px-3 py-[5px] rounded-[6px] {SCRIM} items-center"
+					))
 					.test_id("hunt-prompt")
 					.child(prompt.class("text-center")),
 			),
@@ -396,26 +405,31 @@ pub fn status_view(
 		};
 		column = column.child(gap(8)).child(
 			View()
-				.class("px-3 py-2 rounded-[6px] bg-[#07080bb8]")
+				.class(format!("px-3 py-2 rounded-[6px] {SCRIM}"))
 				.child(label(name, 11, BONE))
 				.child(gap(6))
 				.child(thin_meter(fraction, colour)),
 		);
 	}
 	if let Some(banner) = &status.banner {
-		let words_of_it = if banner.strike {
-			body(banner.text.clone(), 18, BONE)
-		} else {
-			display(banner.text.clone(), 40, BONE)
-		};
-		column = column.child(gap(18)).child(
-			View()
-				.class("items-center")
-				.test_id("hunt-banner")
-				.child(words_of_it),
-		);
+		column = column.child(gap(18)).child(banner_view(banner));
 	}
 	column
+}
+
+/// A banner: a blow that landed, small, or a turn of the fight, large.
+fn banner_view(banner: &Banner) -> Element {
+	let words_of_it = if banner.strike {
+		body(banner.text.clone(), 18, BONE)
+	} else {
+		display(banner.text.clone(), 40, BONE)
+	};
+	View().class("items-center").child(
+		View()
+			.class(format!("px-4 py-1 rounded-[8px] {SCRIM} items-center"))
+			.test_id("hunt-banner")
+			.child(words_of_it.class("text-center")),
+	)
 }
 
 #[cfg(test)]

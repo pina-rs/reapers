@@ -40,6 +40,7 @@ use crate::lookups::weapon_name;
 use crate::render::pointer::Gesture;
 use crate::theme::ASH;
 use crate::theme::BONE;
+use crate::theme::INK;
 use crate::theme::Rgb;
 use crate::theme::WOUND;
 use crate::ui::body;
@@ -62,8 +63,16 @@ const DIAL_RADIUS: f64 = BUTTON / 2.0 + 7.0;
 const DIAL_WIDTH: f64 = 5.0;
 /// The smallest a touch target is, either way, in points.
 const TARGET: f64 = 44.0;
-/// The ink every word over the room sits on.
-const SCRIM: &str = "bg-[#07080bc7]";
+/// How opaque the ground under every word over the room is: enough that
+/// the words hold over the brightest room, or the reaper's bone-white arms.
+const GROUND_ALPHA: f64 = 0.9;
+/// The ink every word over the room sits on, at `GROUND_ALPHA`.
+pub const SCRIM: &str = "bg-[#07080be6]";
+/// How much of a state's colour a lit button's ground carries.
+const TINT: f64 = 0.25;
+/// The contrast every word over the room holds at the worst, with white
+/// behind its ground: WCAG's for body text.
+const LEGIBLE: f64 = 4.5;
 /// The amber of a husk drawing breath.
 const AMBER: Rgb = Rgb::from_hex(0x00E3_A23B);
 /// The blue of a stunned husk.
@@ -299,7 +308,46 @@ fn readout(words: &dyn Messages, sim: &HuntSim, light: Rgb, aim: Vec3) -> (Strin
 fn tag(text: &str, size: u32, colour: Rgb) -> Element {
 	View()
 		.class(format!("px-2 py-[3px] rounded-[4px] {SCRIM}"))
-		.child(label(text, size, colour))
+		.child(label(text, size, legible(colour, INK)))
+}
+
+/// A lit button's ground: `colour` mixed into the ink, so that the words
+/// on it hold whatever is behind.
+fn tinted(colour: Rgb) -> Rgb {
+	INK.lerp(colour, TINT)
+}
+
+/// The class for a ground of `colour`, at `GROUND_ALPHA`.
+fn ground(colour: Rgb) -> String {
+	format!("bg-[{}]", colour.hex_alpha(GROUND_ALPHA))
+}
+
+/// `colour`, lifted toward bone just far enough that words in it hold
+/// `LEGIBLE` on a ground of `under` with white behind: a state keeps its
+/// hue and is still read in a bright room.
+pub fn legible(colour: Rgb, under: Rgb) -> Rgb {
+	let worst = under.lerp(Rgb(255, 255, 255), 1.0 - GROUND_ALPHA);
+	(0..=20)
+		.map(|step| colour.lerp(BONE, f64::from(step) / 20.0))
+		.find(|lifted| contrast(*lifted, worst) >= LEGIBLE)
+		.unwrap_or(BONE)
+}
+
+/// WCAG's contrast ratio between two colours.
+fn contrast(a: Rgb, b: Rgb) -> f64 {
+	fn luminance(colour: Rgb) -> f64 {
+		let channel = |value: u8| {
+			let value = f64::from(value) / 255.0;
+			if value <= 0.040_45 {
+				value / 12.92
+			} else {
+				((value + 0.055) / 1.055).powf(2.4)
+			}
+		};
+		0.2126 * channel(colour.0) + 0.7152 * channel(colour.1) + 0.0722 * channel(colour.2)
+	}
+	let (a, b) = (luminance(a) + 0.05, luminance(b) + 0.05);
+	a.max(b) / a.min(b)
 }
 
 /// `count` arcs round a dial with a little air between them, the first
@@ -527,14 +575,17 @@ pub fn controls(words: &dyn Messages, thumbs: &Thumbs) -> Element {
 					"max-w-[300px] px-4 py-2 rounded-[6px] border border-[{}] {SCRIM} items-center",
 					BONE.hex_alpha(0.6)
 				))
-				.child(body(line.text, 15, line.colour).class("text-center font-semibold"))
+				.child(
+					body(line.text, 15, legible(line.colour, INK))
+						.class("text-center font-semibold"),
+				)
 		} else {
 			View()
 				.class(format!(
 					"flex-row items-center gap-2 px-3 py-[5px] rounded-full {SCRIM}"
 				))
 				.child(View().class(format!("w-2 h-2 rounded-full bg-[{}]", line.colour.hex())))
-				.child(label(&line.text, 12, line.colour))
+				.child(label(&line.text, 12, legible(line.colour, INK)))
 		};
 		view = view.child(
 			View()
@@ -561,14 +612,11 @@ fn orb(words: &dyn Messages, sim: &HuntSim) -> Element {
 		|| words.hunt_orb_ready().to_owned(),
 		|block| orb_reason(words, block),
 	);
+	let under = if ready { tinted(ORB_GOLD) } else { INK };
 	let mut button = View()
 		.class(format!(
-			"w-[{BUTTON}px] h-[{BUTTON}px] rounded-full border-2 items-center justify-center bg-[{}] border-[{}]",
-			if ready {
-				ORB_GOLD.hex_alpha(0.28)
-			} else {
-				"#07080bb3".to_owned()
-			},
+			"w-[{BUTTON}px] h-[{BUTTON}px] rounded-full border-2 items-center justify-center {} border-[{}]",
+			ground(under),
 			paint.hex()
 		))
 		.test_id("hunt-orb")
@@ -576,9 +624,9 @@ fn orb(words: &dyn Messages, sim: &HuntSim) -> Element {
 		.child(display(
 			words.hunt_orb(),
 			20,
-			if ready { ORB_GOLD } else { BONE },
+			legible(if ready { ORB_GOLD } else { BONE }, under),
 		))
-		.child(figure(soul.to_string(), 12, paint));
+		.child(figure(soul.to_string(), 12, legible(paint, under)));
 	if let Some(block) = block {
 		button = button.aria_description(orb_reason(words, block));
 	}
@@ -612,16 +660,17 @@ fn fire(words: &dyn Messages, thumbs: &Thumbs) -> Element {
 	} else {
 		ASH
 	};
+	let under = if window {
+		tinted(ORB_GOLD)
+	} else if ready {
+		tinted(thumbs.light)
+	} else {
+		INK
+	};
 	let mut button = View()
 		.class(format!(
-			"w-[{BUTTON}px] h-[{BUTTON}px] rounded-full border-2 items-center justify-center bg-[{}] border-[{}]",
-			if window {
-				ORB_GOLD.hex_alpha(0.4)
-			} else if ready {
-				thumbs.light.hex_alpha(0.24)
-			} else {
-				"#07080bb3".to_owned()
-			},
+			"w-[{BUTTON}px] h-[{BUTTON}px] rounded-full border-2 items-center justify-center {} border-[{}]",
+			ground(under),
 			edge.hex()
 		))
 		.test_id("hunt-fire")
@@ -635,7 +684,7 @@ fn fire(words: &dyn Messages, thumbs: &Thumbs) -> Element {
 		.child(display(
 			words.hunt_fire(),
 			20,
-			if window { ORB_GOLD } else { BONE },
+			legible(if window { ORB_GOLD } else { BONE }, under),
 		));
 	if thumbs.touchable {
 		button = button.on_press(thumbs.on_fire);
@@ -660,17 +709,18 @@ fn chip(words: &dyn Messages, thumbs: &Thumbs, index: usize, art: Option<ArtSkil
 	let name = slot_name(words, index, thumbs.weapon, art);
 	let selected = index == thumbs.slot;
 	let enabled = Arsenal::archetype_of(index) != Some(Archetype::Art) || art.is_some();
-	let (text, back, edge) = if !enabled {
-		(ASH, SCRIM.to_owned(), "border-transparent".to_owned())
+	let (text, under, edge) = if !enabled {
+		(ASH, INK, "border-transparent".to_owned())
 	} else if selected {
 		(
 			BONE,
-			format!("bg-[{}]", thumbs.light.hex_alpha(0.32)),
+			tinted(thumbs.light),
 			format!("border-[{}]", thumbs.light.hex()),
 		)
 	} else {
-		(BONE, SCRIM.to_owned(), "border-transparent".to_owned())
+		(BONE, INK, "border-transparent".to_owned())
 	};
+	let back = ground(under);
 	let mut chip = View()
 		.class(format!(
 			"flex-row items-center gap-2 min-h-[{TARGET}px] min-w-[{TARGET}px] px-3 rounded-full border {back} {edge}"
@@ -678,8 +728,12 @@ fn chip(words: &dyn Messages, thumbs: &Thumbs, index: usize, art: Option<ArtSkil
 		.test_id(format!("hunt-slot-{index}"))
 		.accessibility_label(words.hunt_slot_semantics(&name, index as i64 + 1))
 		.aria_selected(selected)
-		.child(figure((index + 1).to_string(), 11, ASH))
-		.child(label(&name, if selected { 13 } else { 12 }, text));
+		.child(figure((index + 1).to_string(), 11, legible(ASH, under)))
+		.child(label(
+			&name,
+			if selected { 13 } else { 12 },
+			legible(text, under),
+		));
 	if enabled && thumbs.touchable {
 		let on_slot = thumbs.on_slot;
 		chip = chip.on_press(move || on_slot(index));
@@ -717,6 +771,40 @@ mod tests {
 			let input = reapers_rules::HuntInput::still(sim.pose().direction(), 0.0);
 			sim.step(&input);
 		}
+	}
+
+	#[test]
+	fn every_word_over_the_room_holds_over_the_brightest_room() {
+		let white = Rgb(255, 255, 255);
+		// Every colour the HUD paints words in, and the extremes a reaper's
+		// light could reach.
+		let colours = [
+			BONE,
+			ASH,
+			WOUND,
+			ORB_GOLD,
+			AMBER,
+			STUN_BLUE,
+			white,
+			Rgb(0, 0, 0),
+			Rgb(0, 0, 255),
+			Rgb(255, 0, 0),
+			Rgb(0x7A, 0x3C, 0xFF),
+			Rgb(0xC8, 0xFF, 0x6A),
+		];
+		let grounds = std::iter::once(INK).chain(colours.iter().map(|&colour| tinted(colour)));
+		for under in grounds {
+			let worst = under.lerp(white, 1.0 - GROUND_ALPHA);
+			for colour in colours {
+				let words = legible(colour, under);
+				let ratio = contrast(words, worst);
+				assert!(ratio >= LEGIBLE, "{colour:?} on {under:?}: {ratio:.2}");
+			}
+		}
+		assert_eq!(SCRIM, ground(INK), "the scrim is the ink's ground");
+		assert_eq!(legible(BONE, INK), BONE, "bone needs no lifting");
+		assert_eq!(legible(ORB_GOLD, INK), ORB_GOLD, "nor does gold on ink");
+		assert!((contrast(BONE, INK) - contrast(INK, BONE)).abs() < 1e-12);
 	}
 
 	#[test]
