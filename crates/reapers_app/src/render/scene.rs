@@ -28,6 +28,16 @@ pub struct GameScene {
 
 impl GameScene {
 	fn new(id: SceneId) -> Self {
+		#[cfg(all(target_arch = "wasm32", feature = "native", not(feature = "web")))]
+		{
+			// Android can restart the guest inside the same process. Its
+			// host still owns the old IDs, assets and loading-event queues.
+			// close sends immediately, before this scene's first batch.
+			let closed = Scene::new(id).close();
+			crate::platform::spawn(async move {
+				let _ = closed.await;
+			});
+		}
 		Self {
 			scene: Scene::new(id),
 			shot_target: RefCell::new(None),
