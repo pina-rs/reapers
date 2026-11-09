@@ -17,6 +17,7 @@ use reapers_app::l10n::L10n;
 use reapers_app::l10n::Messages;
 use reapers_app::platform;
 use reapers_app::platform::MemoryPrefs;
+use reapers_app::render::pointer::Gesture;
 use reapers_app::routes::Hunt;
 use reapers_app::routes::Navigation;
 use reapers_app::routes::Rift;
@@ -233,6 +234,42 @@ fn a_practice_hunt_fought_by_the_rules_own_player_ends_in_a_verdict() {
 	harness.fight();
 	assert!(harness.has("hunt-result"), "{}", harness.tester.tree());
 	harness.tap("hunt-leave");
+}
+
+#[test]
+fn a_finger_on_a_hunt_turns_it_holds_orb_and_lets_go() {
+	// The browser hands each gesture to the hunt while the hunt is
+	// borrowed. A gesture that borrowed it again aborted the game on the
+	// first finger to come up.
+	let mut harness = Harness::offline();
+	harness.open(Route::Practice);
+	harness.tap("hunt-begin");
+	let gestures = [
+		Gesture::Down { x: 0.5, y: 0.4 },
+		Gesture::Drag {
+			dx: 30.0,
+			dy: -12.0,
+		},
+		Gesture::Up,
+		Gesture::Down { x: 0.5, y: 0.4 },
+		Gesture::Tap { x: 0.5, y: 0.4 },
+		Gesture::Up,
+		Gesture::Down { x: 0.1, y: 0.9 },
+		Gesture::Up,
+	];
+	// While the sigil is traced, and again in the fight.
+	for gesture in gestures {
+		reapers_app::hunt::view::feel(gesture);
+	}
+	reapers_app::hunt::view::play_on(61.0);
+	harness.settle();
+	harness.tap("hunt-skip");
+	assert!(harness.has("hunt-fire"), "{}", harness.tester.tree());
+	for gesture in gestures {
+		reapers_app::hunt::view::feel(gesture);
+	}
+	harness.settle();
+	assert!(harness.has("hunt-fire"), "{}", harness.tester.tree());
 }
 
 #[test]

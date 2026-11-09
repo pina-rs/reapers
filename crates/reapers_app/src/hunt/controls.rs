@@ -28,13 +28,16 @@ use reapers_rules::OrbView;
 use reapers_rules::Vec3;
 use reapers_rules::WeaponKind;
 
+use super::controller::HuntController;
 use super::lessons::Prompt;
 use super::overlay::Sight;
 use super::overlay::Sketch;
 use super::overlay::colour;
+use super::pose::LivePose;
 use crate::l10n::Messages;
 use crate::lookups::art_name;
 use crate::lookups::weapon_name;
+use crate::render::pointer::Gesture;
 use crate::theme::ASH;
 use crate::theme::BONE;
 use crate::theme::Rgb;
@@ -71,6 +74,39 @@ const ORB_AFTERWORD_TICKS: i64 = 60;
 /// Whether a point, from 0 to 1 across and down the view, falls on ORB.
 pub fn orb_area(x: f64, y: f64) -> bool {
 	x <= 0.36 && y >= 0.5
+}
+
+/// What a finger on a fight's view does: a drag turns the view by
+/// `per_unit` radians a pixel, and a press on ORB's side of the screen holds
+/// ORB until the finger comes up.
+///
+/// It is handed what it changes, never the screen: the browser hands a
+/// gesture to a screen it has already borrowed, and a gesture that reached
+/// for the screen again would borrow it twice and abort the game.
+pub fn steer(
+	gesture: Gesture,
+	look: &mut LivePose,
+	per_unit: f64,
+	controller: Option<&mut HuntController>,
+) {
+	match gesture {
+		Gesture::Drag { dx, dy } => {
+			look.drag(f64::from(dx) * per_unit, -f64::from(dy) * per_unit);
+		}
+		Gesture::Down { x, y } => {
+			if let Some(controller) = controller
+				&& orb_area(f64::from(x), f64::from(y))
+			{
+				controller.hold_orb(true);
+			}
+		}
+		Gesture::Up => {
+			if let Some(controller) = controller {
+				controller.hold_orb(false);
+			}
+		}
+		Gesture::Tap { .. } => {}
+	}
 }
 
 /// The name of what is in `slot`.
@@ -681,6 +717,40 @@ mod tests {
 			let input = reapers_rules::HuntInput::still(sim.pose().direction(), 0.0);
 			sim.step(&input);
 		}
+	}
+
+	#[test]
+	fn a_finger_turns_the_view_and_holds_orb_only_on_its_side() {
+		let mut controller = HuntController::new(super::super::controller::Fight::Hunt(sim()));
+		let mut look = LivePose::default();
+		let ahead = look.pose().forward;
+		steer(
+			Gesture::Down { x: 0.8, y: 0.9 },
+			&mut look,
+			0.01,
+			Some(&mut controller),
+		);
+		assert!(!controller.orb_held(), "FIRE's side is not ORB's");
+		steer(
+			Gesture::Down { x: 0.1, y: 0.9 },
+			&mut look,
+			0.01,
+			Some(&mut controller),
+		);
+		assert!(controller.orb_held());
+		steer(
+			Gesture::Drag { dx: 40.0, dy: 0.0 },
+			&mut look,
+			0.01,
+			Some(&mut controller),
+		);
+		let turned = look.pose().forward.angle_to(ahead);
+		assert!((turned - 0.4).abs() < 1e-9, "{turned}");
+		steer(Gesture::Up, &mut look, 0.01, Some(&mut controller));
+		assert!(!controller.orb_held());
+		// With no fight yet there is nothing to hold, and nothing breaks.
+		steer(Gesture::Down { x: 0.1, y: 0.9 }, &mut look, 0.01, None);
+		steer(Gesture::Up, &mut look, 0.01, None);
 	}
 
 	#[test]

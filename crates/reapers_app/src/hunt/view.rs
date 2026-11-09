@@ -146,6 +146,14 @@ pub fn play_on(seconds: f64) -> bool {
 	hunt.borrow().stage == Stage::Finished
 }
 
+/// Hands `gesture` to the hunt on screen, as the browser's pointer does,
+/// with the hunt borrowed: for the tests, which have no pointer.
+pub fn feel(gesture: Gesture) {
+	if let Some(hunt) = current() {
+		hunt.borrow_mut().gesture(gesture);
+	}
+}
+
 /// The hunt on screen, if any.
 fn current() -> Option<Rc<RefCell<HuntState>>> {
 	CURRENT.with_borrow(Clone::clone)
@@ -484,24 +492,15 @@ impl HuntState {
 	}
 
 	fn gesture(&mut self, gesture: Gesture) {
-		match gesture {
-			Gesture::Drag { dx, dy } => {
-				// Three view-heights of drag turn the view through its own
-				// field of view: the Flutter `_LookAround`.
-				let per_unit = self.arena.fov / self.size.1 * 3.0;
-				self.shared
-					.live
-					.borrow_mut()
-					.drag(f64::from(dx) * per_unit, -f64::from(dy) * per_unit);
-			}
-			Gesture::Down { x, y } => {
-				if super::controls::orb_area(f64::from(x), f64::from(y)) {
-					hold_orb(true);
-				}
-			}
-			Gesture::Up => hold_orb(false),
-			Gesture::Tap { .. } => {}
-		}
+		// Three view-heights of drag turn the view through its own field of
+		// view: the Flutter `_LookAround`.
+		let per_unit = self.arena.fov / self.size.1 * 3.0;
+		super::controls::steer(
+			gesture,
+			&mut self.shared.live.borrow_mut(),
+			per_unit,
+			self.arena.controller.as_mut(),
+		);
 	}
 }
 
@@ -684,15 +683,6 @@ fn select_slot(slot: usize) {
 	with_hunt(|hunt| {
 		if let Some(controller) = hunt.arena.controller.as_mut() {
 			controller.select(slot);
-		}
-	});
-}
-
-/// Holds ORB down, or lets it go.
-fn hold_orb(held: bool) {
-	with_hunt(|hunt| {
-		if let Some(controller) = hunt.arena.controller.as_mut() {
-			controller.hold_orb(held);
 		}
 	});
 }

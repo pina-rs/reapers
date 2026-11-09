@@ -143,15 +143,6 @@ fn select_slot(slot: usize) {
 	});
 }
 
-/// Holds ORB down, or lets it go.
-fn hold_orb(held: bool) {
-	with_rift(|rift| {
-		if let Some(controller) = rift.arena.controller.as_mut() {
-			controller.hold_orb(held);
-		}
-	});
-}
-
 impl RiftState {
 	fn new(props: &RiftViewProps, loadout: HuntLoadout) -> Self {
 		let size = platform::viewport();
@@ -366,22 +357,13 @@ impl RiftState {
 	}
 
 	fn gesture(&mut self, gesture: Gesture) {
-		match gesture {
-			Gesture::Drag { dx, dy } => {
-				let per_unit = self.arena.fov / self.size.1 * 3.0;
-				self.shared
-					.live
-					.borrow_mut()
-					.drag(f64::from(dx) * per_unit, -f64::from(dy) * per_unit);
-			}
-			Gesture::Down { x, y } => {
-				if super::super::hunt::controls::orb_area(f64::from(x), f64::from(y)) {
-					hold_orb(true);
-				}
-			}
-			Gesture::Up => hold_orb(false),
-			Gesture::Tap { .. } => {}
-		}
+		let per_unit = self.arena.fov / self.size.1 * 3.0;
+		super::super::hunt::controls::steer(
+			gesture,
+			&mut self.shared.live.borrow_mut(),
+			per_unit,
+			self.arena.controller.as_mut(),
+		);
 	}
 }
 
@@ -437,8 +419,6 @@ fn rift_for(props: &RiftViewProps) -> Rc<RefCell<RiftState>> {
 	rift
 }
 
-/// The rift: the circle gathering over the husk at rest, the fight in the
-/// same arena as a hunt with the circle under the ward, and how it ended.
 /// The thumbs' controls for the circle's fight: the pistol and the art
 /// alone, and nothing to teach.
 fn thumbs(
@@ -462,6 +442,8 @@ fn thumbs(
 	super::super::hunt::controls::controls(words, &thumbs)
 }
 
+/// The rift: the circle gathering over the husk at rest, the fight in the
+/// same arena as a hunt with the circle under the ward, and how it ended.
 pub fn rift_view(props: &RiftViewProps) -> Element {
 	let rift = rift_for(props);
 	mount(&rift);
