@@ -17,6 +17,8 @@ use reapers_rules::GeoFix;
 use reapers_rules::GeoPoint;
 use reapers_rules::HuntLog;
 use reapers_rules::HuntPlan;
+use reapers_rules::HuntSim;
+use reapers_rules::HuntStats;
 use reapers_rules::Nft;
 use reapers_rules::NftCollection;
 use reapers_rules::Outfit;
@@ -416,6 +418,100 @@ async fn when_a_played_hunt_is_submitted_then_the_replay_absorbs_the_husk() {
 		stored.active_reaper().unwrap().memory(),
 		&SoulMemory::default().remember(&settlement.outcome)
 	);
+}
+
+#[tokio::test]
+async fn when_a_hunt_in_a_room_is_submitted_then_the_replay_walks_the_same_room() {
+	let world = World::new().await;
+	let player = world.player().await;
+	let before = with_loose_husk(&world, player).await;
+	let sighting = before.sightings()[0];
+	let plan = HuntPlan {
+		room: Some(desk_room()),
+		..HuntPlan::new(0, 6000)
+	};
+	let log = play_in(&before, &sighting, plan);
+	let stats = HuntStats::derive(&before.loadout(), 1.0).unwrap();
+	let replay = |log: &HuntLog| {
+		HuntSim::replay(
+			sighting.seed,
+			sighting.nft.collection.vessel(),
+			sighting.nft.rarity(),
+			sighting.nft.rarity().ward(),
+			&stats,
+			log,
+		)
+	};
+	let walked = replay(&log).expect("the bot finishes the hunt");
+	let without_the_room = HuntLog {
+		plan: HuntPlan {
+			room: None,
+			..log.plan.clone()
+		},
+		..log.clone()
+	};
+
+	assert_eq!(log.encode()[0], 8, "the log carries the room");
+	assert!(walked.absorbed());
+	assert_ne!(
+		replay(&without_the_room),
+		Some(walked),
+		"the room changes how the hunt plays"
+	);
+
+	let settled = world
+		.call(
+			player,
+			SettleHunt {
+				sighting: sighting.id,
+				log: packed(&log),
+			},
+		)
+		.await
+		.unwrap();
+
+	assert_eq!(settled.settlement.outcome, walked);
+	assert_eq!(settled.settlement.state.codex()[0].nft.id(), SAINT);
+	assert_eq!(settled.settlement.state.sightings(), []);
+}
+
+#[tokio::test]
+async fn when_the_room_in_a_log_is_broken_then_nothing_is_paid() {
+	let world = World::new().await;
+	let player = world.player().await;
+	let before = with_loose_husk(&world, player).await;
+	let sighting = before.sightings()[0];
+	let plan = HuntPlan {
+		room: Some(desk_room()),
+		..HuntPlan::new(0, 6000)
+	};
+	let log = play_in(&before, &sighting, plan);
+	let mut garbled = log.encode();
+	// The grid's own first byte, after the plan's nine and the room's
+	// length.
+	garbled[13] = 0xFF;
+	let mut disagreeing = log.clone();
+	disagreeing.plan.eye_centimetres += 10;
+
+	for log in [STANDARD.encode(&garbled), packed(&disagreeing)] {
+		assert_refused(
+			world
+				.call(
+					player,
+					SettleHunt {
+						sighting: sighting.id,
+						log,
+					},
+				)
+				.await,
+			Refusal::HuntUnproven,
+		);
+	}
+
+	let after = world.call(player, Load {}).await.unwrap();
+
+	assert_eq!(after.xp(), 0);
+	assert_eq!(after.sightings().len(), 1);
 }
 
 #[tokio::test]

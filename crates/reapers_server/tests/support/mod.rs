@@ -33,12 +33,16 @@ use leptoskit_rpc as rpc;
 use leptoskit_rpc::Identity;
 use leptoskit_rpc::Operation;
 use reapers_api::keeper::KeeperHandle;
+use reapers_rules::Difficulty;
 use reapers_rules::HuntBot;
 use reapers_rules::HuntLog;
+use reapers_rules::HuntPlan;
 use reapers_rules::HuntSim;
 use reapers_rules::HuntStats;
 use reapers_rules::PlayerState;
 use reapers_rules::Refusal;
+use reapers_rules::RoomCell;
+use reapers_rules::RoomGrid;
 use reapers_rules::Sighting;
 use reapers_server::chain::Gateway;
 use reapers_server::chain::Rpc;
@@ -514,6 +518,45 @@ pub fn play(state: &PlayerState, sighting: &Sighting) -> HuntLog {
 	bot.play(&mut sim);
 
 	HuntLog::new(bot.recorded)
+}
+
+/// The hunt for `sighting`, played by the shared bot as `state` would, in
+/// the room `plan` describes.
+pub fn play_in(state: &PlayerState, sighting: &Sighting, plan: HuntPlan) -> HuntLog {
+	let mut sim = HuntSim::new(
+		sighting.seed,
+		sighting.nft.collection.vessel(),
+		sighting.nft.rarity(),
+		sighting.nft.rarity().ward(),
+		&HuntStats::derive(&state.loadout(), 1.0).expect("a valid loadout"),
+		plan.clone(),
+		Difficulty::Normal,
+	)
+	.expect("a plan a phone could make");
+	let mut bot = HuntBot::careful(&sim);
+
+	bot.play(&mut sim);
+
+	HuntLog {
+		inputs: bot.recorded,
+		plan,
+		difficulty: Difficulty::Normal,
+	}
+}
+
+/// A room a phone read cell by cell, 10 cm to a cell: floor 4 m ahead of
+/// the player and 2 m behind, with a desk whose 75 cm top starts 2.5 m out.
+pub fn desk_room() -> RoomGrid {
+	let (width, depth) = (80_usize, 60_usize);
+	let mut cells = vec![RoomCell::walkable(0).byte(); width * depth];
+
+	for z in 45..51 {
+		for x in 34..46 {
+			cells[z * width + x] = RoomCell::walkable(1).byte();
+		}
+	}
+
+	RoomGrid::new(145, 0, 0, 80, 60, 40, 20, vec![0, 75], cells)
 }
 
 /// `log`, packed for the `settle_hunt` operation.
