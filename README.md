@@ -204,6 +204,7 @@ The hooks make this the only way in: `main` refuses any commit that `cargo xtask
 | [docs/research/solana-collections.md](docs/research/solana-collections.md) | 116 old Solana collections, and why these five. |
 | [docs/research/dark-games-and-ar-hunting.md](docs/research/dark-games-and-ar-hunting.md) | The research the classes and the hunt came from. |
 | [docs/research/reaper-identity-and-growth.md](docs/research/reaper-identity-and-growth.md) | Developer sources and the reasoning behind birth gifts, memory and awakenings. |
+| [docs/research/husks-in-the-room.md](docs/research/husks-in-the-room.md) | How husks walk, leap and ground themselves in a real room, and the room grid it became. |
 | [docs/decisions.md](docs/decisions.md) | The Book of Becoming, and the record of decisions made. |
 | [docs/launch-readiness.md](docs/launch-readiness.md) | What is built, launch engineering still required and decisions needed from Ifiok. |
 | [art/blender/README.md](art/blender/README.md) | How the 3D art is built. |
