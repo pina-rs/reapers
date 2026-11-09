@@ -350,6 +350,50 @@ fn every_vessel_finds_the_floor_and_the_desk_in_the_furnished_room() {
 				"could not stand on"
 			}
 		);
+
+		let mut links: Vec<(i64, i64)> = nav
+			.links
+			.iter()
+			.map(|link| {
+				(
+					nav.regions[link.from_region].height_centimetres,
+					nav.regions[link.to_region].height_centimetres,
+				)
+			})
+			.collect();
+
+		links.sort_unstable();
+		links.dedup();
+
+		let mut wanted = Vec::new();
+
+		// The desk is one bound up for every vessel that jumps higher
+		// than its top, and one drop down for every vessel that falls
+		// farther than it.
+		let desk = heights::DESK as f64 / 100.0;
+		let profile = vessel.locomotion();
+
+		if profile.jumps_up >= desk {
+			wanted.push((heights::FLOOR, heights::DESK));
+		}
+
+		if profile.drops_down >= desk {
+			wanted.push((heights::DESK, heights::FLOOR));
+		}
+
+		// Only a body that fits on the chair may use it as a step.
+		if chair {
+			wanted.extend([
+				(heights::FLOOR, heights::CHAIR),
+				(heights::CHAIR, heights::FLOOR),
+				(heights::CHAIR, heights::DESK),
+				(heights::DESK, heights::CHAIR),
+			]);
+		}
+
+		wanted.sort_unstable();
+
+		assert_eq!(links, wanted, "{vessel}'s leaps in the furnished room");
 	}
 
 	// A flier's room still knows the surfaces it perches on.

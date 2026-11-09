@@ -32,6 +32,41 @@ fn floor_to_a_desk_and_back_take_whole_ticks_near_the_record() {
 }
 
 #[test]
+fn the_counter_and_a_gap_take_whole_ticks_near_the_record() {
+	// The rest of the research record's table: a 0.90 m counter in about
+	// 40 ticks, and a 0.6 m gap on one level in about 27.
+	let ape = reapers_rules::Vessel::Ape.locomotion();
+	let floor = room::floor_height();
+	let counter = reapers_rules::Leap::solve(
+		reapers_rules::Vec3::new(0.0, floor + ape.half_height(), 1.5),
+		reapers_rules::Vec3::new(0.0, floor + ape.half_height() + 0.90, 2.5),
+		&room::counter_room(),
+		ape.half_height(),
+		None,
+	)
+	.expect("the ape takes the counter");
+	let gap = reapers_rules::Leap::solve(
+		reapers_rules::Vec3::new(0.0, floor + ape.half_height(), 1.0),
+		reapers_rules::Vec3::new(0.0, floor + ape.half_height(), 1.6),
+		&room::empty_floor_room(),
+		ape.half_height(),
+		Some(0.25),
+	)
+	.expect("a hop clears the gap");
+
+	assert!(
+		(38..=42).contains(&counter.ticks),
+		"the counter took {} ticks",
+		counter.ticks
+	);
+	assert!(
+		(25..=29).contains(&gap.ticks),
+		"the gap took {} ticks",
+		gap.ticks
+	);
+}
+
+#[test]
 fn a_penguins_two_hops_take_whole_ticks_near_the_record() {
 	let penguin = reapers_rules::Vessel::Penguin.locomotion();
 	let floor = room::floor_height();
