@@ -5,6 +5,7 @@ use core::fmt;
 use crate::hunt::hunt_stats::HuntRules;
 use crate::math::PI;
 use crate::math::{self};
+use crate::room::RoomGrid;
 use crate::vec3::Vec3;
 use crate::vec3::degrees;
 use crate::vec3::radians;
@@ -26,6 +27,11 @@ use crate::vec3::wrap_angle;
 ///
 /// A plan never says a hunt cannot be played. Where the room is tight the
 /// husk stands closer; it does not stay away.
+///
+/// A phone that read the room cell by cell also hands over its
+/// [`RoomGrid`]. A husk that walks then moves through that instead of the
+/// slices: across a desk, along a sofa, down to the floor. Without one,
+/// every husk moves as it always has.
 ///
 /// Everything is stored in whole numbers so that a hunt replays exactly.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -64,6 +70,10 @@ pub struct HuntPlan {
 	/// Whether the top of the cover along each slice is level enough to
 	/// stand on: a table or a counter, not the back of a chair.
 	pub ledges: Vec<bool>,
+
+	/// The room, cell by cell, when the phone read it as a grid. A husk
+	/// that walks moves through this rather than the slices above.
+	pub room: Option<RoomGrid>,
 }
 
 impl Default for HuntPlan {
@@ -108,6 +118,7 @@ impl HuntPlan {
 			cover_centimetres: Vec::new(),
 			hide_decimetres: Vec::new(),
 			ledges: Vec::new(),
+			room: None,
 		}
 	}
 
@@ -155,6 +166,11 @@ impl HuntPlan {
 		!self.cover_centimetres.is_empty()
 	}
 
+	/// Whether the phone read the room as a grid of cells.
+	pub const fn knows_room(&self) -> bool {
+		self.room.is_some()
+	}
+
 	/// The slice the bearing `yaw` falls in.
 	pub fn slice_of(yaw: f64) -> usize {
 		math::floor_int((wrap_angle(yaw) + PI) / Self::SLICE_WIDTH)
@@ -180,6 +196,15 @@ impl HuntPlan {
 				.iter()
 				.all(|&reach| (0..=Self::MAX_REACH_DECIMETRES).contains(&reach))
 			&& self.cover_is_well_formed()
+			&& self.room_is_well_formed()
+	}
+
+	/// A room is one a phone could have made, and it agrees with the plan
+	/// about how far below the eye the floor is.
+	fn room_is_well_formed(&self) -> bool {
+		self.room.as_ref().is_none_or(|room| {
+			room.is_well_formed() && i32::from(room.eye_height_centimetres) == self.eye_centimetres
+		})
 	}
 
 	/// Cover is all there or not there at all, and only ever with a reach to
@@ -319,7 +344,7 @@ impl fmt::Display for HuntPlan {
 	fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
 		write!(
 			formatter,
-			"HuntPlan({} ± {}, eye {} cm, {}{})",
+			"HuntPlan({} ± {}, eye {} cm, {}{}{})",
 			self.centre_centidegrees,
 			self.half_width_centidegrees,
 			self.eye_centimetres,
@@ -330,6 +355,11 @@ impl fmt::Display for HuntPlan {
 			},
 			if self.knows_cover() {
 				", with cover"
+			} else {
+				""
+			},
+			if self.knows_room() {
+				", with a room"
 			} else {
 				""
 			},

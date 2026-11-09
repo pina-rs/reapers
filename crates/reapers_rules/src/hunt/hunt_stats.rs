@@ -383,6 +383,10 @@ impl HuntRules {
 	pub const LOWEST_LEDGE: f64 = 0.3;
 	/// Hitting seals in the order they opened multiplies the hit by this.
 	pub const MEASURE_STRIKE: f64 = 1.2;
+	/// The nearest a husk walking a room's grid comes to the player, in
+	/// metres, except while it charges or stands stunned after one. No
+	/// place it stands, perches or hides is nearer, and its routes go round.
+	pub const NEAREST_METRES: f64 = 1.5;
 	/// Seals open at once during an ordinary stretch of the fight.
 	pub const OPEN_SEALS: usize = 2;
 	/// Swinging the phone at least this fast, in radians a second, turns a
@@ -430,6 +434,11 @@ impl HuntRules {
 	/// How long a husk that was turned aside stands stunned, every seal in
 	/// view open.
 	pub const STAGGER_TICKS: i64 = 100;
+	pub const STAGING_FAR_METRES: f64 = 3.5;
+	/// The nearest and farthest from the player a husk walking a room's
+	/// grid takes up open floor, in metres. A move picks a distance in this
+	/// band and the open floor nearest it.
+	pub const STAGING_NEAR_METRES: f64 = 2.5;
 	/// A husk that is never found notices the reaper after this long.
 	pub const STALK_LIMIT_TICKS: i64 = 25 * Self::TICK_RATE;
 	/// Alarm lost each second while the reaper moves slowly.

@@ -206,6 +206,21 @@ pub fn sofa_room() -> RoomGrid {
 	room.build()
 }
 
+/// A room with some of everything: a desk with its chair ahead to one
+/// side, and a sofa ahead to the other with the floor behind its back out
+/// of sight. The player's cell is (40, 20) of an 80 by 80 grid.
+pub fn furnished_room() -> RoomGrid {
+	let mut room = DrawnRoom::sized(80, 80, &[heights::FLOOR, heights::CHAIR, heights::DESK])
+		.with_player(40, 20);
+
+	room.platform(48, 45, 12, 6, heights::DESK);
+	room.platform(44, 46, 4, 4, heights::CHAIR);
+	room.platform(8, 48, 24, 8, heights::CHAIR);
+	room.obstacle(8, 56, 24, 4, heights::SOFA_BACK);
+	room.hidden(8, 60, 24, 4, heights::FLOOR);
+	room.build()
+}
+
 /// A kitchen counter with a 0.9 m top, 2.5 m ahead.
 pub fn counter_room() -> RoomGrid {
 	let mut room = DrawnRoom::new(&[heights::FLOOR, heights::COUNTER]);

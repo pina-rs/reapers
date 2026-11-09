@@ -90,6 +90,7 @@ pub use hunt::hunt_stats::HuntRules;
 pub use hunt::hunt_stats::HuntStats;
 pub use hunt::hunt_stats::InvalidLoadout;
 pub use hunt::husk_pose::Footing;
+pub use hunt::husk_pose::HuskLocomotion;
 pub use hunt::husk_pose::HuskPose;
 pub use hunt::sigil::Sigil;
 pub use hunt::sigil::SigilEvent;

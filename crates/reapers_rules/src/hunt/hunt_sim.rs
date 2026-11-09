@@ -48,6 +48,10 @@ use crate::vec3::wrap_angle;
 use crate::vessel::Gait;
 use crate::vessel::Vessel;
 
+mod walker;
+
+use walker::Walker;
+
 /// A plan no phone could have made, so no hunt is played in it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Error)]
 #[error("The plan is not one a phone could make")]
@@ -132,6 +136,12 @@ pub struct HuntSim {
 	/// from and where it is going: for the view to put its shadow on.
 	from_ground: f64,
 	to_ground: f64,
+
+	/// The husk's body on the room's grid, for a husk that walks in a room
+	/// the phone read cell by cell. Its place is copied into the fields
+	/// above every tick, so the rest of the hunt reads them as it always
+	/// has.
+	walker: Option<Walker>,
 
 	// Arsenal ------------------------------------------------------------
 	slot: usize,
@@ -449,6 +459,7 @@ impl HuntSim {
 			arc: 0.0,
 			from_ground: 0.0,
 			to_ground: 0.0,
+			walker: None,
 			slot: Arsenal::GUN_SLOT,
 			drawn_at: 0,
 			rounds: GunRules::ROUNDS,
@@ -570,6 +581,7 @@ impl HuntSim {
 		};
 		sim.range = sim.range_at(sim.bearing, outward);
 		sim.heading = sim.path.next_range(-PI, PI);
+		sim.set_walker_down();
 
 		Ok(sim)
 	}
@@ -837,6 +849,10 @@ impl HuntSim {
 impl HuntSim {
 	/// Where the husk is right now.
 	pub fn pose(&self) -> HuskPose {
+		if let Some(walker) = &self.walker {
+			return walker.pose(self.vessel);
+		}
+
 		// A husk in the air never hangs quite still. One perched on a ledge
 		// does.
 		let bob = if self.vessel.gait() == Gait::Air
@@ -863,6 +879,8 @@ impl HuntSim {
 			},
 			leaping: self.leaping,
 			ground: self.ground(),
+			scale: 1.0,
+			locomotion: None,
 		}
 	}
 
@@ -872,6 +890,9 @@ impl HuntSim {
 	}
 
 	/// Whether the husk is in the air between one footing and the next.
+	/// A husk walking a room's grid counts from the moment it gathers
+	/// itself until it has stood up again, and all the way down to open
+	/// floor when it has to come down.
 	pub const fn leaping(&self) -> bool {
 		self.leaping
 	}
@@ -929,6 +950,10 @@ impl HuntSim {
 	/// How fast the husk is covering ground right now, in metres a second.
 	/// Zero while it rests.
 	pub fn speed(&self) -> f64 {
+		if let Some(walker) = &self.walker {
+			return walker.speed(self.move_ticks);
+		}
+
 		if self.move_start < 0 {
 			return 0.0;
 		}
@@ -1203,7 +1228,17 @@ impl HuntSim {
 	/// Whether seal `index` of a husk at `current` is behind something in
 	/// the room, out of sight and out of reach.
 	fn behind_cover(&self, current: &HuskPose, index: usize) -> bool {
-		self.plan.hides(current.seal_position(index))
+		self.room_hides(current.seal_position(index))
+	}
+
+	/// Whether something in the room stands between the eye and `point`:
+	/// read from the grid for a husk that walks it, and from the plan's
+	/// slices otherwise.
+	fn room_hides(&self, point: Vec3) -> bool {
+		match &self.walker {
+			Some(walker) => walker.grid().hides(point),
+			None => self.plan.hides(point),
+		}
 	}
 
 	fn seal_count(&self) -> usize {
@@ -1671,6 +1706,16 @@ impl HuntSim {
 		// It has to be out in the open to run at anyone: it comes down or
 		// out first, and the charge waits for it to land.
 		if self.footing != Footing::Open {
+			// A walker with no way down from where it is does not charge
+			// this time.
+			if self.walker.is_some() {
+				if !self.walk_down(false) {
+					self.schedule_charge();
+				}
+
+				return;
+			}
+
 			self.leave_cover(events, false);
 			return;
 		}
@@ -1687,6 +1732,14 @@ impl HuntSim {
 
 		// Straight at the reaper, to within arm's reach. One in the air
 		// comes down to eye level as it comes.
+		if self.walker.is_some() {
+			self.begin_dash();
+			self.move_start = self.tick;
+			self.move_ticks = self.charge_ticks();
+			events.push(HuntEvent::ChargeBegan);
+			return;
+		}
+
 		self.from_bearing = self.bearing;
 		self.from_range = self.range;
 		self.from_height = self.height;
@@ -1766,6 +1819,7 @@ impl HuntSim {
 	}
 
 	fn end_charge(&mut self) {
+		self.end_dash();
 		self.phase = HuntPhase::Fight;
 		self.schedule_charge();
 		// A shriek does not come straight on top of a charge.
@@ -2114,7 +2168,7 @@ impl HuntSim {
 			};
 			// A blow at the part of a husk that is behind the counter hits
 			// the counter.
-			let blocked = self.plan.hides(ray * current.distance());
+			let blocked = self.room_hides(ray * current.distance());
 
 			if blocked || !current.covers(ray, pad) {
 				self.miss(weapon, events);
@@ -2446,6 +2500,10 @@ impl HuntSim {
 	/// or against the front of whatever stands in the way, or at the end of
 	/// its throw. Thrown over the top of something, it comes down behind it.
 	fn landing_along(&self, ray: Vec3) -> Vec3 {
+		if let Some(walker) = &self.walker {
+			return ray * walker.grid().surface_along(ray, ArtRules::FARTHEST_METRES);
+		}
+
 		let mut metres = ArtRules::FARTHEST_METRES;
 
 		if ray.y < 0.0 {
@@ -2498,11 +2556,10 @@ impl HuntSim {
 			// Fire bursts where it comes down, whatever is in front of it: it
 			// was lobbed over the top.
 			Art::Cinder => {
-				(current.position - at).length()
-					<= self.vessel.half_width() + ArtRules::BURST_METRES
+				(current.position - at).length() <= current.half_width() + ArtRules::BURST_METRES
 			}
 			// Ice flies straight, and breaks on whatever the husk is behind.
-			Art::Rime => flight.homing && !self.plan.hides(current.position),
+			Art::Rime => flight.homing && !self.room_hides(current.position),
 			// Wind goes round things.
 			Art::Gale => flight.homing,
 		};
@@ -2583,6 +2640,8 @@ impl HuntSim {
 			self.end_charge();
 			self.move_start = -1;
 			self.staggered_until = self.tick + art.gust_stun_ticks();
+		} else if self.walker.is_some() {
+			self.gust_walker(art.gust_stun_ticks());
 		} else if self.leaping {
 			self.staggered_until = self.move_start + self.move_ticks + art.gust_stun_ticks();
 		} else if self.footing != Footing::Open {
@@ -2623,7 +2682,7 @@ impl HuntSim {
 
 	fn step_broken(&mut self, input: &HuntInput, thrown: Option<i64>, events: &mut Vec<HuntEvent>) {
 		if self.leaping {
-			self.continue_move();
+			self.continue_leap(events);
 		}
 
 		self.step_reload(events);
@@ -2721,7 +2780,7 @@ impl HuntSim {
 	/// capture.
 	fn step_capture(&mut self, input: &HuntInput, events: &mut Vec<HuntEvent>) {
 		if self.leaping {
-			self.continue_move();
+			self.continue_leap(events);
 		}
 
 		self.step_reload(events);
@@ -2852,6 +2911,11 @@ impl HuntSim {
 			return;
 		}
 
+		if self.walker.is_some() {
+			self.walk(events);
+			return;
+		}
+
 		// A leap, once begun, comes down, whatever else is happening.
 		if self.leaping {
 			self.continue_move();
@@ -2955,6 +3019,11 @@ impl HuntSim {
 	/// room has somewhere better to be, it leaps up onto a ledge or behind
 	/// something instead, the way a cat would.
 	fn amble(&mut self, events: &mut Vec<HuntEvent>) {
+		if self.walker.is_some() {
+			self.amble_walking();
+			return;
+		}
+
 		if self.footing != Footing::Open {
 			self.leave_cover(events, true);
 			return;
@@ -2998,6 +3067,11 @@ impl HuntSim {
 		self.next_bolt_tick = -1;
 
 		if self.vessel.gait() == Gait::Still {
+			return;
+		}
+
+		if self.walker.is_some() {
+			self.bolt_walking(events);
 			return;
 		}
 
@@ -3055,6 +3129,11 @@ impl HuntSim {
 	/// floor in front of it. A husk that `may_stay` is only ready to move,
 	/// and may settle down where it is a while longer.
 	fn leave_cover(&mut self, events: &mut Vec<HuntEvent>, may_stay: bool) {
+		if self.walker.is_some() {
+			self.walk_down(may_stay);
+			return;
+		}
+
 		if may_stay && self.cover.next_chance(HuntRules::STAY_COVER_CHANCE) {
 			self.next_amble_tick = self.tick + self.rest_ticks();
 			return;
@@ -3184,6 +3263,11 @@ impl HuntSim {
 
 	/// Stops the husk where it stands. A leap cannot be stopped in the air.
 	fn halt(&mut self) {
+		if self.walker.is_some() {
+			self.halt_walker();
+			return;
+		}
+
 		if self.move_start < 0 || self.leaping {
 			return;
 		}

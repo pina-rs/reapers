@@ -16,8 +16,9 @@
 //! same room, the same body and the same commands must land on the same
 //! bits on any device.
 //!
-//! Nothing here reads the camera or draws a picture, and nothing is wired
-//! into [`crate::HuntSim`] yet.
+//! Nothing here reads the camera or draws a picture. A [`crate::HuntSim`]
+//! whose plan carries a grid moves a husk that walks through it; see
+//! [`crate::HuntPlan::room`].
 
 pub mod husk_motion;
 pub mod leap;

@@ -2,6 +2,7 @@
 
 use crate::math;
 use crate::named::named_enum;
+use crate::room::HuskMotionState;
 use crate::vec3::Vec3;
 use crate::vec3::wrap_angle;
 use crate::vessel::Vessel;
@@ -26,11 +27,31 @@ named_enum!(Footing {
 	Hidden => "hidden",
 });
 
+/// What a husk walking a room's grid is doing with its body, for the view
+/// to put legs, a crouch and a gaze to.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HuskLocomotion {
+	/// What the body is doing: walking, gathering at an edge, in the air.
+	pub state: HuskMotionState,
+
+	/// How far through that it is, from 0 to 1.
+	pub state_fraction: f64,
+
+	/// How high the surface under the body is, in metres from the eye. It
+	/// changes in one step when the body crosses an edge, never between
+	/// two surfaces.
+	pub support_height: f64,
+
+	/// Where the feet come down next, for the head to look at: the landing
+	/// of a leap, or the place the walk is making for.
+	pub next_foothold: Option<Vec3>,
+}
+
 /// Where a husk is and which way it is turned at one instant.
 ///
 /// The rules own this, and the view draws exactly what it says: a model is
-/// placed at `position` and turned to `heading`. Nothing about a hit is
-/// decided by what was drawn.
+/// placed at `position`, turned to `heading` and sized by `scale`. Nothing
+/// about a hit is decided by what was drawn.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct HuskPose {
 	pub vessel: Vessel,
@@ -52,6 +73,15 @@ pub struct HuskPose {
 	/// the floor, or the ledge it stands on. `None` for a husk in the air
 	/// with nothing under it near enough to matter.
 	pub ground: Option<f64>,
+
+	/// How big the body is against the vessel's own measurements. A husk
+	/// that walks a room's grid is the creature table's smaller body, so
+	/// its body and its seals shrink with it; anywhere else it is 1.
+	pub scale: f64,
+
+	/// What a husk walking a room's grid is doing with its body, or `None`
+	/// for one that moves without a grid.
+	pub locomotion: Option<HuskLocomotion>,
 }
 
 impl HuskPose {
@@ -69,7 +99,19 @@ impl HuskPose {
 			footing: Footing::Open,
 			leaping: false,
 			ground: None,
+			scale: 1.0,
+			locomotion: None,
 		}
+	}
+
+	/// Half the body's width, in metres, at its size.
+	pub fn half_width(&self) -> f64 {
+		self.vessel.half_width() * self.scale
+	}
+
+	/// Half the body's height, in metres, at its size.
+	pub fn half_height(&self) -> f64 {
+		self.vessel.half_height() * self.scale
 	}
 
 	/// The husk's bearing around the player, in radians.
@@ -116,9 +158,9 @@ impl HuskPose {
 	pub fn covers(&self, ray: Vec3, pad: f64) -> bool {
 		let distance = self.distance();
 		let across = wrap_angle(ray.yaw() - self.yaw()) * math::cos(self.pitch())
-			/ (math::atan2(self.vessel.half_width(), distance) + pad);
+			/ (math::atan2(self.half_width(), distance) + pad);
 		let along =
-			(ray.pitch() - self.pitch()) / (math::atan2(self.vessel.half_height(), distance) + pad);
+			(ray.pitch() - self.pitch()) / (math::atan2(self.half_height(), distance) + pad);
 
 		across * across + along * along <= 1.0
 	}
@@ -144,13 +186,14 @@ impl HuskPose {
 	}
 
 	/// Seal `index`'s place relative to the middle of the body, in the
-	/// hunt's space.
+	/// hunt's space, at the body's size.
 	fn seal_offset(&self, index: usize) -> Vec3 {
 		let offset = self
 			.vessel
 			.seals()
 			.get(index)
-			.map_or(Vec3::ZERO, |seal| seal.offset);
+			.map_or(Vec3::ZERO, |seal| seal.offset)
+			* self.scale;
 
 		self.left() * offset.x + Vec3::UP * offset.y + self.forward() * offset.z
 	}

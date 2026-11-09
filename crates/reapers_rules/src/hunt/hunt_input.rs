@@ -8,6 +8,7 @@ use crate::hunt::arsenal::Arsenal;
 use crate::hunt::difficulty::Difficulty;
 use crate::hunt::hunt_plan::HuntPlan;
 use crate::math;
+use crate::room::RoomGrid;
 use crate::vec3::Vec3;
 use crate::vec3::degrees;
 use crate::vec3::radians;
@@ -168,6 +169,9 @@ pub enum HuntLogError {
 	#[error("Hunt log has broken cover")]
 	BrokenCover,
 
+	#[error("Hunt log has a broken room")]
+	BrokenRoom,
+
 	#[error("Hunt log ends mid-plan")]
 	EndsMidPlan,
 
@@ -210,6 +214,15 @@ impl HuntLog {
 	/// room for the stalk, the fight, every broken window and every orb.
 	pub const MAX_TICKS: usize = 360 * 60;
 	const ORB_FLAG: u8 = 2;
+	/// The bytes that say how long the room's grid is.
+	const ROOM_LENGTH_BYTES: usize = 4;
+	/// Version 8 is version 7 with the room's grid after the plan, for a
+	/// hunt played in a room the phone read cell by cell. A log without a
+	/// grid is still written as version 7, byte for byte, so every log
+	/// written before the grid replays as it did, and a server that cannot
+	/// read a grid refuses one that carries it rather than replay it
+	/// without.
+	const ROOM_VERSION: u8 = 8;
 	const TICK_BYTES: usize = 8;
 	// Version 7 fires from the crosshair and captures with an orb: a tick
 	// says whether FIRE was pressed, which slot is selected and whether ORB
@@ -239,7 +252,7 @@ impl HuntLog {
 			return Err(HuntLogError::NoPlan);
 		}
 
-		if bytes[0] != Self::VERSION {
+		if bytes[0] != Self::VERSION && bytes[0] != Self::ROOM_VERSION {
 			return Err(HuntLogError::UnsupportedVersion);
 		}
 
@@ -289,6 +302,14 @@ impl HuntLog {
 				.collect()
 		};
 
+		let (room, room_end) = if bytes[0] == Self::ROOM_VERSION {
+			Self::decode_room(bytes, plan_end)?
+		} else {
+			(None, plan_end)
+		};
+
+		offset = room_end;
+
 		let plan = HuntPlan {
 			centre_centidegrees: i32::from(i16::from_le_bytes([bytes[1], bytes[2]])),
 			half_width_centidegrees: i32::from(u16::from_le_bytes([bytes[3], bytes[4]])),
@@ -297,10 +318,9 @@ impl HuntLog {
 			cover_centimetres: cover,
 			hide_decimetres: hide,
 			ledges,
+			room,
 		};
 		let mut inputs = Vec::new();
-
-		offset = plan_end;
 
 		while offset < bytes.len() {
 			if inputs.len() >= Self::MAX_TICKS {
@@ -345,6 +365,30 @@ impl HuntLog {
 		})
 	}
 
+	/// Reads the room's grid that starts at `offset`: its length in four
+	/// bytes, then the grid as [`RoomGrid::encode`] writes it. Returns the
+	/// grid and where the bytes after it begin.
+	fn decode_room(bytes: &[u8], offset: usize) -> Result<(Option<RoomGrid>, usize), HuntLogError> {
+		let start = offset + Self::ROOM_LENGTH_BYTES;
+
+		if bytes.len() < start {
+			return Err(HuntLogError::EndsMidPlan);
+		}
+
+		let length = u32::from_le_bytes([
+			bytes[offset],
+			bytes[offset + 1],
+			bytes[offset + 2],
+			bytes[offset + 3],
+		]) as usize;
+		let Some(end) = start.checked_add(length).filter(|&end| end <= bytes.len()) else {
+			return Err(HuntLogError::EndsMidPlan);
+		};
+		let room = RoomGrid::decode(&bytes[start..end]).map_err(|_| HuntLogError::BrokenRoom)?;
+
+		Ok((Some(room), end))
+	}
+
 	/// Packs the log into bytes: the plan first, then eight for each tick:
 	/// the aim, the turn speed, FIRE and ORB, and the slot selected.
 	///
@@ -353,12 +397,25 @@ impl HuntLog {
 	/// what stands at the end of each: its height, where to hide behind it,
 	/// and one bit for whether its top is a ledge. Numbers too big for their
 	/// field keep their low bits, as they always have.
+	///
+	/// A plan with a room's grid is written as version 8, with the grid's
+	/// length and the grid itself after the rest of the plan. One without
+	/// is version 7, as it always was.
 	pub fn encode(&self) -> Vec<u8> {
 		let plan = &self.plan;
-		let mut bytes =
-			Vec::with_capacity(Self::HEADER_BYTES + 400 + self.inputs.len() * Self::TICK_BYTES);
+		let room = plan.room.as_ref().map(RoomGrid::encode);
+		let mut bytes = Vec::with_capacity(
+			Self::HEADER_BYTES
+				+ 400
+				+ room.as_ref().map_or(0, Vec::len)
+				+ self.inputs.len() * Self::TICK_BYTES,
+		);
 
-		bytes.push(Self::VERSION);
+		bytes.push(if room.is_some() {
+			Self::ROOM_VERSION
+		} else {
+			Self::VERSION
+		});
 		bytes.extend_from_slice(&(plan.centre_centidegrees as i16).to_le_bytes());
 		bytes.extend_from_slice(&(plan.half_width_centidegrees as u16).to_le_bytes());
 		bytes.push(plan.eye_centimetres as u8);
@@ -379,6 +436,11 @@ impl HuntLog {
 			}
 
 			bytes.extend_from_slice(&ledges);
+		}
+
+		if let Some(room) = room {
+			bytes.extend_from_slice(&(room.len() as u32).to_le_bytes());
+			bytes.extend_from_slice(&room);
 		}
 
 		for input in &self.inputs {

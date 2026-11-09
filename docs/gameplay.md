@@ -84,7 +84,7 @@ Either way the result is the hunt's plan:
 - **The height of your eye above the floor**, measured, or 1.45 m when it could not be.
 - **How far the way is clear along each slice**, when the phone could see.
 
-The plan is about 80 bytes, or 230 when it also says what stands in the room. It is recorded with the hunt, and the server replays the hunt inside the same plan. The sigil itself is not recorded: it decides when the hunt starts and where, and nothing about what it pays.
+The plan is about 80 bytes, or 230 when it also says what stands in the room. A phone that reads the room cell by cell also hands over the room itself, its grid (see [A room read cell by cell](#a-room-read-cell-by-cell)), which adds its own length in 4 bytes and the grid's: 51 bytes for a floor with a desk on it, 160 for a room with a desk, a chair and a sofa, and never more than about 30 KB for the largest and most broken-up 10 by 10 m grid. It is recorded with the hunt, and the server replays the hunt inside the same plan. The sigil itself is not recorded: it decides when the hunt starts and where, and nothing about what it pays.
 
 ### Where a husk is
 
@@ -109,6 +109,23 @@ A husk treats your furniture the way a cat does. On a phone that read the room, 
 - **It comes out to fight.** A husk draws breath only once it has landed, and one in cover leaps out as it does, so it never shrieks from hiding. It never charges from a ledge or from cover either: it comes down first.
 
 The husk is also drawn as hidden. The phone keeps a picture of how far away the nearest thing is in every direction it looked while the sigil was traced, and a husk behind the counter is cut away wherever the counter is in front of it, so the camera's own picture of the counter shows instead. The phone only turns where the player stands, so that picture still lines up with the room during the fight, whichever way the phone points.
+
+### A room read cell by cell
+
+A phone that reads the room as a grid of 10 cm cells, each a level top, something standing, a wall or floor it could not see, hands the hunt that grid. A husk that walks then leaves the slices behind and moves through the room itself. Everything else about the hunt is as above: the same chances, the same moments, the same fight.
+
+- **Its body is the creature table's.** On the grid a husk is the size the room was built for: an ape 0.60 m tall, a penguin 0.48 m, a llama 0.80 m, a robot 0.62 m. Its body and its seals shrink to match, so it is a smaller thing to hit. Off the grid every husk keeps the size in the table of husks.
+- **Where it may be.** Never nearer than 1.5 m across the floor, except from the moment it charges until it is back out. Nowhere it stands, perches or hides is nearer than 1.6 m (a cell more, since a straight walk between two cells can pass half a cell nearer), and its routes go round you. When it takes up open floor it picks a distance between 2.5 and 3.5 m along the way it means to go, and the floor the camera can see nearest that. It perches and hides no farther than 5.0 m.
+- **Where it goes.** A perch is the edge of anything raised at least 0.3 m, facing you. A hiding place is floor the camera could not see behind something; one near enough to the edge to look over is a peek. It only makes for one it can get to from where it stands, by walking and leaping.
+- **How high it jumps.** An ape leaps up 1.0 m and down 1.5 m, and 1.2 m across a gap; a llama 0.9 up, 1.4 down, 1.1 across; a robot 0.8, 1.3, 0.9; a penguin 0.5, 0.9, 0.6. So a penguin gets onto a 75 cm desk by the 45 cm chair beside it, never in one bound.
+- **How it walks.** It speeds up and slows down at 4 m/s² and turns at up to 240° a second. It slows into a corner so that it swings no more than 5 cm wide of the way on, and stops to turn where the way bends by more than 60°.
+- **How it leaps.** It slows to a stand at the edge, facing the landing, gathers itself for 10 to 20 ticks (longer the higher the leap), flies the exact arc gravity (9.81 m/s²) gives it, touches down for 6 to 12 ticks and stands up again over 12 to 24, longer the farther it fell. The surface under it changes only at the edge of a leap, never in between. It cannot be stopped from the moment it gathers itself until it has stood up.
+- **It comes down to fight.** As before, it never shrieks from hiding and never charges from a ledge or from cover: it walks and leaps down to open floor first, and nothing but the end of the fight stops it on the way. With no way down from where it is, it does not charge this time.
+- **The charge** runs straight at you across the surface it stands on, to within 0.9 m, and stops short of anything in its way rather than run through the sofa or up the desk. Afterwards it walks back out past 1.5 m, even while it draws breath.
+- **Cover is the grid's.** A seal is hidden, and a blow misses, wherever any cell between your eye and it stands taller than the line to it. An art thrown at nothing lands on the first surface along its throw.
+- **A husk that flies** keeps to its band of air and to the slices, even in a room read as a grid.
+
+`cargo run --release -p reapers_rules --example pacing` prints the same bot against a penguin in a furnished room after the open table. A level-one reaper breaks a common husk there in 21 to 32 seconds (22 to 31 in the open), and a level-ten one an epic husk in 76 to 112 (76 to 109).
 
 ### Stalk
 
