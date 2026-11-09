@@ -855,3 +855,91 @@ fn a_lean_into_dive_range_starts_the_dive_and_spends_a_blade_charge() {
 		assert!(found, "a lean starts a {weapon:?} dive");
 	}
 }
+
+#[test]
+fn ice_keeps_the_launch_eye_when_the_caster_moves_during_flight() {
+	use reapers_rules::Arsenal;
+	use reapers_rules::Art;
+	use reapers_rules::ArtSkill;
+	use reapers_rules::Eye;
+	use reapers_rules::HuntEvent;
+	use reapers_rules::HuntInput;
+	use reapers_rules::HuntLoadout;
+	use reapers_rules::HuntStats;
+	use reapers_rules::ReaperClass;
+	use reapers_rules::Temper;
+	use reapers_rules::Weapon;
+
+	let stats = HuntStats::derive(
+		&HuntLoadout {
+			art: Some(ArtSkill::new(Art::Rime, 1).unwrap()),
+			..HuntLoadout::new(
+				ReaperClass::Harvester,
+				6,
+				Weapon::new(ReaperClass::Harvester.weapon(), Temper::Shrouded),
+			)
+		},
+		1.0,
+	)
+	.unwrap();
+	let plan = HuntPlan {
+		room: Some(room::desk_room()),
+		..HuntPlan::new(0, 6000)
+	};
+	for (launch, moved, expected) in [
+		(Eye::new(900, 0, 0), Eye::new(-900, 0, 0), true),
+		(Eye::new(-900, 0, 0), Eye::new(900, 0, 0), false),
+	] {
+		let mut sim = HuntSim::new(
+			3,
+			Vessel::Ape,
+			Rarity::Common,
+			Rarity::Common.ward(),
+			&stats,
+			plan.clone(),
+			Difficulty::Normal,
+		)
+		.unwrap();
+		let input = |sim: &HuntSim, eye: Eye, fire| {
+			HuntInput::measured(
+				sim.pose().direction_from(eye.point()),
+				0.0,
+				fire,
+				Arsenal::ART_SLOT,
+				false,
+			)
+			.with_eye(eye)
+		};
+		for _ in 0..40 {
+			let command = input(&sim, launch, false);
+			sim.step(&command);
+		}
+		let command = input(&sim, launch, true);
+		assert!(
+			sim.step(&command)
+				.contains(&HuntEvent::ArtThrown(Art::Rime))
+		);
+		let mut landed = None;
+		for _ in 0..120 {
+			let command = input(&sim, moved, false);
+			for event in sim.step(&command) {
+				if let HuntEvent::ArtLanded {
+					art: Art::Rime,
+					hit,
+					..
+				} = event
+				{
+					landed = Some(hit);
+				}
+			}
+			if landed.is_some() {
+				break;
+			}
+		}
+		assert_eq!(
+			landed,
+			Some(expected),
+			"launch: {launch:?}, moved: {moved:?}"
+		);
+	}
+}

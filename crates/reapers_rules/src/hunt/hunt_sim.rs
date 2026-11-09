@@ -1262,9 +1262,15 @@ impl HuntSim {
 	/// read from the grid for a husk that walks it, and from the plan's
 	/// slices otherwise.
 	fn room_hides(&self, way: Vec3) -> bool {
+		self.room_hides_from(self.eye.point(), way)
+	}
+
+	/// Reads cover from a fixed eye, so an art in flight keeps its launch
+	/// position even when the reaper moves before it lands.
+	fn room_hides_from(&self, eye: Vec3, way: Vec3) -> bool {
 		match &self.walker {
-			Some(walker) => walker.grid().hides_from(self.eye.point(), way),
-			None => self.plan.hides_from(self.eye.point(), way),
+			Some(walker) => walker.grid().hides_from(eye, way),
+			None => self.plan.hides_from(eye, way),
 		}
 	}
 
@@ -2619,7 +2625,11 @@ impl HuntSim {
 				(current.position - at).length() <= current.half_width() + ArtRules::BURST_METRES
 			}
 			// Ice flies straight, and breaks on whatever the husk is behind.
-			Art::Rime => flight.homing && !self.room_hides(current.position - self.eye.point()),
+			Art::Rime => {
+				let eye = flight.from + Vec3::new(0.0, ArtRules::HAND_DROP, 0.0);
+
+				flight.homing && !self.room_hides_from(eye, current.position - eye)
+			}
 			// Wind goes round things.
 			Art::Gale => flight.homing,
 		};
