@@ -44,15 +44,16 @@ pub fn report() -> String {
 	writeln!(out).unwrap();
 	writeln!(
 		out,
-		"Seeds 1–8, rare penguin, shrouded weapon, normal difficulty. Human bot: 16-tick reaction and \
-		 every seventh tap wide. Each row spans all four temperaments. Level 20 assumes 30 earned marks \
-		 in the gift’s path; this is potential, not free progress."
+		"Seeds 1–8, rare penguin, shrouded weapon, normal difficulty. Human bot: 16-tick reaction, \
+		 every seventh shot wide, one active reload in three jammed. Each row spans all four \
+		 temperaments. Level 20 assumes 30 earned marks in the gift’s path; this is potential, not \
+		 free progress."
 	)
 	.unwrap();
 	writeln!(out).unwrap();
 	writeln!(
 		out,
-		"Times include stalk and reap, averaged only over absorptions. Careful play understates \
+		"Times include stalk and capture, averaged only over absorptions. Careful play understates \
 		 defensive powers. This does not measure physical comfort, cooperative balance or player \
 		 enjoyment."
 	)
@@ -82,7 +83,13 @@ pub fn report() -> String {
 						)
 					};
 					let stats = HuntStats::derive(&loadout, 1.0).unwrap();
-					let mut sim = HuntSim::open(seed, Vessel::Penguin, Rarity::Rare.ward(), &stats);
+					let mut sim = HuntSim::open(
+						seed,
+						Vessel::Penguin,
+						Rarity::Rare,
+						Rarity::Rare.ward(),
+						&stats,
+					);
 					let outcome = HuntBot::human(&sim)
 						.play(&mut sim)
 						.unwrap_or_else(|| panic!("Unfinished {} trial", gift.name()));

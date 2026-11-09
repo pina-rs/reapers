@@ -11,9 +11,9 @@ use crate::armory::Weapon;
 use crate::arts::Art;
 use crate::error::FormatError;
 use crate::feeding::Feeding;
+use crate::hunt::capture::CaptureGrade;
 use crate::hunt::difficulty::Difficulty;
 use crate::hunt::hunt_event::HuntOutcome;
-use crate::hunt::hunt_event::ReapGrade;
 use crate::hunt::hunt_input::HuntLog;
 use crate::hunt::hunt_sim::HuntSim;
 use crate::hunt::hunt_stats::HuntLoadout;
@@ -196,7 +196,12 @@ impl Sighting {
 pub struct Absorption {
 	pub nft: Nft,
 
-	pub grade: ReapGrade,
+	/// How well the capturing orb was thrown.
+	#[serde(
+		serialize_with = "serialize_grade",
+		deserialize_with = "deserialize_grade"
+	)]
+	pub grade: CaptureGrade,
 
 	/// How well the reaper fed, as the keeper rolled it.
 	pub feeding: Feeding,
@@ -229,6 +234,27 @@ impl Absorption {
 			..self.clone()
 		}
 	}
+}
+
+/// Writes a capture grade as its saved name.
+#[allow(
+	clippy::trivially_copy_pass_by_ref,
+	reason = "serde's serialize_with hands the field by reference"
+)]
+fn serialize_grade<S: Serializer>(grade: &CaptureGrade, serializer: S) -> Result<S::Ok, S::Error> {
+	serializer.serialize_str(grade.name())
+}
+
+/// Reads a capture grade, including one saved before husks were captured
+/// with an orb, when the codex kept how cleanly they were reaped. Each old
+/// grade becomes the capture grade that pays the same.
+fn deserialize_grade<'de, D: serde::Deserializer<'de>>(
+	deserializer: D,
+) -> Result<CaptureGrade, D::Error> {
+	let name = String::deserialize(deserializer)?;
+
+	CaptureGrade::from_saved(&name)
+		.ok_or_else(|| serde::de::Error::unknown_variant(&name, &["plain", "great", "excellent"]))
 }
 
 /// What a judged hunt came to: the verdict, what it paid, and the player
@@ -894,6 +920,7 @@ impl PlayerState {
 		let Some(outcome) = HuntSim::replay(
 			sighting.seed,
 			sighting.nft.collection.vessel(),
+			sighting.nft.rarity(),
 			sighting.nft.rarity().ward(),
 			&stats,
 			log,

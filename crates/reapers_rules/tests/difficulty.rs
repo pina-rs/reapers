@@ -23,6 +23,7 @@ fn hunt_with(difficulty: Difficulty, seed: i64, vessel: Vessel) -> HuntSim {
 	HuntSim::new(
 		seed,
 		vessel,
+		Rarity::Uncommon,
 		Rarity::Uncommon.ward(),
 		&stats(),
 		HuntPlan::OPEN,
@@ -36,8 +37,9 @@ fn hunt(difficulty: Difficulty) -> HuntSim {
 	hunt_with(difficulty, 7, Vessel::Ape)
 }
 
-/// Someone who has never played: slow to see a seal open, and wide of the
-/// mark with every other tap.
+/// Someone who has never played: slow to see a seal open, wide of the mark
+/// with every other shot, waiting out every reload, never drawing the
+/// knife and letting go of ORB too soon.
 fn beginner(sim: &HuntSim) -> HuntBot {
 	HuntBot::new(
 		sim,
@@ -45,6 +47,9 @@ fn beginner(sim: &HuntSim) -> HuntBot {
 			turn_speed: 0.9,
 			reaction_ticks: 40,
 			miss_every: 2,
+			active_reload_tick: None,
+			knife: false,
+			orb_hold_ticks: 12,
 			..HuntBotStyle::CAREFUL
 		},
 	)
@@ -73,8 +78,10 @@ mod what_a_difficulty_changes {
 		assert_eq!(sim.stats().resolve, stats.resolve);
 		assert_eq!(sim.stats().reach_radians, stats.reach_radians);
 		assert_eq!(sim.stats().flinch_speed, stats.flinch_speed);
-		assert_eq!(sim.stats().capture_ticks, stats.capture_ticks);
-		assert_eq!(sim.reap_attempts_left(), HuntRules::REAP_ATTEMPTS);
+		assert_eq!(sim.stats().assist_radians, stats.assist_radians);
+		assert_eq!(sim.stats().broken_ticks, stats.broken_ticks);
+		assert_eq!(sim.stats().orb_aim_radians, stats.orb_aim_radians);
+		assert_eq!(sim.lapses_left(), HuntRules::LAPSES);
 	}
 
 	#[test]
@@ -86,11 +93,12 @@ mod what_a_difficulty_changes {
 		assert_eq!(sim.stats().resolve, stats.resolve + 3);
 		assert!(sim.stats().reach_radians > stats.reach_radians * 1.5);
 		assert!(sim.stats().flinch_speed > stats.flinch_speed * 2.0);
-		assert!(sim.stats().capture_ticks > stats.capture_ticks * 2);
-		assert!(sim.stats().reap_tolerance_radians > stats.reap_tolerance_radians * 1.5);
-		assert_eq!(sim.reap_attempts_left(), HuntRules::REAP_ATTEMPTS + 2);
-		// What a strike does is the reaper's own, whatever the difficulty.
-		assert_eq!(sim.stats().strike_damage, stats.strike_damage);
+		assert_eq!(sim.stats().broken_ticks, stats.broken_ticks * 2);
+		assert_eq!(sim.stats().orb_aim_radians, stats.orb_aim_radians * 2.0);
+		assert!(sim.stats().assist_radians > stats.assist_radians * 1.5);
+		assert_eq!(sim.lapses_left(), HuntRules::LAPSES + 2);
+		// What a hit does is the reaper's own, whatever the difficulty.
+		assert_eq!(sim.stats().hit, stats.hit);
 	}
 
 	#[test]
@@ -100,6 +108,9 @@ mod what_a_difficulty_changes {
 
 		assert!(sim.ward_max() > Rarity::Uncommon.ward() as f64);
 		assert!(sim.stats().reach_radians < stats.reach_radians);
+		assert!(sim.stats().assist_radians < stats.assist_radians);
+		assert!(sim.stats().broken_ticks < stats.broken_ticks);
+		assert!(sim.stats().orb_aim_radians < stats.orb_aim_radians);
 		assert!(sim.stats().flinch_speed < stats.flinch_speed);
 		assert_eq!(sim.stats().resolve, stats.resolve);
 	}
@@ -221,8 +232,16 @@ mod the_record_of_a_hunt {
 			difficulty: Difficulty::Easy,
 			..HuntLog::new(bot.recorded.clone())
 		};
-		let replayed =
-			|log: &HuntLog| HuntSim::replay(3, Vessel::Ape, Rarity::Uncommon.ward(), &stats(), log);
+		let replayed = |log: &HuntLog| {
+			HuntSim::replay(
+				3,
+				Vessel::Ape,
+				Rarity::Uncommon,
+				Rarity::Uncommon.ward(),
+				&stats(),
+				log,
+			)
+		};
 
 		assert!(sim.outcome().unwrap().absorbed());
 		assert_eq!(replayed(&log).map(|outcome| outcome.absorbed()), Some(true));
@@ -268,6 +287,7 @@ mod a_keeper_that_pays_for_real {
 		let mut sim = HuntSim::new(
 			sighting.seed,
 			HUSK.collection.vessel(),
+			HUSK.rarity(),
 			HUSK.rarity().ward(),
 			&HuntStats::derive(&state.loadout(), 1.0).unwrap(),
 			HuntPlan::OPEN,

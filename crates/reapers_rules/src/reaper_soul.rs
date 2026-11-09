@@ -239,11 +239,11 @@ impl SoulRules {
 	pub const HUNGRY_FLINCH: f64 = 0.92;
 	pub const HUNGRY_STRIKE: f64 = 1.08;
 	pub const HUSH_TICKS_PER_STRENGTH: i64 = 30;
-	pub const KEEN_CAPTURE_TICKS: i64 = 24;
+	pub const KEEN_BROKEN_TICKS: i64 = 24;
 	pub const KEEN_REACH_DEGREES: f64 = 0.6;
 	pub const MAX_RANK: i64 = 3;
 	pub const PASSAGE_STAGGER_TICKS_PER_STRENGTH: i64 = 30;
-	pub const PATIENT_CAPTURE_TICKS: i64 = 30;
+	pub const PATIENT_BROKEN_TICKS: i64 = 30;
 	pub const PATIENT_SWING_TICKS: i64 = 2;
 	pub const RANK_LEVELS: [i64; 4] = [1, 5, 12, 20];
 	pub const RANK_MARKS: [i64; 4] = [0, 3, 12, 30];

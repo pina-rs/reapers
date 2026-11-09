@@ -15,6 +15,7 @@ fn sim_in(seed: i64, vessel: Vessel, plan: HuntPlan, rarity: Rarity) -> HuntSim 
 	HuntSim::new(
 		seed,
 		vessel,
+		rarity,
 		rarity.ward(),
 		&borrowed(),
 		plan,
@@ -75,8 +76,9 @@ mod what_the_plan_knows_of_cover {
 				HuntInput {
 					aim: Aim::new(120, -400),
 					turn_speed: 30,
-					taps: Vec::new(),
-					focus: true,
+					fire: true,
+					slot: 2,
+					orb_held: false,
 				},
 				HuntInput::new(Aim::new(-50, 10), 2000),
 			])
@@ -85,8 +87,9 @@ mod what_the_plan_knows_of_cover {
 
 		assert_eq!(decoded.plan, plan);
 		assert!(close(decoded.plan.ledge_at(36).unwrap(), 0.92));
-		assert!(decoded.inputs[0].focus);
-		assert!(!decoded.inputs[1].focus);
+		assert!(decoded.inputs[0].fire);
+		assert_eq!(usize::from(decoded.inputs[0].slot), 2);
+		assert!(!decoded.inputs[1].fire);
 		assert_eq!(decoded.inputs[1].turn_speed, 2000);
 	}
 
@@ -134,6 +137,7 @@ mod what_the_plan_knows_of_cover {
 				HuntSim::replay(
 					1,
 					Vessel::Ape,
+					Rarity::Common,
 					280,
 					&borrowed(),
 					&HuntLog {
@@ -278,7 +282,7 @@ mod a_husk_in_a_furnished_room {
 			&& sim.tick() < MAX_TICKS
 			&& !sim.is_over()
 		{
-			let input = HuntInput::measured(sim.pose().direction(), 0.0, &[], false);
+			let input = HuntInput::measured(sim.pose().direction(), 0.0, false, 0, false);
 
 			sim.step(&input);
 		}
@@ -297,18 +301,34 @@ mod a_husk_in_a_furnished_room {
 		assert!(sim.plan().hides(low * pose.distance()));
 
 		let events = sim.step(&HuntInput {
-			aim: Aim::from_direction(pose.direction()),
+			aim: Aim::from_direction(low),
 			turn_speed: 0,
-			taps: vec![Aim::from_direction(low)],
-			focus: false,
+			fire: true,
+			slot: 0,
+			orb_held: false,
 		});
 
-		assert!(!events.iter().any(|event| {
-			matches!(
-				event,
-				HuntEvent::StrikeGlanced { .. } | HuntEvent::StrikeLanded { .. }
-			)
-		}));
+		assert_eq!(
+			events
+				.iter()
+				.filter(|event| matches!(event, HuntEvent::ShotFired { .. }))
+				.count(),
+			1
+		);
+		assert_eq!(
+			events
+				.iter()
+				.filter(|event| matches!(event, HuntEvent::HitLanded { .. }))
+				.count(),
+			0
+		);
+		assert_eq!(
+			events
+				.iter()
+				.filter(|event| matches!(event, HuntEvent::Missed(_)))
+				.count(),
+			1
+		);
 	}
 
 	#[test]
@@ -398,7 +418,14 @@ mod a_husk_in_a_furnished_room {
 			.encode(),
 		)
 		.unwrap();
-		let replayed = HuntSim::replay(9, Vessel::Ape, Rarity::Common.ward(), &borrowed(), &log);
+		let replayed = HuntSim::replay(
+			9,
+			Vessel::Ape,
+			Rarity::Common,
+			Rarity::Common.ward(),
+			&borrowed(),
+			&log,
+		);
 
 		assert_eq!(
 			serde_json::to_value(replayed).unwrap(),

@@ -95,16 +95,16 @@ mod birth_identity {
 			.unwrap()
 		};
 		let patient = with_temperament(Temperament::Patient);
-		assert!(patient.capture_ticks > baseline.capture_ticks);
+		assert!(patient.broken_ticks > baseline.broken_ticks);
 		assert!(patient.swing_ticks > baseline.swing_ticks);
 		let keen = with_temperament(Temperament::Keen);
 		assert!(keen.reach_radians > baseline.reach_radians);
-		assert!(keen.capture_ticks < baseline.capture_ticks);
+		assert!(keen.broken_ticks < baseline.broken_ticks);
 		let stalwart = with_temperament(Temperament::Stalwart);
 		assert!(stalwart.resolve > baseline.resolve);
-		assert!(stalwart.strike_damage < baseline.strike_damage);
+		assert!(stalwart.hit < baseline.hit);
 		let hungry = with_temperament(Temperament::Hungry);
-		assert!(hungry.strike_damage > baseline.strike_damage);
+		assert!(hungry.hit > baseline.hit);
 		assert!(hungry.flinch_speed < baseline.flinch_speed);
 	}
 }
@@ -115,7 +115,7 @@ mod earned_memory {
 	use super::*;
 
 	const RICH: HuntOutcome = HuntOutcome::absorbed_with(
-		ReapGrade::Perfect,
+		CaptureGrade::Excellent,
 		true,
 		2000,
 		HuntDeeds {
@@ -154,7 +154,7 @@ mod earned_memory {
 			},
 		);
 		let short = HuntOutcome::absorbed_with(
-			ReapGrade::Clean,
+			CaptureGrade::Great,
 			false,
 			800,
 			HuntDeeds {
@@ -258,7 +258,7 @@ mod power_replay {
 			1.0,
 		)
 		.unwrap();
-		let mut sim = HuntSim::open(19, Vessel::Penguin, 400, &stats);
+		let mut sim = HuntSim::open(19, Vessel::Penguin, Rarity::Common, 400, &stats);
 		let mut bot = HuntBot::new(
 			&sim,
 			HuntBotStyle {
@@ -268,7 +268,7 @@ mod power_replay {
 		);
 		let outcome = bot.play(&mut sim);
 		let log = HuntLog::decode(&HuntLog::new(bot.recorded.clone()).encode()).unwrap();
-		let replay = HuntSim::replay(19, Vessel::Penguin, 400, &stats, &log);
+		let replay = HuntSim::replay(19, Vessel::Penguin, Rarity::Common, 400, &stats, &log);
 		let outcome = outcome.expect("the hunt ends");
 		assert_eq!(
 			replay.map(|replay| serde_json::to_value(replay).unwrap()),

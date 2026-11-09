@@ -8,7 +8,6 @@ use serde::Serialize;
 use serde::Serializer;
 
 use crate::error::FormatError;
-use crate::hunt::hunt_stats::HuntRules;
 use crate::named::named_enum;
 use crate::reaper_class::ReaperClass;
 use crate::reaper_class::WeaponKind;
@@ -170,25 +169,33 @@ impl<'de> Deserialize<'de> for Weapon {
 	}
 }
 
-/// How one kind of weapon handles, whatever its temper.
+/// How one kind of weapon handles, whatever its temper. Swung as a reaper's
+/// slot-three heavy weapon.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WeaponProfile {
-	/// Multiplier on strike damage.
+	/// How many hits a swing does.
 	pub strike: f64,
 
-	/// Added to the tap radius around a seal, in degrees of view.
+	/// Added to the seal cone, in degrees of view, and to how far off the
+	/// husk's body a swing may be and still reach it.
 	pub reach_degrees: f64,
 
-	/// Ticks between one strike landing and the next being allowed.
+	/// Ticks a swing takes.
 	pub swing_ticks: i64,
 
-	/// How long a seal struck with this stops the husk in its tracks. Only a
-	/// heavy blade knocks a creature off its stride.
+	/// How long a swing that lands stops the husk in its tracks, when that
+	/// is longer than every heavy swing does. Only the greatsword's is.
 	pub knock_ticks: i64,
 
-	/// The share of a strike a blow on the body, away from any seal, does.
-	/// An axe bites wherever it lands.
-	pub glance_share: f64,
+	/// The share of a hit on an open seal that a swing on the body does. An
+	/// axe bites wherever it lands.
+	pub body_share: f64,
+}
+
+impl WeaponProfile {
+	/// The share of a hit on an open seal that a hit on the body does, for
+	/// every weapon but one that bites anywhere.
+	pub const PLAIN_BODY_SHARE: f64 = 0.5;
 }
 
 const fn profile(strike: f64, reach_degrees: f64, swing_ticks: i64) -> WeaponProfile {
@@ -197,7 +204,7 @@ const fn profile(strike: f64, reach_degrees: f64, swing_ticks: i64) -> WeaponPro
 		reach_degrees,
 		swing_ticks,
 		knock_ticks: 0,
-		glance_share: HuntRules::GLANCE_SHARE,
+		body_share: WeaponProfile::PLAIN_BODY_SHARE,
 	}
 }
 
@@ -224,7 +231,7 @@ pub const fn weapon_profile(kind: WeaponKind) -> WeaponProfile {
 		}
 		WeaponKind::Axe => {
 			WeaponProfile {
-				glance_share: 0.7,
+				body_share: 0.7,
 				..profile(1.5, 0.2, 32)
 			}
 		}

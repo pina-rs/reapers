@@ -1,6 +1,10 @@
 //! The hunt, a tick at a time.
 
 #![allow(clippy::float_cmp, reason = "these are compared exactly")]
+#![allow(
+	clippy::assert_is_empty,
+	reason = "asserting an empty seal list reads clearer than an equality"
+)]
 
 mod support;
 
@@ -109,23 +113,13 @@ fn step_with(sim: &mut HuntSim, choose: impl FnOnce(&HuntSim) -> HuntInput) -> V
 
 /// Looks straight at the husk without moving.
 fn steady_on_husk(sim: &HuntSim) -> HuntInput {
-	HuntInput::still(sim.pose().direction(), 0.0)
-}
-
-/// Looks at the husk and taps the first open seal.
-fn tap_open_seal(sim: &HuntSim) -> HuntInput {
-	for index in 0..sim.vessel().seals().len() {
-		if sim.seal_open(index) {
-			return HuntInput::measured(
-				sim.pose().direction(),
-				0.0,
-				&[sim.pose().seal_direction(index)],
-				false,
-			);
-		}
-	}
-
-	steady_on_husk(sim)
+	HuntInput::measured(
+		sim.pose().direction(),
+		0.0,
+		false,
+		sim.selected_slot(),
+		false,
+	)
 }
 
 /// The seals of `sim`'s husk that can be struck right now.
@@ -165,31 +159,33 @@ fn forgiven_of(event: &HuntEvent) -> Option<bool> {
 	}
 }
 
-/// A [`HuntEvent::StrikeLanded`], taken apart.
-struct Strike {
-	seal: usize,
+/// A [`HuntEvent::HitLanded`], taken apart.
+struct Hit {
 	damage: f64,
 	cadence: i64,
+	critical: bool,
 	empowered: bool,
 	cleaved: Vec<usize>,
 }
 
-fn strikes(events: &[HuntEvent]) -> Vec<Strike> {
+fn hits(events: &[HuntEvent]) -> Vec<Hit> {
 	events
 		.iter()
 		.filter_map(|event| {
 			match event {
-				HuntEvent::StrikeLanded {
-					seal,
+				HuntEvent::HitLanded {
+					weapon: _,
+					seal: _,
 					damage,
 					cadence,
+					critical,
 					empowered,
 					cleaved,
 				} => {
-					Some(Strike {
-						seal: *seal,
+					Some(Hit {
 						damage: *damage,
 						cadence: *cadence,
+						critical: *critical,
 						empowered: *empowered,
 						cleaved: cleaved.clone(),
 					})
@@ -200,10 +196,10 @@ fn strikes(events: &[HuntEvent]) -> Vec<Strike> {
 		.collect()
 }
 
-fn single_strike(events: &[HuntEvent]) -> Strike {
-	let mut found = strikes(events);
+fn single_hit(events: &[HuntEvent]) -> Hit {
+	let mut found = hits(events);
 
-	assert_eq!(found.len(), 1, "expected exactly one strike");
+	assert_eq!(found.len(), 1, "expected exactly one hit");
 
 	found.remove(0)
 }
@@ -273,21 +269,19 @@ mod stalk {
 	}
 
 	#[test]
-	fn striking_the_husk_first_starts_the_fight_without_an_ambush() {
+	fn firing_at_the_husk_first_starts_the_fight_without_an_ambush() {
 		let mut sim = default_sim();
-		let events = step_with(&mut sim, |sim| {
-			HuntInput::measured(Vec3::FORWARD, 0.0, &[sim.pose().direction()], false)
-		});
+		let events = step_with(&mut sim, |sim| fire_at(sim, sim.pose().direction(), None));
 
 		assert!(!single(&events, ambush_of));
-		assert_eq!(count!(events, HuntEvent::StrikeGlanced { .. }), 1);
+		assert!(!single_hit(&events).critical);
 	}
 }
 
-mod strike {
+mod cadence {
 	use super::*;
 
-	/// A ferryman, so no strike in this group cleaves, brought to the fight.
+	/// A ferryman, so no hit in this group cleaves, brought to the fight.
 	fn fighting() -> HuntSim {
 		let mut sim = sim_for(SimFor {
 			reaper_class: ReaperClass::Ferryman,
@@ -299,80 +293,54 @@ mod strike {
 		sim
 	}
 
-	#[test]
-	fn a_tap_on_an_open_seal_removes_ward_and_shuts_the_seal() {
-		let mut sim = fighting();
-		let events = step_with(&mut sim, tap_open_seal);
-		let strike = single_strike(&events);
+	fn fire_open_seal(sim: &HuntSim) -> HuntInput {
+		let open = open_seals(sim);
 
-		assert!((sim.ward() - (Rarity::Common.ward() as f64 - strike.damage)).abs() <= 1e-9);
-		assert!(!sim.seal_open(strike.seal));
-		assert!(strike.empowered, "the ambush strike");
+		fire_at(
+			sim,
+			if open.is_empty() {
+				sim.pose().direction()
+			} else {
+				sim.pose().seal_direction(open[0])
+			},
+			None,
+		)
 	}
 
 	#[test]
-	fn a_tap_away_from_the_husk_whiffs_and_breaks_the_cadence() {
+	fn a_miss_breaks_the_cadence() {
 		let mut sim = fighting();
 
-		step_with(&mut sim, tap_open_seal);
+		step_with(&mut sim, fire_open_seal);
 
 		assert_eq!(sim.cadence(), 1);
+		assert_eq!(
+			sim.cadence_ticks_left(),
+			HuntRules::CADENCE_WINDOW_TICKS - 1
+		);
 
-		for _ in 0..sim.stats().swing_ticks {
+		for _ in 0..GunRules::FIRE_INTERVAL_TICKS {
 			step_with(&mut sim, steady_on_husk);
 		}
 
-		let events = step_with(&mut sim, |sim| {
-			HuntInput::measured(
-				sim.pose().direction(),
-				0.0,
-				&[-sim.pose().direction()],
-				false,
-			)
-		});
+		let events = step_with(&mut sim, |sim| fire_at(sim, -sim.pose().direction(), None));
 
-		assert_eq!(count!(events, HuntEvent::StrikeWhiffed), 1);
+		assert_eq!(count!(events, HuntEvent::Missed(_)), 1);
 		assert_eq!(sim.cadence(), 0);
+		assert_eq!(sim.cadence_ticks_left(), 0);
 	}
 
 	#[test]
-	fn a_tap_during_a_swing_waits_for_it_instead_of_being_lost() {
+	fn the_cadence_lapses_when_no_hit_lands_in_its_window() {
 		let mut sim = fighting();
 
-		step_with(&mut sim, tap_open_seal);
+		step_with(&mut sim, fire_open_seal);
 
-		// Tap again a few ticks before the weapon is ready.
-		for _ in 1..sim.stats().swing_ticks - 5 {
+		for _ in 0..=HuntRules::CADENCE_WINDOW_TICKS {
 			step_with(&mut sim, steady_on_husk);
 		}
 
-		let early = step_with(&mut sim, tap_open_seal);
-
-		assert_eq!(count!(early, HuntEvent::StrikeLanded { .. }), 0);
-
-		let mut later = Vec::new();
-
-		for _ in 0..6 {
-			later.extend(step_with(&mut sim, steady_on_husk));
-		}
-
-		assert_eq!(count!(later, HuntEvent::StrikeLanded { .. }), 1);
-	}
-
-	#[test]
-	fn a_tap_made_too_early_in_a_swing_is_dropped() {
-		let mut sim = fighting();
-
-		step_with(&mut sim, tap_open_seal);
-		step_with(&mut sim, tap_open_seal);
-
-		let mut later = Vec::new();
-
-		for _ in 0..sim.stats().swing_ticks + 5 {
-			later.extend(step_with(&mut sim, steady_on_husk));
-		}
-
-		assert_eq!(count!(later, HuntEvent::StrikeLanded { .. }), 0);
+		assert_eq!(sim.cadence(), 0);
 	}
 
 	#[test]
@@ -380,15 +348,15 @@ mod strike {
 		let mut sim = fighting();
 		let mut damages = Vec::new();
 
-		for tick in 0..2000 {
+		for _ in 0..2000 {
 			if damages.len() >= 8 {
 				break;
 			}
 
-			let events = if tick % sim.stats().swing_ticks == 0 {
-				step_with(&mut sim, tap_open_seal)
-			} else {
+			let events = if sim.reloading() {
 				step_with(&mut sim, steady_on_husk)
+			} else {
+				step_with(&mut sim, |sim| fire_at(sim, sim.pose().direction(), None))
 			};
 
 			if sim.phase() != HuntPhase::Fight {
@@ -396,17 +364,24 @@ mod strike {
 			}
 
 			damages.extend(
-				strikes(&events)
+				hits(&events)
 					.into_iter()
-					.filter(|strike| !strike.empowered && strike.cleaved.is_empty())
-					.map(|strike| strike.damage),
+					.filter(|hit| !hit.empowered)
+					.map(|hit| {
+						hit.damage
+							/ GunRules::SHOT_STRIKE
+							/ if hit.critical {
+								HuntRules::CRITICAL_STRIKE
+							} else {
+								1.0
+							}
+					}),
 			);
 		}
 
 		assert!(damages.len() > 3);
 
-		let cap = sim.stats().strike_damage
-			* (1.0 + HuntRules::CADENCE_CAP as f64 * HuntRules::CADENCE_STEP);
+		let cap = sim.stats().hit * (1.0 + HuntRules::CADENCE_CAP as f64 * HuntRules::CADENCE_STEP);
 
 		assert!(damages.iter().all(|&damage| damage <= cap + 1e-9));
 		assert!(damages.last() > damages.first());
@@ -482,17 +457,11 @@ mod shriek {
 			step_with(&mut sim, steady_on_husk);
 		}
 
-		let events = step_with(&mut sim, |sim| {
-			HuntInput::measured(
-				sim.pose().direction(),
-				0.0,
-				&[sim.pose().direction()],
-				false,
-			)
-		});
+		let events = step_with(&mut sim, |sim| fire_at(sim, sim.pose().direction(), None));
 
 		assert_eq!(count!(events, HuntEvent::Flinched { .. }), 1);
-		assert_eq!(count!(events, HuntEvent::StrikeLanded { .. }), 0);
+		assert_eq!(count!(events, HuntEvent::ShotFired { .. }), 0);
+		assert_eq!(count!(events, HuntEvent::HitLanded { .. }), 0);
 	}
 
 	#[test]
@@ -551,7 +520,7 @@ mod shriek {
 	}
 }
 
-mod break_and_reap {
+mod break_and_capture {
 	use super::*;
 
 	#[test]
@@ -563,79 +532,37 @@ mod break_and_reap {
 		let outcome = outcome.expect("the hunt should end");
 
 		assert!(outcome.absorbed());
-		assert_ne!(outcome.grade(), Some(ReapGrade::Ragged));
-		assert_eq!(count!(bot.events, HuntEvent::Broken), 1);
+		assert_ne!(outcome.grade(), Some(CaptureGrade::Plain));
+		assert_eq!(count!(bot.events, HuntEvent::Broken { .. }), 1);
+		assert!(count!(bot.events, HuntEvent::OrbThrown { .. }) > 0);
 	}
 
 	#[test]
-	fn a_steady_sweep_grades_better_than_a_hurried_one() {
-		let (steady, _) = play_out(
+	fn a_well_timed_throw_grades_better_than_a_hurried_one() {
+		let (timed, _) = play_out(
 			default_sim(),
 			HuntBotStyle {
-				reap_speed: 0.8,
+				orb_hold_ticks: 58,
 				..HuntBotStyle::CAREFUL
 			},
 		);
 		let (hurried, _) = play_out(
 			default_sim(),
 			HuntBotStyle {
-				reap_speed: 6.0,
+				orb_hold_ticks: 8,
 				..HuntBotStyle::CAREFUL
 			},
 		);
 
-		assert_eq!(steady.outcome().unwrap().grade(), Some(ReapGrade::Perfect));
-		assert_eq!(hurried.outcome().unwrap().grade(), Some(ReapGrade::Ragged));
-	}
-
-	#[test]
-	fn a_window_left_unfinished_lets_the_husk_recover_then_escape() {
-		let mut sim = default_sim();
-		let mut bot = HuntBot::careful(&sim);
-
-		while sim.phase() != HuntPhase::Broken {
-			bot.step_once(&mut sim);
-		}
-
-		let recovered = run_until(&mut sim, HuntPhase::Fight, steady_on_husk);
-		let attempts_left = single(&recovered, |event| {
-			match event {
-				HuntEvent::ReapRecovered { attempts_left } => Some(*attempts_left),
-				_ => None,
-			}
-		});
-
-		assert_eq!(attempts_left, 1);
 		assert_eq!(
-			sim.ward(),
-			Rarity::Common.ward() as f64 * HuntRules::RECOVER_SHARE
+			timed.outcome().unwrap().grade(),
+			Some(CaptureGrade::Excellent)
 		);
-
-		while sim.phase() != HuntPhase::Broken {
-			bot.step_once(&mut sim);
-		}
-
-		run_until(&mut sim, HuntPhase::Escaped, steady_on_husk);
-
-		assert_eq!(sim.outcome().unwrap().escape(), Some(EscapeCause::Reap));
-	}
-
-	#[test]
-	fn the_cut_only_moves_forward() {
-		let mut sim = default_sim();
-		let mut bot = HuntBot::careful(&sim);
-
-		while !sim.reap_begun() || sim.reap_progress() < 0.4 {
-			bot.step_once(&mut sim);
-		}
-
-		let reached = sim.reap_progress();
-
-		step_with(&mut sim, |sim| {
-			HuntInput::still(sim.reap_arc_point(0.1), 0.5)
-		});
-
-		assert_eq!(sim.reap_progress(), reached);
+		assert_eq!(
+			hurried.outcome().unwrap().grade(),
+			Some(CaptureGrade::Plain),
+			"the outer third grades no better than no hold"
+		);
 	}
 
 	#[test]
@@ -661,7 +588,7 @@ mod class_perks {
 	use super::*;
 
 	#[test]
-	fn a_harvester_cleaves_through_neighbouring_seals() {
+	fn a_harvester_cleaves_through_other_open_seals() {
 		let mut sim = sim_for(SimFor {
 			vessel: Vessel::Ape,
 			..SimFor::default()
@@ -669,18 +596,28 @@ mod class_perks {
 
 		run_until(&mut sim, HuntPhase::Fight, steady_on_husk);
 
-		let mut cleaves = Vec::new();
-		let mut bot = HuntBot::careful(&sim);
+		let open = open_seals(&sim);
+		let hit = single_hit(&step_with(&mut sim, |sim| {
+			fire_at(sim, sim.pose().seal_direction(open[0]), None)
+		}));
 
-		while !sim.is_over() && sim.phase() != HuntPhase::Broken {
-			cleaves.extend(strikes(&bot.step_once(&mut sim)));
-		}
+		assert!(open.len() >= 2);
+		assert_eq!(hit.cleaved, open[1..].to_vec());
+		assert!(open_seals(&sim).is_empty());
 
-		assert!(cleaves.iter().any(|strike| !strike.cleaved.is_empty()));
+		let alone = sim.stats().hit
+			* GunRules::SHOT_STRIKE
+			* HuntRules::CRITICAL_STRIKE
+			* HuntRules::AMBUSH_STRIKE;
+
+		assert!(
+			(hit.damage - alone * (1.0 + HuntRules::CLEAVE_SHARE * hit.cleaved.len() as f64)).abs()
+				<= 1e-9
+		);
 	}
 
 	#[test]
-	fn a_weigher_striking_in_order_hits_twice_as_hard() {
+	fn a_weigher_striking_in_order_hits_harder() {
 		let mut sim = sim_for(SimFor {
 			reaper_class: ReaperClass::Weigher,
 			..SimFor::default()
@@ -707,24 +644,20 @@ mod class_perks {
 
 		assert!(open.len() >= 2);
 
-		let tap = |sim: &HuntSim, seal: usize| {
-			HuntInput::measured(
-				sim.pose().direction(),
-				0.0,
-				&[sim.pose().seal_direction(seal)],
-				false,
-			)
-		};
+		let out_of_order = single_hit(&step_with(&mut sim, |sim| {
+			fire_at(sim, sim.pose().seal_direction(newest), None)
+		}));
 
-		let out_of_order = single_strike(&step_with(&mut sim, |sim| tap(sim, newest)));
-
-		for _ in 0..sim.stats().swing_ticks {
+		for _ in 0..GunRules::FIRE_INTERVAL_TICKS {
 			step_with(&mut sim, steady_on_husk);
 		}
 
-		let in_order = single_strike(&step_with(&mut sim, |sim| tap(sim, oldest)));
+		let in_order = single_hit(&step_with(&mut sim, |sim| {
+			fire_at(sim, sim.pose().seal_direction(oldest), None)
+		}));
 
-		// Take the ambush bonus off the first and the cadence off the second.
+		// Take the ambush bonus off the first and the cadence off the
+		// second.
 		let plain = out_of_order.damage / HuntRules::AMBUSH_STRIKE;
 		let measured = in_order.damage / (1.0 + HuntRules::CADENCE_STEP);
 
@@ -732,22 +665,22 @@ mod class_perks {
 	}
 
 	#[test]
-	fn a_mourner_gains_reap_time_from_each_unflinching_hold() {
+	fn a_mourner_keeps_a_broken_husk_down_longer_for_each_hold() {
 		let mut sim = sim_for(SimFor {
 			reaper_class: ReaperClass::Mourner,
 			..SimFor::default()
 		});
-		let before = sim.capture_ticks();
+		let before = sim.broken_ticks();
 
 		run_until(&mut sim, HuntPhase::Fight, steady_on_husk);
 		run_until(&mut sim, HuntPhase::Shriek, steady_on_husk);
 		run_until(&mut sim, HuntPhase::Fight, steady_on_husk);
 
-		assert_eq!(sim.capture_ticks(), before + HuntRules::TOLL_TICKS);
+		assert_eq!(sim.broken_ticks(), before + HuntRules::TOLL_TICKS);
 	}
 
 	#[test]
-	fn a_chooser_strikes_three_times_as_hard_after_holding_firm() {
+	fn a_chooser_hits_three_times_as_hard_after_holding_firm() {
 		let mut sim = sim_for(SimFor {
 			reaper_class: ReaperClass::Chooser,
 			..SimFor::default()
@@ -757,10 +690,28 @@ mod class_perks {
 		run_until(&mut sim, HuntPhase::Shriek, steady_on_husk);
 		run_until(&mut sim, HuntPhase::Fight, steady_on_husk);
 
-		let strike = single_strike(&step_with(&mut sim, tap_open_seal));
+		let hit = single_hit(&step_with(&mut sim, |sim| {
+			let open = open_seals(sim);
 
+			fire_at(
+				sim,
+				if open.is_empty() {
+					sim.pose().direction()
+				} else {
+					sim.pose().seal_direction(open[0])
+				},
+				None,
+			)
+		}));
+
+		assert!(hit.critical);
 		assert!(
-			(strike.damage - sim.stats().strike_damage * HuntRules::CHOSEN_BLOW_STRIKE).abs()
+			(hit.damage
+				- sim.stats().hit
+					* GunRules::SHOT_STRIKE
+					* HuntRules::CRITICAL_STRIKE
+					* HuntRules::CHOSEN_BLOW_STRIKE)
+				.abs()
 				<= 1e-9
 		);
 	}
@@ -774,11 +725,11 @@ mod class_perks {
 			}),
 			HuntBotStyle::CAREFUL,
 		);
-		let best = strikes(&bot.events)
+		let best = hits(&bot.events)
 			.iter()
-			.map(|strike| strike.cadence)
+			.map(|hit| hit.cadence)
 			.max()
-			.expect("some strike landed");
+			.expect("some hit landed");
 
 		assert!(best > HuntRules::CADENCE_CAP);
 	}
@@ -947,6 +898,7 @@ mod determinism_and_replay {
 		let mut second = HuntSim::open(
 			31,
 			first_sim.vessel(),
+			Rarity::Common,
 			Rarity::Common.ward(),
 			first_sim.stats(),
 		);
@@ -983,7 +935,9 @@ mod determinism_and_replay {
 		for (decoded, recorded) in decoded.inputs.iter().zip(&bot.recorded) {
 			assert_eq!(decoded.aim, recorded.aim);
 			assert_eq!(decoded.turn_speed, recorded.turn_speed);
-			assert_eq!(decoded.taps, recorded.taps);
+			assert_eq!(decoded.fire, recorded.fire);
+			assert_eq!(decoded.slot, recorded.slot);
+			assert_eq!(decoded.orb_held, recorded.orb_held);
 		}
 	}
 
@@ -998,6 +952,7 @@ mod determinism_and_replay {
 			let replayed = HuntSim::replay(
 				seed,
 				Vessel::Penguin,
+				Rarity::Common,
 				Rarity::Common.ward(),
 				&SimFor::default().stats(),
 				&HuntLog::decode(&HuntLog::new(bot.recorded.clone()).encode()).unwrap(),
@@ -1019,6 +974,7 @@ mod determinism_and_replay {
 			HuntSim::replay(
 				7,
 				Vessel::Penguin,
+				Rarity::Common,
 				Rarity::Common.ward(),
 				&SimFor::default().stats(),
 				&cut,
@@ -1048,5 +1004,74 @@ mod determinism_and_replay {
 			HuntLog::decode(&[1, 0, 0, 0, 0]).is_err(),
 			"a log from before plans existed"
 		);
+	}
+
+	#[test]
+	fn a_tick_with_an_unknown_button_or_slot_is_refused() {
+		let mut tick = HuntLog::new(vec![idle()]).encode();
+
+		*tick.last_mut().unwrap() = Arsenal::SLOTS as u8;
+
+		assert_eq!(
+			HuntLog::decode(&tick),
+			Err(HuntLogError::UnknownInput),
+			"no such slot"
+		);
+
+		let mut tick = HuntLog::new(vec![idle()]).encode();
+		let button = tick.len() - 2;
+
+		tick[button] = 4;
+
+		assert_eq!(
+			HuntLog::decode(&tick),
+			Err(HuntLogError::UnknownInput),
+			"no such button"
+		);
+	}
+
+	#[test]
+	fn a_log_from_before_the_crosshair_is_refused() {
+		let mut bytes = HuntLog::new(vec![idle()]).encode();
+
+		bytes[0] = 6;
+
+		assert_eq!(
+			HuntLog::decode(&bytes),
+			Err(HuntLogError::UnsupportedVersion)
+		);
+	}
+
+	#[test]
+	fn a_whole_hunt_survives_the_trip_to_the_server() {
+		for reaper_class in ReaperClass::ALL {
+			let (sim, bot) = play_out(
+				sim_for(SimFor {
+					seed: 21,
+					reaper_class,
+					..SimFor::default()
+				}),
+				HuntBotStyle::HUMAN,
+			);
+			let replayed = HuntSim::replay(
+				21,
+				sim.vessel(),
+				Rarity::Common,
+				Rarity::Common.ward(),
+				&sim.stats().clone(),
+				&HuntLog::decode(&HuntLog::new(bot.recorded.clone()).encode()).unwrap(),
+			)
+			.unwrap();
+
+			assert_eq!(
+				serde_json::to_value(replayed).unwrap(),
+				serde_json::to_value(sim.outcome().unwrap()).unwrap(),
+				"{reaper_class:?}",
+			);
+			assert!(
+				count!(bot.events, HuntEvent::OrbThrown { .. }) > 0,
+				"{reaper_class:?}",
+			);
+		}
 	}
 }

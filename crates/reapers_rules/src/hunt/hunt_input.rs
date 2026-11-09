@@ -4,6 +4,7 @@ use core::fmt;
 
 use thiserror::Error;
 
+use crate::hunt::arsenal::Arsenal;
 use crate::hunt::difficulty::Difficulty;
 use crate::hunt::hunt_plan::HuntPlan;
 use crate::math;
@@ -71,20 +72,27 @@ impl fmt::Display for Aim {
 }
 
 /// Everything the player did during one tick.
+///
+/// The crosshair is the middle of the screen, so [`aim`](HuntInput::aim) is
+/// where every weapon and every orb goes. Nothing the player touches says
+/// where to strike.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct HuntInput {
-	/// Where the middle of the phone's view points.
+	/// Where the middle of the phone's view points: the crosshair.
 	pub aim: Aim,
 
 	/// How fast the phone is turning, in thousandths of a radian a second.
 	pub turn_speed: i32,
 
-	/// Where each tap this tick points, as a direction out from the player.
-	pub taps: Vec<Aim>,
+	/// Whether FIRE was pressed this tick. Holding it down does not fire
+	/// again: each press is one.
+	pub fire: bool,
 
-	/// Whether the reaper is holding their art ready: a thumb on the art, to
-	/// gather it and throw it with a flick of the phone.
-	pub focus: bool,
+	/// The weapon slot selected, from 0 to [`Arsenal::SLOTS`] - 1.
+	pub slot: u8,
+
+	/// Whether ORB is held down. The tick it comes up is the throw.
+	pub orb_held: bool,
 }
 
 impl HuntInput {
@@ -97,25 +105,39 @@ impl HuntInput {
 		Self {
 			aim,
 			turn_speed,
-			taps: Vec::new(),
-			focus: false,
+			fire: false,
+			slot: Arsenal::GUN_SLOT as u8,
+			orb_held: false,
 		}
 	}
 
 	/// Rounds what the phone measured this tick onto the grid the rules use.
-	pub fn measured(aim: Vec3, turn_radians_per_second: f64, taps: &[Vec3], focus: bool) -> Self {
+	pub fn measured(
+		aim: Vec3,
+		turn_radians_per_second: f64,
+		fire: bool,
+		slot: usize,
+		orb_held: bool,
+	) -> Self {
 		Self {
 			aim: Aim::from_direction(aim),
 			turn_speed: math::round(turn_radians_per_second * 1000.0)
 				.clamp(0, i64::from(Self::MAX_TURN_SPEED)) as i32,
-			taps: taps.iter().map(|&tap| Aim::from_direction(tap)).collect(),
-			focus,
+			fire,
+			slot: (slot % Arsenal::SLOTS) as u8,
+			orb_held,
 		}
 	}
 
-	/// Rounds a tick with no taps and no art held.
+	/// Rounds a tick with nothing pressed and ORB up.
 	pub fn still(aim: Vec3, turn_radians_per_second: f64) -> Self {
-		Self::measured(aim, turn_radians_per_second, &[], false)
+		Self::measured(
+			aim,
+			turn_radians_per_second,
+			false,
+			Arsenal::GUN_SLOT,
+			false,
+		)
 	}
 
 	/// `turn_speed` in radians a second.
@@ -160,12 +182,6 @@ pub enum HuntLogError {
 
 	#[error("Impossible hunt aim")]
 	ImpossibleAim,
-
-	#[error("Hunt log ends mid-tap")]
-	EndsMidTap,
-
-	#[error("Impossible tap aim")]
-	ImpossibleTap,
 }
 
 /// The complete input of one hunt, tick by tick.
@@ -187,18 +203,19 @@ pub struct HuntLog {
 }
 
 impl HuntLog {
-	const FOCUS_FLAG: u8 = 1;
+	const FIRE_FLAG: u8 = 1;
 	const HEADER_BYTES: usize = 9;
 	const LEDGE_BYTES: usize = HuntPlan::SLICES.div_ceil(8);
 	/// The longest log the server accepts: the longest possible hunt, with
-	/// room for the stalk, the fight and every reap window.
-	pub const MAX_TICKS: usize = 300 * 60;
-	const TAP_BYTES: usize = 4;
+	/// room for the stalk, the fight, every broken window and every orb.
+	pub const MAX_TICKS: usize = 360 * 60;
+	const ORB_FLAG: u8 = 2;
 	const TICK_BYTES: usize = 8;
-	// Cover in the room, arts and the heavy weapons change replay results.
-	// Refuse old clients rather than silently reinterpret a version-five
-	// hunt under the new rules.
-	const VERSION: u8 = 6;
+	// Version 7 fires from the crosshair and captures with an orb: a tick
+	// says whether FIRE was pressed, which slot is selected and whether ORB
+	// is held, and taps are gone. Refuse old clients rather than silently
+	// reinterpret a version-six hunt under the new rules.
+	const VERSION: u8 = 7;
 
 	/// `inputs` played in the open with nothing known about the room, at
 	/// normal difficulty.
@@ -213,10 +230,6 @@ impl HuntLog {
 	/// Reads a log from the bytes written by [`encode`](Self::encode).
 	///
 	/// Fails when the bytes are not a whole log.
-	#[allow(
-		clippy::too_many_lines,
-		reason = "one pass over the bytes, in their order"
-	)]
 	pub fn decode(bytes: &[u8]) -> Result<Self, HuntLogError> {
 		if bytes.is_empty() {
 			return Err(HuntLogError::Empty);
@@ -285,12 +298,6 @@ impl HuntLog {
 			hide_decimetres: hide,
 			ledges,
 		};
-		let read_aim = |at: usize| {
-			Aim::new(
-				i32::from(i16::from_le_bytes([bytes[at], bytes[at + 1]])),
-				i32::from(i16::from_le_bytes([bytes[at + 2], bytes[at + 3]])),
-			)
-		};
 		let mut inputs = Vec::new();
 
 		offset = plan_end;
@@ -304,12 +311,15 @@ impl HuntLog {
 				return Err(HuntLogError::EndsMidTick);
 			}
 
-			let aim = read_aim(offset);
+			let aim = Aim::new(
+				i32::from(i16::from_le_bytes([bytes[offset], bytes[offset + 1]])),
+				i32::from(i16::from_le_bytes([bytes[offset + 2], bytes[offset + 3]])),
+			);
 			let turn_speed = i32::from(u16::from_le_bytes([bytes[offset + 4], bytes[offset + 5]]));
 			let flags = bytes[offset + 6];
-			let tap_count = usize::from(bytes[offset + 7]);
+			let slot = usize::from(bytes[offset + 7]);
 
-			if flags & !Self::FOCUS_FLAG != 0 {
+			if flags & !(Self::FIRE_FLAG | Self::ORB_FLAG) != 0 || slot >= Arsenal::SLOTS {
 				return Err(HuntLogError::UnknownInput);
 			}
 
@@ -319,25 +329,12 @@ impl HuntLog {
 
 			offset += Self::TICK_BYTES;
 
-			if offset + tap_count * Self::TAP_BYTES > bytes.len() {
-				return Err(HuntLogError::EndsMidTap);
-			}
-
-			let taps: Vec<Aim> = (0..tap_count)
-				.map(|tap| read_aim(offset + tap * Self::TAP_BYTES))
-				.collect();
-
-			if !taps.iter().all(Aim::is_valid) {
-				return Err(HuntLogError::ImpossibleTap);
-			}
-
-			offset += tap_count * Self::TAP_BYTES;
-
 			inputs.push(HuntInput {
 				aim,
 				turn_speed,
-				taps,
-				focus: flags & Self::FOCUS_FLAG != 0,
+				fire: flags & Self::FIRE_FLAG != 0,
+				slot: slot as u8,
+				orb_held: flags & Self::ORB_FLAG != 0,
 			});
 		}
 
@@ -348,8 +345,8 @@ impl HuntLog {
 		})
 	}
 
-	/// Packs the log into bytes: the plan first, then eight for each tick
-	/// and four more for each tap.
+	/// Packs the log into bytes: the plan first, then eight for each tick:
+	/// the aim, the turn speed, FIRE and ORB, and the slot selected.
 	///
 	/// The plan is its arc, the height of the player's eye, how far the way
 	/// is clear along each slice of the room when that was measured, and
@@ -385,20 +382,16 @@ impl HuntLog {
 		}
 
 		for input in &self.inputs {
-			let taps = &input.taps[..input.taps.len().min(255)];
-
 			bytes.extend_from_slice(&(input.aim.yaw_centidegrees as i16).to_le_bytes());
 			bytes.extend_from_slice(&(input.aim.pitch_centidegrees as i16).to_le_bytes());
 			bytes.extend_from_slice(
 				&(input.turn_speed.clamp(0, HuntInput::MAX_TURN_SPEED) as u16).to_le_bytes(),
 			);
-			bytes.push(if input.focus { Self::FOCUS_FLAG } else { 0 });
-			bytes.push(taps.len() as u8);
-
-			for tap in taps {
-				bytes.extend_from_slice(&(tap.yaw_centidegrees as i16).to_le_bytes());
-				bytes.extend_from_slice(&(tap.pitch_centidegrees as i16).to_le_bytes());
-			}
+			bytes.push(
+				(if input.fire { Self::FIRE_FLAG } else { 0 })
+					| (if input.orb_held { Self::ORB_FLAG } else { 0 }),
+			);
+			bytes.push(usize::from(input.slot).min(Arsenal::SLOTS - 1) as u8);
 		}
 
 		bytes

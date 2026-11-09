@@ -1,7 +1,9 @@
 //! One encounter between a reaper and a husk, and everything it is played
 //! with.
 
+pub mod arsenal;
 pub mod art_flight;
+pub mod capture;
 pub mod difficulty;
 pub mod hunt_bot;
 pub mod hunt_event;

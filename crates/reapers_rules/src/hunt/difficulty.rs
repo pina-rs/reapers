@@ -33,10 +33,11 @@ struct Tuning {
 	reach: f64,
 	flinch: f64,
 	window: f64,
-	tolerance: f64,
+	orb_aim: f64,
 	resolve: i64,
-	reaps: i64,
+	lapses: i64,
 	pace: f64,
+	fight_length: f64,
 	patience: f64,
 	tell: f64,
 	cut: f64,
@@ -50,11 +51,12 @@ impl Difficulty {
 					ward: 0.35,
 					reach: 1.75,
 					flinch: 3.0,
-					window: 2.5,
-					tolerance: 2.0,
+					window: 2.0,
+					orb_aim: 2.0,
 					resolve: 3,
-					reaps: 2,
+					lapses: 2,
 					pace: 0.6,
+					fight_length: 1.5,
 					patience: 2.0,
 					tell: 1.6,
 					cut: 0.6,
@@ -66,10 +68,11 @@ impl Difficulty {
 					reach: 1.0,
 					flinch: 1.0,
 					window: 1.0,
-					tolerance: 1.0,
+					orb_aim: 1.0,
 					resolve: 0,
-					reaps: 0,
+					lapses: 0,
 					pace: 1.0,
+					fight_length: 1.0,
 					patience: 1.0,
 					tell: 1.0,
 					cut: 1.0,
@@ -81,10 +84,11 @@ impl Difficulty {
 					reach: 0.85,
 					flinch: 0.8,
 					window: 0.8,
-					tolerance: 0.8,
+					orb_aim: 0.8,
 					resolve: 0,
-					reaps: 0,
+					lapses: 0,
 					pace: 1.15,
+					fight_length: 0.5,
 					patience: 1.0,
 					tell: 0.85,
 					cut: 1.15,
@@ -98,8 +102,8 @@ impl Difficulty {
 		self.tuning().ward
 	}
 
-	/// How much wider or narrower the reach of a strike is: how far from a
-	/// seal a tap may land and still strike it.
+	/// How much wider or narrower the seal cone and the gun's aim assist
+	/// are: how far off a seal or the body a shot may be and still hit it.
 	pub const fn reach(self) -> f64 {
 		self.tuning().reach
 	}
@@ -110,14 +114,15 @@ impl Difficulty {
 		self.tuning().flinch
 	}
 
-	/// How much longer or shorter the reap window is.
+	/// How much longer or shorter a broken husk stays down.
 	pub const fn window(self) -> f64 {
 		self.tuning().window
 	}
 
-	/// How much farther the cut may stray from the reap arc.
-	pub const fn tolerance(self) -> f64 {
-		self.tuning().tolerance
+	/// How much farther off the husk an orb may be thrown and still strike
+	/// it.
+	pub const fn orb_aim(self) -> f64 {
+		self.tuning().orb_aim
 	}
 
 	/// Flinches the reaper can take on top of their own.
@@ -125,9 +130,9 @@ impl Difficulty {
 		self.tuning().resolve
 	}
 
-	/// Unfinished reaps the husk allows on top of the usual.
-	pub const fn reaps(self) -> i64 {
-		self.tuning().reaps
+	/// Broken windows the husk lets pass on top of the usual.
+	pub const fn lapses(self) -> i64 {
+		self.tuning().lapses
 	}
 
 	/// How fast the husk gets about, as a share of its usual speed.
@@ -135,7 +140,14 @@ impl Difficulty {
 		self.tuning().pace
 	}
 
-	/// How much longer the fight may run before the husk escapes.
+	/// How much longer or shorter the fight may run before the husk
+	/// escapes.
+	pub const fn fight_length(self) -> f64 {
+		self.tuning().fight_length
+	}
+
+	/// How much longer a light of the sigil that has caught waits for the
+	/// next.
 	pub const fn patience(self) -> f64 {
 		self.tuning().patience
 	}

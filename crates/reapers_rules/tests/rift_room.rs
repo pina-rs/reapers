@@ -7,14 +7,14 @@ mod support;
 use reapers_rules::*;
 use support::*;
 
-/// A person who fights well but never carries the cut through.
+/// A person who fights well but never lets the orb go.
 fn no_cut(sim: &HuntSim, _person: usize) -> HuntBot {
 	HuntBot::new(
 		sim,
 		HuntBotStyle {
 			reaction_ticks: 16,
 			miss_every: 7,
-			reap_speed: 0.0,
+			orb_hold_ticks: 1 << 30,
 			..HuntBotStyle::CAREFUL
 		},
 	)
@@ -25,7 +25,7 @@ fn watcher(sim: &HuntSim) -> HuntBot {
 	HuntBot::new(
 		sim,
 		HuntBotStyle {
-			reaction_ticks: 1 << 30,
+			fires: false,
 			..HuntBotStyle::CAREFUL
 		},
 	)
@@ -273,8 +273,8 @@ mod one_fight_shared {
 		let watched = shriek_ticks(&mut watching, &mut watcher_bot, ticks);
 
 		assert!(struck.len() >= 3, "{struck:?}");
-		assert!(striker.dealt > 0.0);
-		assert_eq!(watching.dealt, 0.0);
+		assert!(striker.dealt() > 0.0);
+		assert_eq!(watching.dealt(), 0.0);
 		assert_eq!(struck, watched);
 	}
 
@@ -351,7 +351,7 @@ mod one_fight_shared {
 		)
 		.unwrap();
 
-		seat.dealt = 60.0;
+		seat.sim.set_dealt(60.0);
 
 		// The room has counted 20 of this seat's 60 and others dealt 100.
 		seat.sync(1000.0 - 100.0 - 20.0, 20.0);
@@ -501,11 +501,11 @@ mod what_it_pays {
 	}
 
 	fn clean() -> HuntOutcome {
-		HuntOutcome::absorbed_with(ReapGrade::Clean, false, 1, HuntDeeds::default())
+		HuntOutcome::absorbed_with(CaptureGrade::Great, false, 1, HuntDeeds::default())
 	}
 
 	fn perfect() -> HuntOutcome {
-		HuntOutcome::absorbed_with(ReapGrade::Perfect, false, 1, HuntDeeds::default())
+		HuntOutcome::absorbed_with(CaptureGrade::Excellent, false, 1, HuntDeeds::default())
 	}
 
 	fn cast_out() -> HuntOutcome {
@@ -513,7 +513,7 @@ mod what_it_pays {
 	}
 
 	fn missed() -> HuntOutcome {
-		HuntOutcome::escaped_by(EscapeCause::Reap, false, 1, HuntDeeds::default())
+		HuntOutcome::escaped_by(EscapeCause::Lapsed, false, 1, HuntDeeds::default())
 	}
 
 	fn round(value: f64) -> i64 {
@@ -639,7 +639,7 @@ mod frames_and_reports {
 		let done = dealt(
 			80.0,
 			Some(HuntOutcome::absorbed_with(
-				ReapGrade::Perfect,
+				CaptureGrade::Excellent,
 				false,
 				900,
 				HuntDeeds::default(),
@@ -652,7 +652,7 @@ mod frames_and_reports {
 		);
 		assert_eq!(
 			sent(&done).outcome.unwrap().grade(),
-			Some(ReapGrade::Perfect)
+			Some(CaptureGrade::Excellent)
 		);
 	}
 }
@@ -678,7 +678,7 @@ mod attunement {
 		released
 			.settle_hunt(
 				sighting.id,
-				&HuntOutcome::absorbed_with(ReapGrade::Clean, false, 600, HuntDeeds::default()),
+				&HuntOutcome::absorbed_with(CaptureGrade::Great, false, 600, HuntDeeds::default()),
 				sighting.surfaces_at,
 				1,
 			)

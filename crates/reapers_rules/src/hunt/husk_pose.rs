@@ -111,7 +111,8 @@ impl HuskPose {
 	/// Whether `ray`, a direction out from the player, passes through the
 	/// husk's body, taken as an ellipse and widened by `pad` radians.
 	///
-	/// A tap that covers the body but misses every seal is a glance.
+	/// A hit that covers the body but misses every open seal is a body hit:
+	/// half a hit on a seal.
 	pub fn covers(&self, ray: Vec3, pad: f64) -> bool {
 		let distance = self.distance();
 		let across = wrap_angle(ray.yaw() - self.yaw()) * math::cos(self.pitch())

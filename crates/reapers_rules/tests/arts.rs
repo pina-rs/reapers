@@ -52,6 +52,7 @@ impl Opts {
 		HuntSim::new(
 			self.seed,
 			self.vessel,
+			Rarity::Epic,
 			Rarity::Epic.ward(),
 			&stats_with(self.art, self.rank, self.weapon),
 			self.plan,
@@ -94,28 +95,41 @@ fn never(_: &HuntSim) -> bool {
 	false
 }
 
-fn steady_with(sim: &HuntSim, focus: bool) -> HuntInput {
-	HuntInput::measured(sim.pose().direction(), 0.0, &[], focus)
-}
-
-fn steady(sim: &HuntSim) -> HuntInput {
-	steady_with(sim, false)
-}
-
-fn focused(sim: &HuntSim) -> HuntInput {
-	steady_with(sim, true)
-}
-
-fn flick(sim: &HuntSim) -> HuntInput {
+/// Looks at the husk and holds still, with the art in hand when the reaper
+/// knows one, or `slot`.
+fn steady_with_slot(sim: &HuntSim, slot: Option<usize>) -> HuntInput {
 	HuntInput::measured(
 		sim.pose().direction(),
-		ArtRules::THROW_SPEED + 0.1,
-		&[],
-		true,
+		0.0,
+		false,
+		slot.unwrap_or_else(|| {
+			if sim.stats().art.is_none() {
+				Arsenal::GUN_SLOT
+			} else {
+				Arsenal::ART_SLOT
+			}
+		}),
+		false,
 	)
 }
 
-/// Springs an ambush, so the fight starts with the husk standing still.
+fn steady(sim: &HuntSim) -> HuntInput {
+	steady_with_slot(sim, None)
+}
+
+/// Presses FIRE along `aim`, or at the husk, with the art in hand.
+fn fire(sim: &HuntSim, aim: Option<Vec3>) -> HuntInput {
+	HuntInput::measured(
+		aim.unwrap_or_else(|| sim.pose().direction()),
+		0.0,
+		true,
+		Arsenal::ART_SLOT,
+		false,
+	)
+}
+
+/// Springs an ambush, so the fight starts with the husk standing still. The
+/// art is drawn on the way.
 fn ambush(sim: &mut HuntSim) {
 	run(
 		sim,
@@ -126,19 +140,23 @@ fn ambush(sim: &mut HuntSim) {
 	assert!(sim.ambushed());
 }
 
-/// Gathers the art steadily on the husk, then flicks it. Returns what the
-/// flick did.
-fn throw(sim: &mut HuntSim) -> Vec<HuntEvent> {
+/// Waits for the art to be in hand and ready, then throws it at the husk,
+/// or along `aim`. Returns what the throw did.
+fn throw_at(sim: &mut HuntSim, aim: Option<Vec3>) -> Vec<HuntEvent> {
 	run(
 		sim,
-		focused,
-		|sim| sim.art_gathered() >= 1.0,
-		ArtRules::GATHER_TICKS + 1,
+		steady,
+		|sim| sim.selected_slot() == Arsenal::ART_SLOT && sim.cooldown_ticks() == 0,
+		Arsenal::SWITCH_TICKS + 1,
 	);
 
-	let input = flick(sim);
+	let input = fire(sim, aim);
 
 	sim.step(&input)
+}
+
+fn throw(sim: &mut HuntSim) -> Vec<HuntEvent> {
+	throw_at(sim, None)
 }
 
 /// Lets whatever is in the air come down, holding still.
@@ -214,16 +232,6 @@ fn single_thrown(events: &[HuntEvent]) -> Art {
 	thrown[0]
 }
 
-/// A tap on seal `seal`, looking at the husk.
-fn tap_seal(sim: &HuntSim, seal: usize) -> HuntInput {
-	HuntInput {
-		aim: Aim::from_direction(sim.pose().direction()),
-		turn_speed: 0,
-		taps: vec![Aim::from_direction(sim.pose().seal_direction(seal))],
-		focus: false,
-	}
-}
-
 mod learning_an_art {
 	use super::*;
 
@@ -262,16 +270,10 @@ mod throwing_an_art {
 	use super::*;
 
 	#[test]
-	fn it_is_gathered_while_the_phone_is_steady_and_a_flick_throws_it() {
+	fn fire_with_the_art_in_hand_throws_it_at_the_crosshair_at_once() {
 		let mut sim = sim_with(Art::Cinder);
 
 		ambush(&mut sim);
-
-		// A flick before it is gathered throws nothing.
-		let input = focused(&sim);
-		sim.step(&input);
-		let input = flick(&sim);
-		assert_eq!(count(&sim.step(&input), "ArtThrown"), 0);
 
 		let events = throw(&mut sim);
 
@@ -281,58 +283,42 @@ mod throwing_an_art {
 	}
 
 	#[test]
-	fn turning_while_holding_it_does_not_gather_it() {
+	fn nothing_is_thrown_until_the_art_is_drawn() {
 		let mut sim = sim_with(Art::Cinder);
 
-		ambush(&mut sim);
 		run(
 			&mut sim,
-			|sim| {
-				HuntInput::measured(
-					sim.pose().direction(),
-					HuntRules::STEADY_SPEED + 0.2,
-					&[],
-					true,
-				)
-			},
-			never,
-			60,
+			|sim| steady_with_slot(sim, Some(Arsenal::GUN_SLOT)),
+			|sim| sim.phase() != HuntPhase::Stalk,
+			MAX_TICKS,
 		);
 
-		assert_eq!(sim.art_gathered(), 0.0);
+		let early = sim.step(&fire(&sim, None));
+
+		assert_eq!(count(&early, "WeaponDrawn"), 1);
+		assert_eq!(count(&early, "ArtThrown"), 0);
+		assert_eq!(count(&throw(&mut sim), "ArtThrown"), 1);
 	}
 
 	#[test]
-	fn letting_go_before_the_flick_loses_nothing() {
-		let mut sim = sim_with(Art::Cinder);
-
-		ambush(&mut sim);
-		run(&mut sim, focused, |sim| sim.art_gathered() >= 1.0, 60);
-		let input = steady(&sim);
-		sim.step(&input);
-
-		assert_eq!(sim.art_gathered(), 0.0);
-		assert_eq!(sim.art_charges(), 1);
-	}
-
-	#[test]
-	fn nothing_is_thrown_into_a_shriek_and_the_flick_is_a_flinch() {
+	fn nothing_is_thrown_into_a_shriek_and_fire_is_a_flinch() {
 		let mut sim = sim_with(Art::Cinder);
 
 		ambush(&mut sim);
 		run(
 			&mut sim,
-			focused,
+			steady,
 			|sim| sim.phase() == HuntPhase::Shriek,
 			MAX_TICKS,
 		);
-		run(&mut sim, focused, never, HuntRules::SHRIEK_GRACE_TICKS);
+		run(&mut sim, steady, never, HuntRules::SHRIEK_GRACE_TICKS);
 
-		let input = flick(&sim);
-		let events = sim.step(&input);
+		let charges = sim.art_charges();
+		let events = sim.step(&fire(&sim, None));
 
 		assert_eq!(count(&events, "ArtThrown"), 0);
 		assert_eq!(count(&events, "Flinched"), 1);
+		assert_eq!(sim.art_charges(), charges);
 	}
 
 	#[test]
@@ -375,9 +361,15 @@ mod throwing_an_art {
 		let mut sim = Opts::default().sim();
 
 		ambush(&mut sim);
-		run(&mut sim, focused, never, 40);
+		run(
+			&mut sim,
+			|sim| steady_with_slot(sim, Some(Arsenal::ART_SLOT)),
+			never,
+			Arsenal::SWITCH_TICKS + 1,
+		);
 
-		let input = flick(&sim);
+		let input = fire(&sim, None);
+
 		assert_eq!(count(&sim.step(&input), "ArtThrown"), 0);
 		assert_eq!(sim.art_charges(), 0);
 	}
@@ -397,17 +389,17 @@ mod fire {
 		throw(&mut sim);
 
 		let (hit, damage) = single_landed(&land(&mut sim));
-		let strike = sim.stats().strike_damage;
+		let hit_damage = sim.stats().hit;
 
 		assert!(hit);
-		assert!((damage - strike * 2.0).abs() <= 1e-9);
+		assert!((damage - hit_damage * 2.0).abs() <= 1e-9);
 		assert!(sim.burning());
 
 		let burning = sim.ward();
 		let events = run(&mut sim, steady, |sim| !sim.burning(), 400);
 
-		assert!((burning - sim.ward() - strike * 1.5).abs() <= 0.5);
-		assert!(before - sim.ward() > strike * 3.4);
+		assert!((burning - sim.ward() - hit_damage * 1.5).abs() <= 0.5);
+		assert!(before - sim.ward() > hit_damage * 3.4);
 		assert!(count(&events, "Relocating") > 0);
 	}
 
@@ -491,25 +483,36 @@ mod ice {
 	#[test]
 	fn the_next_blow_shatters_it_and_lands_harder() {
 		let mut sim = sim_with(Art::Rime);
-		let swing = sim.stats().swing_ticks;
 
 		ambush(&mut sim);
-		// Spend the ambush's doubled first strike first.
-		run(&mut sim, steady, never, swing);
 		throw(&mut sim);
 		land(&mut sim);
-		run(&mut sim, steady, never, swing);
+		// The gun, drawn while the husk stands frozen.
+		run(
+			&mut sim,
+			|sim| steady_with_slot(sim, Some(Arsenal::GUN_SLOT)),
+			never,
+			Arsenal::SWITCH_TICKS + 1,
+		);
+
+		assert!(sim.frozen());
 
 		let seal = (0..sim.vessel().seals().len())
 			.find(|&index| sim.seal_open(index))
 			.unwrap();
-		let input = tap_seal(&sim, seal);
+		let input = HuntInput::measured(
+			sim.pose().seal_direction(seal),
+			0.0,
+			true,
+			Arsenal::GUN_SLOT,
+			false,
+		);
 		let events = sim.step(&input);
 		let landed: Vec<_> = events
 			.iter()
 			.filter_map(|event| {
 				match event {
-					HuntEvent::StrikeLanded { empowered, .. } => Some(*empowered),
+					HuntEvent::HitLanded { empowered, .. } => Some(*empowered),
 					_ => None,
 				}
 			})
@@ -611,24 +614,14 @@ mod wind {
 		let mut sim = sim_with(Art::Gale);
 
 		ambush(&mut sim);
-		run(
+
+		let pose = sim.pose();
+		let events = throw_at(
 			&mut sim,
-			|sim| {
-				let pose = sim.pose();
-
-				HuntInput::measured(
-					Vec3::from_angles(pose.yaw() + radians(15.0), pose.pitch()),
-					0.0,
-					&[],
-					true,
-				)
-			},
-			|sim| sim.art_gathered() >= 1.0,
-			40,
+			Some(Vec3::from_angles(pose.yaw() + radians(15.0), pose.pitch())),
 		);
-		let input = flick(&sim);
-		sim.step(&input);
 
+		assert_eq!(count(&events, "ArtThrown"), 1);
 		assert!(single_landed(&land(&mut sim)).0);
 	}
 }
@@ -636,77 +629,81 @@ mod wind {
 mod the_heavy_weapons {
 	use super::*;
 
-	fn strike_open_seal(sim: &HuntSim) -> HuntInput {
-		(0..sim.vessel().seals().len())
-			.find(|&seal| sim.seal_open(seal))
-			.map_or_else(|| steady(sim), |seal| tap_seal(sim, seal))
-	}
-
 	#[test]
 	fn a_greatsword_stops_a_husk_in_its_tracks() {
-		let mut sim = Opts {
-			weapon: Some(WeaponKind::Greatsword),
-			..Opts::default()
+		fn heavy(sim: &HuntSim) -> HuntInput {
+			steady_with_slot(sim, Some(Arsenal::HEAVY_SLOT))
 		}
-		.sim();
 
-		ambush(&mut sim);
-		run(&mut sim, steady, |sim| sim.speed() > 0.0, 900);
-		assert!(sim.speed() > 0.0, "it should move off");
+		// A husk on the move, within a dive, with no shriek about to start:
+		// a husk drawing breath is going nowhere anyway.
+		for seed in 1..=20 {
+			let mut sim = Opts {
+				weapon: Some(WeaponKind::Greatsword),
+				seed,
+				..Opts::default()
+			}
+			.sim();
 
-		let input = strike_open_seal(&sim);
-		let events = sim.step(&input);
+			ambush(&mut sim);
+			run(
+				&mut sim,
+				heavy,
+				|sim| {
+					sim.phase() == HuntPhase::Fight
+						&& sim.speed() > 0.0
+						&& !sim.leaping()
+						&& sim.pose().distance() <= HeavyRules::DIVE_METRES
+				},
+				3000,
+			);
 
-		assert_eq!(count(&events, "StrikeLanded"), 1);
-		assert!(sim.staggered());
-		assert_eq!(sim.speed(), 0.0);
+			if sim.speed() == 0.0 || sim.phase() != HuntPhase::Fight {
+				continue;
+			}
+
+			let dive = sim.step(&HuntInput::measured(
+				sim.pose().direction(),
+				0.0,
+				true,
+				Arsenal::HEAVY_SLOT,
+				false,
+			));
+
+			assert_eq!(count(&dive, "DiveStarted"), 1);
+
+			let swing_ticks = sim.stats().swing_ticks;
+			let events = run(&mut sim, heavy, never, HeavyRules::IN_TICKS + swing_ticks);
+
+			if sim.phase() != HuntPhase::Fight {
+				continue;
+			}
+
+			assert_eq!(count(&events, "HitLanded"), 1);
+			assert!(sim.staggered());
+			assert_eq!(sim.speed(), 0.0);
+
+			return;
+		}
+
+		panic!("no husk was caught on the move");
 	}
 
 	#[test]
-	fn an_axe_bites_the_body_wherever_it_lands() {
-		let weapon = |kind| {
-			Opts {
-				weapon: Some(kind),
-				..Opts::default()
+	fn an_axe_bites_the_body_harder_than_any_other_weapon() {
+		assert_eq!(stats_with(None, 1, Some(WeaponKind::Axe)).body_share, 0.7);
+
+		for kind in WeaponKind::ALL {
+			if kind == WeaponKind::Axe {
+				continue;
 			}
-			.sim()
-		};
-		let mut axe = weapon(WeaponKind::Axe);
-		// A spear reaches no further than an axe, so the same blow misses
-		// every seal with both.
-		let mut spear = weapon(WeaponKind::Spear);
 
-		for sim in [&mut axe, &mut spear] {
-			ambush(sim);
+			assert_eq!(
+				stats_with(None, 1, Some(kind)).body_share,
+				WeaponProfile::PLAIN_BODY_SHARE,
+				"{kind:?}",
+			);
 		}
-
-		let glance = |sim: &mut HuntSim| {
-			let pose = sim.pose();
-			// Low on the body, well away from any seal.
-			let body = (pose.position - Vec3::UP * 0.5).normalized();
-			let events = sim.step(&HuntInput {
-				aim: Aim::from_direction(body),
-				turn_speed: 0,
-				taps: vec![Aim::from_direction(body)],
-				focus: false,
-			});
-			let glanced: Vec<_> = events
-				.iter()
-				.filter_map(|event| {
-					match event {
-						HuntEvent::StrikeGlanced { damage } => Some(*damage),
-						_ => None,
-					}
-				})
-				.collect();
-
-			assert_eq!(glanced.len(), 1);
-
-			glanced[0] / sim.stats().strike_damage
-		};
-
-		assert!((glance(&mut axe) - 0.7).abs() <= 1e-9);
-		assert!((glance(&mut spear) - HuntRules::GLANCE_SHARE).abs() <= 1e-9);
 	}
 
 	#[test]
@@ -739,6 +736,7 @@ mod a_hunt_with_an_art {
 					let mut sim = HuntSim::new(
 						seed,
 						Vessel::Ape,
+						Rarity::Rare,
 						Rarity::Rare.ward(),
 						&stats(known),
 						kitchen(),
@@ -787,6 +785,7 @@ mod a_hunt_with_an_art {
 			let replayed = HuntSim::replay(
 				11,
 				Vessel::Ape,
+				Rarity::Epic,
 				Rarity::Epic.ward(),
 				&stats(Some(art)),
 				&log,
@@ -819,7 +818,7 @@ mod a_reapers_arts {
 		released
 			.settle_hunt(
 				sighting.id,
-				&HuntOutcome::absorbed_with(ReapGrade::Clean, false, 600, HuntDeeds::default()),
+				&HuntOutcome::absorbed_with(CaptureGrade::Great, false, 600, HuntDeeds::default()),
 				sighting.surfaces_at,
 				seed,
 			)

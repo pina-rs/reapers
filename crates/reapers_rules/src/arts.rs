@@ -14,11 +14,10 @@ use crate::vessel::Vessel;
 /// an art is bought: what a reaper can throw is a record of what it has
 /// hunted.
 ///
-/// An art is thrown, not tapped. The reaper holds a thumb on it to gather
-/// it while keeping the phone steady on where it should go, then flicks the
-/// phone to let it fly. Each one answers the room differently: fire is
-/// lobbed over whatever a husk hides behind, ice flies straight and breaks
-/// on it, and wind blows a husk out of cover.
+/// An art is thrown, not tapped. It is the reaper's fourth weapon slot:
+/// FIRE throws it at the crosshair while a throw is ready. Each one answers
+/// the room differently: fire is lobbed over whatever a husk hides behind,
+/// ice flies straight and breaks on it, and wind blows a husk out of cover.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Art {
 	/// Fire. A lobbed ember that bursts where it lands and sets a husk
@@ -201,8 +200,6 @@ impl ArtRules {
 	/// How long a frozen husk stays frozen, and how much longer each rank.
 	pub const FREEZE_TICKS: i64 = 150;
 	pub const FREEZE_TICKS_PER_RANK: i64 = 40;
-	/// How long a thumb must rest on the art before a flick throws it.
-	pub const GATHER_TICKS: i64 = 24;
 	// Gale --------------------------------------------------------------
 
 	/// How far off the husk the gust may be aimed and still catch it.
@@ -234,8 +231,6 @@ impl ArtRules {
 	pub const SHORTEST_FLIGHT_TICKS: i64 = 8;
 	/// Throws ready when a fight begins.
 	pub const STARTING_CHARGES: i64 = 1;
-	/// Turning faster than this, in radians a second, with the art gathered,
-	/// throws it. A flick of the wrist, slower than the swing that turns a
-	/// charge aside, so a hard flick does both.
-	pub const THROW_SPEED: f64 = 1.5;
+	/// The fewest ticks between one throw and the next.
+	pub const THROW_INTERVAL_TICKS: i64 = 24;
 }

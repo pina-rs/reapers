@@ -176,20 +176,79 @@ mod a_charge {
 		let mut sim = charging_ape();
 		let resolve = sim.resolve();
 		let events = until(&mut sim, |sim| sim.phase() != HuntPhase::Charge, still);
-		let struck: Vec<i64> = events
+		let struck: Vec<(i64, bool)> = events
 			.iter()
 			.filter_map(|event| {
 				match event {
-					HuntEvent::Struck { resolve_left } => Some(*resolve_left),
+					HuntEvent::Struck {
+						resolve_left,
+						diving,
+					} => Some((*resolve_left, *diving)),
 					_ => None,
 				}
 			})
 			.collect();
 
-		assert_eq!(struck, vec![resolve - 1]);
+		assert_eq!(struck, vec![(resolve - 1, false)]);
 		assert_eq!(sim.resolve(), resolve - 1);
 		assert_eq!(count!(events, HuntEvent::Relocating), 1);
 		assert!(!sim.staggered());
+	}
+
+	/// Holds the crosshair on the husk with the knife in hand, and does not
+	/// press FIRE.
+	fn knife_on_husk(sim: &HuntSim) -> HuntInput {
+		HuntInput::measured(
+			sim.pose().direction(),
+			0.0,
+			false,
+			Arsenal::BLADE_SLOT,
+			false,
+		)
+	}
+
+	#[test]
+	fn that_catches_the_reaper_mid_dive_strikes_twice_as_hard() {
+		let mut sim = sim_for(SimFor {
+			seed: 4,
+			vessel: Vessel::Ape,
+			rarity: Rarity::Epic,
+			..SimFor::default()
+		});
+
+		until(
+			&mut sim,
+			|sim| sim.phase() == HuntPhase::Charge,
+			knife_on_husk,
+		);
+		until(&mut sim, |sim| sim.charge_progress() > 0.5, knife_on_husk);
+
+		let resolve = sim.resolve();
+		let dive = sim.step(&fire_at(&sim, sim.pose().direction(), None));
+
+		assert_eq!(count!(dive, HuntEvent::DiveStarted(_)), 1);
+
+		let events = until(
+			&mut sim,
+			|sim| sim.phase() != HuntPhase::Charge,
+			knife_on_husk,
+		);
+		let struck = events
+			.iter()
+			.find_map(|event| {
+				match event {
+					HuntEvent::Struck {
+						resolve_left,
+						diving,
+					} => Some((*resolve_left, *diving)),
+					_ => None,
+				}
+			})
+			.unwrap();
+
+		assert_eq!(struck, (resolve - 2, true));
+		assert_eq!(count!(events, HuntEvent::DiveEnded), 1);
+		assert!(!sim.diving());
 	}
 
 	#[test]
@@ -356,6 +415,7 @@ mod a_charge {
 			let mut sim = HuntSim::new(
 				4,
 				Vessel::Ape,
+				Rarity::Epic,
 				Rarity::Epic.ward(),
 				&borrowed_stats(),
 				HuntPlan::OPEN,

@@ -5,6 +5,10 @@ use thiserror::Error;
 use crate::armory::Temper;
 use crate::armory::Weapon;
 use crate::arts::ArtSkill;
+use crate::hunt::arsenal::BladeRules;
+use crate::hunt::arsenal::GunRules;
+use crate::hunt::arsenal::HeavyRules;
+use crate::hunt::capture::CaptureRules;
 use crate::hunt::difficulty::Difficulty;
 use crate::math;
 use crate::progression::Progression;
@@ -66,27 +70,49 @@ pub struct InvalidLoadout;
 
 /// The numbers one hunt is played with, derived from a [`HuntLoadout`].
 ///
-/// Every tunable of the encounter lives here or in [`HuntRules`], so the
-/// game and the server read the same values.
+/// Every tunable of the encounter lives here, in [`HuntRules`] or in the
+/// rules of the arsenal and the orb, so the game and the server read the
+/// same values.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct HuntStats {
-	/// Ward removed by one strike on an open seal, before cadence and perks.
-	pub strike_damage: f64,
+	/// The base hit, `H`: what one hit on the body does before the weapon's
+	/// share of it, cadence and perks. A hit on an open seal does twice
+	/// this.
+	pub hit: f64,
 
-	/// How far from a seal a tap may land and still strike it.
+	/// The class weapon's own strike: a heavy swing does this many hits.
+	pub heavy_strike: f64,
+
+	/// How far from an open seal the crosshair may be and still hit it: the
+	/// seal cone.
 	pub reach_radians: f64,
 
-	/// Ticks between one strike and the next.
+	/// How far off the husk's body a gunshot may be and still bend onto it.
+	pub assist_radians: f64,
+
+	/// How far off the husk's body the crosshair may be for the blade to
+	/// reach it.
+	pub blade_reach_radians: f64,
+
+	/// The same for the class weapon's wide swing.
+	pub heavy_reach_radians: f64,
+
+	/// Ticks the class weapon takes to swing.
 	pub swing_ticks: i64,
 
 	/// Flinches the reaper can take before the husk slips away.
 	pub resolve: i64,
 
-	/// How long a broken husk stays open to the reap.
-	pub capture_ticks: i64,
+	/// How long a broken husk stays down, waiting for an orb.
+	pub broken_ticks: i64,
 
-	/// How far the phone may stray from the reap arc and still cut clean.
-	pub reap_tolerance_radians: f64,
+	/// How far off the husk's body an orb may be thrown and still strike
+	/// it.
+	pub orb_aim_radians: f64,
+
+	/// The class's capture rating, from 1 to 5, which sets the odds of an
+	/// orb.
+	pub capture: i64,
 
 	/// The turning speed, in radians a second, above which a reaper is
 	/// flinching during a shriek.
@@ -100,12 +126,12 @@ pub struct HuntStats {
 	pub gift: Option<ReaperGift>,
 	pub soul_rank: i64,
 
-	/// How long a struck seal stops the husk in its tracks: the weight of a
-	/// heavy blade.
+	/// How long a heavy swing that lands stops the husk in its tracks.
 	pub knock_ticks: i64,
 
-	/// The share of a strike a blow on the body away from a seal does.
-	pub glance_share: f64,
+	/// The share of a hit on an open seal that a heavy swing on the body
+	/// does. An axe bites wherever it lands.
+	pub body_share: f64,
 
 	/// The art the reaper throws, or `None`.
 	pub art: Option<ArtSkill>,
@@ -117,7 +143,9 @@ impl HuntStats {
 	/// `leniency` widens every window in the player's favour. The game plays
 	/// at 1.0; the server replays a little above it, so a hunt that was won
 	/// on the phone by a hair is never judged lost over a rounding
-	/// difference.
+	/// difference. It leaves the orb alone: an orb that struck on the phone
+	/// and missed on the server, or the other way round, would roll a
+	/// different capture.
 	pub fn derive(loadout: &HuntLoadout, leniency: f64) -> Result<Self, InvalidLoadout> {
 		let stats = loadout.reaper_class.stats();
 		let profile = loadout.weapon.profile();
@@ -128,6 +156,11 @@ impl HuntStats {
 		let keen = temperament == Some(Temperament::Keen);
 		let stalwart = temperament == Some(Temperament::Stalwart);
 		let hungry = temperament == Some(Temperament::Hungry);
+		let keen_degrees = if keen {
+			SoulRules::KEEN_REACH_DEGREES
+		} else {
+			0.0
+		};
 
 		if loadout.level < 1
 			|| loadout.level > Progression::LEVEL_CAP
@@ -141,9 +174,8 @@ impl HuntStats {
 		}
 
 		Ok(Self {
-			strike_damage: HuntRules::BASE_STRIKE
+			hit: HuntRules::BASE_STRIKE
 				* (0.85 + 0.1 * stats.strike as f64)
-				* profile.strike
 				* loadout.weapon.temper.strike()
 				* level_scale
 				* set_scale
@@ -157,15 +189,19 @@ impl HuntStats {
 				} else {
 					1.0
 				},
+			heavy_strike: profile.strike,
 			reach_radians: radians(
-				3.2 + 0.55 * stats.reach as f64
-					+ profile.reach_degrees
-					+ if keen {
-						SoulRules::KEEN_REACH_DEGREES
-					} else {
-						0.0
-					},
+				3.2 + 0.55 * stats.reach as f64 + profile.reach_degrees + keen_degrees,
 			) * leniency,
+			assist_radians: radians(
+				GunRules::ASSIST_DEGREES
+					+ GunRules::ASSIST_DEGREES_PER_REACH
+						* (stats.reach - GunRules::ASSIST_MIDDLE_REACH) as f64
+					+ keen_degrees,
+			) * leniency,
+			blade_reach_radians: radians(BladeRules::REACH_DEGREES) * leniency,
+			heavy_reach_radians: radians(profile.reach_degrees + HeavyRules::CONE_DEGREES)
+				* leniency,
 			swing_ticks: profile.swing_ticks
 				+ if patient {
 					SoulRules::PATIENT_SWING_TICKS
@@ -173,21 +209,22 @@ impl HuntStats {
 					0
 				},
 			resolve: 2 + (stats.resilience + 1) / 2 + i64::from(stalwart),
-			capture_ticks: math::round(
+			broken_ticks: math::round(
 				((3.5 + 0.5 * stats.capture as f64) * HuntRules::TICK_RATE as f64
 					+ if patient {
-						SoulRules::PATIENT_CAPTURE_TICKS
+						f64::from(SoulRules::PATIENT_BROKEN_TICKS as i32)
 					} else {
-						0
-					} as f64
+						0.0
+					}
 					- if keen {
-						SoulRules::KEEN_CAPTURE_TICKS
+						f64::from(SoulRules::KEEN_BROKEN_TICKS as i32)
 					} else {
-						0
-					} as f64)
+						0.0
+					})
 					* leniency,
 			),
-			reap_tolerance_radians: radians(5.0 + 0.8 * stats.capture as f64) * leniency,
+			orb_aim_radians: radians(CaptureRules::AIM_DEGREES),
+			capture: stats.capture,
 			flinch_speed: (0.42 + 0.035 * stats.resilience as f64)
 				* leniency
 				* if hungry {
@@ -199,8 +236,8 @@ impl HuntStats {
 			perk: loadout.reaper_class.perk(),
 			gift: loadout.soul.map(|soul| soul.gift),
 			soul_rank: loadout.soul_rank,
-			knock_ticks: profile.knock_ticks,
-			glance_share: profile.glance_share,
+			knock_ticks: profile.knock_ticks.max(HeavyRules::KNOCK_TICKS),
+			body_share: profile.body_share,
 			art: loadout.art,
 		})
 	}
@@ -211,9 +248,10 @@ impl HuntStats {
 	pub fn at(&self, difficulty: Difficulty) -> Self {
 		Self {
 			reach_radians: self.reach_radians * difficulty.reach(),
+			assist_radians: self.assist_radians * difficulty.reach(),
 			resolve: self.resolve + difficulty.resolve(),
-			capture_ticks: math::round(self.capture_ticks as f64 * difficulty.window()),
-			reap_tolerance_radians: self.reap_tolerance_radians * difficulty.tolerance(),
+			broken_ticks: math::round(self.broken_ticks as f64 * difficulty.window()),
+			orb_aim_radians: self.orb_aim_radians * difficulty.orb_aim(),
 			flinch_speed: self.flinch_speed * difficulty.flinch(),
 			parry_speed: self.parry_speed * difficulty.cut(),
 			..*self
@@ -223,6 +261,17 @@ impl HuntStats {
 	/// Every gift works at birth, then deepens through three awakenings.
 	pub const fn gift_strength(&self) -> i64 {
 		self.soul_rank + 1
+	}
+
+	/// Ward a careful reaper takes off each second with the gun alone, every
+	/// shot on the body and every reload a plain one. The yardstick a
+	/// rift's ward is measured against.
+	pub fn gun_per_second(&self) -> f64 {
+		let cycle =
+			(GunRules::ROUNDS * GunRules::FIRE_INTERVAL_TICKS + GunRules::RELOAD_TICKS) as f64;
+
+		self.hit * GunRules::SHOT_STRIKE * GunRules::ROUNDS as f64 * HuntRules::TICK_RATE as f64
+			/ cycle
 	}
 }
 
@@ -243,11 +292,12 @@ impl HuntRules {
 	pub const AMBUSH_AIM: f64 = radians(9.0);
 	/// An ambushed husk is worth this much more.
 	pub const AMBUSH_REWARD: f64 = 1.1;
-	/// An ambush multiplies the first strike by this.
+	/// An ambush multiplies the first hit by this.
 	pub const AMBUSH_STRIKE: f64 = 2.0;
 	/// Steady ticks needed to spring an ambush.
 	pub const AMBUSH_TICKS: i64 = 66;
-	/// A level-one strike with a plain weapon, before the class's lean.
+	/// A level-one hit with a plain weapon, before the class's lean: the
+	/// `H` every weapon's damage is a share of.
 	pub const BASE_STRIKE: f64 = 4.0;
 	/// The chance that a bolting husk makes for cover or a ledge.
 	pub const BOLT_COVER_CHANCE: f64 = 0.45;
@@ -257,11 +307,8 @@ impl HuntRules {
 	pub const BOLT_MAX_DEGREES: f64 = 105.0;
 	/// The nearest and farthest a husk bolts, in degrees around the player.
 	pub const BOLT_MIN_DEGREES: f64 = 45.0;
-	// Strike ------------------------------------------------------------
+	// Hits --------------------------------------------------------------
 
-	/// A tap made while the weapon is still swinging waits this long for the
-	/// swing to finish before it is dropped.
-	pub const BUFFER_TICKS: i64 = 8;
 	/// Hits in cadence that count toward the bonus.
 	pub const CADENCE_CAP: i64 = 5;
 	/// Each hit in cadence adds this much to the next.
@@ -287,9 +334,7 @@ impl HuntRules {
 	pub const CHARGE_TICKS: i64 = 66;
 	/// The strike after an unflinching hold, for a reaper with that perk.
 	pub const CHOSEN_BLOW_STRIKE: f64 = 3.0;
-	/// A cleaving strike catches seals within this many reaches of the tap.
-	pub const CLEAVE_REACH: f64 = 2.4;
-	/// A cleaving strike does this share to each further seal it catches.
+	/// A cleaving hit does this share to every other open seal.
 	pub const CLEAVE_SHARE: f64 = 0.4;
 	/// The nearest a husk stands to the player when the room leaves it no
 	/// more than that, in metres. In a tight corner it comes this close
@@ -298,6 +343,9 @@ impl HuntRules {
 	/// How far round the player, in degrees, an ambling husk looks for
 	/// cover.
 	pub const COVER_SEARCH_DEGREES: f64 = 50.0;
+	/// A hit on an open seal, or a stab at a stunned husk, lands this many
+	/// times as hard.
+	pub const CRITICAL_STRIKE: f64 = 2.0;
 	/// How long every seal stays open after an ambush or an unflinching
 	/// hold.
 	pub const EXPOSED_TICKS: i64 = 170;
@@ -310,16 +358,17 @@ impl HuntRules {
 	pub const EYE_CENTIMETRES: i32 = 145;
 	/// [`EYE_CENTIMETRES`](Self::EYE_CENTIMETRES) in metres.
 	pub const EYE_HEIGHT: f64 = Self::EYE_CENTIMETRES as f64 / 100.0;
-	// Break and reap ----------------------------------------------------
+	// Break -------------------------------------------------------------
 
-	/// The fight ends, with the husk escaping, after this long.
-	pub const FIGHT_LIMIT_TICKS: i64 = 75 * Self::TICK_RATE;
-	/// A strike on the body, away from any seal, does this share of a
-	/// strike.
-	pub const GLANCE_SHARE: f64 = 0.25;
+	/// The fight ends, with the husk escaping, after this long. The clock
+	/// stops while the husk lies broken.
+	pub const FIGHT_LIMIT_TICKS: i64 = 150 * Self::TICK_RATE;
 	/// The farthest behind its usual range a husk hides, in metres.
 	pub const HIDE_BEYOND: f64 = 1.5;
 	pub const HOP_METRES: f64 = 0.22;
+	/// Broken windows a husk lets pass without an orb before it slips away
+	/// for good. The last one to pass is its escape.
+	pub const LAPSES: i64 = 2;
 	/// How much higher than it has to a leaping husk's feet clear what it
 	/// leaps over, in metres, and the hop of a leap with nothing to clear.
 	pub const LEAP_CLEARANCE: f64 = 0.12;
@@ -332,8 +381,7 @@ impl HuntRules {
 	pub const LEDGE_INSET: f64 = 0.6;
 	/// The lowest ledge worth jumping onto, in metres: lower is a step.
 	pub const LOWEST_LEDGE: f64 = 0.3;
-	/// Striking seals in the order they opened multiplies the strike by
-	/// this.
+	/// Hitting seals in the order they opened multiplies the hit by this.
 	pub const MEASURE_STRIKE: f64 = 1.2;
 	/// Seals open at once during an ordinary stretch of the fight.
 	pub const OPEN_SEALS: usize = 2;
@@ -341,22 +389,12 @@ impl HuntRules {
 	/// charge aside. About a third of a turn a second: a flick of the wrist,
 	/// well clear of the speed anyone holds a phone still at.
 	pub const PARRY_SPEED: f64 = 2.0;
-	/// A cut this much steadier than the tolerance is perfect.
-	pub const PERFECT_SHARE: f64 = 0.45;
 	/// How quickly the room a husk has opens out to the side of something
 	/// in its way, in metres for every radian round the player. It is what
 	/// turns the edge of a sofa into a curve a husk can run along.
 	pub const REACH_EASE: f64 = 2.0;
-	/// Unfinished reaps a husk allows before it slips away.
-	pub const REAP_ATTEMPTS: i64 = 2;
-	/// Half the width of the reap arc.
-	pub const REAP_HALF_SPAN: f64 = radians(26.0);
-	/// Sweeping faster than this, in radians a second, tears the cut.
-	pub const REAP_SPEED_LIMIT: f64 = 2.1;
-	/// The aim must come within this of the arc's start to begin the cut.
-	pub const REAP_START_AIM: f64 = radians(7.0);
-	/// Ward a husk regains, as a share of its full ward, when a reap window
-	/// closes unfinished.
+	/// Ward a husk regains, as a share of its full ward, when a broken
+	/// window passes without an orb.
 	pub const RECOVER_SHARE: f64 = 0.3;
 	pub const REST_MAX_TICKS: i64 = 170;
 	/// The shortest and longest a husk rests between one amble and the
@@ -412,7 +450,7 @@ impl HuntRules {
 	/// The simulation advances this many times a second, whatever the
 	/// display refresh rate is.
 	pub const TICK_RATE: i64 = 60;
-	/// Each unflinching hold adds this to the reap window, with the toll
+	/// Each unflinching hold adds this to the broken window, with the toll
 	/// perk.
 	pub const TOLL_TICKS: i64 = 80;
 	/// How fast a husk turns its body, in degrees a tick.

@@ -5,13 +5,23 @@ use thiserror::Error;
 use crate::arts::Art;
 use crate::arts::ArtRules;
 use crate::arts::ArtSkill;
+use crate::hunt::arsenal::Archetype;
+use crate::hunt::arsenal::Arsenal;
+use crate::hunt::arsenal::BladeRules;
+use crate::hunt::arsenal::GunRules;
+use crate::hunt::arsenal::HeavyRules;
 use crate::hunt::art_flight::ArtFlight;
+use crate::hunt::capture::CaptureGrade;
+use crate::hunt::capture::CaptureRules;
+use crate::hunt::capture::OrbBlock;
+use crate::hunt::capture::OrbStage;
+use crate::hunt::capture::OrbView;
 use crate::hunt::difficulty::Difficulty;
 use crate::hunt::hunt_event::EscapeCause;
 use crate::hunt::hunt_event::HuntEvent;
 use crate::hunt::hunt_event::HuntOutcome;
 use crate::hunt::hunt_event::HuntPhase;
-use crate::hunt::hunt_event::ReapGrade;
+use crate::hunt::hunt_event::HuskRing;
 use crate::hunt::hunt_input::Aim;
 use crate::hunt::hunt_input::HuntInput;
 use crate::hunt::hunt_input::HuntLog;
@@ -22,6 +32,7 @@ use crate::hunt::husk_pose::Footing;
 use crate::hunt::husk_pose::HuskPose;
 use crate::math::PI;
 use crate::math::{self};
+use crate::nft_catalogue::Rarity;
 use crate::reaper_class::ClassPerk;
 use crate::reaper_soul::HuntDeeds;
 use crate::reaper_soul::ReaperGift;
@@ -44,8 +55,8 @@ pub struct IllFormedPlan;
 
 /// One encounter between a reaper and a husk, advanced a tick at a time.
 ///
-/// The simulation owns every result: where the husk is, whether a tap struck
-/// a seal, whether a reaper flinched and how clean the reap was. It reads
+/// The simulation owns every result: where the husk is, whether a shot hit
+/// a seal, whether a reaper flinched and whether an orb held. It reads
 /// nothing but its seed and the [`HuntInput`] of each tick, so the same seed
 /// and the same inputs always end the same way, on a phone or on the server.
 #[derive(Clone, Debug)]
@@ -62,10 +73,13 @@ pub struct HuntSim {
 	in_rift: bool,
 	ward_max: f64,
 
+	/// How the husk's rarity sets the odds of an orb.
+	rarity_odds: f64,
+
 	schedule: SeededRandom,
 
 	/// Decides when the husk shrieks, and nothing else. Kept apart from
-	/// `schedule`, which a reaper's own strikes advance, so that everyone in
+	/// `schedule`, which a reaper's own hits advance, so that everyone in
 	/// a rift is told to hold still at the same moment.
 	shrieks: SeededRandom,
 
@@ -119,11 +133,35 @@ pub struct HuntSim {
 	from_ground: f64,
 	to_ground: f64,
 
+	// Arsenal ------------------------------------------------------------
+	slot: usize,
+	drawn_at: i64,
+
+	/// Rounds in the gun's magazine.
+	rounds: i64,
+
+	next_shot_tick: i64,
+	reload_start: i64,
+	reload_end: i64,
+	jammed: bool,
+	boosted: bool,
+
+	/// Dives the blade has ready.
+	dive_charges: i64,
+
+	dive_recharge: i64,
+	dive: Option<Dive>,
+
+	/// The soonest a blade or heavy weapon can strike again in arm's reach,
+	/// where no dive is needed.
+	next_melee_tick: i64,
+
 	// Arts ---------------------------------------------------------------
+	/// Throws the reaper has ready.
 	art_charges: i64,
+
 	recharge_ticks: i64,
-	gather_ticks: i64,
-	cast_aim: Option<Aim>,
+	next_throw_tick: i64,
 	flights: Vec<ArtFlight>,
 	burn_until: i64,
 	burn_per_tick: f64,
@@ -138,10 +176,7 @@ pub struct HuntSim {
 	opened_order: Vec<i64>,
 	opened_count: i64,
 
-	// Strikes ------------------------------------------------------------
-	next_strike_tick: i64,
-	buffered_tap: Option<Aim>,
-	buffered_at: i64,
+	// Hits ---------------------------------------------------------------
 	last_hit_tick: i64,
 	ambush_strike_ready: bool,
 	chosen_blow_ready: bool,
@@ -170,28 +205,42 @@ pub struct HuntSim {
 	charge_start_tick: i64,
 	staggered_until: i64,
 
-	// Reap ---------------------------------------------------------------
-	reap_direction: f64,
-	arc_yaw: f64,
-	arc_pitch: f64,
-	capture_end_tick: i64,
-	bonus_capture_ticks: i64,
-	deviation_sum: f64,
-	reap_ticks: i64,
-	fast_ticks: i64,
+	/// Until when the husk stands stunned: after a parry, a gust, or an orb
+	/// it burst out of. Close and open, for the blade.
+	stunned_until: i64,
+
+	// Soul, the orb and the broken window --------------------------------
+	/// Soul energy, from 0 to [`CaptureRules::SOUL_MAX`]. An orb costs some.
+	soul: f64,
+
+	orb_held_ticks: i64,
+	orb: Option<Orb>,
+	orbs_landed: i64,
+
+	/// Orbs this husk has broken out of.
+	failures: i64,
+
+	broken_end_tick: i64,
+	bonus_broken_ticks: i64,
 
 	// Readable state -----------------------------------------------------
 	tick: i64,
 	phase: HuntPhase,
 	ward: f64,
+
+	/// Ward this reaper has taken off the husk, all told. In a rift, it is
+	/// this reaper's share of the circle's work.
+	dealt: f64,
+
 	resolve: i64,
 	awareness: f64,
 	steady_ticks: i64,
 	ambushed: bool,
 	cadence: i64,
-	reap_attempts_left: i64,
-	reap_begun: bool,
-	reap_progress: f64,
+
+	/// Broken windows the husk will still let pass. The last is its escape.
+	lapses_left: i64,
+
 	outcome: Option<HuntOutcome>,
 }
 
@@ -206,16 +255,115 @@ struct Spot {
 	height: f64,
 }
 
+/// A dive under way: the reaper lunging in at the husk with the blade or
+/// the heavy weapon.
+#[derive(Clone, Copy, Debug)]
+struct Dive {
+	weapon: Archetype,
+
+	/// The tick it began.
+	start: i64,
+
+	/// The tick the first stab, or the swing, lands.
+	strike_at: i64,
+
+	/// How long it lasts, from going in to coming back out.
+	ticks: i64,
+
+	stabs: i64,
+	last_stab: i64,
+}
+
+impl Dive {
+	fn new(weapon: Archetype, start: i64, strike_at: i64, ticks: i64) -> Self {
+		Self {
+			weapon,
+			start,
+			strike_at,
+			ticks,
+			stabs: 0,
+			last_stab: -BladeRules::STAB_INTERVAL_TICKS,
+		}
+	}
+}
+
+/// An orb the reaper threw, and what became of it.
+#[derive(Clone, Copy, Debug)]
+struct Orb {
+	thrown_at: i64,
+	grade: CaptureGrade,
+	on_target: bool,
+	target: Vec3,
+
+	/// Decided as it strikes the husk: the chance it holds, and the pulse it
+	/// will break on, `None` when it holds.
+	chance: Option<f64>,
+	break_on: Option<i64>,
+
+	/// What became of it, once it has.
+	broke_on: Option<i64>,
+	held: bool,
+}
+
+impl Orb {
+	fn stage_at(&self, ticks: i64) -> OrbStage {
+		if !self.on_target {
+			return if ticks < CaptureRules::IMPACT_TICK {
+				OrbStage::Flight
+			} else {
+				OrbStage::Missed
+			};
+		}
+
+		if self.broke_on.is_some() {
+			return OrbStage::BrokeFree;
+		}
+
+		if self.held {
+			return OrbStage::Captured;
+		}
+
+		if ticks < CaptureRules::IMPACT_TICK {
+			OrbStage::Flight
+		} else if ticks < CaptureRules::DRAWN_TICK {
+			OrbStage::Drawing
+		} else if ticks < CaptureRules::LANDED_TICK {
+			OrbStage::Falling
+		} else if ticks < CaptureRules::PULSE_TICKS[2] {
+			OrbStage::Pulsing
+		} else {
+			OrbStage::Breath
+		}
+	}
+
+	fn pulses_at(&self, ticks: i64) -> i64 {
+		let mut pulses = 0;
+
+		for pulse in CaptureRules::PULSE_TICKS {
+			if ticks >= pulse {
+				pulses += 1;
+			}
+		}
+
+		match self.broke_on {
+			Some(broke) => pulses.min(broke - 1),
+			None => pulses,
+		}
+	}
+}
+
 impl HuntSim {
 	/// A lone hunt: the husk hides somewhere around the reaper, and its ward
 	/// is theirs alone to break.
 	///
-	/// `ward` and `stats` are the husk's and the reaper's own. The hunt eases
-	/// or stiffens them for `difficulty` itself, so that the phone and the
-	/// server cannot disagree about what a difficulty means.
+	/// `ward` and `stats` are the husk's and the reaper's own, and `rarity`
+	/// sets the odds of an orb. The hunt eases or stiffens them for
+	/// `difficulty` itself, so that the phone and the server cannot
+	/// disagree about what a difficulty means.
 	pub fn new(
 		seed: i64,
 		vessel: Vessel,
+		rarity: Rarity,
 		ward: i64,
 		stats: &HuntStats,
 		plan: HuntPlan,
@@ -224,7 +372,8 @@ impl HuntSim {
 		Self::build(
 			seed,
 			vessel,
-			ward as f64 * difficulty.ward(),
+			CaptureRules::rarity_factor(rarity),
+			f64::from(ward as i32) * difficulty.ward(),
 			stats.at(difficulty),
 			plan,
 			difficulty,
@@ -234,10 +383,11 @@ impl HuntSim {
 	}
 
 	/// A lone hunt in the open at normal difficulty, which is never refused.
-	pub fn open(seed: i64, vessel: Vessel, ward: i64, stats: &HuntStats) -> Self {
+	pub fn open(seed: i64, vessel: Vessel, rarity: Rarity, ward: i64, stats: &HuntStats) -> Self {
 		Self::new(
 			seed,
 			vessel,
+			rarity,
 			ward,
 			stats,
 			HuntPlan::OPEN,
@@ -252,8 +402,9 @@ impl HuntSim {
 	/// nothing to stalk. Its `ward` belongs to the whole circle, so whoever
 	/// runs the rift keeps this reaper's view of it current with
 	/// [`share_ward`](Self::share_ward). Every reaper given the same `seed`
-	/// hears the husk shriek at the same moments, and there is one reap
-	/// window, not two.
+	/// hears the husk shriek at the same moments. Once the shared ward
+	/// breaks there is one window, the room's, and an orb thrown in it
+	/// costs nothing and always holds.
 	///
 	/// `sighting` is where this reaper sees the husk: the way to the place
 	/// on the earth the whole circle is looking at. Without one it stands
@@ -268,6 +419,7 @@ impl HuntSim {
 		Self::build(
 			seed,
 			vessel,
+			1.0,
 			ward,
 			*stats,
 			HuntPlan::OPEN,
@@ -278,10 +430,15 @@ impl HuntSim {
 		.unwrap_or_else(|IllFormedPlan| unreachable!("the open plan is well formed"))
 	}
 
-	#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+	#[allow(
+		clippy::too_many_arguments,
+		reason = "every one is a field of the hunt, taken once to build it"
+	)]
+	#[allow(clippy::too_many_lines)]
 	fn build(
 		seed: i64,
 		vessel: Vessel,
+		rarity_odds: f64,
 		ward: f64,
 		stats: HuntStats,
 		plan: HuntPlan,
@@ -301,6 +458,7 @@ impl HuntSim {
 			plan,
 			difficulty,
 			in_rift,
+			rarity_odds,
 			ward_max: ward,
 			schedule: SeededRandom::new(mix_seed(&[seed, 0x5EA1])),
 			shrieks: SeededRandom::new(mix_seed(&[seed, 0x5C81])),
@@ -328,14 +486,25 @@ impl HuntSim {
 			arc: 0.0,
 			from_ground: 0.0,
 			to_ground: 0.0,
+			slot: Arsenal::GUN_SLOT,
+			drawn_at: 0,
+			rounds: GunRules::ROUNDS,
+			next_shot_tick: 0,
+			reload_start: -1,
+			reload_end: 0,
+			jammed: false,
+			boosted: false,
+			dive_charges: BladeRules::DIVE_CHARGES,
+			dive_recharge: 0,
+			dive: None,
+			next_melee_tick: 0,
 			art_charges: if stats.art.is_none() {
 				0
 			} else {
 				ArtRules::STARTING_CHARGES
 			},
 			recharge_ticks: 0,
-			gather_ticks: 0,
-			cast_aim: None,
+			next_throw_tick: 0,
 			flights: Vec::new(),
 			burn_until: 0,
 			burn_per_tick: 0.0,
@@ -345,9 +514,6 @@ impl HuntSim {
 			shut_until: vec![0; seals],
 			opened_order: vec![0; seals],
 			opened_count: 0,
-			next_strike_tick: 0,
-			buffered_tap: None,
-			buffered_at: 0,
 			last_hit_tick: -HuntRules::CADENCE_WINDOW_TICKS - 1,
 			ambush_strike_ready: false,
 			chosen_blow_ready: false,
@@ -371,33 +537,35 @@ impl HuntSim {
 			next_charge_tick: -1,
 			charge_start_tick: 0,
 			staggered_until: 0,
-			reap_direction: 1.0,
-			arc_yaw: 0.0,
-			arc_pitch: 0.0,
-			capture_end_tick: 0,
-			bonus_capture_ticks: 0,
-			deviation_sum: 0.0,
-			reap_ticks: 0,
-			fast_ticks: 0,
+			stunned_until: 0,
+			soul: 0.0,
+			orb_held_ticks: 0,
+			orb: None,
+			orbs_landed: 0,
+			failures: 0,
+			broken_end_tick: 0,
+			bonus_broken_ticks: 0,
 			tick: 0,
 			phase: HuntPhase::Stalk,
 			ward,
+			dealt: 0.0,
 			resolve: stats.resolve,
 			awareness: 0.0,
 			steady_ticks: 0,
 			ambushed: false,
 			cadence: 0,
-			reap_attempts_left: if in_rift {
+			lapses_left: if in_rift {
 				1
 			} else {
-				HuntRules::REAP_ATTEMPTS + difficulty.reaps()
+				HuntRules::LAPSES + difficulty.lapses()
 			},
-			reap_begun: false,
-			reap_progress: 0.0,
 			outcome: None,
 		};
 
-		sim.reap_direction = if sim.path.next_chance(0.5) { 1.0 } else { -1.0 };
+		// Drawn from the path's stream before anything else, as the reap
+		// arc's direction once was, so that a husk still moves as it always
+		// has.
+		let _ = sim.path.next_chance(0.5);
 		sim.bob_phase = sim.path.next_range(0.0, 2.0 * PI);
 
 		// How far out it starts, as a share of the room it has wherever it
@@ -449,12 +617,25 @@ impl HuntSim {
 	pub fn replay(
 		seed: i64,
 		vessel: Vessel,
+		rarity: Rarity,
 		ward: i64,
 		stats: &HuntStats,
 		log: &HuntLog,
 	) -> Option<HuntOutcome> {
-		let mut sim =
-			Self::new(seed, vessel, ward, stats, log.plan.clone(), log.difficulty).ok()?;
+		if !log.plan.is_well_formed() {
+			return None;
+		}
+
+		let mut sim = Self::new(
+			seed,
+			vessel,
+			rarity,
+			ward,
+			stats,
+			log.plan.clone(),
+			log.difficulty,
+		)
+		.ok()?;
 
 		for input in &log.inputs {
 			sim.step(input);
@@ -501,6 +682,11 @@ impl HuntSim {
 		self.ward_max
 	}
 
+	/// How the husk's rarity sets the odds of an orb.
+	pub const fn rarity_odds(&self) -> f64 {
+		self.rarity_odds
+	}
+
 	/// Ticks advanced so far.
 	pub const fn tick(&self) -> i64 {
 		self.tick
@@ -513,6 +699,11 @@ impl HuntSim {
 	/// What is left of the husk's ward.
 	pub const fn ward(&self) -> f64 {
 		self.ward
+	}
+
+	/// Ward this reaper has taken off the husk, all told.
+	pub const fn dealt(&self) -> f64 {
+		self.dealt
 	}
 
 	/// Flinches the reaper can still take.
@@ -535,24 +726,24 @@ impl HuntSim {
 		self.ambushed
 	}
 
-	/// Seal hits in a row.
+	/// Hits in a row.
 	pub const fn cadence(&self) -> i64 {
 		self.cadence
 	}
 
-	/// Unfinished reap windows the husk will still allow.
-	pub const fn reap_attempts_left(&self) -> i64 {
-		self.reap_attempts_left
+	/// Broken windows the husk will still let pass. The last is its escape.
+	pub const fn lapses_left(&self) -> i64 {
+		self.lapses_left
 	}
 
-	/// Whether the aim has reached the start of the arc.
-	pub const fn reap_begun(&self) -> bool {
-		self.reap_begun
+	/// Orbs this husk has broken out of.
+	pub const fn failures(&self) -> i64 {
+		self.failures
 	}
 
-	/// How far along the arc the cut has travelled, from 0 to 1.
-	pub const fn reap_progress(&self) -> f64 {
-		self.reap_progress
+	/// Soul energy, from 0 to [`CaptureRules::SOUL_MAX`].
+	pub const fn soul(&self) -> f64 {
+		self.soul
 	}
 
 	/// How the hunt ended, or `None` while it is still running.
@@ -592,13 +783,7 @@ impl HuntSim {
 		(self.fight_limit_ticks() - self.fight_ticks).max(0)
 	}
 
-	/// Ticks before another strike can land. The view reads the same
-	/// recovery the rules enforce, including a swing that hit nothing.
-	pub fn strike_ticks_left(&self) -> i64 {
-		(self.next_strike_tick - self.tick).max(0)
-	}
-
-	/// Ticks left to land another seal hit and keep the current cadence.
+	/// Ticks left to land another hit and keep the current cadence.
 	pub fn cadence_ticks_left(&self) -> i64 {
 		if self.cadence == 0 {
 			0
@@ -611,7 +796,7 @@ impl HuntSim {
 		if self.in_rift {
 			RiftRules::FIGHT_LIMIT_TICKS
 		} else {
-			math::round(HuntRules::FIGHT_LIMIT_TICKS as f64 * self.difficulty.patience())
+			math::round(HuntRules::FIGHT_LIMIT_TICKS as f64 * self.difficulty.fight_length())
 		}
 	}
 
@@ -624,16 +809,6 @@ impl HuntSim {
 		if self.in_rift && self.fighting() {
 			self.ward = math::max(0.0, shared);
 		}
-	}
-
-	/// Ticks left in the current reap window.
-	pub fn capture_ticks_left(&self) -> i64 {
-		(self.capture_end_tick - self.tick).max(0)
-	}
-
-	/// The length of the current reap window.
-	pub const fn capture_ticks(&self) -> i64 {
-		self.stats.capture_ticks + self.bonus_capture_ticks
 	}
 
 	/// How far through the warning or the shriek the husk is, from 0 to 1.
@@ -655,6 +830,48 @@ impl HuntSim {
 		)
 	}
 
+	/// What the ring under the husk says.
+	pub fn ring(&self) -> HuskRing {
+		match self.phase {
+			HuntPhase::Windup | HuntPhase::Shriek => HuskRing::DrawingBreath,
+			HuntPhase::Charge => HuskRing::Charging,
+			HuntPhase::Broken | HuntPhase::Capture => HuskRing::Weakened,
+			HuntPhase::Fight if self.stunned() => HuskRing::Stunned,
+			HuntPhase::Fight if !self.in_rift && self.weakened() => HuskRing::Weakened,
+			_ => HuskRing::Open,
+		}
+	}
+
+	/// Whether the husk's ward is down to what an orb may be thrown at.
+	fn weakened(&self) -> bool {
+		self.ward <= self.ward_max * CaptureRules::WEAKENED_SHARE
+	}
+
+	/// Sets what is left of the husk's ward, the way a test or a practice
+	/// hunt does. The server never does this: a replay's ward is the
+	/// rules' own.
+	pub fn set_ward(&mut self, ward: f64) {
+		self.ward = ward;
+	}
+
+	/// Sets the reaper's soul energy, the way a test does.
+	pub fn set_soul(&mut self, soul: f64) {
+		self.soul = soul;
+	}
+
+	/// Sets the dives the blade has ready, the way a test does.
+	pub fn set_dive_charges(&mut self, charges: i64) {
+		self.dive_charges = charges;
+	}
+
+	/// Sets the ward this reaper has taken off the husk, the way a test
+	/// does.
+	pub fn set_dealt(&mut self, dealt: f64) {
+		self.dealt = dealt;
+	}
+}
+
+impl HuntSim {
 	/// Where the husk is right now.
 	pub fn pose(&self) -> HuskPose {
 		// A husk in the air never hangs quite still. One perched on a ledge
@@ -726,16 +943,6 @@ impl HuntSim {
 		&self.flights
 	}
 
-	/// How far the art in hand is gathered, from 0 to 1. At 1 a flick
-	/// throws it.
-	pub fn art_gathered(&self) -> f64 {
-		if self.stats.art.is_none() {
-			0.0
-		} else {
-			self.gather_ticks as f64 / ArtRules::GATHER_TICKS as f64
-		}
-	}
-
 	/// Ticks until the next throw is ready, as a share of the wait.
 	pub fn art_recharge(&self) -> f64 {
 		match self.stats.art {
@@ -772,6 +979,248 @@ impl HuntSim {
 		length / (self.move_ticks as f64 / HuntRules::TICK_RATE as f64)
 	}
 
+	// The arsenal, as the view reads it ----------------------------------
+
+	/// The slot in hand.
+	pub const fn selected_slot(&self) -> usize {
+		self.slot
+	}
+
+	/// Ticks until the weapon in hand is drawn and can be fired.
+	pub fn draw_ticks_left(&self) -> i64 {
+		(self.drawn_at - self.tick).max(0)
+	}
+
+	/// Whether the gun is reloading.
+	pub const fn reloading(&self) -> bool {
+		self.reload_start >= 0
+	}
+
+	/// How far through its reload the gun is, from 0 to 1, as a share of an
+	/// unjammed reload. A jammed reload runs past 1.
+	pub fn reload_progress(&self) -> f64 {
+		if self.reloading() {
+			(self.tick - self.reload_start) as f64 / GunRules::RELOAD_TICKS as f64
+		} else {
+			0.0
+		}
+	}
+
+	/// Whether the reload under way has jammed.
+	pub fn reload_jammed(&self) -> bool {
+		self.reloading() && self.jammed
+	}
+
+	/// Whether FIRE now would finish the reload early.
+	pub fn in_active_reload(&self) -> bool {
+		if !self.reloading() || self.jammed {
+			return false;
+		}
+
+		let into = self.tick - self.reload_start;
+
+		(GunRules::ACTIVE_FROM_TICK..=GunRules::ACTIVE_UNTIL_TICK).contains(&into)
+	}
+
+	/// Whether the magazine in the gun was loaded by an active reload.
+	pub const fn magazine_boosted(&self) -> bool {
+		self.boosted
+	}
+
+	/// Rounds left in the gun's magazine.
+	pub const fn rounds(&self) -> i64 {
+		self.rounds
+	}
+
+	/// How far the next dive charge has come back, from 0 to 1. Zero when
+	/// every charge is ready.
+	pub fn dive_recharge(&self) -> f64 {
+		if self.dive_charges >= BladeRules::DIVE_CHARGES {
+			0.0
+		} else {
+			self.dive_recharge as f64 / BladeRules::CHARGE_TICKS as f64
+		}
+	}
+
+	/// Dives the blade has ready.
+	pub const fn dive_charges(&self) -> i64 {
+		self.dive_charges
+	}
+
+	/// Whether the reaper is diving in at the husk.
+	pub const fn diving(&self) -> bool {
+		self.dive.is_some()
+	}
+
+	/// The weapon of the dive under way, or `None`.
+	pub fn dive_weapon(&self) -> Option<Archetype> {
+		self.dive.map(|dive| dive.weapon)
+	}
+
+	/// How far through the dive under way the reaper is, from 0 to 1.
+	pub fn dive_progress(&self) -> f64 {
+		match self.dive {
+			Some(dive) => {
+				math::clamp(
+					(self.tick - dive.start) as f64 / dive.ticks as f64,
+					0.0,
+					1.0,
+				)
+			}
+			None => 0.0,
+		}
+	}
+
+	/// Ticks until the weapon in hand can act again: drawn, fired, swung or
+	/// thrown. A reload counts for the gun.
+	pub fn cooldown_ticks(&self) -> i64 {
+		let ready = match Arsenal::archetype_of(self.slot) {
+			Some(Archetype::Gun) => {
+				if self.reloading() {
+					self.reload_end
+				} else {
+					self.next_shot_tick
+				}
+			}
+			Some(Archetype::Blade | Archetype::Heavy) => {
+				match self.dive {
+					Some(dive) => dive.start + dive.ticks,
+					None => self.next_melee_tick,
+				}
+			}
+			_ => self.next_throw_tick,
+		};
+
+		(ready.max(self.drawn_at) - self.tick).max(0)
+	}
+
+	/// Whether a shot, stab or swing along `aim` would strike an open seal.
+	pub fn on_open_seal(&self, aim: Vec3) -> bool {
+		self.nearest_open_seal(aim, &self.pose(), self.stats.reach_radians)
+			.is_some()
+	}
+
+	/// Whether the weapon in hand can reach the husk along `aim`: whether a
+	/// press now would do anything to it.
+	pub fn in_reach(&self, aim: Vec3) -> bool {
+		if !(self.fighting() || self.phase == HuntPhase::Stalk) {
+			return false;
+		}
+
+		let current = self.pose();
+		let close = current.distance() <= Arsenal::CLOSE_METRES;
+
+		match Arsenal::archetype_of(self.slot) {
+			Some(Archetype::Gun) => {
+				self.on_open_seal(aim) || current.covers(aim, self.stats.assist_radians)
+			}
+			Some(Archetype::Blade) => {
+				current.covers(aim, self.stats.blade_reach_radians)
+					&& (close
+						|| (current.distance() <= BladeRules::DIVE_METRES && self.dive_charges > 0))
+			}
+			Some(Archetype::Heavy) => {
+				current.covers(aim, self.stats.heavy_reach_radians)
+					&& current.distance() <= HeavyRules::DIVE_METRES
+			}
+			_ => self.stats.art.is_some() && self.art_charges > 0,
+		}
+	}
+
+	// The orb, as the view reads it --------------------------------------
+
+	/// Why an orb cannot be thrown right now, or `None` when it can.
+	pub fn orb_block(&self) -> Option<OrbBlock> {
+		if !self.fighting() && self.phase != HuntPhase::Broken {
+			return Some(OrbBlock::NotFighting);
+		}
+
+		if self.orb_in_flight() {
+			return Some(OrbBlock::InFlight);
+		}
+
+		if self.in_rift {
+			return if self.phase == HuntPhase::Broken {
+				None
+			} else {
+				Some(OrbBlock::NotWeakened)
+			};
+		}
+
+		if self.phase != HuntPhase::Broken && !self.weakened() {
+			return Some(OrbBlock::NotWeakened);
+		}
+
+		if self.soul < CaptureRules::COST {
+			return Some(OrbBlock::LowSoul);
+		}
+
+		None
+	}
+
+	/// How far the ring has shrunk around the husk while ORB is held, from
+	/// 0 to 1, or `None` while it is not held.
+	pub fn orb_ring(&self) -> Option<f64> {
+		if self.orb_held_ticks == 0 {
+			None
+		} else {
+			Some(CaptureRules::ring_progress(self.orb_held_ticks))
+		}
+	}
+
+	/// The grade a throw let go now would have, with the crosshair along
+	/// `aim`. [`CaptureGrade::Plain`] while ORB is not held.
+	pub fn orb_grade(&self, aim: Vec3) -> CaptureGrade {
+		CaptureRules::grade_for(self.orb_held_ticks, self.pose().covers(aim, 0.0))
+	}
+
+	/// The last orb thrown, or `None` before the first.
+	pub fn orb(&self) -> Option<OrbView> {
+		let thrown = self.orb?;
+		let ticks = self.tick - thrown.thrown_at;
+
+		Some(OrbView {
+			thrown_at: thrown.thrown_at,
+			ticks,
+			stage: thrown.stage_at(ticks),
+			grade: thrown.grade,
+			on_target: thrown.on_target,
+			pulses: thrown.pulses_at(ticks),
+			target: thrown.target,
+			chance: thrown.chance,
+			broke_free_on: thrown.broke_on,
+		})
+	}
+
+	fn orb_in_flight(&self) -> bool {
+		match self.orb {
+			Some(orb) => self.tick - orb.thrown_at < CaptureRules::IMPACT_TICK,
+			None => false,
+		}
+	}
+
+	/// Ticks left before a broken husk recovers.
+	pub fn broken_ticks_left(&self) -> i64 {
+		if self.phase == HuntPhase::Broken {
+			(self.broken_end_tick - self.tick).max(0)
+		} else {
+			0
+		}
+	}
+
+	/// How long a broken husk stays down.
+	pub const fn broken_ticks(&self) -> i64 {
+		if self.in_rift {
+			RiftRules::REAP_WINDOW_TICKS
+		} else {
+			self.stats.broken_ticks + self.bonus_broken_ticks
+		}
+	}
+}
+
+impl HuntSim {
+	// Seals --------------------------------------------------------------
+
 	/// Whether seal `index` can be struck right now.
 	pub fn seal_open(&self, index: usize) -> bool {
 		if !self.fighting()
@@ -794,6 +1243,10 @@ impl HuntSim {
 		self.plan.hides(current.seal_position(index))
 	}
 
+	fn seal_count(&self) -> usize {
+		self.vessel.seals().len()
+	}
+
 	/// The order seal `index` opened in among the seals open now, starting
 	/// at 0 for the oldest, or `None` when it is shut.
 	///
@@ -812,20 +1265,6 @@ impl HuntSim {
 		)
 	}
 
-	fn seal_count(&self) -> usize {
-		self.vessel.seals().len()
-	}
-
-	/// The point a fraction `progress` of the way along the reap arc.
-	///
-	/// The arc bows upward in the middle, like the path of a swung blade.
-	pub fn reap_arc_point(&self, progress: f64) -> Vec3 {
-		Vec3::from_angles(
-			self.arc_yaw + self.reap_direction * HuntRules::REAP_HALF_SPAN * (2.0 * progress - 1.0),
-			self.arc_pitch_at(progress),
-		)
-	}
-
 	/// Advances the hunt by one tick and returns what happened in it.
 	pub fn step(&mut self, input: &HuntInput) -> Vec<HuntEvent> {
 		if self.is_over() {
@@ -833,19 +1272,39 @@ impl HuntSim {
 		}
 
 		let mut events = Vec::new();
+		let thrown = self.let_go(input);
+
+		self.step_missed_orb(&mut events);
 
 		match self.phase {
 			HuntPhase::Stalk => self.step_stalk(input, &mut events),
 			HuntPhase::Fight | HuntPhase::Windup | HuntPhase::Shriek | HuntPhase::Charge => {
-				self.step_fight(input, &mut events);
+				self.step_fight(input, thrown, &mut events);
 			}
-			HuntPhase::Broken => self.step_reap(input, &mut events),
+			HuntPhase::Broken => self.step_broken(input, thrown, &mut events),
+			HuntPhase::Capture => self.step_capture(input, &mut events),
 			HuntPhase::Absorbed | HuntPhase::Escaped => {}
 		}
 
 		self.tick += 1;
 
 		events
+	}
+
+	/// Follows ORB, and returns how long it was held when it is let go this
+	/// tick, or `None`.
+	fn let_go(&mut self, input: &HuntInput) -> Option<i64> {
+		if input.orb_held {
+			self.orb_held_ticks += 1;
+
+			return None;
+		}
+
+		let held = self.orb_held_ticks;
+
+		self.orb_held_ticks = 0;
+
+		(held > 0).then_some(held)
 	}
 
 	// Stalk --------------------------------------------------------------
@@ -862,22 +1321,16 @@ impl HuntSim {
 			return;
 		}
 
-		self.step_art(input, events);
+		// A reaper who fires first, or dives in, has given up the ambush,
+		// and the blow still counts.
+		self.step_arsenal(input, events, true);
+
+		if self.phase != HuntPhase::Stalk {
+			return;
+		}
 
 		let current = self.pose();
 		let speed = input.turn_radians_per_second();
-		let struck = input
-			.taps
-			.iter()
-			.any(|tap| current.covers(tap.direction(), self.stats.reach_radians));
-
-		// A reaper who strikes first has given up the ambush, and the strike
-		// still counts.
-		if struck {
-			self.begin_fight(events, false);
-			self.step_strikes(input, events);
-			return;
-		}
 
 		if speed > HuntRules::STARTLE_SPEED {
 			self.awareness += (speed - HuntRules::STARTLE_SPEED) * HuntRules::STARTLE_GAIN
@@ -905,6 +1358,14 @@ impl HuntSim {
 
 		if self.awareness >= 1.0 || self.tick >= HuntRules::STALK_LIMIT_TICKS {
 			self.awareness = 1.0;
+			self.begin_fight(events, false);
+		}
+	}
+
+	/// Starts the fight, without an ambush, if the husk has not yet noticed
+	/// the reaper. A shot or a dive gives a reaper away.
+	fn engage(&mut self, events: &mut Vec<HuntEvent>) {
+		if self.phase == HuntPhase::Stalk {
 			self.begin_fight(events, false);
 		}
 	}
@@ -963,7 +1424,22 @@ impl HuntSim {
 		)
 	}
 
-	fn step_fight(&mut self, input: &HuntInput, events: &mut Vec<HuntEvent>) {
+	/// Whether the husk stands stunned: after a parry, a gust, or an orb it
+	/// burst out of. Close and open, for the blade.
+	pub fn stunned(&self) -> bool {
+		self.fighting() && self.tick < self.stunned_until
+	}
+
+	/// Ticks left of the stun, or 0.
+	pub fn stun_ticks_left(&self) -> i64 {
+		if self.stunned() {
+			self.stunned_until - self.tick
+		} else {
+			0
+		}
+	}
+
+	fn step_fight(&mut self, input: &HuntInput, thrown: Option<i64>, events: &mut Vec<HuntEvent>) {
 		self.move_husk(events);
 		self.fight_ticks += 1;
 
@@ -985,10 +1461,16 @@ impl HuntSim {
 			return;
 		}
 
-		self.step_shriek(input, events);
+		self.step_shriek(input, thrown, events);
 
-		if self.is_over() || self.phase == HuntPhase::Shriek {
-			self.step_art(input, events);
+		if self.is_over() {
+			return;
+		}
+
+		// Nothing is fired into a shriek: a press is a flinch. The weapons
+		// keep reloading, recharging and coming back from a dive.
+		if self.phase == HuntPhase::Shriek {
+			self.step_arsenal(input, events, false);
 			return;
 		}
 
@@ -998,16 +1480,23 @@ impl HuntSim {
 			return;
 		}
 
-		self.step_art(input, events);
 		self.step_seals(events);
-		self.step_strikes(input, events);
+		self.step_arsenal(input, events, true);
+
+		if let Some(held) = thrown {
+			self.throw_orb(input.aim.direction(), held, events);
+
+			if self.phase == HuntPhase::Capture {
+				return;
+			}
+		}
 
 		if self.ward <= 0.0 {
 			self.break_ward(events);
 		}
 	}
 
-	fn step_shriek(&mut self, input: &HuntInput, events: &mut Vec<HuntEvent>) {
+	fn step_shriek(&mut self, input: &HuntInput, thrown: Option<i64>, events: &mut Vec<HuntEvent>) {
 		// A husk in mid-leap lands before it draws breath.
 		if self.phase == HuntPhase::Fight && self.tick >= self.next_shriek_tick && !self.leaping {
 			self.echo_cadence = self.cadence;
@@ -1015,8 +1504,8 @@ impl HuntSim {
 			self.phase_end_tick = self.tick + HuntRules::WINDUP_TICKS;
 			events.push(HuntEvent::ShriekWindup);
 
-			// A husk shrieks at the reaper's face, not from behind the sofa:
-			// it comes out over the top as it draws breath.
+			// A husk shrieks at the reaper's face, not from behind the
+			// sofa: it comes out over the top as it draws breath.
 			if self.footing == Footing::Hidden && !self.leaping {
 				self.leave_cover(events, false);
 			}
@@ -1029,7 +1518,6 @@ impl HuntSim {
 			self.shriek_start_tick = self.tick;
 			self.phase_end_tick = self.tick + HuntRules::SHRIEK_TICKS;
 			self.flinched_this_shriek = false;
-			self.buffered_tap = None;
 			let tick = self.tick;
 			self.open_until.fill(tick);
 			events.push(HuntEvent::ShriekBegan);
@@ -1041,8 +1529,9 @@ impl HuntSim {
 		}
 
 		let past_grace = self.tick - self.shriek_start_tick >= HuntRules::SHRIEK_GRACE_TICKS;
-		let moved =
-			input.turn_radians_per_second() > self.stats.flinch_speed || !input.taps.is_empty();
+		let moved = input.turn_radians_per_second() > self.stats.flinch_speed
+			|| input.fire
+			|| thrown.is_some();
 
 		if past_grace && moved && !self.flinched_this_shriek {
 			self.flinch(events);
@@ -1073,6 +1562,7 @@ impl HuntSim {
 
 		events.push(HuntEvent::HeldFirm);
 		self.holds += 1;
+		self.gain_soul(CaptureRules::HOLD_SOUL);
 		self.expose_all_seals(events);
 
 		// Stillness steadies the hand: an unflinching hold readies a throw.
@@ -1087,7 +1577,7 @@ impl HuntSim {
 		}
 
 		if self.stats.perk == ClassPerk::Toll {
-			self.bonus_capture_ticks += HuntRules::TOLL_TICKS;
+			self.bonus_broken_ticks += HuntRules::TOLL_TICKS;
 		}
 
 		match self.stats.gift {
@@ -1163,7 +1653,8 @@ impl HuntSim {
 		}
 	}
 
-	/// Whether the husk stands stunned after a charge was turned aside.
+	/// Whether the husk has stopped in its tracks: stunned, or knocked still
+	/// for a moment by a heavy blow.
 	pub fn staggered(&self) -> bool {
 		self.fighting() && self.tick < self.staggered_until
 	}
@@ -1249,14 +1740,14 @@ impl HuntSim {
 	}
 
 	/// The reaper swung in time. The husk is knocked out of its run and
-	/// stands stunned where it got to, every seal in view open.
+	/// stands stunned where it got to, close, every seal in view open.
 	fn parry(&mut self, events: &mut Vec<HuntEvent>) {
 		self.end_charge();
 		self.move_start = -1;
-		self.staggered_until = self.tick + HuntRules::STAGGER_TICKS;
-		self.next_bolt_tick = self.staggered_until;
+		self.stun(HuntRules::STAGGER_TICKS);
 		events.push(HuntEvent::Parried);
 		self.parries += 1;
+		self.gain_soul(CaptureRules::PARRY_SOUL);
 		self.expose_all_seals(events);
 
 		if self.stats.gift == Some(ReaperGift::Reprisal) {
@@ -1266,28 +1757,41 @@ impl HuntSim {
 		}
 	}
 
-	/// The charge got through. It costs the reaper resolve, and the husk is
-	/// off again at once.
+	/// Stuns the husk where it stands for `ticks`, and it runs after.
+	fn stun(&mut self, ticks: i64) {
+		self.staggered_until = self.tick + ticks;
+		self.stunned_until = self.staggered_until;
+		self.next_bolt_tick = self.staggered_until;
+	}
+
+	/// The charge got through. It costs the reaper resolve, twice over if it
+	/// caught them mid-dive, and the husk is off again at once.
 	fn strike_reaper(&mut self, events: &mut Vec<HuntEvent>) {
 		if self.passage_ready {
 			self.passage_ready = false;
 			self.parry(events);
 			// This is the gift's protection, not an input the player
-			// performed.
+			// performed, and it pays no soul.
 			self.parries -= 1;
-			self.staggered_until = self.tick
-				+ SoulRules::PASSAGE_STAGGER_TICKS_PER_STRENGTH * self.stats.gift_strength();
-			self.next_bolt_tick = self.staggered_until;
+			self.soul = math::max(0.0, self.soul - CaptureRules::PARRY_SOUL);
+			self.stun(SoulRules::PASSAGE_STAGGER_TICKS_PER_STRENGTH * self.stats.gift_strength());
 			events.push(HuntEvent::GiftStirred(ReaperGift::Passage));
 			return;
 		}
 
+		let caught_diving = self.diving();
+
 		self.end_charge();
-		self.resolve -= 1;
+		self.end_dive(events);
+		self.resolve = math::max(
+			0.0,
+			self.resolve as f64 - if caught_diving { 2.0 } else { 1.0 },
+		) as i64;
 		self.cadence = 0;
 		self.hit_streak = 0;
 		events.push(HuntEvent::Struck {
 			resolve_left: self.resolve,
+			diving: caught_diving,
 		});
 
 		if self.resolve <= 0 {
@@ -1357,260 +1861,6 @@ impl HuntSim {
 		}
 	}
 
-	fn step_strikes(&mut self, input: &HuntInput, events: &mut Vec<HuntEvent>) {
-		let buffered = self.buffered_tap;
-
-		if buffered.is_some() && self.tick - self.buffered_at > HuntRules::BUFFER_TICKS {
-			self.buffered_tap = None;
-		}
-
-		if let Some(buffered) = buffered
-			&& self.buffered_tap.is_some()
-			&& self.tick >= self.next_strike_tick
-		{
-			self.buffered_tap = None;
-			self.resolve_strike(buffered, events);
-		}
-
-		for &tap in &input.taps {
-			if self.tick >= self.next_strike_tick {
-				self.resolve_strike(tap, events);
-				continue;
-			}
-
-			// One slot: a later tap replaces an earlier one that is still
-			// waiting.
-			self.buffered_tap = Some(tap);
-			self.buffered_at = self.tick;
-		}
-	}
-
-	#[allow(clippy::too_many_lines)]
-	fn resolve_strike(&mut self, tap: Aim, events: &mut Vec<HuntEvent>) {
-		let ray = tap.direction();
-		let current = self.pose();
-
-		self.next_strike_tick = self.tick + self.stats.swing_ticks;
-
-		let Some(seal) = self.nearest_open_seal(ray, &current, self.stats.reach_radians) else {
-			self.resolve_miss(ray, &current, events);
-			return;
-		};
-
-		let gift = self.stats.gift;
-		let strength = self.stats.gift_strength() as f64;
-		let cap = if self.stats.perk == ClassPerk::Chain {
-			HuntRules::CHAIN_CADENCE_CAP
-		} else {
-			HuntRules::CADENCE_CAP
-		};
-		let mut scale = 1.0 + self.cadence.min(cap) as f64 * HuntRules::CADENCE_STEP;
-		let mut empowered = false;
-		let first_strike = self.ambush_strike_ready;
-		let in_order = self.seal_rank(seal) == Some(0);
-		let aftermath = self.gift_strike_ready && gift == Some(ReaperGift::Aftermath);
-
-		if self.ambush_strike_ready {
-			self.ambush_strike_ready = false;
-			scale *= HuntRules::AMBUSH_STRIKE;
-			empowered = true;
-		}
-
-		if first_strike && gift == Some(ReaperGift::FirstLight) {
-			scale *= 1.0 + SoulRules::GIFT_STRIKE_PER_STRENGTH * strength;
-			events.push(HuntEvent::GiftStirred(ReaperGift::FirstLight));
-		}
-
-		if self.chosen_blow_ready {
-			self.chosen_blow_ready = false;
-			scale *= HuntRules::CHOSEN_BLOW_STRIKE;
-			empowered = true;
-		}
-
-		if self.stats.perk == ClassPerk::Measure && in_order {
-			scale *= HuntRules::MEASURE_STRIKE;
-			empowered = true;
-		}
-
-		let verdict = gift == Some(ReaperGift::Verdict) && in_order;
-		let promised = self.gift_strike_ready
-			&& (verdict || matches!(gift, Some(ReaperGift::Keening | ReaperGift::Reprisal)));
-		let execution = gift == Some(ReaperGift::LastWord)
-			&& self.cadence >= SoulRules::EXECUTION_CADENCE
-			&& self.ward <= self.ward_max * SoulRules::EXECUTION_WARD_SHARE;
-
-		if (promised || execution)
-			&& let Some(gift) = gift
-		{
-			scale *= 1.0 + SoulRules::GIFT_STRIKE_PER_STRENGTH * strength;
-			empowered = true;
-			if promised {
-				self.gift_strike_ready = false;
-			}
-			events.push(HuntEvent::GiftStirred(gift));
-		}
-
-		if aftermath {
-			self.gift_strike_ready = false;
-			empowered = true;
-			events.push(HuntEvent::GiftStirred(ReaperGift::Aftermath));
-		}
-
-		if self.frozen() {
-			scale *= self.stats.art.map_or(1.0, |art| art.shatter());
-			empowered = true;
-			self.frozen_until = self.tick;
-			events.push(HuntEvent::IceShattered);
-		}
-
-		let mut damage = self.stats.strike_damage * scale;
-		let mut cleaved = Vec::new();
-
-		self.shut_seal(seal);
-
-		if self.stats.perk == ClassPerk::Cleave {
-			let reach = self.stats.reach_radians * HuntRules::CLEAVE_REACH;
-
-			for other in 0..self.seal_count() {
-				let caught =
-					self.seal_open(other) && ray.angle_to(current.seal_direction(other)) <= reach;
-
-				if !caught {
-					continue;
-				}
-
-				if aftermath {
-					self.open_until[other] = self.open_until[other].max(
-						self.tick
-							+ HuntRules::EXPOSED_TICKS
-							+ SoulRules::GATHERING_TICKS_PER_STRENGTH * self.stats.gift_strength(),
-					);
-				} else {
-					self.shut_seal(other);
-				}
-				cleaved.push(other);
-				let share = HuntRules::CLEAVE_SHARE
-					+ if first_strike && gift == Some(ReaperGift::Furrow) {
-						SoulRules::FURROW_CLEAVE_PER_STRENGTH * strength
-					} else {
-						0.0
-					};
-				damage += self.stats.strike_damage * scale * share;
-			}
-		}
-
-		if first_strike && gift == Some(ReaperGift::Furrow) && !cleaved.is_empty() {
-			empowered = true;
-			events.push(HuntEvent::GiftStirred(ReaperGift::Furrow));
-		}
-
-		self.ward = math::max(0.0, self.ward - damage);
-		self.knock();
-		self.cadence += 1;
-		self.hit_streak += 1;
-		self.max_hit_streak = self.max_hit_streak.max(self.hit_streak);
-		self.last_hit_tick = self.tick;
-		events.push(HuntEvent::StrikeLanded {
-			seal,
-			damage,
-			cadence: self.cadence,
-			empowered,
-			cleaved,
-		});
-		self.after_gift_strike(seal, in_order, events);
-	}
-
-	/// Conditional powers keep their own counters, never a second
-	/// simulation.
-	fn after_gift_strike(&mut self, seal: usize, in_order: bool, events: &mut Vec<HuntEvent>) {
-		match self.stats.gift {
-			Some(ReaperGift::Gathering) => {
-				if self.cadence % SoulRules::GATHERING_HITS == 0 {
-					self.shut_until[seal] = self.tick;
-					self.open_seal(
-						seal,
-						HuntRules::SEAL_COOLDOWN_TICKS
-							+ SoulRules::GATHERING_TICKS_PER_STRENGTH * self.stats.gift_strength(),
-						events,
-					);
-					events.push(HuntEvent::GiftStirred(ReaperGift::Gathering));
-				}
-			}
-			Some(ReaperGift::ReturnLight) => {
-				if self.cadence >= SoulRules::RETURN_CADENCE
-					&& !self.return_ready
-					&& self.gift_uses < self.stats.gift_strength()
-				{
-					self.return_ready = true;
-					self.gift_uses += 1;
-					events.push(HuntEvent::GiftStirred(ReaperGift::ReturnLight));
-				}
-			}
-			Some(ReaperGift::Equilibrium) => {
-				self.ordered_hits = if in_order { self.ordered_hits + 1 } else { 0 };
-				if self.ordered_hits == SoulRules::EQUILIBRIUM_HITS {
-					self.ordered_hits = 0;
-					for other in 0..self.seal_count() {
-						self.shut_until[other] = self.tick;
-						let ticks = (self.open_until[other] - self.tick).max(
-							HuntRules::SEAL_COOLDOWN_TICKS
-								+ SoulRules::EQUILIBRIUM_TICKS_PER_STRENGTH
-									* self.stats.gift_strength(),
-						);
-						self.open_seal(other, ticks, events);
-					}
-					events.push(HuntEvent::GiftStirred(ReaperGift::Equilibrium));
-				}
-			}
-			Some(ReaperGift::Refrain)
-				if self.cadence % SoulRules::REFRAIN_HITS == 0
-					&& self.refrain_tolls < SoulRules::REFRAIN_MAX_TOLLS =>
-			{
-				self.bonus_capture_ticks +=
-					SoulRules::REFRAIN_TICKS_PER_STRENGTH * self.stats.gift_strength();
-				self.refrain_tolls += 1;
-				events.push(HuntEvent::GiftStirred(ReaperGift::Refrain));
-			}
-			_ => {}
-		}
-	}
-
-	/// A heavy blade stops the husk in its tracks.
-	fn knock(&mut self) {
-		if self.stats.knock_ticks == 0 || self.phase != HuntPhase::Fight || self.leaping {
-			return;
-		}
-
-		self.staggered_until = self.staggered_until.max(self.tick + self.stats.knock_ticks);
-		self.halt();
-	}
-
-	fn resolve_miss(&mut self, ray: Vec3, current: &HuskPose, events: &mut Vec<HuntEvent>) {
-		// A blow at the part of a husk that is behind the counter hits the
-		// counter.
-		let blocked = self.plan.hides(ray * current.distance());
-
-		if blocked || !current.covers(ray, self.stats.reach_radians * 0.5) {
-			self.hit_streak = 0;
-			if self.stats.gift == Some(ReaperGift::Unbroken)
-				&& self.cadence > 0
-				&& self.gift_uses < self.stats.gift_strength()
-			{
-				self.gift_uses += 1;
-				events.push(HuntEvent::GiftStirred(ReaperGift::Unbroken));
-			} else {
-				self.cadence = 0;
-			}
-			events.push(HuntEvent::StrikeWhiffed);
-			return;
-		}
-
-		let damage = self.stats.strike_damage * self.stats.glance_share;
-
-		self.ward = math::max(0.0, self.ward - damage);
-		events.push(HuntEvent::StrikeGlanced { damage });
-	}
-
 	fn nearest_open_seal(&self, ray: Vec3, current: &HuskPose, reach: f64) -> Option<usize> {
 		let mut nearest = None;
 		let mut nearest_angle = reach;
@@ -1636,141 +1886,541 @@ impl HuntSim {
 		self.shut_until[index] = self.tick + HuntRules::SEAL_COOLDOWN_TICKS;
 	}
 
-	// Break and reap -----------------------------------------------------
+	// The arsenal --------------------------------------------------------
 
-	fn break_ward(&mut self, events: &mut Vec<HuntEvent>) {
-		// A husk broken in mid-leap still lands, and hangs open where it
-		// does.
-		let landing = if self.leaping {
-			self.destination()
-		} else {
-			self.pose().position
-		};
+	/// Draws, reloads, recharges and fires the reaper's weapons for one
+	/// tick. A reaper who is not `firing` (in a shriek) presses nothing:
+	/// whatever FIRE did, the shriek has taken as a flinch.
+	fn step_arsenal(&mut self, input: &HuntInput, events: &mut Vec<HuntEvent>, firing: bool) {
+		self.step_reload(events);
+		self.step_dive_charges();
+		self.step_art_recharge();
 
-		self.phase = HuntPhase::Broken;
-		self.ward = 0.0;
-		self.halt();
-		self.buffered_tap = None;
-		self.flights.clear();
-		self.burn_until = self.tick;
-		self.frozen_until = self.tick;
-		self.arc_yaw = landing.yaw();
-		self.arc_pitch = landing.pitch();
-		self.capture_end_tick = self.tick + self.capture_ticks();
-		self.reap_begun = false;
-		self.reap_progress = 0.0;
-		self.deviation_sum = 0.0;
-		self.reap_ticks = 0;
-		self.fast_ticks = 0;
-		events.push(HuntEvent::Broken);
+		let pressed = firing && input.fire;
+
+		if self.dive.is_some() {
+			self.step_dive(input.aim, events, pressed, firing);
+			return;
+		}
+
+		self.select(usize::from(input.slot), events);
+
+		if !pressed || self.tick < self.drawn_at {
+			return;
+		}
+
+		match Arsenal::archetype_of(self.slot) {
+			Some(Archetype::Gun) => self.pull_trigger(input.aim, events),
+			Some(Archetype::Blade) => self.thrust(input.aim, events),
+			Some(Archetype::Heavy) => self.heave(input.aim, events),
+			_ => self.throw_art(input.aim, events),
+		}
 	}
 
-	fn step_reap(&mut self, input: &HuntInput, events: &mut Vec<HuntEvent>) {
-		let aim = input.aim.direction();
-
-		if self.leaping {
-			self.continue_move();
-		}
-
-		if !self.reap_begun && aim.angle_to(self.reap_arc_point(0.0)) <= HuntRules::REAP_START_AIM {
-			self.reap_begun = true;
-			events.push(HuntEvent::ReapBegan);
-		}
-
-		if self.reap_begun {
-			self.track_cut(aim, input.turn_radians_per_second());
-		}
-
-		if self.reap_progress >= 1.0 {
-			self.absorb(events);
+	fn select(&mut self, slot: usize, events: &mut Vec<HuntEvent>) {
+		if slot == self.slot || slot >= Arsenal::SLOTS {
 			return;
 		}
 
-		if self.tick < self.capture_end_tick {
+		self.slot = slot;
+		self.drawn_at = self.tick + Arsenal::SWITCH_TICKS;
+		events.push(HuntEvent::WeaponDrawn(slot));
+	}
+
+	// Gun ----------------------------------------------------------------
+
+	fn pull_trigger(&mut self, aim: Aim, events: &mut Vec<HuntEvent>) {
+		if self.reloading() {
+			self.active_reload(events);
 			return;
 		}
 
-		self.reap_attempts_left -= 1;
-
-		if self.reap_attempts_left <= 0 {
-			self.escape(events, EscapeCause::Reap);
+		if self.rounds == 0 {
+			self.reload_start = self.tick;
+			self.reload_end = self.tick + GunRules::RELOAD_TICKS;
+			self.jammed = false;
+			events.push(HuntEvent::ReloadStarted);
 			return;
 		}
 
-		self.phase = HuntPhase::Fight;
-		self.ward = self.ward_max * HuntRules::RECOVER_SHARE;
-		self.cadence = 0;
-		// It pulls itself together and is off at once.
-		self.next_bolt_tick = self.tick + 30;
-		self.schedule_shriek();
-		self.schedule_charge();
-		events.push(HuntEvent::ReapRecovered {
-			attempts_left: self.reap_attempts_left,
+		if self.tick < self.next_shot_tick {
+			return;
+		}
+
+		self.engage(events);
+		self.rounds -= 1;
+		self.next_shot_tick = self.tick + GunRules::FIRE_INTERVAL_TICKS;
+		events.push(HuntEvent::ShotFired {
+			rounds_left: self.rounds,
+			boosted: self.boosted,
 		});
+		self.strike(
+			Archetype::Gun,
+			aim.direction(),
+			GunRules::SHOT_STRIKE
+				* if self.boosted {
+					GunRules::BOOSTED_STRIKE
+				} else {
+					1.0
+				},
+			events,
+		);
 	}
 
-	fn track_cut(&mut self, aim: Vec3, speed: f64) {
-		let along = wrap_angle(aim.yaw() - self.arc_yaw) * self.reap_direction
-			/ (2.0 * HuntRules::REAP_HALF_SPAN)
-			+ 0.5;
-		let clamped = math::clamp(along, 0.0, 1.0);
+	/// FIRE in the middle of a reload: in the window it finishes it at once,
+	/// before the window it jams it, and after the window it does nothing.
+	fn active_reload(&mut self, events: &mut Vec<HuntEvent>) {
+		if self.jammed {
+			return;
+		}
 
-		// The cut only ever moves forward: drifting back loses nothing.
-		self.reap_progress = math::max(self.reap_progress, clamped);
-		self.deviation_sum += (aim.pitch() - self.arc_pitch_at(clamped)).abs();
-		self.reap_ticks += 1;
+		let into = self.tick - self.reload_start;
 
-		if speed > HuntRules::REAP_SPEED_LIMIT {
-			self.fast_ticks += 1;
+		if (GunRules::ACTIVE_FROM_TICK..=GunRules::ACTIVE_UNTIL_TICK).contains(&into) {
+			self.finish_reload(events, true);
+		} else if into < GunRules::ACTIVE_FROM_TICK {
+			self.jammed = true;
+			self.reload_end += GunRules::JAM_TICKS;
+			events.push(HuntEvent::ReloadJammed);
 		}
 	}
 
-	fn arc_pitch_at(&self, progress: f64) -> f64 {
-		self.arc_pitch + radians(5.0) * 4.0 * progress * (1.0 - progress) - radians(2.5)
+	fn step_reload(&mut self, events: &mut Vec<HuntEvent>) {
+		if self.reloading() && self.tick >= self.reload_end {
+			self.finish_reload(events, false);
+		}
 	}
 
-	fn absorb(&mut self, events: &mut Vec<HuntEvent>) {
-		let deviation = self.deviation_sum / self.reap_ticks as f64;
-		let fast_share = self.fast_ticks as f64 / self.reap_ticks as f64;
-		let tolerance = self.stats.reap_tolerance_radians;
+	fn finish_reload(&mut self, events: &mut Vec<HuntEvent>, perfect: bool) {
+		self.rounds = GunRules::ROUNDS;
+		self.boosted = perfect;
+		self.reload_start = -1;
+		self.jammed = false;
+		events.push(HuntEvent::ReloadFinished { perfect });
+	}
 
-		let grade = if deviation > tolerance || fast_share > 0.2 {
-			ReapGrade::Ragged
-		} else if deviation <= tolerance * HuntRules::PERFECT_SHARE && fast_share <= 0.05 {
-			ReapGrade::Perfect
-		} else {
-			ReapGrade::Clean
+	// Blade and heavy ----------------------------------------------------
+
+	fn step_dive_charges(&mut self) {
+		if self.dive_charges >= BladeRules::DIVE_CHARGES {
+			self.dive_recharge = 0;
+			return;
+		}
+
+		self.dive_recharge += 1;
+
+		if self.dive_recharge >= BladeRules::CHARGE_TICKS {
+			self.dive_charges += 1;
+			self.dive_recharge = 0;
+		}
+	}
+
+	/// FIRE with the blade in hand: a stab in arm's reach, or a dive at a
+	/// husk on the crosshair within reach of one.
+	fn thrust(&mut self, aim: Aim, events: &mut Vec<HuntEvent>) {
+		let current = self.pose();
+		let ray = aim.direction();
+
+		if current.distance() <= Arsenal::CLOSE_METRES {
+			if self.tick < self.next_melee_tick {
+				return;
+			}
+
+			self.engage(events);
+			self.next_melee_tick = self.tick + BladeRules::STAB_INTERVAL_TICKS;
+			self.strike(Archetype::Blade, ray, BladeRules::STAB_STRIKE, events);
+			return;
+		}
+
+		let reachable = current.covers(ray, self.stats.blade_reach_radians)
+			&& current.distance() <= BladeRules::DIVE_METRES
+			&& self.dive_charges > 0;
+
+		if !reachable {
+			return;
+		}
+
+		self.engage(events);
+		self.dive_charges -= 1;
+		self.dive = Some(Dive::new(
+			Archetype::Blade,
+			self.tick,
+			self.tick + BladeRules::IN_TICKS,
+			BladeRules::IN_TICKS + BladeRules::WINDOW_TICKS + BladeRules::OUT_TICKS,
+		));
+		events.push(HuntEvent::DiveStarted(Archetype::Blade));
+	}
+
+	/// FIRE with the class weapon in hand: a swing in arm's reach, or a
+	/// dive and a swing at a husk on the crosshair within reach of one.
+	fn heave(&mut self, aim: Aim, events: &mut Vec<HuntEvent>) {
+		let current = self.pose();
+		let ray = aim.direction();
+
+		if current.distance() <= Arsenal::CLOSE_METRES {
+			if self.tick < self.next_melee_tick {
+				return;
+			}
+
+			self.engage(events);
+			self.next_melee_tick = self.tick + self.stats.swing_ticks;
+			self.strike(Archetype::Heavy, ray, self.stats.heavy_strike, events);
+			return;
+		}
+
+		let reachable = current.covers(ray, self.stats.heavy_reach_radians)
+			&& current.distance() <= HeavyRules::DIVE_METRES;
+
+		if !reachable {
+			return;
+		}
+
+		self.engage(events);
+		self.dive = Some(Dive::new(
+			Archetype::Heavy,
+			self.tick,
+			self.tick + HeavyRules::IN_TICKS + self.stats.swing_ticks,
+			HeavyRules::IN_TICKS + self.stats.swing_ticks + HeavyRules::OUT_TICKS,
+		));
+		events.push(HuntEvent::DiveStarted(Archetype::Heavy));
+	}
+
+	/// Plays a dive on: the blade stabs as it arrives and at each press in
+	/// its window, the heavy weapon swings once, and then the reaper comes
+	/// back out. A dive in a shriek lands nothing (`striking` is false).
+	fn step_dive(&mut self, aim: Aim, events: &mut Vec<HuntEvent>, pressed: bool, striking: bool) {
+		let Some(mut dive) = self.dive else {
+			return;
 		};
+		let ray = aim.direction();
 
-		self.phase = HuntPhase::Absorbed;
-		self.outcome = Some(HuntOutcome::absorbed_with(
-			grade,
-			self.ambushed,
-			self.tick + 1,
-			self.deeds(),
-		));
-		events.push(HuntEvent::HuskAbsorbed(grade));
+		match dive.weapon {
+			Archetype::Blade => {
+				let window_end = dive.strike_at + BladeRules::WINDOW_TICKS;
+				let stab = self.tick == dive.strike_at
+					|| (pressed
+						&& self.tick > dive.strike_at
+						&& self.tick < window_end
+						&& dive.stabs < BladeRules::STABS_PER_DIVE
+						&& self.tick - dive.last_stab >= BladeRules::STAB_INTERVAL_TICKS);
+
+				if stab {
+					dive.stabs += 1;
+					dive.last_stab = self.tick;
+
+					if striking {
+						self.strike(Archetype::Blade, ray, BladeRules::STAB_STRIKE, events);
+					}
+				}
+			}
+			Archetype::Heavy => {
+				if self.tick == dive.strike_at && striking {
+					self.strike(Archetype::Heavy, ray, self.stats.heavy_strike, events);
+				}
+			}
+			Archetype::Gun | Archetype::Art => {}
+		}
+
+		if self.tick >= dive.start + dive.ticks - 1 {
+			self.end_dive(events);
+		} else {
+			self.dive = Some(dive);
+		}
 	}
 
-	fn escape(&mut self, events: &mut Vec<HuntEvent>, cause: EscapeCause) {
-		self.phase = HuntPhase::Escaped;
-		self.outcome = Some(HuntOutcome::escaped_by(
-			cause,
-			self.ambushed,
-			self.tick + 1,
-			self.deeds(),
-		));
-		events.push(HuntEvent::HuskEscaped(cause));
+	fn end_dive(&mut self, events: &mut Vec<HuntEvent>) {
+		if self.dive.take().is_some() {
+			events.push(HuntEvent::DiveEnded);
+		}
+	}
+
+	// Hits ---------------------------------------------------------------
+
+	/// A shot, stab or swing along `ray` doing `share` of a hit: on an open
+	/// seal, on the body, or on nothing.
+	fn strike(&mut self, weapon: Archetype, ray: Vec3, share: f64, events: &mut Vec<HuntEvent>) {
+		let current = self.pose();
+		let seal = self.nearest_open_seal(ray, &current, self.stats.reach_radians);
+
+		if seal.is_none() {
+			let pad = match weapon {
+				Archetype::Gun => self.stats.assist_radians,
+				Archetype::Blade => self.stats.blade_reach_radians,
+				Archetype::Heavy => self.stats.heavy_reach_radians,
+				Archetype::Art => 0.0,
+			};
+			// A blow at the part of a husk that is behind the counter hits
+			// the counter.
+			let blocked = self.plan.hides(ray * current.distance());
+
+			if blocked || !current.covers(ray, pad) {
+				self.miss(weapon, events);
+				return;
+			}
+		}
+
+		self.land_hit(weapon, seal, share, events);
+	}
+
+	fn miss(&mut self, weapon: Archetype, events: &mut Vec<HuntEvent>) {
+		self.hit_streak = 0;
+
+		if self.stats.gift == Some(ReaperGift::Unbroken)
+			&& self.cadence > 0
+			&& self.gift_uses < self.stats.gift_strength()
+		{
+			self.gift_uses += 1;
+			events.push(HuntEvent::GiftStirred(ReaperGift::Unbroken));
+		} else {
+			self.cadence = 0;
+		}
+
+		events.push(HuntEvent::Missed(weapon));
+	}
+
+	/// A hit that landed: on open `seal`, or on the body when it is `None`.
+	#[allow(clippy::too_many_lines)]
+	fn land_hit(
+		&mut self,
+		weapon: Archetype,
+		seal: Option<usize>,
+		share: f64,
+		events: &mut Vec<HuntEvent>,
+	) {
+		let critical = seal.is_some() || (weapon == Archetype::Blade && self.stunned());
+		let cap = if self.stats.perk == ClassPerk::Chain {
+			HuntRules::CHAIN_CADENCE_CAP
+		} else {
+			HuntRules::CADENCE_CAP
+		};
+		let mut scale = share * (1.0 + self.cadence.min(cap) as f64 * HuntRules::CADENCE_STEP);
+		let mut empowered = false;
+		let first_strike = self.ambush_strike_ready;
+		let in_order = seal.is_some_and(|seal| self.seal_rank(seal) == Some(0));
+		let aftermath = seal.is_some()
+			&& self.gift_strike_ready
+			&& self.stats.gift == Some(ReaperGift::Aftermath);
+
+		if critical {
+			scale *= HuntRules::CRITICAL_STRIKE;
+		} else if weapon == Archetype::Heavy {
+			scale *= HuntRules::CRITICAL_STRIKE * self.stats.body_share;
+		}
+
+		if self.ambush_strike_ready {
+			self.ambush_strike_ready = false;
+			scale *= HuntRules::AMBUSH_STRIKE;
+			empowered = true;
+		}
+
+		if first_strike && self.stats.gift == Some(ReaperGift::FirstLight) {
+			scale *= 1.0 + SoulRules::GIFT_STRIKE_PER_STRENGTH * self.stats.gift_strength() as f64;
+			events.push(HuntEvent::GiftStirred(ReaperGift::FirstLight));
+		}
+
+		if self.chosen_blow_ready {
+			self.chosen_blow_ready = false;
+			scale *= HuntRules::CHOSEN_BLOW_STRIKE;
+			empowered = true;
+		}
+
+		if self.stats.perk == ClassPerk::Measure && in_order {
+			scale *= HuntRules::MEASURE_STRIKE;
+			empowered = true;
+		}
+
+		let verdict = self.stats.gift == Some(ReaperGift::Verdict) && in_order;
+		let promised = seal.is_some()
+			&& self.gift_strike_ready
+			&& (verdict
+				|| matches!(
+					self.stats.gift,
+					Some(ReaperGift::Keening | ReaperGift::Reprisal)
+				));
+		let execution = seal.is_some()
+			&& self.stats.gift == Some(ReaperGift::LastWord)
+			&& self.cadence >= SoulRules::EXECUTION_CADENCE
+			&& self.ward <= self.ward_max * SoulRules::EXECUTION_WARD_SHARE;
+
+		if promised || execution {
+			scale *= 1.0 + SoulRules::GIFT_STRIKE_PER_STRENGTH * self.stats.gift_strength() as f64;
+			empowered = true;
+
+			if promised {
+				self.gift_strike_ready = false;
+			}
+
+			if let Some(gift) = self.stats.gift {
+				events.push(HuntEvent::GiftStirred(gift));
+			}
+		}
+
+		if aftermath {
+			self.gift_strike_ready = false;
+			empowered = true;
+			events.push(HuntEvent::GiftStirred(ReaperGift::Aftermath));
+		}
+
+		if seal.is_some() && self.frozen() {
+			scale *= self.stats.art.map_or(1.0, |art| art.shatter());
+			empowered = true;
+			self.frozen_until = self.tick;
+			events.push(HuntEvent::IceShattered);
+		}
+
+		let mut damage = self.stats.hit * scale;
+		let mut cleaved = Vec::new();
+
+		if let Some(seal) = seal {
+			self.shut_seal(seal);
+
+			if self.stats.perk == ClassPerk::Cleave {
+				for other in 0..self.seal_count() {
+					if !self.seal_open(other) {
+						continue;
+					}
+
+					if aftermath {
+						self.open_until[other] = self.open_until[other].max(
+							self.tick
+								+ HuntRules::EXPOSED_TICKS
+								+ SoulRules::GATHERING_TICKS_PER_STRENGTH
+									* self.stats.gift_strength(),
+						);
+					} else {
+						self.shut_seal(other);
+					}
+					cleaved.push(other);
+					let cleave_share = HuntRules::CLEAVE_SHARE
+						+ if first_strike && self.stats.gift == Some(ReaperGift::Furrow) {
+							SoulRules::FURROW_CLEAVE_PER_STRENGTH
+								* self.stats.gift_strength() as f64
+						} else {
+							0.0
+						};
+					damage += self.stats.hit * scale * cleave_share;
+				}
+			}
+		}
+
+		if first_strike && self.stats.gift == Some(ReaperGift::Furrow) && !cleaved.is_empty() {
+			empowered = true;
+			events.push(HuntEvent::GiftStirred(ReaperGift::Furrow));
+		}
+
+		self.harm(damage);
+
+		if weapon == Archetype::Heavy {
+			self.knock();
+		}
+
+		self.cadence += 1;
+		self.hit_streak += 1;
+		self.max_hit_streak = self.max_hit_streak.max(self.hit_streak);
+		self.last_hit_tick = self.tick;
+		events.push(HuntEvent::HitLanded {
+			weapon,
+			seal,
+			damage,
+			cadence: self.cadence,
+			critical,
+			empowered,
+			cleaved,
+		});
+		self.after_gift_strike(seal, in_order, events);
+	}
+
+	/// Takes `damage` off the ward, counts it as this reaper's, and turns it
+	/// into soul energy.
+	fn harm(&mut self, damage: f64) {
+		self.ward = math::max(0.0, self.ward - damage);
+		self.dealt += damage;
+		self.gain_soul(CaptureRules::SOUL_PER_WARD * damage / self.ward_max);
+	}
+
+	fn gain_soul(&mut self, gained: f64) {
+		self.soul = math::min(CaptureRules::SOUL_MAX, self.soul + gained);
+	}
+
+	/// Conditional powers keep their own counters, never a second
+	/// simulation.
+	fn after_gift_strike(
+		&mut self,
+		seal: Option<usize>,
+		in_order: bool,
+		events: &mut Vec<HuntEvent>,
+	) {
+		match self.stats.gift {
+			Some(ReaperGift::Gathering) => {
+				if let Some(seal) = seal
+					&& self.cadence % SoulRules::GATHERING_HITS == 0
+				{
+					self.shut_until[seal] = self.tick;
+					self.open_seal(
+						seal,
+						HuntRules::SEAL_COOLDOWN_TICKS
+							+ SoulRules::GATHERING_TICKS_PER_STRENGTH * self.stats.gift_strength(),
+						events,
+					);
+					events.push(HuntEvent::GiftStirred(ReaperGift::Gathering));
+				}
+			}
+			Some(ReaperGift::ReturnLight) => {
+				if self.cadence >= SoulRules::RETURN_CADENCE
+					&& !self.return_ready
+					&& self.gift_uses < self.stats.gift_strength()
+				{
+					self.return_ready = true;
+					self.gift_uses += 1;
+					events.push(HuntEvent::GiftStirred(ReaperGift::ReturnLight));
+				}
+			}
+			Some(ReaperGift::Equilibrium) => {
+				if seal.is_none() {
+					return;
+				}
+
+				self.ordered_hits = if in_order { self.ordered_hits + 1 } else { 0 };
+				if self.ordered_hits == SoulRules::EQUILIBRIUM_HITS {
+					self.ordered_hits = 0;
+					for other in 0..self.seal_count() {
+						self.shut_until[other] = self.tick;
+						let ticks = (self.open_until[other] - self.tick).max(
+							HuntRules::SEAL_COOLDOWN_TICKS
+								+ SoulRules::EQUILIBRIUM_TICKS_PER_STRENGTH
+									* self.stats.gift_strength(),
+						);
+						self.open_seal(other, ticks, events);
+					}
+					events.push(HuntEvent::GiftStirred(ReaperGift::Equilibrium));
+				}
+			}
+			Some(ReaperGift::Refrain)
+				if self.cadence % SoulRules::REFRAIN_HITS == 0
+					&& self.refrain_tolls < SoulRules::REFRAIN_MAX_TOLLS =>
+			{
+				self.bonus_broken_ticks +=
+					SoulRules::REFRAIN_TICKS_PER_STRENGTH * self.stats.gift_strength();
+				self.refrain_tolls += 1;
+				events.push(HuntEvent::GiftStirred(ReaperGift::Refrain));
+			}
+			_ => {}
+		}
+	}
+
+	/// A heavy blow stops the husk in its tracks.
+	fn knock(&mut self) {
+		if self.phase != HuntPhase::Fight || self.leaping {
+			return;
+		}
+
+		self.staggered_until = self.staggered_until.max(self.tick + self.stats.knock_ticks);
+		self.halt();
 	}
 
 	// Arts ---------------------------------------------------------------
 
-	/// Gathers, throws and readies the reaper's art.
-	///
-	/// A thumb held on the art gathers it while the phone is steady, and the
-	/// art goes wherever the phone was last steady on. Once it is gathered,
-	/// a flick of the phone throws it. Letting go before that loses nothing.
-	fn step_art(&mut self, input: &HuntInput, events: &mut Vec<HuntEvent>) {
+	fn step_art_recharge(&mut self) {
 		let Some(art) = self.stats.art else {
 			return;
 		};
@@ -1785,34 +2435,20 @@ impl HuntSim {
 		} else {
 			self.recharge_ticks = 0;
 		}
+	}
 
-		if !input.focus || self.art_charges == 0 {
-			self.gather_ticks = 0;
-			self.cast_aim = None;
+	/// FIRE with the art in hand: it goes at the crosshair at once.
+	fn throw_art(&mut self, aim: Aim, events: &mut Vec<HuntEvent>) {
+		let Some(art) = self.stats.art else {
+			return;
+		};
+
+		if self.art_charges == 0 || self.tick < self.next_throw_tick {
 			return;
 		}
 
-		let speed = input.turn_radians_per_second();
-		let gathered = self.gather_ticks >= ArtRules::GATHER_TICKS;
-
-		// Nothing is thrown into a shriek: the flick is a flinch, and the
-		// art stays gathered in the hand.
-		if gathered
-			&& let Some(aim) = self.cast_aim
-			&& speed >= ArtRules::THROW_SPEED
-		{
-			if self.phase == HuntPhase::Shriek {
-				return;
-			}
-
-			self.throw(art, aim, events);
-			return;
-		}
-
-		if speed <= HuntRules::STEADY_SPEED {
-			self.gather_ticks = ArtRules::GATHER_TICKS.min(self.gather_ticks + 1);
-			self.cast_aim = Some(input.aim);
-		}
+		self.next_throw_tick = self.tick + ArtRules::THROW_INTERVAL_TICKS;
+		self.throw(art, aim, events);
 	}
 
 	fn throw(&mut self, art: ArtSkill, aim: Aim, events: &mut Vec<HuntEvent>) {
@@ -1830,8 +2466,6 @@ impl HuntSim {
 		};
 
 		self.art_charges -= 1;
-		self.gather_ticks = 0;
-		self.cast_aim = None;
 		self.flights.push(ArtFlight {
 			art: art.art,
 			from,
@@ -1925,9 +2559,9 @@ impl HuntSim {
 			return;
 		}
 
-		let damage = self.stats.strike_damage * art.strike();
+		let damage = self.stats.hit * art.strike();
 
-		self.ward = math::max(0.0, self.ward - damage);
+		self.harm(damage);
 		events.push(HuntEvent::ArtLanded {
 			art: flight.art,
 			at,
@@ -1938,8 +2572,7 @@ impl HuntSim {
 		match flight.art {
 			Art::Cinder => {
 				self.burn_until = self.tick + art.burn_ticks();
-				self.burn_per_tick =
-					self.stats.strike_damage * art.burn_strike() / art.burn_ticks() as f64;
+				self.burn_per_tick = self.stats.hit * art.burn_strike() / art.burn_ticks() as f64;
 				self.frozen_until = self.tick;
 				self.exposed_until = self.exposed_until.max(self.burn_until);
 
@@ -1959,7 +2592,7 @@ impl HuntSim {
 
 	fn step_burn(&mut self) {
 		if self.tick < self.burn_until {
-			self.ward = math::max(0.0, self.ward - self.burn_per_tick);
+			self.harm(self.burn_per_tick);
 		}
 	}
 
@@ -1997,9 +2630,254 @@ impl HuntSim {
 			self.staggered_until = self.tick + art.gust_stun_ticks();
 		}
 
+		self.stunned_until = self.staggered_until;
 		self.next_bolt_tick = self.staggered_until;
 		self.exposed_until = self.staggered_until + ArtRules::SHAKEN_TICKS;
 		self.expose_all_seals(events);
+	}
+
+	// Break --------------------------------------------------------------
+
+	fn break_ward(&mut self, events: &mut Vec<HuntEvent>) {
+		self.phase = HuntPhase::Broken;
+		self.ward = 0.0;
+		self.settle(events);
+		self.broken_end_tick = self.tick + self.broken_ticks();
+		events.push(HuntEvent::Broken {
+			window_ticks: self.broken_ticks(),
+		});
+	}
+
+	/// Stops everything going on around the husk: it is going nowhere, and
+	/// nothing more lands on it. A husk in mid-leap still lands.
+	fn settle(&mut self, events: &mut Vec<HuntEvent>) {
+		self.halt();
+		self.flights.clear();
+		self.burn_until = self.tick;
+		self.frozen_until = self.tick;
+		self.end_dive(events);
+	}
+
+	fn step_broken(&mut self, input: &HuntInput, thrown: Option<i64>, events: &mut Vec<HuntEvent>) {
+		if self.leaping {
+			self.continue_move();
+		}
+
+		self.step_reload(events);
+		self.step_dive_charges();
+		self.step_art_recharge();
+		self.select(usize::from(input.slot), events);
+
+		if let Some(held) = thrown {
+			self.throw_orb(input.aim.direction(), held, events);
+
+			if self.phase == HuntPhase::Capture {
+				return;
+			}
+		}
+
+		if self.tick < self.broken_end_tick {
+			return;
+		}
+
+		self.lapses_left -= 1;
+
+		if self.lapses_left <= 0 {
+			self.escape(events, EscapeCause::Lapsed);
+			return;
+		}
+
+		self.phase = HuntPhase::Fight;
+		self.ward = self.ward_max * HuntRules::RECOVER_SHARE;
+		self.cadence = 0;
+		// It pulls itself together and is off at once.
+		self.next_bolt_tick = self.tick + 30;
+		self.schedule_shriek();
+		self.schedule_charge();
+		events.push(HuntEvent::Recovered {
+			lapses_left: self.lapses_left,
+		});
+	}
+
+	// The orb ------------------------------------------------------------
+
+	/// ORB was let go after `held` ticks, with the crosshair along `aim`.
+	fn throw_orb(&mut self, aim: Vec3, held: i64, events: &mut Vec<HuntEvent>) {
+		if self.orb_block().is_some() {
+			return;
+		}
+
+		let current = self.pose();
+		let on_target = current.covers(aim, self.stats.orb_aim_radians);
+		let grade = CaptureRules::grade_for(held, current.covers(aim, 0.0));
+
+		if !self.in_rift {
+			self.soul -= CaptureRules::COST;
+		}
+
+		let target = if on_target {
+			current.position
+		} else {
+			self.landing_along(aim)
+		};
+
+		self.orb = Some(Orb {
+			thrown_at: self.tick,
+			grade,
+			on_target,
+			target,
+			chance: None,
+			break_on: None,
+			broke_on: None,
+			held: false,
+		});
+		events.push(HuntEvent::OrbThrown { grade, on_target });
+
+		if !on_target {
+			return;
+		}
+
+		// The husk sees it coming and can do nothing more: a charge or a
+		// shriek is called off, and it is held where it stands.
+		self.phase = HuntPhase::Capture;
+		self.settle(events);
+	}
+
+	/// Follows a missed orb down. It plays no part in the fight.
+	fn step_missed_orb(&mut self, events: &mut Vec<HuntEvent>) {
+		if let Some(orb) = self.orb
+			&& !orb.on_target
+			&& self.tick - orb.thrown_at == CaptureRules::IMPACT_TICK
+		{
+			events.push(HuntEvent::OrbMissed);
+		}
+	}
+
+	/// One tick of a capture. The fight clock is paused while an orb holds
+	/// the husk: it can do nothing, and a hunt must not time out during a
+	/// capture.
+	fn step_capture(&mut self, input: &HuntInput, events: &mut Vec<HuntEvent>) {
+		if self.leaping {
+			self.continue_move();
+		}
+
+		self.step_reload(events);
+		self.step_dive_charges();
+		self.step_art_recharge();
+		self.select(usize::from(input.slot), events);
+
+		let Some(orb) = self.orb else {
+			return;
+		};
+		let ticks = self.tick - orb.thrown_at;
+
+		if ticks == CaptureRules::IMPACT_TICK {
+			let chance = if self.in_rift {
+				1.0
+			} else {
+				CaptureRules::chance(
+					self.rarity_odds,
+					self.ward / self.ward_max,
+					orb.grade,
+					self.stats.capture,
+					self.failures,
+				)
+			};
+
+			if let Some(orb) = self.orb.as_mut() {
+				orb.chance = Some(chance);
+			}
+			events.push(HuntEvent::OrbImpact { chance });
+
+			// In a rift a landed orb is the reaper's cut, and nothing is
+			// rolled.
+			if self.in_rift {
+				self.captured(orb.grade, events);
+				return;
+			}
+
+			let roll = CaptureRules::roll(self.seed, self.orbs_landed);
+			self.orbs_landed += 1;
+
+			if let Some(orb) = self.orb.as_mut() {
+				orb.break_on = CaptureRules::break_pulse(roll, chance);
+			}
+		}
+
+		if ticks == CaptureRules::DRAWN_TICK {
+			events.push(HuntEvent::OrbAbsorbed);
+		}
+
+		if ticks == CaptureRules::LANDED_TICK {
+			events.push(HuntEvent::OrbLanded);
+		}
+
+		for (index, &pulse_tick) in CaptureRules::PULSE_TICKS.iter().enumerate() {
+			if ticks != pulse_tick {
+				continue;
+			}
+
+			let pulse = index as i64 + 1;
+
+			if self.orb.and_then(|orb| orb.break_on) == Some(pulse) {
+				self.burst_out(pulse, events);
+				return;
+			}
+
+			events.push(HuntEvent::OrbPulse(pulse));
+		}
+
+		if ticks >= CaptureRules::RESULT_TICK {
+			let grade = self.orb.map_or(CaptureGrade::Plain, |orb| orb.grade);
+
+			self.captured(grade, events);
+		}
+	}
+
+	fn captured(&mut self, grade: CaptureGrade, events: &mut Vec<HuntEvent>) {
+		if let Some(orb) = self.orb.as_mut() {
+			orb.held = true;
+		}
+		self.phase = HuntPhase::Absorbed;
+		self.outcome = Some(HuntOutcome::absorbed_with(
+			grade,
+			self.ambushed,
+			self.tick + 1,
+			self.deeds(),
+		));
+		events.push(HuntEvent::HuskCaptured(grade));
+	}
+
+	/// The orb cracked on `pulse`. The husk bursts out where it lay, with a
+	/// little of its ward back, and stands stunned before the fight goes on.
+	fn burst_out(&mut self, pulse: i64, events: &mut Vec<HuntEvent>) {
+		if let Some(orb) = self.orb.as_mut() {
+			orb.broke_on = Some(pulse);
+		}
+		self.failures += 1;
+		self.phase = HuntPhase::Fight;
+		self.ward = math::min(
+			self.ward + self.ward_max * CaptureRules::FAILURE_WARD,
+			self.ward_max * CaptureRules::WEAKENED_SHARE,
+		);
+		self.stun(CaptureRules::FAILURE_STUN_TICKS);
+		// The fight starts over around it: the next shriek and charge are as
+		// far off as ever, well past the stun.
+		self.schedule_shriek();
+		self.schedule_charge();
+
+		events.push(HuntEvent::OrbBrokeFree(pulse));
+	}
+
+	fn escape(&mut self, events: &mut Vec<HuntEvent>, cause: EscapeCause) {
+		self.phase = HuntPhase::Escaped;
+		self.outcome = Some(HuntOutcome::escaped_by(
+			cause,
+			self.ambushed,
+			self.tick + 1,
+			self.deeds(),
+		));
+		events.push(HuntEvent::HuskEscaped(cause));
 	}
 
 	// Movement -----------------------------------------------------------
@@ -2339,18 +3217,6 @@ impl HuntSim {
 		self.footing = self.to_footing;
 		self.from_ground = self.to_ground;
 		self.arc = 0.0;
-	}
-
-	/// Where the move under way ends.
-	fn destination(&self) -> Vec3 {
-		let bearing = self.from_bearing + self.by_bearing;
-		let range = self.from_range + self.by_range;
-
-		Vec3::new(
-			math::sin(bearing) * range,
-			self.from_height + self.by_height,
-			math::cos(bearing) * range,
-		)
 	}
 
 	/// Stops the husk where it stands. A leap cannot be stopped in the air.

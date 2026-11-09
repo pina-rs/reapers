@@ -17,7 +17,7 @@ fn later() -> Timestamp {
 const SAINT: Nft = Nft::new(NftCollection::DegenApes, 1);
 
 const ABSORBED: HuntOutcome = HuntOutcome::absorbed_with(
-	ReapGrade::Clean,
+	CaptureGrade::Great,
 	false,
 	1800,
 	HuntDeeds {
@@ -89,6 +89,7 @@ fn played(state: &PlayerState) -> HuntLog {
 	let mut sim = HuntSim::open(
 		sighting.seed,
 		sighting.nft.collection.vessel(),
+		sighting.nft.rarity(),
 		sighting.nft.rarity().ward(),
 		&HuntStats::derive(&state.loadout(), 1.0).unwrap(),
 	);
@@ -291,7 +292,7 @@ mod settling_a_hunt {
 
 		assert_eq!(state.sightings(), []);
 		assert_eq!(entry.nft, SAINT);
-		assert_eq!(entry.grade, ReapGrade::Clean);
+		assert_eq!(entry.grade, CaptureGrade::Great);
 		assert_eq!(state.xp(), round(Rarity::Common.xp() as f64 * 1.25));
 		assert_eq!(state.anima(), round(Rarity::Common.anima() as f64 * 1.25));
 		assert!(state.holds(SAINT));
@@ -299,7 +300,8 @@ mod settling_a_hunt {
 
 	#[test]
 	fn an_ambush_and_a_perfect_reap_both_pay_more() {
-		let best = HuntOutcome::absorbed_with(ReapGrade::Perfect, true, 1800, HuntDeeds::default());
+		let best =
+			HuntOutcome::absorbed_with(CaptureGrade::Excellent, true, 1800, HuntDeeds::default());
 
 		assert_eq!(
 			best.xp_for(Rarity::Rare, Feeding::Fair),
@@ -323,7 +325,7 @@ mod settling_a_hunt {
 			assert_eq!(entry.feeding, feeding);
 			assert_eq!(
 				state.xp(),
-				round(Rarity::Common.xp() as f64 * ReapGrade::Clean.reward() * feeding.share())
+				round(Rarity::Common.xp() as f64 * CaptureGrade::Great.reward() * feeding.share())
 			);
 			assert_eq!(state.anima(), round(Rarity::Common.anima() as f64 * 1.25));
 			assert_eq!(entry.xp, state.xp());
@@ -458,9 +460,7 @@ mod settling_a_hunt {
 		assert_eq!(state.completed_sets(), 1);
 		assert_eq!(state.loadout().completed_sets, 1);
 		assert!(
-			HuntStats::derive(&state.loadout(), 1.0)
-				.unwrap()
-				.strike_damage
+			HuntStats::derive(&state.loadout(), 1.0).unwrap().hit
 				> HuntStats::derive(
 					&HuntLoadout::new(
 						state.genome().reaper_class,
@@ -470,7 +470,7 @@ mod settling_a_hunt {
 					1.0,
 				)
 				.unwrap()
-				.strike_damage
+				.hit
 		);
 	}
 }
@@ -589,12 +589,8 @@ mod the_armory {
 		assert_eq!(state.weapon(), Some(weapon));
 		assert_eq!(state.anima(), start.anima() - Temper::Sworn.price());
 		assert!(
-			HuntStats::derive(&state.loadout(), 1.0)
-				.unwrap()
-				.strike_damage
-				> HuntStats::derive(&start.loadout(), 1.0)
-					.unwrap()
-					.strike_damage
+			HuntStats::derive(&state.loadout(), 1.0).unwrap().hit
+				> HuntStats::derive(&start.loadout(), 1.0).unwrap().hit
 		);
 	}
 
@@ -651,11 +647,11 @@ mod the_armory {
 		assert_eq!(
 			HuntStats::derive(&state.loadout(), 1.0)
 				.unwrap()
-				.strike_damage
+				.hit
 				.to_bits(),
 			HuntStats::derive(&start.loadout(), 1.0)
 				.unwrap()
-				.strike_damage
+				.hit
 				.to_bits()
 		);
 		refuses(start.wear(Outfit::Hollowed), Refusal::NotOwned);

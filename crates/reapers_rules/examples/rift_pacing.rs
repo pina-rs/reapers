@@ -23,7 +23,7 @@ fn idle(sim: &HuntSim, _person: usize) -> HuntBot {
 	HuntBot::new(
 		sim,
 		HuntBotStyle {
-			reaction_ticks: 1 << 30,
+			fires: false,
 			..HuntBotStyle::CAREFUL
 		},
 	)

@@ -3,9 +3,13 @@
 #![allow(dead_code, reason = "each test file uses some of these")]
 
 use reapers_rules::Aim;
+use reapers_rules::CaptureRules;
+use reapers_rules::Difficulty;
 use reapers_rules::HuntBot;
+use reapers_rules::HuntEvent;
 use reapers_rules::HuntInput;
 use reapers_rules::HuntLoadout;
+use reapers_rules::HuntPhase;
 use reapers_rules::HuntPlan;
 use reapers_rules::HuntSim;
 use reapers_rules::HuntStats;
@@ -38,6 +42,7 @@ pub struct SimFor {
 	pub level: i64,
 	pub temper: Temper,
 	pub leniency: f64,
+	pub difficulty: Difficulty,
 }
 
 impl Default for SimFor {
@@ -51,6 +56,7 @@ impl Default for SimFor {
 			level: 1,
 			temper: Temper::Shrouded,
 			leniency: 1.0,
+			difficulty: Difficulty::Normal,
 		}
 	}
 }
@@ -69,7 +75,16 @@ impl SimFor {
 	}
 
 	pub fn sim(&self) -> HuntSim {
-		HuntSim::open(self.seed, self.vessel, self.rarity.ward(), &self.stats())
+		HuntSim::new(
+			self.seed,
+			self.vessel,
+			self.rarity,
+			self.rarity.ward(),
+			&self.stats(),
+			HuntPlan::OPEN,
+			self.difficulty,
+		)
+		.unwrap_or_else(|reapers_rules::IllFormedPlan| unreachable!("the open plan is well formed"))
 	}
 }
 
@@ -88,17 +103,181 @@ pub fn idle() -> HuntInput {
 	HuntInput::new(Aim::AHEAD, 0)
 }
 
+/// Looks straight at the husk without moving.
+pub fn steady_on_husk(sim: &HuntSim) -> HuntInput {
+	HuntInput::measured(
+		sim.pose().direction(),
+		0.0,
+		false,
+		sim.selected_slot(),
+		false,
+	)
+}
+
 /// Looks at the husk and holds still, but swings to turn aside a charge: a
 /// reaper who does nothing to the husk and lets nothing be done to them.
 pub fn wary_on_husk(sim: &HuntSim) -> HuntInput {
-	HuntInput::still(
+	HuntInput::measured(
 		sim.pose().direction(),
 		if sim.charge_progress() > 0.3 {
 			sim.stats().parry_speed + 0.5
 		} else {
 			0.0
 		},
+		false,
+		sim.selected_slot(),
+		false,
 	)
+}
+
+/// Holds the crosshair along `at` and presses FIRE with `slot` in hand, or
+/// whatever is in hand already.
+pub fn fire_at(sim: &HuntSim, at: Vec3, slot: Option<usize>) -> HuntInput {
+	HuntInput::measured(
+		at,
+		0.0,
+		true,
+		slot.unwrap_or_else(|| sim.selected_slot()),
+		false,
+	)
+}
+
+/// Fires at the first open seal, or at the middle of the husk when none is.
+pub fn fire_at_open_seal(sim: &HuntSim) -> HuntInput {
+	let open = open_seals(sim);
+
+	fire_at(
+		sim,
+		if open.is_empty() {
+			sim.pose().direction()
+		} else {
+			sim.pose().seal_direction(open[0])
+		},
+		None,
+	)
+}
+
+/// Steps `sim` with `input` until `phase` is reached or `limit` ticks pass.
+pub fn run_until(
+	sim: &mut HuntSim,
+	phase: HuntPhase,
+	input: Option<fn(&HuntSim) -> HuntInput>,
+) -> Vec<HuntEvent> {
+	run_until_with_limit(sim, phase, input, 4000)
+}
+
+pub fn run_until_with_limit(
+	sim: &mut HuntSim,
+	phase: HuntPhase,
+	input: Option<fn(&HuntSim) -> HuntInput>,
+	limit: i64,
+) -> Vec<HuntEvent> {
+	run_till_with_limit(
+		sim,
+		&|sim: &HuntSim| sim.phase() == phase,
+		input,
+		limit,
+		&format!("never reached {phase:?}"),
+	)
+}
+
+/// Steps `sim` with `input` until `done` holds or `limit` ticks pass, and
+/// fails the test if it never does.
+pub fn run_till(
+	sim: &mut HuntSim,
+	done: &dyn Fn(&HuntSim) -> bool,
+	input: Option<fn(&HuntSim) -> HuntInput>,
+) -> Vec<HuntEvent> {
+	run_till_with_limit(sim, done, input, 4000, "never happened")
+}
+
+pub fn run_till_with_limit(
+	sim: &mut HuntSim,
+	done: &dyn Fn(&HuntSim) -> bool,
+	input: Option<fn(&HuntSim) -> HuntInput>,
+	limit: i64,
+	reason: &str,
+) -> Vec<HuntEvent> {
+	let mut events = Vec::new();
+
+	for _ in 0..limit {
+		if done(sim) || sim.is_over() {
+			break;
+		}
+
+		let input = input.map_or_else(idle, |input| input(sim));
+		events.extend(sim.step(&input));
+	}
+
+	assert!(done(sim), "{reason}");
+
+	events
+}
+
+/// Steps `sim` `ticks` times with `input`, and returns what happened.
+pub fn step_for(
+	sim: &mut HuntSim,
+	ticks: i64,
+	input: Option<fn(&HuntSim) -> HuntInput>,
+) -> Vec<HuntEvent> {
+	let mut events = Vec::new();
+
+	for _ in 0..ticks {
+		let input = input.map_or_else(|| steady_on_husk(sim), |input| input(sim));
+		events.extend(sim.step(&input));
+	}
+
+	events
+}
+
+/// The seals of `sim`'s husk that can be struck right now.
+pub fn open_seals(sim: &HuntSim) -> Vec<usize> {
+	(0..sim.vessel().seals().len())
+		.filter(|&seal| sim.seal_open(seal))
+		.collect()
+}
+
+/// The seals of `sim`'s husk on the side the reaper can see.
+pub fn in_view(sim: &HuntSim) -> Vec<usize> {
+	(0..sim.vessel().seals().len())
+		.filter(|&seal| sim.pose().seal_faces_player(seal))
+		.collect()
+}
+
+/// A line through the husk's body that is on none of its open seals, or
+/// `None` when there is none.
+pub fn body_away_from_seals(sim: &HuntSim) -> Option<Vec3> {
+	let pose = sim.pose();
+
+	for up in [-0.8, 0.8, -0.5, 0.5, 0.0] {
+		for across in [0.0, -0.6, 0.6] {
+			let at = (pose.position
+				+ Vec3::new(
+					across * sim.vessel().half_width(),
+					up * sim.vessel().half_height(),
+					0.0,
+				))
+			.normalized();
+
+			if pose.covers(at, 0.0) && !sim.on_open_seal(at) {
+				return Some(at);
+			}
+		}
+	}
+
+	None
+}
+
+/// The first seed from 1 whose first orb at `chance` breaks on `pulse`, or
+/// holds when `pulse` is `None`.
+pub fn seed_breaking_on(pulse: Option<i64>, chance: f64) -> i64 {
+	for seed in 1.. {
+		if CaptureRules::break_pulse(CaptureRules::roll(seed, 0), chance) == pulse {
+			return seed;
+		}
+	}
+
+	unreachable!()
 }
 
 // rooms ----------------------------------------------------------------

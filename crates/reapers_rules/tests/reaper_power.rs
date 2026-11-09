@@ -18,6 +18,7 @@ fn hunt_with(gift: ReaperGift, rank: i64, seed: i64) -> HuntSim {
 	HuntSim::open(
 		seed,
 		Vessel::Penguin,
+		Rarity::Common,
 		1000,
 		&HuntStats::derive(
 			&HuntLoadout {
@@ -222,7 +223,7 @@ mod birth_gifts_change_the_fight {
 	}
 
 	#[test]
-	fn refrain_adds_more_reap_time_while_keeping_its_six_toll_cap() {
+	fn refrain_keeps_a_broken_husk_down_longer_while_keeping_its_six_toll_cap() {
 		let window = |rank: i64| {
 			let mut sim = hunt(ReaperGift::Refrain, rank);
 			let mut bot = HuntBot::careful(&sim);
@@ -234,7 +235,7 @@ mod birth_gifts_change_the_fight {
 
 			assert!((1..=SoulRules::REFRAIN_MAX_TOLLS).contains(&tolls));
 
-			sim.capture_ticks() - holds * HuntRules::TOLL_TICKS
+			sim.broken_ticks() - holds * HuntRules::TOLL_TICKS
 		};
 
 		assert!(window(3) > window(0));
@@ -245,14 +246,10 @@ mod untrusted_combat_logs {
 	use super::*;
 
 	#[test]
-	fn impossible_aim_and_tap_directions_are_refused() {
+	fn impossible_aims_are_refused() {
 		for input in [
 			HuntInput::new(Aim::new(18001, 0), 0),
 			HuntInput::new(Aim::new(0, -9001), 0),
-			HuntInput {
-				taps: vec![Aim::new(0, 9001)],
-				..HuntInput::new(Aim::AHEAD, 0)
-			},
 		] {
 			assert!(HuntLog::decode(&HuntLog::new(vec![input]).encode()).is_err());
 		}

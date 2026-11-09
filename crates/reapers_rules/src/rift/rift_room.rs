@@ -5,6 +5,7 @@ use thiserror::Error;
 use crate::armory::Temper;
 use crate::armory::Weapon;
 use crate::geo::GeoPoint;
+use crate::hunt::capture::CaptureGrade;
 use crate::hunt::hunt_bot::HuntBot;
 use crate::hunt::hunt_bot::HuntBotStyle;
 use crate::hunt::hunt_event::EscapeCause;
@@ -95,15 +96,12 @@ pub enum RiftError {
 
 /// One reaper's own fight inside a rift.
 ///
-/// Each reaper faces the husk themselves, with their own seals to strike and
-/// their own arc to cut. What they share is the ward: every strike anyone
-/// lands comes off the same total.
+/// Each reaper faces the husk themselves, with their own seals to strike
+/// and their own orb to land. What they share is the ward: every hit
+/// anyone lands comes off the same total.
 #[derive(Clone, Debug)]
 pub struct RiftSeat {
 	pub sim: HuntSim,
-
-	/// Ward this seat has removed since the fight began.
-	pub dealt: f64,
 }
 
 impl RiftSeat {
@@ -124,42 +122,29 @@ impl RiftSeat {
 				&HuntStats::derive(loadout, 1.0)?,
 				sighting,
 			),
-			dealt: 0.0,
 		})
+	}
+
+	/// Ward this seat has removed since the fight began.
+	pub fn dealt(&self) -> f64 {
+		self.sim.dealt()
 	}
 
 	/// Advances this reaper's fight by one tick.
 	pub fn step(&mut self, input: &HuntInput) -> Vec<HuntEvent> {
-		let events = self.sim.step(input);
-
-		self.tally(&events);
-
-		events
-	}
-
-	/// Counts the ward `events` removed toward this seat's total.
-	/// [`step`](Self::step) does this itself; it is for whoever advances
-	/// `sim` some other way.
-	pub fn tally(&mut self, events: &[HuntEvent]) {
-		for event in events {
-			if let HuntEvent::StrikeLanded { damage, .. } | HuntEvent::StrikeGlanced { damage } =
-				event
-			{
-				self.dealt += damage;
-			}
-		}
+		self.sim.step(input)
 	}
 
 	/// Brings this seat's view of the ward up to date.
 	///
 	/// `ward` is the circle's ward as the rift last reported it, and
 	/// `counted` is how much of this seat's own damage that figure already
-	/// includes. Strikes the rift has not heard of yet are taken off as
-	/// well, so a blow shows the moment it lands instead of when the news
-	/// comes back.
+	/// includes. Hits the rift has not heard of yet are taken off as well,
+	/// so a blow shows the moment it lands instead of when the news comes
+	/// back.
 	pub fn sync(&mut self, ward: f64, counted: f64) {
 		if !self.sim.is_over() {
-			self.sim.share_ward(ward - (self.dealt - counted));
+			self.sim.share_ward(ward - (self.sim.dealt() - counted));
 		}
 	}
 
@@ -181,7 +166,7 @@ impl RiftSeat {
 	pub fn report(&self) -> RiftReport {
 		RiftReport {
 			ready: true,
-			dealt: self.dealt,
+			dealt: self.dealt(),
 			outcome: self.sim.outcome(),
 			standing: None,
 		}
@@ -444,7 +429,10 @@ impl RiftRoom {
 						standing: member.standing(),
 						dealt: member.dealt,
 						finished: member.outcome.is_some(),
-						cut: member.outcome.and_then(|outcome| outcome.grade()),
+						cut: member
+							.outcome
+							.and_then(|outcome| outcome.grade())
+							.map(CaptureGrade::cut),
 					}
 				})
 				.collect(),
@@ -468,8 +456,12 @@ impl RiftRoom {
 		let fair_share = self.ward_max / RiftRules::CIRCLE as f64;
 		let pull = RiftRules::IDLE_SHARE
 			+ (1.0 - RiftRules::IDLE_SHARE) * math::min(1.0, member.dealt / fair_share);
-		let part = match member.outcome.and_then(|outcome| outcome.grade()) {
-			Some(grade) => grade.reward(),
+		let part = match member
+			.outcome
+			.and_then(|outcome| outcome.grade())
+			.map(CaptureGrade::cut)
+		{
+			Some(cut) => cut.reward(),
 			None if !member.standing() => RiftRules::CAST_OUT_SHARE,
 			None => RiftRules::UNCUT_SHARE,
 		};
@@ -546,14 +538,16 @@ impl RiftRoom {
 			.filter(|member| !member.left && member.shade)
 		{
 			if let Ok(seat) = RiftSeat::new(seed, site, ward_max, &member.entrant.loadout, None) {
-				// A shade is slower to see a seal and wider of the mark than
-				// a careful person, so company is always worth more than
-				// shades.
+				// A shade is slower to see a seal, wider of the mark, waits
+				// out every reload and never draws the knife, so company is
+				// always worth more than shades.
 				let bot = HuntBot::new(
 					&seat.sim,
 					HuntBotStyle {
 						reaction_ticks: 34,
 						miss_every: 3,
+						active_reload_tick: None,
+						knife: false,
 						..HuntBotStyle::CAREFUL
 					},
 				);
@@ -645,10 +639,10 @@ impl RiftRoom {
 				continue;
 			}
 
-			seat.sync(shared, seat.dealt);
+			seat.sync(shared, seat.dealt());
 			let input = bot.decide(&seat.sim);
 			seat.step(&input);
-			member.dealt = seat.dealt;
+			member.dealt = seat.dealt();
 			member.outcome = seat.sim.outcome();
 		}
 	}

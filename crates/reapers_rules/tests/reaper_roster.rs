@@ -14,7 +14,7 @@ fn husk() -> Nft {
 }
 
 const CUT: HuntOutcome = HuntOutcome::absorbed_with(
-	ReapGrade::Clean,
+	CaptureGrade::Great,
 	false,
 	100,
 	HuntDeeds {

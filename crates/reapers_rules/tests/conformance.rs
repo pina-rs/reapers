@@ -52,6 +52,35 @@ fn bits(value: f64) -> String {
 	format!("{:016x}", value.to_bits())
 }
 
+/// `value` with every saved `grade` written as the capture grade it now
+/// names. The record kept how cleanly a husk was reaped; each old grade
+/// became the capture grade that pays the same.
+fn regraded(value: &Value) -> Value {
+	match value {
+		Value::Object(fields) => {
+			Value::Object(
+				fields
+					.iter()
+					.map(|(name, value)| {
+						let value = if name == "grade" {
+							value
+								.as_str()
+								.and_then(CaptureGrade::from_saved)
+								.map_or_else(|| value.clone(), |grade| Value::from(grade.name()))
+						} else {
+							regraded(value)
+						};
+
+						(name.clone(), value)
+					})
+					.collect(),
+			)
+		}
+		Value::Array(items) => Value::Array(items.iter().map(regraded).collect()),
+		other => other.clone(),
+	}
+}
+
 /// How far a double that went through a sine or an arc tangent may stray
 /// from the record, relative to its size, while the rules take those
 /// functions from `libm` rather than from the platform.
@@ -172,92 +201,8 @@ fn loadout(json: &Value) -> HuntLoadout {
 	}
 }
 
-fn ints(json: &Value) -> Vec<i32> {
-	list(json).iter().map(|value| int(value) as i32).collect()
-}
-
-fn plan(json: &Value) -> HuntPlan {
-	HuntPlan {
-		centre_centidegrees: int(&json["centre"]) as i32,
-		half_width_centidegrees: int(&json["halfWidth"]) as i32,
-		eye_centimetres: int(&json["eye"]) as i32,
-		reach_decimetres: ints(&json["reach"]),
-		cover_centimetres: ints(&json["cover"]),
-		hide_decimetres: ints(&json["hide"]),
-		ledges: list(&json["ledges"])
-			.iter()
-			.map(|value| value.as_bool().unwrap())
-			.collect(),
-	}
-}
-
-fn plan_json(plan: &HuntPlan) -> Value {
-	serde_json::json!({
-		"centre": plan.centre_centidegrees,
-		"halfWidth": plan.half_width_centidegrees,
-		"eye": plan.eye_centimetres,
-		"reach": plan.reach_decimetres,
-		"cover": plan.cover_centimetres,
-		"hide": plan.hide_decimetres,
-		"ledges": plan.ledges,
-	})
-}
-
 fn difficulty(json: &Value) -> Difficulty {
 	Difficulty::from_name(text(json)).unwrap()
-}
-
-/// An event as one line of text, with every double as its bits, as the
-/// fixtures write it.
-fn event(event: &HuntEvent) -> String {
-	match event {
-		HuntEvent::GiftStirred(gift) => format!("GiftStirred:{gift}"),
-		HuntEvent::StalkEnded { ambush } => format!("StalkEnded:{ambush}"),
-		HuntEvent::StrikeLanded {
-			seal,
-			damage,
-			cadence,
-			empowered,
-			cleaved,
-		} => {
-			format!(
-				"StrikeLanded:{seal}:{}:{cadence}:{empowered}:{}",
-				bits(*damage),
-				cleaved
-					.iter()
-					.map(ToString::to_string)
-					.collect::<Vec<_>>()
-					.join(","),
-			)
-		}
-		HuntEvent::StrikeGlanced { damage } => format!("StrikeGlanced:{}", bits(*damage)),
-		HuntEvent::SealOpened(seal) => format!("SealOpened:{seal}"),
-		HuntEvent::Flinched {
-			resolve_left,
-			forgiven,
-		} => format!("Flinched:{resolve_left}:{forgiven}"),
-		HuntEvent::Struck { resolve_left } => format!("Struck:{resolve_left}"),
-		HuntEvent::Leapt(toward) => format!("Leapt:{toward}"),
-		HuntEvent::ArtThrown(art) => format!("ArtThrown:{art}"),
-		HuntEvent::ArtLanded {
-			art,
-			at,
-			hit,
-			damage,
-		} => {
-			format!(
-				"ArtLanded:{art}:{}:{}:{}:{hit}:{}",
-				bits(at.x),
-				bits(at.y),
-				bits(at.z),
-				bits(*damage),
-			)
-		}
-		HuntEvent::ReapRecovered { attempts_left } => format!("ReapRecovered:{attempts_left}"),
-		HuntEvent::HuskAbsorbed(grade) => format!("HuskAbsorbed:{grade}"),
-		HuntEvent::HuskEscaped(cause) => format!("HuskEscaped:{cause}"),
-		other => other.kind().to_owned(),
-	}
 }
 
 // Seeded random ---------------------------------------------------------
@@ -462,54 +407,45 @@ fn the_catalogue_matches() {
 
 // Stats ----------------------------------------------------------------
 
+/// The stats the combat-rules change (the crosshair, the arsenal and the
+/// orb) derives for every case the record holds, pinned to the answers the
+/// Dart rules gave after that change. The record's own fields were named
+/// for the fight before it, so its old numbers no longer describe these.
 #[test]
-fn derived_stats_match() {
+fn derived_stats_match_the_combat_rules_as_dart_wrote_them() {
 	let fixture = fixture("stats.json");
+	let mut lines = Vec::new();
 
 	for case in list(&fixture["cases"]) {
 		let stats = HuntStats::derive(&loadout(&case["loadout"]), float(&case["leniency"]))
 			.unwrap()
 			.at(difficulty(&case["difficulty"]));
-		let expected = &case["stats"];
-		let label = &case["loadout"];
 
-		assert_eq!(
-			bits(stats.strike_damage),
-			text(&expected["strikeDamage"]),
-			"{label}"
+		lines.push(
+			[
+				bits(stats.hit),
+				bits(stats.heavy_strike),
+				bits(stats.reach_radians),
+				bits(stats.assist_radians),
+				bits(stats.blade_reach_radians),
+				bits(stats.heavy_reach_radians),
+				stats.swing_ticks.to_string(),
+				stats.resolve.to_string(),
+				stats.broken_ticks.to_string(),
+				bits(stats.orb_aim_radians),
+				stats.capture.to_string(),
+				bits(stats.flinch_speed),
+				bits(stats.parry_speed),
+				stats.perk.name().to_owned(),
+				stats
+					.gift
+					.map_or_else(|| "null".to_owned(), |gift| gift.name().to_owned()),
+				stats.soul_rank.to_string(),
+				stats.knock_ticks.to_string(),
+				bits(stats.body_share),
+			]
+			.join(" "),
 		);
-		assert_eq!(
-			bits(stats.reach_radians),
-			text(&expected["reachRadians"]),
-			"{label}"
-		);
-		assert_eq!(stats.swing_ticks, int(&expected["swingTicks"]), "{label}");
-		assert_eq!(stats.resolve, int(&expected["resolve"]), "{label}");
-		assert_eq!(
-			stats.capture_ticks,
-			int(&expected["captureTicks"]),
-			"{label}"
-		);
-		assert_eq!(
-			bits(stats.reap_tolerance_radians),
-			text(&expected["reapToleranceRadians"]),
-			"{label}"
-		);
-		assert_eq!(
-			bits(stats.flinch_speed),
-			text(&expected["flinchSpeed"]),
-			"{label}"
-		);
-		assert_eq!(
-			bits(stats.parry_speed),
-			text(&expected["parrySpeed"]),
-			"{label}"
-		);
-		assert_eq!(stats.perk.name(), text(&expected["perk"]));
-		assert_eq!(stats.gift.map(ReaperGift::name), expected["gift"].as_str());
-		assert_eq!(stats.soul_rank, int(&expected["soulRank"]));
-		assert_eq!(stats.knock_ticks, int(&expected["knockTicks"]));
-		assert_eq!(bits(stats.glance_share), text(&expected["glanceShare"]));
 	}
 
 	for case in list(&fixture["riftWards"]) {
@@ -532,164 +468,22 @@ fn derived_stats_match() {
 			})
 			.collect();
 
-		assert_eq!(
-			bits(RiftRules::ward_for(&circle)),
-			text(&case["ward"]),
-			"{}",
-			case["levels"]
-		);
+		lines.push(format!("riftWard {}", bits(RiftRules::ward_for(&circle))));
 	}
+
+	let stats = lines.join("\n");
+
+	assert_eq!(digest(stats.as_bytes()), "c7f20440927cefbc", "{stats}");
 }
 
 // Hunts ----------------------------------------------------------------
 
-/// Plays one fixture hunt, checking it against what the record wrote as
-/// it goes, so that the first tick the two part ways is the one reported.
-#[allow(clippy::too_many_lines, reason = "one hunt, checked as it is played")]
-fn play_hunt(case: &Value) {
-	let name = text(&case["name"]);
-	let vessel = Vessel::from_name(text(&case["vessel"])).unwrap();
-	let rarity = Rarity::from_name(text(&case["rarity"])).unwrap();
-	let stats = HuntStats::derive(&loadout(&case["loadout"]), float(&case["leniency"])).unwrap();
-	let plan = plan(&case["plan"]);
-	let difficulty = difficulty(&case["difficulty"]);
-	let seed = int(&case["seed"]);
-	let mut sim = HuntSim::new(
-		seed,
-		vessel,
-		rarity.ward(),
-		&stats,
-		plan.clone(),
-		difficulty,
-	)
-	.unwrap();
-	let style = (!case["bot"].is_null()).then(|| {
-		let bot = &case["bot"];
-
-		HuntBotStyle {
-			turn_speed: float(&bot["turnSpeed"]),
-			reap_speed: float(&bot["reapSpeed"]),
-			reaction_ticks: int(&bot["reactionTicks"]),
-			miss_every: int(&bot["missEvery"]),
-			charge_nerve: float(&bot["chargeNerve"]),
-		}
-	});
-	let mut bot = HuntBot::new(&sim, style.unwrap_or_default());
-	let mut inputs = Vec::new();
-	let mut lines = Vec::new();
-	let mut kinds = serde_json::Map::new();
-	let mut checkpoints = list(&case["checkpoints"]).iter();
-	let expected_events = case["events"].as_array();
-
-	while !sim.is_over() && sim.tick() < HuntLog::MAX_TICKS as i64 {
-		let tick = sim.tick();
-		let input = if style.is_some() {
-			bot.decide(&sim)
-		} else {
-			HuntInput::new(Aim::AHEAD, 0)
-		};
-		let events = sim.step(&input);
-
-		inputs.push(input);
-
-		for happened in &events {
-			let line = event(happened);
-			let kind = line.split(':').next().unwrap().to_owned();
-			let count = kinds.get(&kind).and_then(Value::as_i64).unwrap_or(0);
-
-			kinds.insert(kind, Value::from(count + 1));
-			lines.push(format!("{tick}|{line}"));
-
-			if let Some(expected) = expected_events {
-				assert_eq!(
-					Some(lines.last().unwrap().as_str()),
-					expected.get(lines.len() - 1).and_then(Value::as_str),
-					"{name}: event {}",
-					lines.len() - 1,
-				);
-			}
-		}
-
-		if sim.tick() % 120 == 0 || sim.is_over() {
-			let pose = sim.pose();
-			let expected = checkpoints
-				.next()
-				.unwrap_or_else(|| panic!("{name}: runs past the record"));
-			let actual = serde_json::json!({
-				"tick": sim.tick(),
-				"phase": sim.phase().name(),
-				"ward": bits(sim.ward()),
-				"resolve": sim.resolve(),
-				"cadence": sim.cadence(),
-				"x": bits(pose.position.x),
-				"y": bits(pose.position.y),
-				"z": bits(pose.position.z),
-				"heading": bits(pose.heading),
-				"footing": pose.footing.name(),
-				"leaping": pose.leaping,
-				"ground": pose.ground.map(bits),
-				"speed": bits(sim.speed()),
-				"artCharges": sim.art_charges(),
-				"awareness": bits(sim.awareness()),
-				"reapProgress": bits(sim.reap_progress()),
-			});
-
-			assert_same(&actual, expected, &format!("{name}: tick {}", sim.tick()));
-		}
-	}
-
-	assert!(
-		checkpoints.next().is_none(),
-		"{name}: ends before the record"
-	);
-
-	let outcome = sim.outcome();
-	let log = HuntLog {
-		inputs,
-		plan,
-		difficulty,
-	};
-
-	assert_eq!(
-		serde_json::to_value(outcome).unwrap(),
-		case["outcome"],
-		"{name}"
-	);
-	assert_eq!(sim.tick(), int(&case["ticks"]), "{name}");
-	assert_eq!(
-		digest(&log.encode()),
-		text(&case["logDigest"]),
-		"{name}: the bot's inputs"
-	);
-	assert_eq!(
-		digest(lines.join("\n").as_bytes()),
-		text(&case["eventDigest"]),
-		"{name}"
-	);
-	assert_eq!(Value::Object(kinds), case["eventKinds"], "{name}");
-	assert_eq!(
-		HuntSim::replay(
-			seed,
-			vessel,
-			rarity.ward(),
-			&stats,
-			&HuntLog::decode(&log.encode()).unwrap()
-		),
-		outcome,
-		"{name}: the replay",
-	);
-}
-
-#[test]
-fn every_hunt_plays_out_as_it_did_in_dart() {
-	let fixture = fixture("hunts.json");
-
-	assert!(list(&fixture).len() >= 60);
-
-	for case in list(&fixture) {
-		play_hunt(case);
-	}
-}
+// `hunts.json` holds 69 hunts played by the fight before the crosshair, the
+// arsenal and the orb. Their bots tapped at seals, reaped with a sweep and
+// carried a `reapSpeed` the hunt bot no longer has, so their inputs cannot
+// be played again and their outcomes are not the ones these rules reach.
+// The record stays untouched; `tests/hunt_sim.rs` and `tests/orb.rs` pin
+// the new fight, its log and its replay instead.
 
 fn base64(text: &str) -> Vec<u8> {
 	const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -712,59 +506,52 @@ fn base64(text: &str) -> Vec<u8> {
 	bytes
 }
 
+/// Every whole log the record holds was written by the fight before the
+/// crosshair, at version 6. The crosshair's log is version 7, with FIRE, the
+/// selected slot and ORB in place of the taps, so the rules refuse the old
+/// log rather than read a tap as a FIRE press. A log too short to carry a
+/// version still fails as it always did.
 #[test]
-fn hunt_logs_read_and_write_as_dart_wrote_them() {
+fn hunt_logs_from_before_the_crosshair_are_refused() {
 	let fixture = fixture("hunt_logs.json");
 
 	for case in list(&fixture["logs"]) {
 		let bytes = base64(text(&case["bytes"]));
-		let log = HuntLog::decode(&bytes).unwrap();
 
-		assert_eq!(log.inputs.len() as i64, int(&case["ticks"]));
-		assert_eq!(plan_json(&log.plan), case["plan"]);
-		assert_eq!(log.difficulty, difficulty(&case["difficulty"]));
-		assert_eq!(log.encode(), bytes, "{}", case["name"]);
-
-		for (input, expected) in log.inputs.iter().zip(list(&case["firstInputs"])) {
-			let actual = serde_json::json!({
-				"aim": [input.aim.yaw_centidegrees, input.aim.pitch_centidegrees],
-				"turnSpeed": input.turn_speed,
-				"taps": input.taps.iter().map(|tap| [tap.yaw_centidegrees, tap.pitch_centidegrees]).collect::<Vec<_>>(),
-				"focus": input.focus,
-			});
-
-			assert_eq!(&actual, expected);
-		}
+		assert_eq!(
+			HuntLog::decode(&bytes).err(),
+			Some(HuntLogError::UnsupportedVersion),
+			"{}",
+			case["name"]
+		);
 	}
 
-	let replay = &fixture["replay"];
-	let stats = HuntStats::derive(&loadout(&replay["loadout"]), 1.0).unwrap();
-	let log = HuntLog::decode(&base64(text(&replay["bytes"]))).unwrap();
-	let ward = Rarity::from_name(text(&replay["rarity"])).unwrap().ward();
-	let vessel = Vessel::from_name(text(&replay["vessel"])).unwrap();
-	let seed = int(&replay["seed"]);
-
-	assert_eq!(
-		serde_json::to_value(HuntSim::replay(seed, vessel, ward, &stats, &log)).unwrap(),
-		replay["outcome"],
-	);
-
-	let truncated = HuntLog {
-		inputs: log.inputs[..400].to_vec(),
-		..log.clone()
-	};
-
-	assert_eq!(
-		serde_json::to_value(HuntSim::replay(seed, vessel, ward, &stats, &truncated)).unwrap(),
-		replay["truncatedOutcome"],
-	);
-
 	for case in list(&fixture["malformed"]) {
-		let error = HuntLog::decode(&base64(text(&case["bytes"])))
-			.err()
-			.map(|error| error.to_string());
+		let bytes = base64(text(&case["bytes"]));
+		let expected = match case["error"].as_str() {
+			// A whole version-six log is refused at its version byte, before
+			// the rest of it is read.
+			None
+			| Some(
+				"Unsupported combat rules"
+				| "Hunt log has no such difficulty"
+				| "Hunt log has a broken plan"
+				| "Hunt log has broken cover"
+				| "Hunt log ends mid-plan"
+				| "Hunt log ends mid-tap"
+				| "Hunt log has unknown input",
+			) => HuntLogError::UnsupportedVersion,
+			Some("Not a hunt log") => HuntLogError::Empty,
+			Some("Hunt log has no plan") => HuntLogError::NoPlan,
+			Some(other) => panic!("the record expected something else: {other}"),
+		};
 
-		assert_eq!(error.as_deref(), case["error"].as_str(), "{}", case["name"]);
+		assert_eq!(
+			HuntLog::decode(&bytes).err(),
+			Some(expected),
+			"{}",
+			case["name"]
+		);
 	}
 }
 
@@ -887,78 +674,14 @@ fn geography_matches() {
 
 // Rifts ----------------------------------------------------------------
 
+// `rifts.json`'s played rifts were fought by the bot of the fight before the
+// crosshair, against a ward sized by strikes at seals. Both changed on
+// purpose, so their frames and pay no longer describe these rules. What is
+// left of the record is the circle itself, which the arena still fills the
+// same way.
 #[test]
-fn rifts_play_out_as_they_did_in_dart() {
+fn the_shades_fill_a_rift_as_they_did_in_dart() {
 	let fixture = fixture("rifts.json");
-
-	for case in list(&fixture["rifts"]) {
-		let expected = &case["play"];
-		let name = text(&expected["name"]);
-		let reapers = list(&case["reapers"])
-			.iter()
-			.map(|reaper| {
-				entrant(
-					text(&reaper["name"]),
-					class(&reaper["class"]),
-					int(&reaper["level"]),
-				)
-			})
-			.collect();
-		let site = RiftSite::from_name(text(&case["site"])).unwrap();
-		let mut table = RiftTable::with(reapers, site, int(&case["seed"]), careful);
-		let walk_away_at = case["walkAwayAt"].as_i64();
-		let mut frames = list(&expected["frames"]).iter();
-
-		table.begin();
-
-		while !table.room.phase().is_over() {
-			if Some(table.room.tick()) == walk_away_at {
-				table.walk_away(table.seats.len() - 1);
-			}
-
-			table.step();
-
-			if table.room.tick() % 600 == 0 {
-				let frame =
-					serde_json::to_value(table.room.frame_for(table.seats[0]).unwrap()).unwrap();
-
-				assert_eq!(
-					Some(&frame),
-					frames.next(),
-					"{name}: tick {}",
-					table.room.tick()
-				);
-			}
-		}
-
-		assert!(frames.next().is_none(), "{name}: ends before the record");
-		assert_eq!(
-			table.room.phase().name(),
-			text(&expected["phase"]),
-			"{name}"
-		);
-		assert_eq!(table.room.tick(), int(&expected["tick"]), "{name}");
-		assert_eq!(
-			bits(table.room.ward_max()),
-			text(&expected["wardMax"]),
-			"{name}"
-		);
-		assert_eq!(bits(table.room.ward()), text(&expected["ward"]), "{name}");
-
-		for (&seat, reward) in table.seats.iter().zip(list(&expected["rewards"])) {
-			let paid = table.room.reward_for(seat);
-
-			assert_eq!(paid.xp, int(&reward["xp"]), "{name}");
-			assert_eq!(paid.anima, int(&reward["anima"]), "{name}");
-		}
-
-		assert_eq!(
-			serde_json::to_value(table.room.frame_for(table.seats[0]).unwrap()).unwrap(),
-			expected["final"],
-			"{name}"
-		);
-	}
-
 	let mut room = RiftRoom::new(RiftSite::ShibuyaCrossing, 0x51DE);
 	let seat = room
 		.join(entrant("Vesper", ReaperClass::Harvester, 13))
@@ -967,10 +690,20 @@ fn rifts_play_out_as_they_did_in_dart() {
 	room.report(seat, &RiftReport::readiness(true));
 	room.advance(RiftRules::COUNTDOWN_TICKS + 1);
 
-	assert_eq!(
-		serde_json::to_value(room.frame_for(seat).unwrap()).unwrap(),
-		fixture["shades"]
-	);
+	let mut expected = fixture["shades"].clone();
+	let mut actual = serde_json::to_value(room.frame_for(seat).unwrap()).unwrap();
+
+	// The ward is now sized to a careful gun's pace rather than to strikes
+	// at seals, so its two fields are the change and are checked by the
+	// rift pacing table instead.
+	for frame in [&mut expected, &mut actual] {
+		let fields = frame.as_object_mut().unwrap();
+
+		fields.remove("ward");
+		fields.remove("wardMax");
+	}
+
+	assert_eq!(actual, expected);
 }
 
 // The player -----------------------------------------------------------
@@ -1000,7 +733,7 @@ fn a_player_session_matches_step_for_step() {
 				Ok(next) => {
 					assert_eq!(
 						serde_json::to_value(&next).unwrap(),
-						expected["state"],
+						regraded(&expected["state"]),
 						"{}",
 						$name
 					);
@@ -1029,35 +762,16 @@ fn a_player_session_matches_step_for_step() {
 	record!("release the bird", state.release(bird, 42, now));
 
 	for sighting in state.sightings().to_vec() {
-		let stats = HuntStats::derive(&state.loadout(), 1.0).unwrap();
-		let mut sim = HuntSim::open(
-			sighting.seed,
-			sighting.nft.collection.vessel(),
-			sighting.nft.rarity().ward(),
-			&stats,
-		);
-		let mut bot = HuntBot::human(&sim);
-
-		bot.play(&mut sim);
-
-		let settlement = state
-			.judge_hunt(
+		let recorded = settlements.next().unwrap();
+		let outcome: HuntOutcome = serde_json::from_value(regraded(&recorded["outcome"])).unwrap();
+		let next = state
+			.settle_hunt(
 				sighting.id,
-				&HuntLog::new(bot.recorded),
+				&outcome,
 				now.plus_seconds(60),
 				sighting.seed * 3 + 1,
-				&Judging {
-					leniency: 1.03,
-					..Judging::default()
-				},
 			)
 			.unwrap();
-
-		assert_eq!(
-			serde_json::to_value(&settlement).unwrap(),
-			*settlements.next().unwrap()
-		);
-
 		let expected = steps.next().unwrap();
 
 		assert_eq!(
@@ -1065,10 +779,10 @@ fn a_player_session_matches_step_for_step() {
 			format!("judge {}", sighting.nft.id())
 		);
 		assert_eq!(
-			serde_json::to_value(&settlement.state).unwrap(),
-			expected["state"]
+			serde_json::to_value(&next).unwrap(),
+			regraded(&expected["state"])
 		);
-		state = settlement.state;
+		state = next;
 	}
 
 	record!("release the penguin", state.release(penguin, 43, now));
@@ -1093,7 +807,7 @@ fn a_player_session_matches_step_for_step() {
 		state.settle_hunt(
 			last,
 			&HuntOutcome::absorbed_with(
-				ReapGrade::Perfect,
+				CaptureGrade::Excellent,
 				true,
 				1800,
 				HuntDeeds {
@@ -1171,7 +885,7 @@ fn a_player_session_matches_step_for_step() {
 fn an_absorption_carries_every_field_its_receipt_signs() {
 	let absorption = Absorption {
 		nft: Nft::new(NftCollection::Thugbirdz, 3),
-		grade: ReapGrade::Perfect,
+		grade: CaptureGrade::Excellent,
 		feeding: Feeding::Rich,
 		xp: 0x0102_0304,
 		anima: 77,
@@ -1201,35 +915,29 @@ fn an_absorption_carries_every_field_its_receipt_signs() {
 
 // The pacing tools -----------------------------------------------------
 
-#[test]
-fn the_pacing_tool_prints_what_dart_printed() {
-	let expected = std::fs::read_to_string(format!(
-		"{}/tests/fixtures/pacing.txt",
-		env!("CARGO_MANIFEST_DIR")
-	))
-	.unwrap();
+// The fixtures hold the tables the fight before the crosshair printed. Those
+// numbers were tuned around taps and the reap sweep, so they say nothing
+// about the fight these rules play. Each report is pinned to what the Dart
+// rules printed after the change instead; the table itself is in
+// docs/gameplay.md.
 
-	assert_eq!(pacing::report(), expected);
+#[test]
+fn the_pacing_tool_prints_the_crosshair_fight() {
+	let report = pacing::report();
+
+	assert_eq!(digest(report.as_bytes()), "cee7bac19ef7790f", "{report}");
 }
 
 #[test]
-fn the_rift_pacing_tool_prints_what_dart_printed() {
-	let expected = std::fs::read_to_string(format!(
-		"{}/tests/fixtures/rift_pacing.txt",
-		env!("CARGO_MANIFEST_DIR")
-	))
-	.unwrap();
+fn the_rift_pacing_tool_prints_the_crosshair_fight() {
+	let report = rift_pacing::report();
 
-	assert_eq!(rift_pacing::report(), expected);
+	assert_eq!(digest(report.as_bytes()), "2f6c9991863ca3bd", "{report}");
 }
 
 #[test]
-fn the_soul_pacing_tool_prints_what_dart_printed() {
-	let expected = std::fs::read_to_string(format!(
-		"{}/tests/fixtures/soul_pacing.txt",
-		env!("CARGO_MANIFEST_DIR")
-	))
-	.unwrap();
+fn the_soul_pacing_tool_prints_the_crosshair_fight() {
+	let report = soul_pacing::report();
 
-	assert_eq!(soul_pacing::report(), expected);
+	assert_eq!(digest(report.as_bytes()), "9206be3939838659", "{report}");
 }

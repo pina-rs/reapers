@@ -20,6 +20,11 @@ impl RiftRules {
 	/// The ward is sized so that a circle playing carefully breaks it in
 	/// about this long, whatever its levels are.
 	pub const BREAK_SECONDS: i64 = 70;
+	/// How many times a plain gun's pace a careful reaper keeps up. Open
+	/// seals take twice a blow, cadence builds, the knife finishes a
+	/// stunned husk and active reloads hit harder; shrieks stop every
+	/// weapon and shots go wide.
+	pub const CAREFUL_PACE: f64 = 2.5;
 	/// What a reaper who was cast out before the end earns.
 	pub const CAST_OUT_SHARE: f64 = 0.5;
 	/// Reapers in a full circle. Seats nobody takes are filled by shades.
@@ -49,7 +54,7 @@ impl RiftRules {
 	/// to say where they are. Everyone who comes after sees it in that same
 	/// place.
 	pub const PLANT_METRES: f64 = 25.0;
-	/// How long the circle has to cut once the ward breaks.
+	/// How long the circle has to land an orb once the ward breaks.
 	pub const REAP_WINDOW_TICKS: i64 = 8 * HuntRules::TICK_RATE;
 	/// A shade fights this many levels below the circle's average.
 	pub const SHADE_LEVEL_GAP: i64 = 1;
@@ -61,10 +66,6 @@ impl RiftRules {
 	/// A reaper standing this near a rift's site, in metres, finds the rift
 	/// at the site itself.
 	pub const SITE_METRES: f64 = 250.0;
-	/// The share of its best possible damage a careful reaper really lands:
-	/// seals are not always open, shrieks stop every blade, and taps go
-	/// wide.
-	pub const STEADY_SHARE: f64 = 0.84;
 	/// What a reaper who was still standing but made no cut earns, as a
 	/// share of a clean cut.
 	pub const UNCUT_SHARE: f64 = 0.75;
@@ -82,10 +83,9 @@ impl RiftRules {
 		let mut per_second = 0.0;
 
 		for stats in circle {
-			per_second +=
-				stats.strike_damage * HuntRules::TICK_RATE as f64 / stats.swing_ticks as f64;
+			per_second += stats.gun_per_second();
 		}
 
-		per_second * Self::STEADY_SHARE * Self::BREAK_SECONDS as f64
+		per_second * Self::CAREFUL_PACE * Self::BREAK_SECONDS as f64
 	}
 }

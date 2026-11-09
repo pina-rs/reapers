@@ -40,7 +40,7 @@ impl Rarity {
 			Self::Common => 280,
 			Self::Uncommon => 420,
 			Self::Rare => 760,
-			Self::Epic => 1400,
+			Self::Epic => 2800,
 		}
 	}
 

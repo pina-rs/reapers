@@ -35,6 +35,7 @@ impl Hunt {
 		let mut sim = HuntSim::new(
 			seed,
 			vessel,
+			Rarity::Uncommon,
 			Rarity::Uncommon.ward(),
 			&borrowed(),
 			plan,
@@ -202,6 +203,7 @@ mod where_a_husk_can_be {
 			HuntSim::new(
 				1,
 				Vessel::Penguin,
+				Rarity::Common,
 				280,
 				&borrowed(),
 				narrow.clone(),
@@ -213,6 +215,7 @@ mod where_a_husk_can_be {
 			HuntSim::replay(
 				1,
 				Vessel::Penguin,
+				Rarity::Common,
 				280,
 				&borrowed(),
 				&log_in(narrow, vec![idle()]),
@@ -325,7 +328,7 @@ mod how_a_husk_moves {
 
 		// Spinning on the spot is what alarms it.
 		while sim.phase() == HuntPhase::Stalk {
-			events.extend(sim.step(&HuntInput::measured(Vec3::FORWARD, 4.0, &[], false)));
+			events.extend(sim.step(&HuntInput::measured(Vec3::FORWARD, 4.0, false, 0, false)));
 		}
 
 		assert_eq!(stalk_ambushes(&events), [false]);
@@ -345,7 +348,7 @@ mod how_a_husk_moves {
 		let mut events = Vec::new();
 
 		while sim.phase() == HuntPhase::Stalk {
-			let input = HuntInput::measured(sim.pose().direction(), 0.0, &[], false);
+			let input = HuntInput::measured(sim.pose().direction(), 0.0, false, 0, false);
 
 			events.extend(sim.step(&input));
 		}
@@ -551,7 +554,13 @@ mod plans {
 	#[test]
 	fn the_same_hunt_in_a_different_plan_is_a_different_hunt() {
 		let replayed = |plan: HuntPlan| {
-			let mut sim = HuntSim::open(4, Vessel::Llama, Rarity::Common.ward(), &borrowed());
+			let mut sim = HuntSim::open(
+				4,
+				Vessel::Llama,
+				Rarity::Common,
+				Rarity::Common.ward(),
+				&borrowed(),
+			);
 			let mut bot = HuntBot::careful(&sim);
 
 			bot.play(&mut sim);
@@ -559,6 +568,7 @@ mod plans {
 			HuntSim::replay(
 				4,
 				Vessel::Llama,
+				Rarity::Common,
 				Rarity::Common.ward(),
 				&borrowed(),
 				&log_in(plan, bot.recorded),
@@ -692,6 +702,7 @@ mod a_surveyed_room {
 		let mut sim = HuntSim::new(
 			1,
 			Vessel::Penguin,
+			Rarity::Common,
 			280,
 			&borrowed(),
 			cramped,
@@ -729,6 +740,7 @@ mod a_surveyed_room {
 		let mut sim = HuntSim::new(
 			9,
 			Vessel::Ape,
+			Rarity::Common,
 			Rarity::Common.ward(),
 			&borrowed(),
 			plan.clone(),
@@ -740,7 +752,14 @@ mod a_surveyed_room {
 		bot.play(&mut sim);
 
 		let log = HuntLog::decode(&log_in(plan, bot.recorded).encode()).unwrap();
-		let replayed = HuntSim::replay(9, Vessel::Ape, Rarity::Common.ward(), &borrowed(), &log);
+		let replayed = HuntSim::replay(
+			9,
+			Vessel::Ape,
+			Rarity::Common,
+			Rarity::Common.ward(),
+			&borrowed(),
+			&log,
+		);
 		let outcome = sim.outcome().unwrap();
 
 		assert_eq!(
