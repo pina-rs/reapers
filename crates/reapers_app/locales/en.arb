@@ -1224,5 +1224,75 @@
     }
   },
   "studioGalleryNext": "Next",
-  "studioGalleryPrevious": "Previous"
+  "studioGalleryPrevious": "Previous",
+  "armsBench": "Arms bench",
+  "@armsBench": { "description": "The heading of the developer's arms bench (REAPERS_ARMS_BENCH), which plays the reaper's first-person arms, weapons and capture orb on their own." },
+  "armsBenchAbout": "The reaper's own arms, weapons and capture orb, played on their own: every motion, every blow, and every end the orb can come to.",
+  "armsBenchWeapon": "Weapon",
+  "armsBenchGravePistol": "Grave pistol",
+  "armsBenchBoneKnife": "Bone knife",
+  "armsBenchScythe": "Scythe",
+  "armsBenchMotion": "Motion",
+  "armsBenchDraw": "Draw",
+  "armsBenchIdle": "Rest",
+  "@armsBenchIdle": { "description": "The arms at rest, breathing." },
+  "armsBenchFire": "Fire",
+  "armsBenchEmpty": "Empty",
+  "@armsBenchEmpty": { "description": "The trigger pulled on an empty drum." },
+  "armsBenchReload": "Reload",
+  "armsBenchActiveReload": "Active reload",
+  "@armsBenchActiveReload": { "description": "A reload finished early by a well-timed press." },
+  "armsBenchJam": "Jam",
+  "@armsBenchJam": { "description": "A reload pressed too early, which jams." },
+  "armsBenchDiveIn": "Dive in",
+  "armsBenchStab": "Stab",
+  "armsBenchDiveOut": "Dive out",
+  "armsBenchSwing": "Swing",
+  "armsBenchParry": "Parry",
+  "armsBenchStruck": "Struck",
+  "@armsBenchStruck": { "description": "The reaper takes a blow." },
+  "armsBenchRaise": "Raise orb",
+  "armsBenchThrow": "Throw",
+  "armsBenchOrb": "Capture orb",
+  "armsBenchOrbSeals": "Throw: it seals",
+  "armsBenchOrbBreaks": "Throw: breaks on pulse {pulse}",
+  "@armsBenchOrbBreaks": {
+    "placeholders": {
+      "pulse": { "type": "int" }
+    }
+  },
+  "armsBenchOrbMisses": "Throw: it misses",
+  "armsBenchInHand": "In hand",
+  "@armsBenchInHand": { "description": "The capture orb before it is thrown." },
+  "armsBenchFlying": "Flying",
+  "armsBenchAbsorbing": "Absorbing",
+  "armsBenchFalling": "Falling",
+  "armsBenchPulse": "Pulse {pulse}",
+  "@armsBenchPulse": {
+    "placeholders": {
+      "pulse": { "type": "int" }
+    }
+  },
+  "armsBenchBreath": "Holding its breath",
+  "@armsBenchBreath": { "description": "The capture orb after its third pulse, before it seals." },
+  "armsBenchSealed": "Sealed",
+  "armsBenchMissed": "Missed",
+  "@armsBenchMissed": { "description": "The capture orb missed the husk and went out." },
+  "armsBenchBroken": "Broke out on pulse {pulse}",
+  "@armsBenchBroken": {
+    "placeholders": {
+      "pulse": { "type": "int" }
+    }
+  },
+  "armsBenchBehind": "Behind",
+  "@armsBenchBehind": { "description": "Which background the arms are drawn over." },
+  "armsBenchDark": "Dark",
+  "armsBenchBright": "Bright room",
+  "armsBenchGrey": "Mid-grey",
+  "armsBenchClock": "Clock",
+  "armsBenchFullSpeed": "Full speed",
+  "armsBenchQuarterSpeed": "Quarter speed",
+  "armsBenchLookAround": "Look around",
+  "@armsBenchLookAround": { "description": "Turns the view slowly from side to side, so the arms trail it." },
+  "armsBenchDoing": "Doing"
 }

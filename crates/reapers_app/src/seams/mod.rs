@@ -15,12 +15,14 @@
 //! | [`hunt_view`] | `hunt/hunt_screen.dart`'s arena | `leptoskit_xr`'s camera, pose and planes, and the 3D husk |
 //! | [`rift_view`] | `rift/rift_screen.dart` | the same arena in rift mode |
 //! | [`studio_view`] | `studio/reaper_studio.dart` | the studio on `leptoskit_3d` |
+//! | [`viewmodel_view`] | `render/viewmodel/*.dart`, `render/capture/capture_orb_*.dart` | the arms on `leptoskit_3d`, and their light in the world's scene |
 
 mod hunt;
 mod husk;
 mod reaper;
 mod rift;
 mod studio;
+mod viewmodel;
 
 pub use hunt::HuntBrief;
 pub use hunt::HuntReward;
@@ -36,3 +38,13 @@ pub use rift::RiftViewProps;
 pub use rift::rift_view;
 pub use studio::StudioViewProps;
 pub use studio::studio_view;
+pub use viewmodel::HitView;
+pub use viewmodel::Jolt;
+pub use viewmodel::Juice;
+pub use viewmodel::ViewAction;
+pub use viewmodel::ViewmodelProps;
+pub use viewmodel::WorldView;
+pub use viewmodel::dive;
+pub use viewmodel::shake_turn;
+pub use viewmodel::viewmodel_show;
+pub use viewmodel::viewmodel_view;

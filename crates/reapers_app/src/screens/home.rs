@@ -20,10 +20,13 @@ pub fn page() -> Element {
 		Books::Unreadable(failure) => unreadable(game, &failure),
 		// A debug build may open at a bench instead: the gallery, which
 		// steps the studio through every reaper and outfit
-		// (REAPERS_GALLERY), or the depth bench, which shows what the
-		// platform's AR measures of the room (REAPERS_DEPTH_PROBE).
+		// (REAPERS_GALLERY), the depth bench, which shows what the
+		// platform's AR measures of the room (REAPERS_DEPTH_PROBE), or the
+		// arms bench, which plays every weapon's motions and the orb
+		// (REAPERS_ARMS_BENCH).
 		Books::Open(player) if game.flags.gallery => crate::studio::gallery(player.genome()),
 		Books::Open(_) if game.flags.depth_probe => crate::dev::probe::page(),
+		Books::Open(_) if game.flags.arms_bench => crate::dev::arms::page(),
 		Books::Open(player) if player.oath_taken() => sanctum::page(&player),
 		Books::Open(_) => threshold::page(),
 	}

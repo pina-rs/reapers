@@ -8,18 +8,29 @@
 //! outlive a render.
 
 pub mod appearance;
+pub mod arms;
 pub mod camera;
 pub mod cloth;
+pub mod curves;
+pub mod effects;
 pub mod husk;
+pub mod juice;
 pub mod look;
 #[cfg(test)]
 pub mod model;
+pub mod orb;
 pub mod parts;
 pub mod playback;
 pub mod pointer;
+pub mod puppet;
 pub mod reaction;
 pub mod rig;
 pub mod scene;
 pub mod silhouette;
 pub mod stage;
+pub mod swings;
 pub mod ticker;
+pub mod turn;
+pub mod viewmodel;
+#[cfg(test)]
+mod viewmodel_budget;

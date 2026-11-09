@@ -14,6 +14,7 @@
 //! | `REAPERS_AUTOPLAY=true` | A simulated player fights every hunt and rift. |
 //! | `REAPERS_GALLERY=true` | Debug builds open at the reaper bench. |
 //! | `REAPERS_DEPTH_PROBE=true` | Debug builds open at the depth bench: what the platform's AR measures of the room. |
+//! | `REAPERS_ARMS_BENCH=true` | Debug builds open at the arms bench: every weapon and motion, the hit effects and the capture orb. |
 //! | `REAPERS_DRAWN_ROOM=true` | Debug builds hunt in a kitchen drawn by hand, read as if the platform saw it. |
 //!
 //! ```sh
@@ -51,6 +52,8 @@ pub struct BuildFlags {
 	pub gallery: bool,
 	/// Whether the build opens at the depth bench.
 	pub depth_probe: bool,
+	/// Whether the build opens at the arms bench.
+	pub arms_bench: bool,
 	/// Whether hunts are played in a room drawn by hand, read as if the
 	/// platform saw it: for simulators and desks.
 	pub drawn_room: bool,
@@ -121,6 +124,7 @@ impl BuildFlags {
 			autoplay: yes(option_env!("REAPERS_AUTOPLAY")),
 			gallery: !release && yes(option_env!("REAPERS_GALLERY")),
 			depth_probe: !release && yes(option_env!("REAPERS_DEPTH_PROBE")),
+			arms_bench: !release && yes(option_env!("REAPERS_ARMS_BENCH")),
 			drawn_room: !release && yes(option_env!("REAPERS_DRAWN_ROOM")),
 			release,
 		}

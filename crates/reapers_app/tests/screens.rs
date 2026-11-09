@@ -329,3 +329,55 @@ fn a_server_build_that_cannot_reach_its_server_offers_to_try_again() {
 	assert!(harness.shows(En.common_unreachable()));
 	assert!(harness.has("notice-action"));
 }
+
+#[test]
+fn the_arms_bench_plays_every_weapon_motion_and_orb_ending() {
+	let mut harness = Harness::new(BuildFlags {
+		arms_bench: true,
+		..BuildFlags::default()
+	});
+	// Tall enough that every button is on screen at once.
+	harness.tester.resize(390.0, 1800.0).unwrap();
+	harness.open(Route::Index);
+	assert!(harness.has("arms-bench"), "{}", harness.tester.tree());
+	assert!(harness.has("arms-view"));
+	let pistol: &[&str] = &[
+		"arms-fire",
+		"arms-empty",
+		"arms-reload",
+		"arms-active-reload",
+		"arms-jam",
+	];
+	let knife: &[&str] = &["arms-dive-in", "arms-stab", "arms-dive-out"];
+	let scythe: &[&str] = &["arms-swing"];
+	for (weapon, own) in [
+		("arms-pistol", pistol),
+		("arms-knife", knife),
+		("arms-scythe", scythe),
+	] {
+		harness.tap(weapon);
+		for motion in ["arms-idle", "arms-draw"].iter().chain(own).chain(&[
+			"arms-parry",
+			"arms-struck",
+			"arms-raise",
+		]) {
+			harness.tap(motion);
+		}
+	}
+	for button in [
+		"arms-seal",
+		"arms-break-1",
+		"arms-break-2",
+		"arms-break-3",
+		"arms-miss",
+		"arms-bright",
+		"arms-grey",
+		"arms-dark",
+		"arms-quarter-speed",
+		"arms-full-speed",
+		"arms-look",
+	] {
+		harness.tap(button);
+	}
+	assert!(harness.has("arms-bench"), "{}", harness.tester.tree());
+}

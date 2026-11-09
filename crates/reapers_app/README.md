@@ -37,6 +37,7 @@ The build flags are environment variables of `leptoskit build` and `leptoskit de
 | `REAPERS_AUTOPLAY=true` | The rules' simulated player, with a person's limits, fights every hunt and rift through the real view. |
 | `REAPERS_GALLERY=true` | Debug builds open at the gallery: every reaper and outfit. |
 | `REAPERS_DEPTH_PROBE=true` | Debug builds open at the depth bench: what the platform's AR measures of the room. |
+| `REAPERS_ARMS_BENCH=true` | Debug builds open at the arms bench: every weapon and motion of the reaper's own arms, the hit effects and the capture orb's every ending, over a dark, a bright or a grey background. |
 | `REAPERS_DRAWN_ROOM=true` | Debug builds hunt in a kitchen drawn by hand, read as if the platform saw it. |
 
 ```sh

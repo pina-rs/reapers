@@ -85,6 +85,116 @@ pub trait Messages: Send + Sync {
 	fn armory_wielded(&self) -> &'static str;
 	/// `Worn`
 	fn armory_worn(&self) -> &'static str;
+	/// The heading of the developer's arms bench (REAPERS_ARMS_BENCH), which plays the reaper's first-person arms, weapons and capture orb on their own.
+	///
+	/// `Arms bench`
+	fn arms_bench(&self) -> &'static str;
+	/// `The reaper's own arms, weapons and capture orb, played on their own: every motion, every blow, and every end the orb can come to.`
+	fn arms_bench_about(&self) -> &'static str;
+	/// `Absorbing`
+	fn arms_bench_absorbing(&self) -> &'static str;
+	/// A reload finished early by a well-timed press.
+	///
+	/// `Active reload`
+	fn arms_bench_active_reload(&self) -> &'static str;
+	/// Which background the arms are drawn over.
+	///
+	/// `Behind`
+	fn arms_bench_behind(&self) -> &'static str;
+	/// `Bone knife`
+	fn arms_bench_bone_knife(&self) -> &'static str;
+	/// The capture orb after its third pulse, before it seals.
+	///
+	/// `Holding its breath`
+	fn arms_bench_breath(&self) -> &'static str;
+	/// `Bright room`
+	fn arms_bench_bright(&self) -> &'static str;
+	/// `Broke out on pulse {pulse}`
+	fn arms_bench_broken(&self, pulse: i64) -> String;
+	/// `Clock`
+	fn arms_bench_clock(&self) -> &'static str;
+	/// `Dark`
+	fn arms_bench_dark(&self) -> &'static str;
+	/// `Dive in`
+	fn arms_bench_dive_in(&self) -> &'static str;
+	/// `Dive out`
+	fn arms_bench_dive_out(&self) -> &'static str;
+	/// `Doing`
+	fn arms_bench_doing(&self) -> &'static str;
+	/// `Draw`
+	fn arms_bench_draw(&self) -> &'static str;
+	/// The trigger pulled on an empty drum.
+	///
+	/// `Empty`
+	fn arms_bench_empty(&self) -> &'static str;
+	/// `Falling`
+	fn arms_bench_falling(&self) -> &'static str;
+	/// `Fire`
+	fn arms_bench_fire(&self) -> &'static str;
+	/// `Flying`
+	fn arms_bench_flying(&self) -> &'static str;
+	/// `Full speed`
+	fn arms_bench_full_speed(&self) -> &'static str;
+	/// `Grave pistol`
+	fn arms_bench_grave_pistol(&self) -> &'static str;
+	/// `Mid-grey`
+	fn arms_bench_grey(&self) -> &'static str;
+	/// The arms at rest, breathing.
+	///
+	/// `Rest`
+	fn arms_bench_idle(&self) -> &'static str;
+	/// The capture orb before it is thrown.
+	///
+	/// `In hand`
+	fn arms_bench_in_hand(&self) -> &'static str;
+	/// A reload pressed too early, which jams.
+	///
+	/// `Jam`
+	fn arms_bench_jam(&self) -> &'static str;
+	/// Turns the view slowly from side to side, so the arms trail it.
+	///
+	/// `Look around`
+	fn arms_bench_look_around(&self) -> &'static str;
+	/// The capture orb missed the husk and went out.
+	///
+	/// `Missed`
+	fn arms_bench_missed(&self) -> &'static str;
+	/// `Motion`
+	fn arms_bench_motion(&self) -> &'static str;
+	/// `Capture orb`
+	fn arms_bench_orb(&self) -> &'static str;
+	/// `Throw: breaks on pulse {pulse}`
+	fn arms_bench_orb_breaks(&self, pulse: i64) -> String;
+	/// `Throw: it misses`
+	fn arms_bench_orb_misses(&self) -> &'static str;
+	/// `Throw: it seals`
+	fn arms_bench_orb_seals(&self) -> &'static str;
+	/// `Parry`
+	fn arms_bench_parry(&self) -> &'static str;
+	/// `Pulse {pulse}`
+	fn arms_bench_pulse(&self, pulse: i64) -> String;
+	/// `Quarter speed`
+	fn arms_bench_quarter_speed(&self) -> &'static str;
+	/// `Raise orb`
+	fn arms_bench_raise(&self) -> &'static str;
+	/// `Reload`
+	fn arms_bench_reload(&self) -> &'static str;
+	/// `Scythe`
+	fn arms_bench_scythe(&self) -> &'static str;
+	/// `Sealed`
+	fn arms_bench_sealed(&self) -> &'static str;
+	/// `Stab`
+	fn arms_bench_stab(&self) -> &'static str;
+	/// The reaper takes a blow.
+	///
+	/// `Struck`
+	fn arms_bench_struck(&self) -> &'static str;
+	/// `Swing`
+	fn arms_bench_swing(&self) -> &'static str;
+	/// `Throw`
+	fn arms_bench_throw(&self) -> &'static str;
+	/// `Weapon`
+	fn arms_bench_weapon(&self) -> &'static str;
 	/// `Cinder`
 	fn art_cinder(&self) -> &'static str;
 	/// `Fire, lobbed. It arcs over whatever a husk hides behind, bursts, and sets it burning. A burning husk runs into the open.`
@@ -1753,6 +1863,182 @@ impl Messages for En {
 
 	fn armory_worn(&self) -> &'static str {
 		"Worn"
+	}
+
+	fn arms_bench(&self) -> &'static str {
+		"Arms bench"
+	}
+
+	fn arms_bench_about(&self) -> &'static str {
+		"The reaper's own arms, weapons and capture orb, played on their own: every motion, every blow, and every end the orb can come to."
+	}
+
+	fn arms_bench_absorbing(&self) -> &'static str {
+		"Absorbing"
+	}
+
+	fn arms_bench_active_reload(&self) -> &'static str {
+		"Active reload"
+	}
+
+	fn arms_bench_behind(&self) -> &'static str {
+		"Behind"
+	}
+
+	fn arms_bench_bone_knife(&self) -> &'static str {
+		"Bone knife"
+	}
+
+	fn arms_bench_breath(&self) -> &'static str {
+		"Holding its breath"
+	}
+
+	fn arms_bench_bright(&self) -> &'static str {
+		"Bright room"
+	}
+
+	fn arms_bench_broken(&self, pulse: i64) -> String {
+		format!("Broke out on pulse {pulse}")
+	}
+
+	fn arms_bench_clock(&self) -> &'static str {
+		"Clock"
+	}
+
+	fn arms_bench_dark(&self) -> &'static str {
+		"Dark"
+	}
+
+	fn arms_bench_dive_in(&self) -> &'static str {
+		"Dive in"
+	}
+
+	fn arms_bench_dive_out(&self) -> &'static str {
+		"Dive out"
+	}
+
+	fn arms_bench_doing(&self) -> &'static str {
+		"Doing"
+	}
+
+	fn arms_bench_draw(&self) -> &'static str {
+		"Draw"
+	}
+
+	fn arms_bench_empty(&self) -> &'static str {
+		"Empty"
+	}
+
+	fn arms_bench_falling(&self) -> &'static str {
+		"Falling"
+	}
+
+	fn arms_bench_fire(&self) -> &'static str {
+		"Fire"
+	}
+
+	fn arms_bench_flying(&self) -> &'static str {
+		"Flying"
+	}
+
+	fn arms_bench_full_speed(&self) -> &'static str {
+		"Full speed"
+	}
+
+	fn arms_bench_grave_pistol(&self) -> &'static str {
+		"Grave pistol"
+	}
+
+	fn arms_bench_grey(&self) -> &'static str {
+		"Mid-grey"
+	}
+
+	fn arms_bench_idle(&self) -> &'static str {
+		"Rest"
+	}
+
+	fn arms_bench_in_hand(&self) -> &'static str {
+		"In hand"
+	}
+
+	fn arms_bench_jam(&self) -> &'static str {
+		"Jam"
+	}
+
+	fn arms_bench_look_around(&self) -> &'static str {
+		"Look around"
+	}
+
+	fn arms_bench_missed(&self) -> &'static str {
+		"Missed"
+	}
+
+	fn arms_bench_motion(&self) -> &'static str {
+		"Motion"
+	}
+
+	fn arms_bench_orb(&self) -> &'static str {
+		"Capture orb"
+	}
+
+	fn arms_bench_orb_breaks(&self, pulse: i64) -> String {
+		format!("Throw: breaks on pulse {pulse}")
+	}
+
+	fn arms_bench_orb_misses(&self) -> &'static str {
+		"Throw: it misses"
+	}
+
+	fn arms_bench_orb_seals(&self) -> &'static str {
+		"Throw: it seals"
+	}
+
+	fn arms_bench_parry(&self) -> &'static str {
+		"Parry"
+	}
+
+	fn arms_bench_pulse(&self, pulse: i64) -> String {
+		format!("Pulse {pulse}")
+	}
+
+	fn arms_bench_quarter_speed(&self) -> &'static str {
+		"Quarter speed"
+	}
+
+	fn arms_bench_raise(&self) -> &'static str {
+		"Raise orb"
+	}
+
+	fn arms_bench_reload(&self) -> &'static str {
+		"Reload"
+	}
+
+	fn arms_bench_scythe(&self) -> &'static str {
+		"Scythe"
+	}
+
+	fn arms_bench_sealed(&self) -> &'static str {
+		"Sealed"
+	}
+
+	fn arms_bench_stab(&self) -> &'static str {
+		"Stab"
+	}
+
+	fn arms_bench_struck(&self) -> &'static str {
+		"Struck"
+	}
+
+	fn arms_bench_swing(&self) -> &'static str {
+		"Swing"
+	}
+
+	fn arms_bench_throw(&self) -> &'static str {
+		"Throw"
+	}
+
+	fn arms_bench_weapon(&self) -> &'static str {
+		"Weapon"
 	}
 
 	fn art_cinder(&self) -> &'static str {
