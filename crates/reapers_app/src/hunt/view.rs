@@ -24,6 +24,7 @@ use reapers_rules::RoomGrid;
 use reapers_rules::Sigil;
 use reapers_rules::SigilEvent;
 use reapers_rules::SigilTrace;
+use reapers_rules::wrap_angle;
 use reapers_world::RoomGridBuilder;
 use reapers_world::RoomSurvey;
 use reapers_world::sigil_plan;
@@ -31,6 +32,7 @@ use reapers_world::sigil_plan;
 use super::arena::Arena;
 use super::controller::Fight;
 use super::controller::HuntController;
+use super::controls::SCRIM;
 use super::hud::Banner;
 use super::hud::banner_for;
 use super::hud::knock_for;
@@ -39,11 +41,13 @@ use super::hud::status_view;
 use super::lessons::Learned;
 use super::lessons::Teacher;
 use super::overlay::Lens;
+use super::overlay::NextLight;
 use super::overlay::Sketch;
 use super::overlay::fight;
 use super::overlay::frame_class;
 use super::overlay::sigil;
 use super::overlay::veil;
+use super::pose::Sensor;
 use super::pose::Tracking;
 use super::xr::Shared;
 use super::xr::follow;
@@ -77,6 +81,10 @@ use crate::ui::ledger_row;
 /// it: for anyone who cannot turn far enough, or whose room will not let
 /// them.
 const SKIP_AFTER: f64 = 60.0;
+/// How long the platform is waited on for its first pose before the drag is
+/// taken as the source in use. The player is told the phone is finding its
+/// bearings while this runs, so it is never a silent wait.
+const SIGIL_WAIT_SECONDS: f64 = 3.0;
 /// How long a banner stays.
 const BANNER_SECONDS: f64 = 1.3;
 /// How wide the arc a hunt that plays itself in a drawn room is fought in,
@@ -91,6 +99,9 @@ const LINGER_SECONDS: f64 = 2.4;
 pub enum Stage {
 	/// At the threshold: what the husk is, and the button to begin.
 	Briefing,
+	/// The phone is finding the pose the sigil will hang around. This is
+	/// short, and says what it is waiting for.
+	Aligning,
 	/// Tracing the husk's sigil, while the room is read.
 	Tracing(SigilTrace),
 	/// The fight.
@@ -111,6 +122,13 @@ pub struct HuntState {
 	banner: Option<(Banner, f64)>,
 	/// Seconds since the hunt opened.
 	seconds: f64,
+	/// Seconds the view has been waiting for the pose the sigil hangs
+	/// around.
+	aligning_for: f64,
+	/// Whether the sigil was hung from the drag because the platform had
+	/// not answered. If it answers before a light has begun to fill, the
+	/// first light is hung again where the player now faces.
+	sigil_on_drag: bool,
 	over_for: f64,
 	mounted: u32,
 	ticking: bool,
@@ -230,6 +248,8 @@ impl HuntState {
 			on_finished: props.on_finished.clone(),
 			banner: None,
 			seconds: 0.0,
+			aligning_for: 0.0,
+			sigil_on_drag: false,
 			over_for: 0.0,
 			mounted: 0,
 			ticking: false,
@@ -295,8 +315,9 @@ impl HuntState {
 	}
 
 	/// The threshold is crossed: the platform is asked for (this is a
-	/// press, which browsers ask for), and the sigil hangs round wherever
-	/// the player faces. A hunt that plays itself has no sigil to trace.
+	/// press, which browsers ask for), and the sigil waits for the pose of
+	/// the source actually in use. A hunt that plays itself has no sigil to
+	/// trace.
 	fn begin(&mut self) {
 		follow(&self.shared);
 		let vessel = self.brief.nft.collection.vessel();
@@ -336,8 +357,32 @@ impl HuntState {
 			self.engage(plan);
 			return;
 		}
-		let centre = self.shared.live.borrow().pose().forward.yaw();
-		self.stage = Stage::Tracing(SigilTrace::new(self.sigil(), centre));
+		self.stage = Stage::Aligning;
+		self.aligning_for = 0.0;
+	}
+
+	/// Hangs the sigil around the first pose of the source in use, with its
+	/// first light where the reaper faces. The whole shape stays around the
+	/// player: turning to find the first light is never a turn to somewhere
+	/// they were not looking.
+	fn hang_sigil(&mut self) -> bool {
+		let (pose, follows) = {
+			let live = self.shared.live.borrow();
+			(live.ready_pose(), live.follows_device())
+		};
+		let Some(pose) = pose else {
+			return false;
+		};
+
+		let sigil = self.sigil();
+		let first = sigil.lights.first().map_or(0.0, |light| light.yaw);
+
+		self.sigil_on_drag = !follows;
+		self.stage = Stage::Tracing(SigilTrace::new(
+			sigil,
+			wrap_angle(pose.forward.yaw() - first),
+		));
+		true
 	}
 
 	/// Starts the fight inside `plan`. The room stops being read; what it
@@ -429,8 +474,35 @@ impl HuntState {
 		if let Some(position) = self.shared.live.borrow().position {
 			self.arena.anchor(position);
 		}
+		let mut hung = false;
+		if self.stage == Stage::Aligning {
+			self.aligning_for += delta;
+			let waiting = self.shared.live.borrow().sensor() == Sensor::Waiting;
+
+			if waiting && self.aligning_for >= SIGIL_WAIT_SECONDS {
+				// The platform has had its say and said nothing: the drag is
+				// the source in use, and the player is told so.
+				self.shared.live.borrow_mut().no_sensor();
+			}
+
+			hung = self.hang_sigil();
+		}
+		if !hung && self.sigil_on_drag {
+			// The platform answered after the drag had to stand in. Nothing
+			// has caught yet, so the first light is hung again where the
+			// player now faces; after the first catch the lights stay fixed.
+			let untouched = match &self.stage {
+				Stage::Tracing(trace) => trace.caught() == 0 && trace.fill() == 0.0,
+				_ => false,
+			};
+			let follows = self.shared.live.borrow().follows_device();
+
+			if untouched && follows {
+				hung = self.hang_sigil();
+			}
+		}
 		let mut closed = None;
-		if let Stage::Tracing(trace) = &mut self.stage {
+		if !hung && let Stage::Tracing(trace) = &mut self.stage {
 			for event in trace.advance(live_pose.forward, live_pose.turn_speed, delta) {
 				match event {
 					SigilEvent::LightCaught(_) => platform::thud(),
@@ -440,7 +512,9 @@ impl HuntState {
 			}
 		}
 		match self.stage {
-			Stage::Briefing | Stage::Tracing(_) => self.arena.idle(delta, live_pose),
+			Stage::Briefing | Stage::Aligning | Stage::Tracing(_) => {
+				self.arena.idle(delta, live_pose);
+			}
 			Stage::Fighting => self.fight(delta, live_pose),
 			Stage::Finished => {}
 		}
@@ -672,13 +746,14 @@ pub fn hunt_view(props: &HuntViewProps) -> Element {
 				);
 			}
 		}
-		Stage::Briefing | Stage::Finished => {}
+		Stage::Briefing | Stage::Aligning | Stage::Finished => {}
 	}
 	if !marks.is_empty() {
 		root = root.child(marks.into_view(state.size.0, state.size.1));
 	}
 	root = match &state.stage {
 		Stage::Briefing => root.child(briefing(&state, props)),
+		Stage::Aligning => root.child(aligning()),
 		Stage::Tracing(trace) => root.child(scan(&state, trace)),
 		Stage::Fighting => root.child(fighting(&state)),
 		Stage::Finished => root,
@@ -751,9 +826,11 @@ fn select_slot(slot: usize) {
 
 fn scan(state: &HuntState, trace: &SigilTrace) -> Element {
 	let words = use_l10n();
+	let drag = state.shared.live.borrow().tracking() == Tracking::Drag;
+	let guidance = next_light_words(&*words, NextLight::of(&state.lens(), trace), drag);
 	let mut column = View()
-		.class("absolute left-0 right-0 top-0 px-6 pt-4 pt-safe items-center")
-		.test_id("hunt-scan")
+		.class(format!("px-3 pt-2 pb-3 rounded-[8px] {SCRIM}"))
+		.test_id("hunt-scan-panel")
 		.child(label(words.scan_label(), 11, ASH))
 		.child(gap(6))
 		.child(display(words.scan_title(), 26, BONE))
@@ -761,8 +838,14 @@ fn scan(state: &HuntState, trace: &SigilTrace) -> Element {
 		.child(figure(
 			format!("{} / {}", trace.caught(), trace.sigil.lights.len()),
 			13,
-			state.light,
-		));
+			BONE,
+		))
+		.child(gap(8))
+		.child(
+			body(guidance, 14, BONE)
+				.test_id("hunt-scan-guidance")
+				.aria_live(leptoskit::native::Live::Polite),
+		);
 	let floor = state
 		.shared
 		.survey
@@ -776,11 +859,15 @@ fn scan(state: &HuntState, trace: &SigilTrace) -> Element {
 			ASH,
 		));
 	}
-	let mut view = View().class("absolute inset-0").child(column);
+	let mut view = View().class("absolute inset-0").child(
+		View()
+			.class("absolute left-3 right-3 top-0 pt-2 pt-safe")
+			.child(column),
+	);
 	if trace.seconds() > SKIP_AFTER {
 		view = view.child(
 			View()
-				.class("absolute left-6 right-6 bottom-8 pb-safe")
+				.class("absolute left-3 right-3 bottom-8 pb-safe")
 				.child(
 					LedgerButton::new(words.scan_skip())
 						.quiet()
@@ -790,6 +877,49 @@ fn scan(state: &HuntState, trace: &SigilTrace) -> Element {
 		);
 	}
 	view
+}
+
+/// What to do about the next light, in words that match the arrow and the
+/// reticle. A drag says drag; a phone says turn.
+fn next_light_words(words: &dyn Messages, next: NextLight, drag: bool) -> &'static str {
+	match (next, drag) {
+		(NextLight::Hold, _) => words.scan_hold(),
+		(NextLight::Slow, _) => words.sigil_steady(),
+		(NextLight::Aim, _) => words.scan_aim(),
+		(NextLight::Left, false) => words.scan_turn_left(),
+		(NextLight::Right, false) => words.scan_turn_right(),
+		(NextLight::Up, false) => words.scan_look_up(),
+		(NextLight::Down, false) => words.scan_look_down(),
+		(NextLight::Left, true) => words.scan_drag_left(),
+		(NextLight::Right, true) => words.scan_drag_right(),
+		(NextLight::Up, true) => words.scan_drag_up(),
+		(NextLight::Down, true) => words.scan_drag_down(),
+	}
+}
+
+/// The moment between raising the blade and the sigil: the phone is finding
+/// where it faces, and the player is told it is being waited on rather than
+/// left at a still 0 / 3.
+fn aligning() -> Element {
+	let words = use_l10n();
+
+	View().class("absolute inset-0").child(
+		View()
+			.class("absolute left-3 right-3 top-0 pt-2 pt-safe")
+			.child(
+				View()
+					.class(format!("px-3 pt-2 pb-3 rounded-[8px] {SCRIM}"))
+					.test_id("hunt-aligning")
+					.child(label(words.scan_label(), 11, ASH))
+					.child(gap(6))
+					.child(display(words.scan_title(), 26, BONE))
+					.child(gap(8))
+					.child(
+						body(words.scan_starting(), 14, BONE)
+							.aria_live(leptoskit::native::Live::Polite),
+					),
+			),
+	)
 }
 
 /// What stands between the player and the hunt: which husk it is, and the
@@ -867,4 +997,165 @@ fn briefing(state: &HuntState, props: &HuntViewProps) -> Element {
 	ScrollView()
 		.class("absolute inset-0 pt-safe pb-safe bg-[#07080bd1]")
 		.child(column)
+}
+
+#[cfg(test)]
+mod tests {
+	use std::sync::Arc;
+
+	use reapers_rules::HuntLoadout;
+	use reapers_rules::market_listings;
+
+	use super::*;
+	use crate::seams::HuntBrief;
+
+	fn hunt() -> HuntState {
+		HuntState::new(&HuntViewProps {
+			brief: HuntBrief {
+				nft: market_listings()[0],
+				seed: 7,
+				loadout: HuntLoadout::BORROWED,
+				sighting_id: None,
+			},
+			difficulty: Difficulty::default(),
+			autoplay: false,
+			on_finished: Arc::new(|_, _| {}),
+			on_difficulty: None,
+		})
+	}
+
+	/// A turn of `angle` about the platform's vertical, as a quaternion.
+	fn turned(angle: f64) -> [f64; 4] {
+		[0.0, (angle / 2.0).sin(), 0.0, (angle / 2.0).cos()]
+	}
+
+	#[test]
+	fn the_sigil_waits_for_the_source_in_use_and_hangs_its_first_light_ahead() {
+		let mut hunt = hunt();
+		hunt.begin();
+
+		assert!(
+			matches!(hunt.stage, Stage::Aligning),
+			"no trace is hung before a source has answered"
+		);
+
+		// A platform has been asked and has not answered yet; the sigil
+		// waits rather than hanging from the drag's arbitrary origin.
+		hunt.shared.live.borrow_mut().expect_platform();
+		assert!(hunt.shared.live.borrow().ready_pose().is_none());
+		hunt.tick(HuntController::TICK_SECONDS);
+		assert!(matches!(hunt.stage, Stage::Aligning));
+
+		// Its first frame faces far from the drag's origin. The sigil is
+		// hung on that frame, so its first light is where the phone now
+		// points, not at the drag's old origin.
+		hunt.shared
+			.live
+			.borrow_mut()
+			.track(turned(-2.4), 0.0, Tracking::Turning);
+		hunt.tick(HuntController::TICK_SECONDS);
+
+		let view = hunt.shared.live.borrow().pose().forward;
+		let Stage::Tracing(trace) = &hunt.stage else {
+			panic!(
+				"the sigil hangs once the platform answers\n{:?}",
+				hunt.stage
+			);
+		};
+		let first = trace.direction_of(0);
+		assert!(
+			wrap_angle(first.yaw() - view.yaw()).abs() < 1e-9,
+			"the first light is where the player faces, not behind them"
+		);
+	}
+
+	#[test]
+	fn with_no_platform_the_drag_is_the_source_and_the_sigil_hangs_at_once() {
+		let mut hunt = hunt();
+		hunt.begin();
+		assert_eq!(hunt.shared.live.borrow().sensor(), Sensor::Missing);
+
+		hunt.tick(HuntController::TICK_SECONDS);
+
+		assert!(
+			matches!(hunt.stage, Stage::Tracing(_)),
+			"a browser or simulator traces at once"
+		);
+		assert_eq!(hunt.shared.live.borrow().tracking(), Tracking::Drag);
+	}
+
+	#[test]
+	fn a_platform_that_stays_silent_is_let_go_after_the_wait_is_told() {
+		let mut hunt = hunt();
+		hunt.begin();
+		hunt.shared.live.borrow_mut().expect_platform();
+
+		hunt.tick(SIGIL_WAIT_SECONDS + HuntController::TICK_SECONDS);
+
+		assert!(
+			matches!(hunt.stage, Stage::Tracing(_)),
+			"the drag takes over rather than waiting for ever"
+		);
+		assert_eq!(hunt.shared.live.borrow().sensor(), Sensor::Missing);
+		assert_eq!(hunt.shared.live.borrow().tracking(), Tracking::Drag);
+	}
+
+	#[test]
+	fn a_platform_that_answers_after_the_drag_hangs_the_first_light_again() {
+		let mut hunt = hunt();
+		hunt.begin();
+		hunt.shared.live.borrow_mut().expect_platform();
+		hunt.tick(SIGIL_WAIT_SECONDS + HuntController::TICK_SECONDS);
+		assert!(hunt.sigil_on_drag, "the drag stood in for the platform");
+
+		hunt.shared
+			.live
+			.borrow_mut()
+			.track(turned(-2.0), 0.0, Tracking::Turning);
+		hunt.tick(HuntController::TICK_SECONDS);
+
+		let view = hunt.shared.live.borrow().pose().forward;
+		let Stage::Tracing(trace) = &hunt.stage else {
+			panic!("the sigil is still traced");
+		};
+		assert!(
+			wrap_angle(trace.direction_of(0).yaw() - view.yaw()).abs() < 1e-9,
+			"nothing had caught, so the first light moves to where the platform now points"
+		);
+		assert!(!hunt.sigil_on_drag);
+	}
+
+	#[test]
+	fn a_fixed_sigil_is_not_re_anchored_when_tracking_pauses_and_returns() {
+		let mut hunt = hunt();
+		hunt.begin();
+		hunt.shared.live.borrow_mut().expect_platform();
+		hunt.shared
+			.live
+			.borrow_mut()
+			.track(turned(1.0), 0.0, Tracking::Turning);
+		hunt.tick(HuntController::TICK_SECONDS);
+
+		let Stage::Tracing(trace) = &hunt.stage else {
+			panic!("the sigil hangs");
+		};
+		let before: Vec<_> = (0..trace.sigil.lights.len())
+			.map(|light| trace.direction_of(light))
+			.collect();
+
+		hunt.shared.live.borrow_mut().advance(2.0);
+		hunt.tick(HuntController::TICK_SECONDS);
+		hunt.shared
+			.live
+			.borrow_mut()
+			.track(turned(4.2), 3.0, Tracking::Turning);
+		hunt.tick(HuntController::TICK_SECONDS);
+
+		let Stage::Tracing(trace) = &hunt.stage else {
+			panic!("the sigil is still traced");
+		};
+		for (light, expected) in before.iter().enumerate() {
+			assert_eq!(trace.direction_of(light), *expected);
+		}
+	}
 }

@@ -1367,16 +1367,38 @@ pub trait Messages: Send + Sync {
 	fn sanctum_vault(&self) -> &'static str;
 	/// `{count, plural, =0{Empty} =1{1 held} other{{count} held}}`
 	fn sanctum_vault_detail(&self, count: i64) -> String;
+	/// `Bring the ring onto the next light.`
+	fn scan_aim(&self) -> &'static str;
+	/// `Drag down to the next light.`
+	fn scan_drag_down(&self) -> &'static str;
+	/// `Drag left to the next light.`
+	fn scan_drag_left(&self) -> &'static str;
+	/// `Drag right to the next light.`
+	fn scan_drag_right(&self) -> &'static str;
+	/// `Drag up to the next light.`
+	fn scan_drag_up(&self) -> &'static str;
 	/// `Floor {metres} m below the phone`
 	fn scan_floor_found(&self, metres: &str) -> String;
 	/// `It is here`
 	fn scan_found(&self) -> &'static str;
+	/// `Hold still. The next light is filling.`
+	fn scan_hold(&self) -> &'static str;
 	/// `Drawing it out`
 	fn scan_label(&self) -> &'static str;
+	/// `Lower the phone to the next light.`
+	fn scan_look_down(&self) -> &'static str;
+	/// `Raise the phone to the next light.`
+	fn scan_look_up(&self) -> &'static str;
 	/// `Hunt anyway`
 	fn scan_skip(&self) -> &'static str;
+	/// `Finding where you face. Keep the phone pointed where you will hunt.`
+	fn scan_starting(&self) -> &'static str;
 	/// `Something is nearby.`
 	fn scan_title(&self) -> &'static str;
+	/// `Turn left to the next light.`
+	fn scan_turn_left(&self) -> &'static str;
+	/// `Turn right to the next light.`
+	fn scan_turn_right(&self) -> &'static str;
 	/// `{caught} of {total} caught`
 	fn sigil_caught(&self, caught: i64, total: i64) -> String;
 	/// `Trace its sigil to draw it out. Turn until the ring rests on the first light, hold the phone still until it catches, then find the next.`
@@ -4413,6 +4435,26 @@ impl Messages for En {
 		}
 	}
 
+	fn scan_aim(&self) -> &'static str {
+		"Bring the ring onto the next light."
+	}
+
+	fn scan_drag_down(&self) -> &'static str {
+		"Drag down to the next light."
+	}
+
+	fn scan_drag_left(&self) -> &'static str {
+		"Drag left to the next light."
+	}
+
+	fn scan_drag_right(&self) -> &'static str {
+		"Drag right to the next light."
+	}
+
+	fn scan_drag_up(&self) -> &'static str {
+		"Drag up to the next light."
+	}
+
 	fn scan_floor_found(&self, metres: &str) -> String {
 		format!("Floor {metres} m below the phone")
 	}
@@ -4421,16 +4463,40 @@ impl Messages for En {
 		"It is here"
 	}
 
+	fn scan_hold(&self) -> &'static str {
+		"Hold still. The next light is filling."
+	}
+
 	fn scan_label(&self) -> &'static str {
 		"Drawing it out"
+	}
+
+	fn scan_look_down(&self) -> &'static str {
+		"Lower the phone to the next light."
+	}
+
+	fn scan_look_up(&self) -> &'static str {
+		"Raise the phone to the next light."
 	}
 
 	fn scan_skip(&self) -> &'static str {
 		"Hunt anyway"
 	}
 
+	fn scan_starting(&self) -> &'static str {
+		"Finding where you face. Keep the phone pointed where you will hunt."
+	}
+
 	fn scan_title(&self) -> &'static str {
 		"Something is nearby."
+	}
+
+	fn scan_turn_left(&self) -> &'static str {
+		"Turn left to the next light."
+	}
+
+	fn scan_turn_right(&self) -> &'static str {
+		"Turn right to the next light."
 	}
 
 	fn sigil_caught(&self, caught: i64, total: i64) -> String {

@@ -330,6 +330,112 @@ fn breath(seconds: f64) -> f64 {
 	0.75 + 0.25 * (seconds * 2.4).sin()
 }
 
+/// The ink under everything drawn over a camera's picture, so a light mark
+/// holds over a bright room.
+const SHADOW: Rgb = Rgb(0x02, 0x02, 0x03);
+
+/// How near straight behind a light may be before the edge arrow settles
+/// on one side: within this, the shortest turn either way is so nearly the
+/// same that the arrow always says right, rather than flickering across
+/// ±180° when the phone shakes.
+const BEHIND_SETTLE: f64 = 5.0 * PI / 180.0;
+
+/// Where the next light is from the middle of the view, and what the reaper
+/// should do about it. This is the one reading the arrow and the words
+/// share, so the drawn light, the reticle and the guidance agree.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum NextLight {
+	/// The ring rests on it and the view is still: it is filling.
+	Hold,
+	/// The ring rests on it, but the phone is turning too fast for it to
+	/// fill.
+	Slow,
+	/// It is on screen, away from the ring.
+	Aim,
+	/// It is off the left edge.
+	Left,
+	/// It is off the right edge.
+	Right,
+	/// It is above the view.
+	Up,
+	/// It is below the view.
+	Down,
+}
+
+impl NextLight {
+	/// What to do about the next light of `trace`, as `lens` sees the room.
+	pub fn of(lens: &Lens, trace: &SigilTrace) -> Self {
+		if trace.is_closed() {
+			return Self::Hold;
+		}
+
+		let target = trace.direction_of(trace.caught());
+
+		if trace.rests_on(lens.pose.forward) {
+			return if lens.pose.turn_speed <= HuntRules::SIGIL_STEADY_SPEED {
+				Self::Hold
+			} else {
+				Self::Slow
+			};
+		}
+
+		if lens
+			.place(target)
+			.is_some_and(|(x, y)| !off_screen(lens, x, y))
+		{
+			return Self::Aim;
+		}
+
+		let bearing = bearing(lens, target);
+		let (across, up) = (bearing.cos(), bearing.sin());
+
+		if across.abs() >= up.abs() {
+			if across >= 0.0 {
+				Self::Right
+			} else {
+				Self::Left
+			}
+		} else if up >= 0.0 {
+			Self::Down
+		} else {
+			Self::Up
+		}
+	}
+}
+
+/// Which way on the screen `target` lies from the middle of the view, in
+/// radians clockwise from the right edge: 0 is right, π/2 down, −π/2 up and
+/// π or −π left.
+///
+/// It is read through the view's own right and up, so a rolled phone turns
+/// the arrow with its picture. A light behind the player has no place on
+/// the screen: its arrow names the shorter way round, and exactly behind
+/// settles on the right (see [`BEHIND_SETTLE`]) rather than choosing by the
+/// sign of a vanishing number.
+pub(crate) fn bearing(lens: &Lens, target: Vec3) -> f64 {
+	let aim = lens.pose;
+	let target = target.normalized();
+	let (across, up, ahead) = (
+		target.dot(aim.right),
+		target.dot(aim.up),
+		target.dot(aim.forward),
+	);
+
+	if ahead > 0.0 {
+		let half_height = (lens.fov / 2.0).tan();
+
+		return (-up / ahead / half_height).atan2(across / ahead / (half_height * lens.aspect()));
+	}
+
+	let turn = wrap_angle(target.yaw() - aim.forward.yaw());
+
+	if turn.abs() >= PI - BEHIND_SETTLE {
+		return 0.0;
+	}
+
+	if across >= 0.0 { 0.0 } else { PI }
+}
+
 /// The sigil hung in the room: its lights where they are around the player,
 /// the thread drawn through those that have caught, the ring at the middle
 /// that rests on them and fills as one catches, and which way to turn when
@@ -358,25 +464,45 @@ pub fn sigil(sketch: &mut Sketch, lens: &Lens, trace: &SigilTrace, light: Rgb) {
 		thread.push(None);
 	}
 	let fraying = trace.fraying();
+	sketch.polyline(&thread, colour(SHADOW, 0.5), 4.0);
 	sketch.polyline(&thread, colour(light, 0.85 * (1.0 - 0.6 * fraying)), 2.0);
 	for (index, place) in places.iter().enumerate() {
 		let Some(at) = *place else {
 			continue;
 		};
 		match index.cmp(&caught) {
-			std::cmp::Ordering::Less => sketch.dot(at, 5.0, colour(light, 0.95)),
+			std::cmp::Ordering::Less => {
+				sketch.dot(at, 6.5, colour(SHADOW, 0.55));
+				sketch.dot(at, 5.0, colour(light, 0.95));
+			}
 			std::cmp::Ordering::Equal => {
 				let glow = breath(trace.seconds());
 				sketch.dot(at, 22.0, colour(light, 0.12 * glow));
+				sketch.ring(at, 15.0, colour(SHADOW, 0.6), 4.0);
 				sketch.ring(at, 14.0, colour(light, glow), 2.0);
+				sketch.dot(at, 5.0, colour(SHADOW, 0.75));
 				sketch.dot(at, 4.0, colour(BONE, glow));
 			}
-			std::cmp::Ordering::Greater => sketch.ring(at, 8.0, colour(light, 0.35), 1.0),
+			std::cmp::Ordering::Greater => {
+				sketch.ring(at, 9.0, colour(SHADOW, 0.45), 3.0);
+				sketch.ring(at, 8.0, colour(light, 0.35), 1.0);
+			}
 		}
 	}
-	// The ring at the middle of the screen: what rests on a light.
+	// The ring at the middle of the screen: what rests on a light. It has a
+	// dark edge under it so it reads over a bright room, and its fill is an
+	// arc rather than a colour alone.
 	let centre = lens.centre();
+	sketch.ring(centre, 26.0, colour(SHADOW, 0.55), 3.4);
 	sketch.ring(centre, 26.0, colour(BONE, 0.35), 1.0);
+	sketch.arc(
+		centre,
+		27.0,
+		-FRAC_PI_2,
+		TAU * trace.fill(),
+		colour(SHADOW, 0.6),
+		4.2,
+	);
 	sketch.arc(
 		centre,
 		26.0,
@@ -385,6 +511,7 @@ pub fn sigil(sketch: &mut Sketch, lens: &Lens, trace: &SigilTrace, light: Rgb) {
 		colour(light, 1.0),
 		2.6,
 	);
+	sketch.dot(centre, 2.6, colour(SHADOW, 0.7));
 	sketch.dot(centre, 1.8, colour(BONE, 0.9));
 	if caught < count && places[caught].is_none_or(|(x, y)| off_screen(lens, x, y)) {
 		edge_pointer(
@@ -401,10 +528,12 @@ fn off_screen(lens: &Lens, x: f64, y: f64) -> bool {
 	x < 0.0 || y < 0.0 || x > lens.width || y > lens.height
 }
 
-/// An arrow at the edge of the screen toward `target`, out of view.
+/// An arrow at the edge of the screen toward `target`, out of view. Its
+/// angle comes from the camera's own axes (see [`bearing`]), so it follows
+/// the picture when the phone is rolled, and a light behind the player
+/// always names a side.
 fn edge_pointer(sketch: &mut Sketch, lens: &Lens, target: Vec3, light: Rgb, pulse: f64) {
-	let aim = lens.pose.forward;
-	let angle = (-(target.pitch() - aim.pitch())).atan2(wrap_angle(target.yaw() - aim.yaw()));
+	let angle = bearing(lens, target);
 	let (cx, cy) = lens.centre();
 	let (rx, ry) = (lens.width * 0.42, lens.height * 0.38);
 	let tip = (cx + rx * angle.cos(), cy + ry * angle.sin());
@@ -412,11 +541,10 @@ fn edge_pointer(sketch: &mut Sketch, lens: &Lens, target: Vec3, light: Rgb, puls
 		let spread = angle + PI + side * 0.45;
 		(tip.0 + 18.0 * spread.cos(), tip.1 + 18.0 * spread.sin())
 	};
-	sketch.polyline(
-		&[Some(back(1.0)), Some(tip), Some(back(-1.0))],
-		colour(light, pulse),
-		3.0,
-	);
+	let points = [Some(back(1.0)), Some(tip), Some(back(-1.0))];
+
+	sketch.polyline(&points, colour(SHADOW, 0.8 * pulse), 6.0);
+	sketch.polyline(&points, colour(light, pulse), 3.0);
 }
 
 /// The radius of a seal on screen: at least 44 units across, however far
@@ -787,6 +915,8 @@ mod tests {
 	use reapers_rules::Gait;
 	use reapers_rules::Rarity;
 	use reapers_rules::Sigil;
+	use reapers_rules::SigilLight;
+	use reapers_rules::radians;
 
 	use super::*;
 
@@ -798,6 +928,28 @@ mod tests {
 			fov: super::super::arena::HUNT_FOV,
 			eye: Vec3::ZERO,
 		}
+	}
+
+	/// A lens looking where `pose` says, at the hunt's default lens.
+	fn looking(pose: ArPose) -> Lens {
+		Lens { pose, ..lens() }
+	}
+
+	/// A trace whose only light hangs along `direction`.
+	fn trace_at(direction: Vec3) -> SigilTrace {
+		let centre = direction.yaw();
+		SigilTrace::new(
+			Sigil {
+				lights: vec![SigilLight {
+					yaw: 0.0,
+					pitch: direction.pitch(),
+				}],
+				radius: radians(6.0),
+				hold_seconds: 0.6,
+				fray_seconds: None,
+			},
+			centre,
+		)
 	}
 
 	#[test]
@@ -859,5 +1011,88 @@ mod tests {
 		};
 		assert_eq!(draw(), draw());
 		assert_ne!(draw().len(), 0);
+	}
+
+	#[test]
+	fn the_edge_arrow_is_read_through_the_camera_not_the_world() {
+		let lens = lens();
+		let right = bearing(&lens, Vec3::from_angles(0.5, 0.0));
+		assert!(
+			right.abs() < 1e-9,
+			"a light to the right is at the right edge"
+		);
+		assert!(bearing(&lens, Vec3::from_angles(-0.5, 0.0)) < -3.0);
+		let up = bearing(&lens, Vec3::from_angles(0.0, 0.6));
+		assert!((up + FRAC_PI_2).abs() < 1e-9, "{up}");
+		let down = bearing(&lens, Vec3::from_angles(0.0, -0.6));
+		assert!((down - FRAC_PI_2).abs() < 1e-9, "{down}");
+
+		// The phone rolled a quarter turn: the world's up is now the
+		// screen's sideways, so a light along the view's own up is up.
+		let rolled = looking(ArPose {
+			forward: Vec3::FORWARD,
+			up: Vec3::new(1.0, 0.0, 0.0),
+			right: Vec3::new(0.0, -1.0, 0.0),
+			turn_speed: 0.0,
+		});
+		let along_up = rolled.pose.forward * 0.4 + rolled.pose.up * 0.9;
+		let angle = bearing(&rolled, along_up);
+		assert!((angle + FRAC_PI_2).abs() < 1e-9, "{angle}");
+		assert_eq!(NextLight::of(&rolled, &trace_at(along_up)), NextLight::Up);
+	}
+
+	#[test]
+	fn a_light_out_of_view_names_a_side_and_behind_settles_on_one() {
+		let lens = lens();
+		let next = |direction| NextLight::of(&lens, &trace_at(direction));
+
+		assert_eq!(next(Vec3::from_angles(0.5, 0.0)), NextLight::Right);
+		assert_eq!(next(Vec3::from_angles(-0.5, 0.0)), NextLight::Left);
+		assert_eq!(next(Vec3::from_angles(0.0, 0.6)), NextLight::Up);
+		assert_eq!(next(Vec3::from_angles(0.0, -0.6)), NextLight::Down);
+
+		// Behind: the side is the shorter turn. Exactly behind is settled
+		// on the right, and so is the whole cone either side of ±180°, so
+		// the arrow does not flicker when the phone shakes at the seam.
+		assert_eq!(next(Vec3::from_angles(2.5, 0.0)), NextLight::Right);
+		assert_eq!(next(Vec3::from_angles(-2.5, 0.0)), NextLight::Left);
+		assert_eq!(next(Vec3::from_angles(PI, 0.0)), NextLight::Right);
+		assert_eq!(next(Vec3::from_angles(-PI, 0.0)), NextLight::Right);
+		assert_eq!(next(Vec3::from_angles(PI - 0.02, 0.0)), NextLight::Right);
+		assert_eq!(next(Vec3::from_angles(-PI + 0.02, 0.0)), NextLight::Right);
+	}
+
+	#[test]
+	fn the_light_the_ring_rests_on_is_held_and_fills() {
+		let trace = SigilTrace::new(
+			Sigil::draw(
+				5,
+				&Rarity::Common.sigil(),
+				Gait::Ground,
+				Difficulty::default(),
+			),
+			0.4,
+		);
+		let target = trace.direction_of(0);
+		let at = looking(ArPose::looking(target, 0.0));
+		let (x, y) = at.place(target).unwrap();
+		assert!((x - at.width / 2.0).abs() < 1e-9);
+		assert!((y - at.height / 2.0).abs() < 1e-9);
+		assert_eq!(NextLight::of(&at, &trace), NextLight::Hold);
+
+		// Turning too fast at the same light does not fill it, and the guide
+		// says so rather than saying to hold.
+		let hurried = looking(ArPose::looking(target, HuntRules::SIGIL_STEADY_SPEED * 2.0));
+		assert_eq!(NextLight::of(&hurried, &trace), NextLight::Slow);
+	}
+
+	#[test]
+	fn the_projection_edge_and_the_arrow_agree() {
+		let lens = lens();
+		let half_width = (lens.fov / 2.0).tan() * lens.aspect();
+		let yaw = half_width.atan();
+		let (x, _) = lens.place(Vec3::from_angles(yaw, 0.0)).unwrap();
+		assert!((x - lens.width).abs() < 1e-6, "{x}");
+		assert!(bearing(&lens, Vec3::from_angles(yaw, 0.0)).abs() < 1e-9);
 	}
 }

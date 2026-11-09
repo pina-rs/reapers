@@ -11,7 +11,9 @@
 //!   does. The browser's `immersive-ar` would take the page away from the
 //!   game's own canvas, so it is not asked for.
 //! - **Anything else**: nothing, and [`super::pose::LivePose`] follows a
-//!   finger.
+//!   finger. The hunt is told when there is no platform at all, or when a
+//!   frame's pose cannot be trusted, so it never assumes a source it does
+//!   not have.
 //!
 //! It all runs on one task per hunt, which stops when the hunt lets go.
 
@@ -62,9 +64,12 @@ pub struct Shared {
 /// start motion and AR from a gesture.
 pub fn follow(shared: &Shared) {
 	#[cfg(all(target_arch = "wasm32", any(feature = "web", feature = "native")))]
-	crate::platform::spawn(platform::run(shared.clone()));
+	{
+		shared.live.borrow_mut().expect_platform();
+		crate::platform::spawn(platform::run(shared.clone()));
+	}
 	#[cfg(not(all(target_arch = "wasm32", any(feature = "web", feature = "native"))))]
-	let _ = shared;
+	shared.live.borrow_mut().no_sensor();
 }
 
 #[cfg(all(target_arch = "wasm32", any(feature = "web", feature = "native")))]
@@ -81,6 +86,7 @@ mod platform {
 	use leptoskit_xr::Projection;
 	use leptoskit_xr::Ray;
 	use leptoskit_xr::SessionConfig;
+	use leptoskit_xr::TrackingState;
 	use leptoskit_xr::Xr;
 	use reapers_rules::Vec3;
 	use reapers_world::DepthFrame;
@@ -196,9 +202,11 @@ mod platform {
 
 	pub async fn run(shared: Shared) {
 		let Ok(xr) = Xr::new() else {
+			shared.live.borrow_mut().no_sensor();
 			return;
 		};
 		let Some((mut session, tracking)) = start(xr).await else {
+			shared.live.borrow_mut().no_sensor();
 			return;
 		};
 		// A headset draws the hunt's scene itself; a phone's session shows
@@ -219,7 +227,14 @@ mod platform {
 			}
 			{
 				let mut live = shared.live.borrow_mut();
-				live.track(quaternion(&frame), frame.time, tracking);
+				if frame.tracking == TrackingState::NotAvailable {
+					// The platform says this pose is stale or absent: hold the
+					// view where it was rather than follow a pose it cannot
+					// vouch for.
+					live.untracked();
+				} else {
+					live.track(quaternion(&frame), frame.time, tracking);
+				}
 				live.fov = fov(&frame);
 				live.depth = frame.depth;
 				let at = frame.viewer.position;
@@ -244,7 +259,10 @@ mod platform {
 					.iter()
 					.any(|(_, since, _)| frame.time - since > HOLD_SECONDS);
 			}
-			if frame.depth && frame.time - last_look > LOOK_EVERY {
+			if frame.tracking != TrackingState::NotAvailable
+				&& frame.depth
+				&& frame.time - last_look > LOOK_EVERY
+			{
 				last_look = frame.time;
 				look(&shared, &session, &frame).await;
 			}

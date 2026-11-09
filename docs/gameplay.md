@@ -35,13 +35,14 @@ A hunt opens with "Something is nearby". The husk has not shown itself yet: you 
 
 A sigil is a handful of lights hung in the air around you, in the husk's own colour. Turn until the ring in the middle of the screen rests on the first light and hold the phone still: the ring fills, the light catches with a knock, and a thread runs from it to the ring. Find the next, and the next. When the last light catches, the husk gathers itself into view, with "It is here".
 
-- The lights catch only in order. The next one breathes and is numbered, and the ones to come are drawn faintly with the path between them, so the whole shape is there to be seen in the room.
-- A small drawing of the whole sigil sits under the words, with a cross for where you are pointing. Only one or two lights are in view at a time, so this is how to see what you are tracing.
-- When the next light is out of view, an arrow at the edge of the screen points to it.
-- A light only fills while you turn slower than 0.7 rad/s. Faster, and it holds where it is ("Hold still"). Look away and it drains twice as fast as it filled.
+- The sigil hangs only once the phone has said where it is pointing, and its first light is put where you face: the whole shape is still around you, but finding the first one is not a turn to somewhere you were never looking. While the phone is finding its bearing the screen says so; if it has none, the hunt says to drag instead.
+- The lights catch only in order. The next one breathes and is bright against the room, and the ones to come are drawn faintly, so the whole shape is there to be seen.
+- When the next light is out of view, an arrow at the edge of the screen points to it, and a line under the count says which way to turn. The arrow is read through the camera's own right and up, so it stays right when the phone is rolled, and a light behind you names a side rather than flickering across the back.
+- A light only fills while you turn slower than 0.7 rad/s. Faster, and it holds where it is, and the line says to slow down. Rest on it and it says to hold still. Look away and it drains twice as fast as it filled.
+- The ring at the middle is drawn on ink and edged in shadow, as is every light, so the next one can be found over a bright room as well as a dark one. The count above it says how many have caught, in words as well as in marks.
 - The music draws nearer with every light that catches.
 
-The sigil is drawn from the hunt's seed, so the same husk always has the same one. It hangs around wherever you face when you raise the blade.
+The sigil is drawn from the hunt's seed, so the same husk always has the same one. It hangs around wherever you face when you raise the blade, turned so its first light is where you are looking.
 
 **A rarer husk has a harder sigil.** The lights stand in a row of evenly spaced columns, one to a column, each at one of three heights and never at the height of the one beside it. A common sigil runs straight along the row. Harder ones double back and cross themselves, but a trace never passes over a light it does not stop at, so the order can always be read from the shape.
 

@@ -31,6 +31,7 @@ What runs where:
 **Not yet on a device.** Nothing above has run on a phone or a headset: there was none to hand when it was written, so it is tested on recordings, on this Mac's GPU and on photographs only. The first device runs should check:
 
 - **The camera's picture:** that it sits upright and fills the view on a rotated phone, that the husk stands where the room says, and that the HUD still shows over it on Android.
+- **The sigil's first breath:** that the screen says it is finding its bearing until the first pose arrives, then hangs the first light where the phone points, and that a gap in tracking frames freezes the light instead of swinging it. The player-facing wording for turning, holding still and dragging is in `hunt/view.rs` and `locales/en.arb`.
 - **The Seeker:** Camera2's picture and its orientation, and how long the model takes a picture there. The Flutter game took half a second on two cores through ONNX Runtime; `leptoskit_depth` runs it through `tract`, which was within 1.35× of ONNX Runtime on a Mac. Watch that the game still draws smoothly while it runs.
 - **Meta Quest:** the switch from the panel into the immersive session and back. The 2D marks of the fight (the sigil, the HUD) are drawn by the panel and are not seen in the headset.
 
