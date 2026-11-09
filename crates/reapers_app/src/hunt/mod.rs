@@ -6,9 +6,11 @@
 //! touches, and what is drawn over them.
 
 pub mod arena;
+pub mod arms;
 pub mod controller;
 pub mod controls;
 pub mod hud;
+pub mod lessons;
 pub mod overlay;
 pub mod pose;
 pub mod view;

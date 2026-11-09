@@ -15,12 +15,10 @@ use std::fmt::Write as _;
 use std::sync::LazyLock;
 
 use leptoskit::prelude::*;
-use reapers_rules::CaptureRules;
 use reapers_rules::HuntPhase;
 use reapers_rules::HuntRules;
 use reapers_rules::HuntSim;
 use reapers_rules::HuskRing;
-use reapers_rules::OrbStage;
 use reapers_rules::SeededRandom;
 use reapers_rules::SigilTrace;
 use reapers_rules::Vec3;
@@ -68,7 +66,7 @@ pub struct Sketch {
 	paths: Vec<VectorPath>,
 }
 
-fn colour(rgb: Rgb, alpha: f64) -> Color {
+pub(crate) fn colour(rgb: Rgb, alpha: f64) -> Color {
 	Color::rgba(
 		rgb.0,
 		rgb.1,
@@ -109,11 +107,11 @@ impl Sketch {
 		)
 	}
 
-	fn dot(&mut self, at: (f64, f64), radius: f64, paint: Color) {
+	pub(crate) fn dot(&mut self, at: (f64, f64), radius: f64, paint: Color) {
 		self.add(&Self::circle_data(at.0, at.1, radius), Some(paint), None);
 	}
 
-	fn ring(&mut self, at: (f64, f64), radius: f64, paint: Color, width: f64) {
+	pub(crate) fn ring(&mut self, at: (f64, f64), radius: f64, paint: Color, width: f64) {
 		self.add(
 			&Self::circle_data(at.0, at.1, radius),
 			None,
@@ -123,7 +121,7 @@ impl Sketch {
 
 	/// An arc of `sweep` radians from `start`, clockwise on the screen, with
 	/// 0 at three o'clock.
-	fn arc(
+	pub(crate) fn arc(
 		&mut self,
 		at: (f64, f64),
 		radius: f64,
@@ -159,7 +157,7 @@ impl Sketch {
 		);
 	}
 
-	fn line(&mut self, from: (f64, f64), to: (f64, f64), paint: Color, width: f64) {
+	pub(crate) fn line(&mut self, from: (f64, f64), to: (f64, f64), paint: Color, width: f64) {
 		self.add(
 			&format!(
 				"M{} {} L{} {}",
@@ -393,8 +391,8 @@ fn edge_pointer(sketch: &mut Sketch, lens: &Lens, target: Vec3, light: Rgb, puls
 const SEAL_RADIUS: f64 = 26.0;
 
 /// Everything over a fight: the ring under the husk, the crosshair, the
-/// seals, the shriek's edge, the orb's ring and the orb itself, the bruise
-/// of a blow. `show_order` numbers open seals in the order they opened (the
+/// seals, the shriek's edge, the orb's ring and the bruise of a blow. The
+/// orb itself is in the world, with the reaper's arms. `show_order` numbers open seals in the order they opened (the
 /// Weigher's perk).
 pub fn fight(
 	sketch: &mut Sketch,
@@ -471,7 +469,6 @@ pub fn fight(
 		HuntPhase::Capture => husk_ring(sketch, lens, sim, seconds),
 		HuntPhase::Absorbed | HuntPhase::Escaped => {}
 	}
-	orb(sketch, lens, sim);
 	if matches!(sim.phase(), HuntPhase::Windup | HuntPhase::Shriek) {
 		// The world goes dark around the husk: a frame that closes in from
 		// the edges. It swells and holds; it never flashes, and it is never
@@ -628,39 +625,87 @@ fn husk_ring(sketch: &mut Sketch, lens: &Lens, sim: &HuntSim, seconds: f64) {
 	);
 }
 
-/// The crosshair at the middle of the screen, where every weapon and every
-/// orb goes. It brightens when a press now would reach the husk, and takes
-/// the husk's light on an open seal.
-fn crosshair(sketch: &mut Sketch, lens: &Lens, sim: &HuntSim, light: Rgb) {
-	let aim = lens.pose.forward;
-	let on_seal = sim.on_open_seal(aim);
-	let reach = sim.in_reach(aim);
-	let paint = colour(
-		if on_seal {
-			light
-		} else if reach {
-			BONE
-		} else {
-			crate::theme::ASH
-		},
-		if reach || on_seal { 1.0 } else { 0.7 },
-	);
-	let width = if on_seal { 2.2 } else { 1.6 };
-	let (cx, cy) = lens.centre();
-	let gap = 6.0;
-	let arm = 9.0;
+/// What a press now would do, as the crosshair shows it. Each state has a
+/// shape of its own, not only a colour, and the controls name the two that
+/// need words.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Sight {
+	/// Not on the husk: a press does nothing to it.
+	Off,
+	/// On the husk, but too far for the blade or the class weapon.
+	TooFar,
+	/// A press now would strike the husk.
+	On,
+	/// A press now would strike an open seal, for twice the harm.
+	Seal,
+}
 
+impl Sight {
+	/// What the crosshair shows for `sim` along `aim`.
+	pub fn of(sim: &HuntSim, aim: Vec3) -> Self {
+		if sim.on_open_seal(aim) {
+			return Self::Seal;
+		}
+		if sim.in_reach(aim) {
+			return Self::On;
+		}
+		let stats = sim.stats();
+		let reach = match reapers_rules::Arsenal::archetype_of(sim.selected_slot()) {
+			Some(reapers_rules::Archetype::Blade) => stats.blade_reach_radians,
+			Some(reapers_rules::Archetype::Heavy) => stats.heavy_reach_radians,
+			_ => return Self::Off,
+		};
+		if sim.pose().covers(aim, reach) {
+			Self::TooFar
+		} else {
+			Self::Off
+		}
+	}
+}
+
+/// The crosshair at the middle of the screen, where every weapon and every
+/// orb goes: four open arms when a press would miss, arms closed in when it
+/// would strike, a ring round them on an open seal, and a cross when the
+/// husk is too far for the weapon in hand.
+fn crosshair(sketch: &mut Sketch, lens: &Lens, sim: &HuntSim, light: Rgb) {
+	let sight = Sight::of(sim, lens.pose.forward);
+	let (cx, cy) = lens.centre();
+	let (tint, alpha, width, gap) = match sight {
+		Sight::Off => (BONE, 0.75, 1.6, 7.0),
+		Sight::TooFar => (crate::theme::ASH, 0.9, 1.8, 7.0),
+		Sight::On => (BONE, 1.0, 2.0, 4.0),
+		Sight::Seal => (light, 1.0, 2.4, 4.0),
+	};
+	let paint = colour(tint, alpha);
+	// A dark edge under every stroke, so the crosshair reads over a bright
+	// room as well as a dark one.
+	let shadow = colour(Rgb(0x02, 0x02, 0x03), 0.55);
+	let arm = 9.0;
+	let stroke = |sketch: &mut Sketch, from: (f64, f64), to: (f64, f64)| {
+		sketch.line(from, to, shadow, width + 2.0);
+		sketch.line(from, to, paint, width);
+	};
+	if sight == Sight::TooFar {
+		for side in 0..4 {
+			let angle = FRAC_PI_2 / 2.0 + f64::from(side) * FRAC_PI_2;
+			let (dx, dy) = (angle.cos(), angle.sin());
+			stroke(sketch, (cx, cy), (cx + dx * arm, cy + dy * arm));
+		}
+		return;
+	}
 	for side in 0..4 {
 		let angle = f64::from(side) * FRAC_PI_2;
 		let (dx, dy) = (angle.cos(), angle.sin());
-		sketch.line(
+		stroke(
+			sketch,
 			(cx + dx * gap, cy + dy * gap),
 			(cx + dx * (gap + arm), cy + dy * (gap + arm)),
-			paint,
-			width,
 		);
 	}
-	sketch.dot((cx, cy), 1.4, paint);
+	sketch.dot((cx, cy), 1.6, paint);
+	if sight == Sight::Seal {
+		sketch.ring((cx, cy), gap + arm + 5.0, colour(light, 0.9), 1.6);
+	}
 }
 
 /// While ORB is held: a ring that shrinks from the edge of the screen onto
@@ -694,113 +739,6 @@ fn orb_ring(sketch: &mut Sketch, lens: &Lens, sim: &HuntSim) {
 		colour(orb_grade_colour(grade), 1.0),
 		2.0 + 2.0 * grade.index() as f64,
 	);
-}
-
-/// The orb: in the air, drawing the husk in as light, falling, pulsing while
-/// the husk fights it, and bursting when it breaks.
-fn orb(sketch: &mut Sketch, lens: &Lens, sim: &HuntSim) {
-	let Some(orb) = sim.orb() else {
-		return;
-	};
-	let floor = sim.pose().ground.unwrap_or(-sim.plan().eye_height());
-	let landing = Vec3::new(orb.target.x, floor + 0.08, orb.target.z);
-	let hand = (lens.width / 2.0, lens.height + 30.0);
-	let paint = orb_grade_colour(orb.grade);
-	let at = match orb.stage {
-		OrbStage::Flight => {
-			let Some(to) = lens.place(orb.target) else {
-				return;
-			};
-			let along = (orb.ticks as f64 / CaptureRules::IMPACT_TICK as f64).clamp(0.0, 1.0);
-			let along = 1.0 - (1.0 - along).powi(2);
-
-			Some((
-				hand.0 + (to.0 - hand.0) * along,
-				hand.1 + (to.1 - hand.1) * along - (along * PI).sin() * lens.height * 0.12,
-			))
-		}
-		OrbStage::Drawing => lens.place(orb.target),
-		OrbStage::Falling => {
-			let along = ((orb.ticks - CaptureRules::DRAWN_TICK) as f64
-				/ (CaptureRules::LANDED_TICK - CaptureRules::DRAWN_TICK) as f64)
-				.clamp(0.0, 1.0);
-
-			lens.place(Vec3::new(
-				orb.target.x,
-				orb.target.y + (landing.y - orb.target.y) * along,
-				orb.target.z,
-			))
-		}
-		OrbStage::Pulsing | OrbStage::Breath | OrbStage::Captured => lens.place(landing),
-		OrbStage::BrokeFree => {
-			let broke =
-				CaptureRules::PULSE_TICKS[orb.broke_free_on.unwrap_or(1).clamp(1, 3) as usize - 1];
-			let since = orb.ticks - broke;
-
-			if since > 24 {
-				return;
-			}
-			if let Some(burst) = lens.place(landing) {
-				let fade = 1.0 - since as f64 / 24.0;
-				let from = 10.0 + 60.0 * (1.0 - (1.0 - (since as f64 / 24.0)).powi(2));
-				for shard in 0..9 {
-					let angle = f64::from(shard) * TAU / 9.0 + 0.3;
-					let (dx, dy) = (angle.cos(), angle.sin());
-					sketch.line(
-						(burst.0 + dx * from, burst.1 + dy * from),
-						(burst.0 + dx * (from + 10.0), burst.1 + dy * (from + 10.0)),
-						colour(paint, fade),
-						2.4 * fade,
-					);
-				}
-			}
-			return;
-		}
-		OrbStage::Missed => {
-			let since = orb.ticks - CaptureRules::IMPACT_TICK;
-
-			if since > 30 {
-				return;
-			}
-
-			lens.place(orb.target)
-		}
-	};
-
-	let Some(at) = at else {
-		return;
-	};
-	let (radius, glow) = match orb.stage {
-		OrbStage::Flight => {
-			(
-				11.0 - 4.0 * (orb.ticks as f64 / CaptureRules::IMPACT_TICK as f64).clamp(0.0, 1.0),
-				0.6,
-			)
-		}
-		OrbStage::Pulsing | OrbStage::Breath => {
-			let since = since_last_pulse(orb.ticks);
-			let fresh = f64::max(0.0, 1.0 - since as f64 / 24.0);
-			(10.0 + 4.0 * fresh, 0.45 + 0.55 * fresh)
-		}
-		_ => (10.0, 0.7),
-	};
-
-	sketch.ring(at, radius * 2.6, colour(paint, 0.18 * glow), 1.0);
-	sketch.dot(at, radius, colour(paint, glow));
-	sketch.ring(at, radius, colour(BONE, 0.8), 1.4);
-}
-
-/// Ticks since the orb last pulsed, or a long time before the first.
-fn since_last_pulse(ticks: i64) -> i64 {
-	let mut since = 999;
-
-	for pulse in CaptureRules::PULSE_TICKS {
-		if ticks >= pulse {
-			since = ticks - pulse;
-		}
-	}
-
-	since
 }
 
 #[cfg(test)]

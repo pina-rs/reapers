@@ -507,12 +507,30 @@ mod tests {
 		// A phone held upright, about 390 by 844 points.
 		let aspect = 390.0 / 844.0;
 		let landing = crate::render::arms::CONTACT;
-		let pose = posed(Archetype::Heavy, ViewAction::Swing, landing);
-		let head = place(Archetype::Heavy, &pose).head;
-		let across = head[0] / (-head[2] * (VIEWMODEL_FOV / 2.0).tan() * aspect);
-		assert!(across.abs() < 0.6, "the head is {across} across");
-		assert!(height(head).abs() < 0.6, "the head is {} up", height(head));
-		assert!(pose.trail > 0.9, "the trail is {} bright", pose.trail);
+		// A swing lands at its contact; one struck at once lands on the press.
+		for (action, since) in [
+			(ViewAction::Swing { dived: false }, landing),
+			(ViewAction::Swing { dived: true }, landing),
+			(ViewAction::Strike, 0.0),
+		] {
+			let pose = posed(Archetype::Heavy, action, since);
+			let head = place(Archetype::Heavy, &pose).head;
+			let across = head[0] / (-head[2] * (VIEWMODEL_FOV / 2.0).tan() * aspect);
+			assert!(
+				across.abs() < 0.6,
+				"{action:?}: the head is {across} across"
+			);
+			assert!(
+				height(head).abs() < 0.6,
+				"{action:?}: the head is {} up",
+				height(head)
+			);
+			assert!(
+				pose.trail > 0.9,
+				"{action:?}: the trail is {} bright",
+				pose.trail
+			);
+		}
 	}
 
 	#[test]

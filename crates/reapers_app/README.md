@@ -81,7 +81,7 @@ REAPERS_SERVER_URL=http://127.0.0.1:8080/ REAPERS_CLUSTER=localnet leptoskit dev
 | `src/ui/`, `src/theme.rs` | The funeral-ledger kit: hand-drawn boxes, rows, meters, pips, sheets and dialogs. |
 | `src/seams/` | Where the 3D and camera views plug in. |
 | `src/render/` | 3D on `leptoskit_3d`: the reaper rig, its look and appearance, cloth and playback, the stage, the husk rig and how it reacts, and the scenes, ticker and pointer they share. |
-| `src/hunt/` | The hunt: the arena, the controller that keeps the log, the thumb controls (FIRE, ORB and the weapon rail), the pose (`leptoskit_xr`, or a finger), the HUD and what is drawn over the scene. |
+| `src/hunt/` | The hunt: the arena, the controller that keeps the log, the reaper's arms as the rules' events move them (`arms.rs`), the thumb controls (FIRE ringed by its rounds and reload band, ORB ringed by its soul, and the weapon rail), the lessons a first practice teaches through the caption (`lessons.rs`), the pose (`leptoskit_xr`, or a finger), the HUD and what is drawn over the scene. |
 | `src/rift/` | A seat in a rift, in the hunt's arena. |
 | `src/studio/` | The reaper studio and the gallery. |
 | `src/dev/` | The depth bench and the drawn room. |
@@ -97,7 +97,8 @@ Each seam is a function of one props struct. The screens around them only ever c
 | `reaper_stage` | `ReaperStageProps { genome, weapon, outfit, turns_on_its_own, focus_face }` | The class's model on a `Scene3d`, on transparent ground, seen from chest height and lit as the sanctum was. Each line that shows a stage keeps its own scene and sends only what changed. Its silhouette stands in while the model loads, and for good where 3D cannot draw. |
 | `husk_portrait` | `HuskPortraitProps { nft, size, spent }` | The bundled WebP plate, `asset://nfts/<image key>.webp`, on every platform. |
 | `hunt_view` | `HuntViewProps { brief, difficulty, autoplay, on_finished, on_difficulty }` | The whole hunt: the threshold, the sigil traced while the room is read, and the fight on `HuntSim::new(brief…, plan, difficulty)`. It calls `on_finished(log, outcome)` once, after the husk has come apart, with the log it recorded. |
-| `rift_view` | `RiftViewProps { site, frame, report, on_leave, autoplay }` | The circle gathering over the husk at rest, then this reaper's `RiftSeat` fought in the hunt's arena against the frames, reporting whole standings. |
+| `rift_view` | `RiftViewProps { site, frame, report, on_leave, autoplay }` | The circle gathering over the husk at rest, then this reaper's `RiftSeat` fought in the hunt's arena against the frames, reporting whole standings. A rift is fought with the pistol and the art alone. |
+| `viewmodel_view` | `ViewmodelProps { archetype, heavy, action, action_tick, now, rate, turn_rate, juice, orb, world, hit }` | The reaper's own arms, weapon, blows and capture orb, over the fight. `hunt::arms::Arms` drives it from the rules' events and state every frame (its docs map each event to the action it starts); the arms bench drives it by hand. Hit-stop holds the arms only; the shake and the dive's narrower lens move only a world the arena draws itself, never a camera's picture, and never under reduced motion. |
 | `studio_view` | `StudioViewProps { genome }` | The studio; opens no save, server, wallet or camera. |
 
 ### The 3D

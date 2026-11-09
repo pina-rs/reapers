@@ -51,6 +51,7 @@ use crate::render::pointer::Gesture;
 use crate::render::pointer::on_gesture;
 use crate::render::scene::RIFT;
 use crate::seams::RiftViewProps;
+use crate::seams::viewmodel_view;
 use crate::theme::ASH;
 use crate::theme::BONE;
 use crate::theme::Rgb;
@@ -158,13 +159,14 @@ impl RiftState {
 		let first = relics[0];
 		let accent = reapers_rules::NftLook::of(&first).accent;
 		// As the hunt's: the camera's picture behind it in the native apps.
-		let arena = Arena::new(
+		let mut arena = Arena::new(
 			RIFT,
 			props.site.vessel(),
 			&first,
 			size.0 / size.1,
 			cfg!(feature = "native"),
 		);
+		arena.height = size.1;
 		let shared = Shared {
 			scene: Some(arena.scene.id().0),
 			..Shared::default()
@@ -237,7 +239,8 @@ impl RiftState {
 				} else {
 					HuntController::new(Fight::Rift(seat))
 				};
-				self.arena.engage(controller, None);
+				self.arena
+					.engage(controller, None, self.loadout.weapon.kind);
 			}
 		} else if !engaged && !self.rested {
 			// Nothing is being fought yet, but the husk already stands where
@@ -288,7 +291,7 @@ impl RiftState {
 				controller.hold_orb(holding);
 			}
 			let events = self.arena.advance(delta, live_pose);
-			for event in &events {
+			for (_, event) in &events {
 				knock_for(event);
 				if let Some(banner) = banner_for(words(), event) {
 					self.banner = Some((banner, self.seconds));
@@ -358,7 +361,7 @@ impl RiftState {
 			width: self.size.0,
 			height: self.size.1,
 			pose: self.arena.pose(live.pose()),
-			fov: self.arena.fov,
+			fov: self.arena.view_fov(),
 		}
 	}
 
@@ -436,6 +439,29 @@ fn rift_for(props: &RiftViewProps) -> Rc<RefCell<RiftState>> {
 
 /// The rift: the circle gathering over the husk at rest, the fight in the
 /// same arena as a hunt with the circle under the ward, and how it ended.
+/// The thumbs' controls for the circle's fight: the pistol and the art
+/// alone, and nothing to teach.
+fn thumbs(
+	words: &dyn crate::l10n::Messages,
+	state: &RiftState,
+	controller: &HuntController,
+	live: &crate::hunt::pose::LivePose,
+) -> Element {
+	let thumbs = super::super::hunt::controls::Thumbs {
+		sim: controller.sim(),
+		slot: controller.slot(),
+		carried: std::array::from_fn(|slot| controller.carries(slot)),
+		weapon: state.loadout.weapon.kind,
+		light: state.light,
+		aim: state.arena.pose(live.pose()).forward,
+		lesson: None,
+		touchable: !controller.plays_itself(),
+		on_fire: fire,
+		on_slot: select_slot,
+	};
+	super::super::hunt::controls::controls(words, &thumbs)
+}
+
 pub fn rift_view(props: &RiftViewProps) -> Element {
 	let rift = rift_for(props);
 	mount(&rift);
@@ -483,6 +509,9 @@ pub fn rift_view(props: &RiftViewProps) -> Element {
 		.is_some_and(|frame| frame.phase.is_over());
 	match (&state.arena.controller, &props.frame) {
 		(Some(controller), Some(frame)) if !over => {
+			if let Some(arms) = state.arena.viewmodel() {
+				root = root.child(viewmodel_view(&arms));
+			}
 			let mut marks = Sketch::default();
 			fight(
 				&mut marks,
@@ -513,16 +542,7 @@ pub fn rift_view(props: &RiftViewProps) -> Element {
 				state.banner.as_ref().map(|(banner, _)| banner.clone()),
 				afterword,
 			);
-			let controls = super::super::hunt::controls::controls(
-				&*words,
-				controller.sim(),
-				controller.slot(),
-				state.loadout.reaper_class.weapon(),
-				state.light,
-				!controller.plays_itself(),
-				fire,
-				select_slot,
-			);
+			let controls = thumbs(&*words, &state, controller, &live);
 			root = root.child(
 				View()
 					.class("absolute inset-0")

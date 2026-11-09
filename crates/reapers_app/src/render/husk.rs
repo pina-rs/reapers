@@ -284,6 +284,12 @@ impl HuskRig {
 		self.origin = origin;
 	}
 
+	/// Where the player stands in the scene's space: see
+	/// [`set_origin`](Self::set_origin).
+	pub const fn origin(&self) -> [f32; 3] {
+		self.origin
+	}
+
 	/// A blow lands: on seal `seal` when it struck one, or the body as a
 	/// whole. `strength` runs from 0 to 1, and a `heavy` blow stops time
 	/// for an instant.

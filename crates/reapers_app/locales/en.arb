@@ -672,6 +672,51 @@
   "huntRingCharging": "Red · swing to parry",
   "huntRingStunned": "Blue · dive in",
   "huntRingWeakened": "Gold · throw an orb",
+  "huntTeachFire": "Centre it and press FIRE",
+  "@huntTeachFire": {
+    "description": "The first practice hunt's first lesson, in the caption under the crosshair. It goes once a blow lands."
+  },
+  "huntTeachEmpty": "Empty: press FIRE to reload",
+  "@huntTeachEmpty": {
+    "description": "A lesson: the pistol is empty, and FIRE starts its reload."
+  },
+  "huntTeachBand": "Reload: press FIRE when the ring is in the bright band",
+  "@huntTeachBand": {
+    "description": "A lesson, while the pistol reloads: FIRE inside the bright band on the ring round FIRE finishes it early."
+  },
+  "huntTeachJammed": "Too soon, so it jammed. Wait for the bright band",
+  "@huntTeachJammed": {
+    "description": "A lesson: FIRE before the bright band jammed the reload."
+  },
+  "huntTeachOrb": "It's weak: hold ORB",
+  "@huntTeachOrb": {
+    "description": "A lesson: the husk is weak enough for an orb."
+  },
+  "huntTeachLetGo": "Let go of ORB as the ring closes on it",
+  "@huntTeachLetGo": {
+    "description": "A lesson, while ORB is held: letting go as the shrinking ring reaches the husk is the best throw."
+  },
+  "huntSightSeal": "Seal · twice the harm",
+  "@huntSightSeal": {
+    "description": "Beside the crosshair when a press now would strike an open seal."
+  },
+  "huntSightTooFar": "Too far",
+  "@huntSightTooFar": {
+    "description": "Beside the crosshair when the husk is in it but too far for the blade or the class weapon."
+  },
+  "huntOrbReady": "Hold to throw",
+  "@huntOrbReady": {
+    "description": "Over ORB when an orb can be thrown."
+  },
+  "huntEmpty": "Empty · press FIRE",
+  "@huntEmpty": {
+    "description": "Over FIRE when the pistol has no rounds left."
+  },
+  "huntRoundsBoosted": "{rounds} / {magazine} · boosted",
+  "@huntRoundsBoosted": {
+    "description": "Over FIRE: rounds left in a magazine an active reload made hit harder.",
+    "placeholders": { "rounds": { "type": "int" }, "magazine": { "type": "int" } }
+  },
   "huntThrowExcellent": "Excellent throw",
   "huntThrowGreat": "Great throw",
   "huntThrowPlain": "Plain throw",
@@ -1248,6 +1293,8 @@
   "armsBenchStab": "Stab",
   "armsBenchDiveOut": "Dive out",
   "armsBenchSwing": "Swing",
+  "armsBenchStrike": "Strike",
+  "@armsBenchStrike": { "description": "A heavy swing at a husk in arm's reach, which lands the moment FIRE is pressed." },
   "armsBenchParry": "Parry",
   "armsBenchStruck": "Struck",
   "@armsBenchStruck": { "description": "The reaper takes a blow." },

@@ -40,6 +40,20 @@ pub fn stage_began(orb: &OrbView) -> i64 {
 	}
 }
 
+/// How much of the husk `orb` has drawn into itself at the hunt's `tick`,
+/// from 0 to 1: it is drawn in as light between the strike and
+/// [`CaptureRules::DRAWN_TICK`], and stays in until the orb breaks.
+pub fn soul_taken(orb: &OrbView, tick: f64) -> f64 {
+	let since = tick - (orb.thrown_at + CaptureRules::IMPACT_TICK) as f64;
+	match orb.stage {
+		OrbStage::Flight | OrbStage::Missed | OrbStage::BrokeFree => 0.0,
+		OrbStage::Drawing => {
+			(since / (CaptureRules::DRAWN_TICK - CaptureRules::IMPACT_TICK) as f64).clamp(0.0, 1.0)
+		}
+		OrbStage::Falling | OrbStage::Pulsing | OrbStage::Breath | OrbStage::Captured => 1.0,
+	}
+}
+
 /// Where the orb's story happens, in the world.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct OrbPlace {

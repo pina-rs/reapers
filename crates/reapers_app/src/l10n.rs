@@ -185,6 +185,10 @@ pub trait Messages: Send + Sync {
 	fn arms_bench_sealed(&self) -> &'static str;
 	/// `Stab`
 	fn arms_bench_stab(&self) -> &'static str;
+	/// A heavy swing at a husk in arm's reach, which lands the moment FIRE is pressed.
+	///
+	/// `Strike`
+	fn arms_bench_strike(&self) -> &'static str;
 	/// The reaper takes a blow.
 	///
 	/// `Struck`
@@ -519,6 +523,10 @@ pub trait Messages: Send + Sync {
 	fn hunt_dives(&self, charges: i64) -> String;
 	/// `Drawing`
 	fn hunt_drawing(&self) -> &'static str;
+	/// Over FIRE when the pistol has no rounds left.
+	///
+	/// `Empty · press FIRE`
+	fn hunt_empty(&self) -> &'static str;
 	/// `It was left lying without an orb too often, and got up and ran. It is still out there.`
 	fn hunt_escaped_lapsed(&self) -> &'static str;
 	/// `You flinched until nothing was left to hold it with. It is still out there.`
@@ -609,6 +617,10 @@ pub trait Messages: Send + Sync {
 	fn hunt_orb_not_weakened(&self) -> &'static str;
 	/// `Pulse {pulse} of three`
 	fn hunt_orb_pulse(&self, pulse: i64) -> String;
+	/// Over ORB when an orb can be thrown.
+	///
+	/// `Hold to throw`
+	fn hunt_orb_ready(&self) -> &'static str;
 	/// `Orb, {soul} soul. Hold to ready it and let go to throw.`
 	fn hunt_orb_semantics(&self, soul: i64) -> String;
 	/// `Out of reach`
@@ -691,12 +703,24 @@ pub trait Messages: Send + Sync {
 	fn hunt_ring_weakened(&self) -> &'static str;
 	/// `{rounds} / {magazine}`
 	fn hunt_rounds(&self, rounds: i64, magazine: i64) -> String;
+	/// Over FIRE: rounds left in a magazine an active reload made hit harder.
+	///
+	/// `{rounds} / {magazine} · boosted`
+	fn hunt_rounds_boosted(&self, rounds: i64, magazine: i64) -> String;
 	/// `Stand still to hunt, and stay aware of what is around you. You only need to turn on the spot.`
 	fn hunt_safety(&self) -> &'static str;
 	/// `{seconds}s`
 	fn hunt_seconds(&self, seconds: i64) -> String;
 	/// `Shattered`
 	fn hunt_shattered(&self) -> &'static str;
+	/// Beside the crosshair when a press now would strike an open seal.
+	///
+	/// `Seal · twice the harm`
+	fn hunt_sight_seal(&self) -> &'static str;
+	/// Beside the crosshair when the husk is in it but too far for the blade or the class weapon.
+	///
+	/// `Too far`
+	fn hunt_sight_too_far(&self) -> &'static str;
 	/// `Husk sighted`
 	fn hunt_sighted_label(&self) -> &'static str;
 	/// `Bone knife`
@@ -713,6 +737,30 @@ pub trait Messages: Send + Sync {
 	fn hunt_steadfast(&self) -> &'static str;
 	/// `It struck you`
 	fn hunt_struck(&self) -> &'static str;
+	/// A lesson, while the pistol reloads: FIRE inside the bright band on the ring round FIRE finishes it early.
+	///
+	/// `Reload: press FIRE when the ring is in the bright band`
+	fn hunt_teach_band(&self) -> &'static str;
+	/// A lesson: the pistol is empty, and FIRE starts its reload.
+	///
+	/// `Empty: press FIRE to reload`
+	fn hunt_teach_empty(&self) -> &'static str;
+	/// The first practice hunt's first lesson, in the caption under the crosshair. It goes once a blow lands.
+	///
+	/// `Centre it and press FIRE`
+	fn hunt_teach_fire(&self) -> &'static str;
+	/// A lesson: FIRE before the bright band jammed the reload.
+	///
+	/// `Too soon, so it jammed. Wait for the bright band`
+	fn hunt_teach_jammed(&self) -> &'static str;
+	/// A lesson, while ORB is held: letting go as the shrinking ring reaches the husk is the best throw.
+	///
+	/// `Let go of ORB as the ring closes on it`
+	fn hunt_teach_let_go(&self) -> &'static str;
+	/// A lesson: the husk is weak enough for an orb.
+	///
+	/// `It's weak: hold ORB`
+	fn hunt_teach_orb(&self) -> &'static str;
 	/// `Excellent throw`
 	fn hunt_throw_excellent(&self) -> &'static str;
 	/// `Great throw`
@@ -2025,6 +2073,10 @@ impl Messages for En {
 		"Stab"
 	}
 
+	fn arms_bench_strike(&self) -> &'static str {
+		"Strike"
+	}
+
 	fn arms_bench_struck(&self) -> &'static str {
 		"Struck"
 	}
@@ -2698,6 +2750,10 @@ impl Messages for En {
 		"Drawing"
 	}
 
+	fn hunt_empty(&self) -> &'static str {
+		"Empty · press FIRE"
+	}
+
 	fn hunt_escaped_lapsed(&self) -> &'static str {
 		"It was left lying without an orb too often, and got up and ran. It is still out there."
 	}
@@ -2878,6 +2934,10 @@ impl Messages for En {
 		format!("Pulse {pulse} of three")
 	}
 
+	fn hunt_orb_ready(&self) -> &'static str {
+		"Hold to throw"
+	}
+
 	fn hunt_orb_semantics(&self, soul: i64) -> String {
 		format!("Orb, {soul} soul. Hold to ready it and let go to throw.")
 	}
@@ -3042,6 +3102,10 @@ impl Messages for En {
 		format!("{rounds} / {magazine}")
 	}
 
+	fn hunt_rounds_boosted(&self, rounds: i64, magazine: i64) -> String {
+		format!("{rounds} / {magazine} · boosted")
+	}
+
 	fn hunt_safety(&self) -> &'static str {
 		"Stand still to hunt, and stay aware of what is around you. You only need to turn on the spot."
 	}
@@ -3052,6 +3116,14 @@ impl Messages for En {
 
 	fn hunt_shattered(&self) -> &'static str {
 		"Shattered"
+	}
+
+	fn hunt_sight_seal(&self) -> &'static str {
+		"Seal · twice the harm"
+	}
+
+	fn hunt_sight_too_far(&self) -> &'static str {
+		"Too far"
 	}
 
 	fn hunt_sighted_label(&self) -> &'static str {
@@ -3084,6 +3156,30 @@ impl Messages for En {
 
 	fn hunt_struck(&self) -> &'static str {
 		"It struck you"
+	}
+
+	fn hunt_teach_band(&self) -> &'static str {
+		"Reload: press FIRE when the ring is in the bright band"
+	}
+
+	fn hunt_teach_empty(&self) -> &'static str {
+		"Empty: press FIRE to reload"
+	}
+
+	fn hunt_teach_fire(&self) -> &'static str {
+		"Centre it and press FIRE"
+	}
+
+	fn hunt_teach_jammed(&self) -> &'static str {
+		"Too soon, so it jammed. Wait for the bright band"
+	}
+
+	fn hunt_teach_let_go(&self) -> &'static str {
+		"Let go of ORB as the ring closes on it"
+	}
+
+	fn hunt_teach_orb(&self) -> &'static str {
+		"It's weak: hold ORB"
 	}
 
 	fn hunt_throw_excellent(&self) -> &'static str {

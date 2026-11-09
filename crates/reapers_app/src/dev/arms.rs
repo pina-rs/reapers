@@ -29,13 +29,14 @@ use reapers_rules::Vec3;
 use reapers_rules::WeaponKind;
 
 use crate::l10n::use_l10n;
-use crate::render::arms::CONTACT;
+use crate::render::arms::CONTACT_TICKS;
 use crate::render::arms::THROW_RELEASE;
 use crate::render::arms::TICKS_PER_SECOND;
 use crate::render::husk::HuskMood;
 use crate::render::husk::HuskRig;
 use crate::render::juice::dive_zoom;
 use crate::render::juice::zoomed_fov;
+use crate::render::orb::soul_taken;
 use crate::render::orb::stage_began;
 use crate::render::reaction::HuskPlight;
 use crate::render::scene::Key;
@@ -240,10 +241,8 @@ impl Bench {
 		match action {
 			ViewAction::Fire => self.blow(now, 14, Jolt::Shot),
 			ViewAction::Stab { .. } => self.blow(now + 5, 9, Jolt::Stab),
-			ViewAction::Swing => {
-				let contact = now + (CONTACT * TICKS_PER_SECOND).round() as i64;
-				self.blow(contact, 38, Jolt::Heavy(HEAVY));
-			}
+			ViewAction::Swing { .. } => self.blow(now + CONTACT_TICKS, 38, Jolt::Heavy(HEAVY)),
+			ViewAction::Strike => self.blow(now, 38, Jolt::Heavy(HEAVY)),
 			ViewAction::Parry => self.juice.land(Jolt::Parry, now + 5),
 			ViewAction::Struck => self.juice.land(Jolt::Struck, now),
 			_ => {}
@@ -282,11 +281,27 @@ impl Bench {
 		self.flash = Some((tick, if crit { 1.0 } else { 0.6 }));
 	}
 
-	/// The next stab, from the other side.
+	/// Whether the weapon is in a dive: lunged in and not yet back out.
+	fn dived(&self) -> bool {
+		matches!(
+			self.action,
+			ViewAction::DiveIn | ViewAction::Stab { dived: true, .. }
+		)
+	}
+
+	/// The next stab, from the other side: from the dive, if the knife is in
+	/// one, or in arm's reach.
 	pub fn stab(&mut self) {
 		let nth = self.stabs;
 		self.stabs = (self.stabs + 1) % 3;
-		self.play(ViewAction::Stab { nth });
+		let dived = self.dived();
+		self.play(ViewAction::Stab { nth, dived });
+	}
+
+	/// A heavy swing: from the dive, if the weapon is in one, or from rest.
+	pub fn swing(&mut self) {
+		let dived = self.dived();
+		self.play(ViewAction::Swing { dived });
 	}
 
 	/// Selects the slot of `archetype` and draws its weapon.
@@ -317,31 +332,8 @@ impl Bench {
 			Ending::Holds | Ending::Misses => None,
 		}
 		.filter(|&pulse| ticks >= CaptureRules::PULSE_TICKS[pulse as usize - 1]);
-		let pulses = CaptureRules::PULSE_TICKS
-			.iter()
-			.filter(|&&at| ticks >= at)
-			.count() as i64;
-		let stage = if !on_target {
-			if ticks < CaptureRules::IMPACT_TICK {
-				OrbStage::Flight
-			} else {
-				OrbStage::Missed
-			}
-		} else if broke_free_on.is_some() {
-			OrbStage::BrokeFree
-		} else if ticks >= CaptureRules::RESULT_TICK {
-			OrbStage::Captured
-		} else if ticks < CaptureRules::IMPACT_TICK {
-			OrbStage::Flight
-		} else if ticks < CaptureRules::DRAWN_TICK {
-			OrbStage::Drawing
-		} else if ticks < CaptureRules::LANDED_TICK {
-			OrbStage::Falling
-		} else if ticks < CaptureRules::PULSE_TICKS[2] {
-			OrbStage::Pulsing
-		} else {
-			OrbStage::Breath
-		};
+		let held = ending == Ending::Holds && ticks >= CaptureRules::RESULT_TICK;
+		let stage = OrbStage::at(ticks, on_target, broke_free_on, held);
 		let [x, y, z] = if on_target { HUSK_AT } else { MISS_AT };
 		Some(OrbView {
 			thrown_at: release,
@@ -349,7 +341,7 @@ impl Bench {
 			stage,
 			grade: CaptureGrade::Plain,
 			on_target,
-			pulses: broke_free_on.map_or(pulses, |pulse| pulses.min(pulse - 1)),
+			pulses: CaptureRules::pulses_at(ticks, broke_free_on),
 			target: Vec3::new(x, y, z),
 			// The view never reads the chance.
 			chance: None,
@@ -404,7 +396,7 @@ impl Bench {
 		});
 		if let Some(husk) = &mut self.husk {
 			// A soul let go gathers itself again; it is never there at once.
-			let taken = soul_taken(orb, self.tick);
+			let taken = orb.map_or(0.0, |orb| soul_taken(&orb, self.tick));
 			let gathered = delta * speed * f64::from(TICKS_PER_SECOND) / REFORM;
 			self.taken = taken.max(self.taken - gathered);
 			husk.dissolve(self.taken);
@@ -469,7 +461,7 @@ impl Bench {
 
 	/// How far the dive lens will have zoomed once the dive is done.
 	pub fn zoom_target(&self) -> f32 {
-		let dived = matches!(self.action, ViewAction::DiveIn | ViewAction::Stab { .. });
+		let dived = self.dived() || self.action == ViewAction::Swing { dived: true };
 		dive_zoom(if dived { 1.0 } else { 0.0 }, HUSK_AT[2] as f32)
 	}
 
@@ -515,21 +507,6 @@ fn still(props: &ViewmodelProps) -> ViewmodelProps {
 		world.camera = Transform::IDENTITY;
 	}
 	props
-}
-
-/// How much of the husk the orb has drawn in at `tick`, from 0 to 1.
-fn soul_taken(orb: Option<OrbView>, tick: f64) -> f64 {
-	let Some(view) = orb else {
-		return 0.0;
-	};
-	let since = tick - (view.thrown_at + CaptureRules::IMPACT_TICK) as f64;
-	match view.stage {
-		OrbStage::Flight | OrbStage::Missed | OrbStage::BrokeFree => 0.0,
-		OrbStage::Drawing => {
-			(since / (CaptureRules::DRAWN_TICK - CaptureRules::IMPACT_TICK) as f64).clamp(0.0, 1.0)
-		}
-		OrbStage::Falling | OrbStage::Pulsing | OrbStage::Breath | OrbStage::Captured => 1.0,
-	}
 }
 
 /// A room by day, as a camera might see it: a window, a sunlit floor, a
@@ -699,6 +676,39 @@ fn orb_row() -> Element {
 
 /// Every button: the weapon, its motions, the orb, the background and the
 /// clock.
+/// The motions only the weapon of `archetype` makes.
+const fn own_motions(archetype: Archetype) -> &'static [ViewAction] {
+	match archetype {
+		Archetype::Gun => {
+			&[
+				ViewAction::Fire,
+				ViewAction::Empty,
+				ViewAction::Reload,
+				ViewAction::ActiveReload,
+				ViewAction::Jam,
+			]
+		}
+		Archetype::Blade => {
+			&[
+				ViewAction::DiveIn,
+				ViewAction::Stab {
+					nth: 0,
+					dived: true,
+				},
+				ViewAction::DiveOut,
+			]
+		}
+		Archetype::Heavy => {
+			&[
+				ViewAction::DiveIn,
+				ViewAction::Swing { dived: true },
+				ViewAction::Strike,
+			]
+		}
+		Archetype::Art => &[],
+	}
+}
+
 fn controls(state: &Bench) -> Element {
 	let words = use_l10n();
 	let weapons = [
@@ -719,26 +729,7 @@ fn controls(state: &Bench) -> Element {
 			bench.take(archetype);
 		})
 	});
-	let own: &[ViewAction] = match state.archetype {
-		Archetype::Gun => {
-			&[
-				ViewAction::Fire,
-				ViewAction::Empty,
-				ViewAction::Reload,
-				ViewAction::ActiveReload,
-				ViewAction::Jam,
-			]
-		}
-		Archetype::Blade => {
-			&[
-				ViewAction::DiveIn,
-				ViewAction::Stab { nth: 0 },
-				ViewAction::DiveOut,
-			]
-		}
-		Archetype::Heavy => &[ViewAction::Swing],
-		Archetype::Art => &[],
-	};
+	let own = own_motions(state.archetype);
 	let motions = [ViewAction::Idle, ViewAction::Draw]
 		.iter()
 		.chain(own)
@@ -749,6 +740,7 @@ fn controls(state: &Bench) -> Element {
 			chip(&id, action_name(action), chosen, move |bench| {
 				match action {
 					ViewAction::Stab { .. } => bench.stab(),
+					ViewAction::Swing { .. } => bench.swing(),
 					action => bench.play(action),
 				}
 			})
@@ -888,6 +880,7 @@ fn same_motion(shown: ViewAction, action: ViewAction) -> bool {
 	matches!(
 		(shown, action),
 		(ViewAction::Stab { .. }, ViewAction::Stab { .. })
+			| (ViewAction::Swing { .. }, ViewAction::Swing { .. })
 	) || shown == action
 }
 
@@ -904,7 +897,8 @@ const fn action_id(action: ViewAction) -> &'static str {
 		ViewAction::DiveIn => "dive-in",
 		ViewAction::Stab { .. } => "stab",
 		ViewAction::DiveOut => "dive-out",
-		ViewAction::Swing => "swing",
+		ViewAction::Swing { .. } => "swing",
+		ViewAction::Strike => "strike",
 		ViewAction::Parry => "parry",
 		ViewAction::Struck => "struck",
 		ViewAction::Raise => "raise",
@@ -926,7 +920,8 @@ fn action_name(action: ViewAction) -> &'static str {
 		ViewAction::DiveIn => words.arms_bench_dive_in(),
 		ViewAction::Stab { .. } => words.arms_bench_stab(),
 		ViewAction::DiveOut => words.arms_bench_dive_out(),
-		ViewAction::Swing => words.arms_bench_swing(),
+		ViewAction::Swing { .. } => words.arms_bench_swing(),
+		ViewAction::Strike => words.arms_bench_strike(),
 		ViewAction::Parry => words.arms_bench_parry(),
 		ViewAction::Struck => words.arms_bench_struck(),
 		ViewAction::Raise => words.arms_bench_raise(),
@@ -975,7 +970,7 @@ mod tests {
 		let mut bench = bench.borrow_mut();
 		bench.tick = 10.0;
 		bench.take(Archetype::Heavy);
-		bench.play(ViewAction::Swing);
+		bench.swing();
 		let hit = bench.hit.unwrap();
 		assert_eq!(
 			hit.tick,

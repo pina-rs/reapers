@@ -1,14 +1,21 @@
 //! The thumbs' half of a hunt: FIRE under the right thumb, with the weapon
-//! rail and what the weapon in hand has left above it; ORB under the left;
-//! and a caption under the crosshair that says what the ring means or what
-//! the orb is doing. The Flutter `HuntControls`.
+//! rail and what the weapon in hand has left above it; ORB under the left,
+//! ringed by the soul it has; and a caption under the crosshair that says
+//! what the ring means, what the orb is doing, or, in a first practice, the
+//! one thing to learn next. The Flutter `HuntControls`.
 //!
-//! The phone aims; these only say when.
+//! The phone aims; these only say when. They are read over a camera's
+//! picture of any brightness, so every word sits on a dark scrim, and every
+//! state is said in words as well as in colour.
+
+use std::f64::consts::FRAC_PI_2;
+use std::f64::consts::TAU;
 
 use leptoskit::prelude::*;
 use reapers_rules::Archetype;
 use reapers_rules::Arsenal;
 use reapers_rules::ArtSkill;
+use reapers_rules::BladeRules;
 use reapers_rules::CaptureGrade;
 use reapers_rules::CaptureRules;
 use reapers_rules::GunRules;
@@ -17,8 +24,14 @@ use reapers_rules::HuntSim;
 use reapers_rules::HuskRing;
 use reapers_rules::OrbBlock;
 use reapers_rules::OrbStage;
+use reapers_rules::OrbView;
+use reapers_rules::Vec3;
 use reapers_rules::WeaponKind;
 
+use super::lessons::Prompt;
+use super::overlay::Sight;
+use super::overlay::Sketch;
+use super::overlay::colour;
 use crate::l10n::Messages;
 use crate::lookups::art_name;
 use crate::lookups::weapon_name;
@@ -26,7 +39,9 @@ use crate::theme::ASH;
 use crate::theme::BONE;
 use crate::theme::Rgb;
 use crate::theme::WOUND;
+use crate::ui::body;
 use crate::ui::display;
+use crate::ui::figure;
 use crate::ui::gap;
 use crate::ui::label;
 
@@ -35,6 +50,23 @@ pub const BUTTON: f64 = 92.0;
 
 /// The gold of a husk weak enough for an orb, and of an excellent throw.
 pub const ORB_GOLD: Rgb = Rgb::from_hex(0x00E9_C25C);
+
+/// The side of the square a thumb button and its dial are drawn in.
+const DIAL: f64 = BUTTON + 24.0;
+/// The radius of the dial's ring, just outside the button.
+const DIAL_RADIUS: f64 = BUTTON / 2.0 + 7.0;
+/// How thick the dial's ring is.
+const DIAL_WIDTH: f64 = 5.0;
+/// The smallest a touch target is, either way, in points.
+const TARGET: f64 = 44.0;
+/// The ink every word over the room sits on.
+const SCRIM: &str = "bg-[#07080bc7]";
+/// The amber of a husk drawing breath.
+const AMBER: Rgb = Rgb::from_hex(0x00E3_A23B);
+/// The blue of a stunned husk.
+const STUN_BLUE: Rgb = Rgb::from_hex(0x006F_A9E6);
+/// How long the caption keeps saying how an orb ended, in ticks.
+const ORB_AFTERWORD_TICKS: i64 = 60;
 
 /// Whether a point, from 0 to 1 across and down the view, falls on ORB.
 pub fn orb_area(x: f64, y: f64) -> bool {
@@ -63,12 +95,12 @@ pub fn slot_name(
 }
 
 /// The colour of the ring under the husk: the same signal for every reaper.
-fn ring_colour(ring: HuskRing) -> Rgb {
+const fn ring_colour(ring: HuskRing) -> Rgb {
 	match ring {
 		HuskRing::Open => BONE,
-		HuskRing::DrawingBreath => Rgb::from_hex(0x00E3_A23B),
+		HuskRing::DrawingBreath => AMBER,
 		HuskRing::Charging => WOUND,
-		HuskRing::Stunned => Rgb::from_hex(0x006F_A9E6),
+		HuskRing::Stunned => STUN_BLUE,
 		HuskRing::Weakened => ORB_GOLD,
 	}
 }
@@ -82,10 +114,34 @@ pub fn grade_colour(grade: CaptureGrade) -> Rgb {
 	}
 }
 
-/// What the caption under the crosshair says: the orb's stages while one is
-/// in the air, and the ring's meaning while the husk is fought.
-pub fn caption(words: &dyn Messages, sim: &HuntSim) -> Option<(String, Rgb)> {
-	if let Some(orb) = sim.orb() {
+/// Whether `orb`'s story is still being told: in the air, holding the husk,
+/// or just ended. The rules keep the last orb for the rest of the hunt.
+pub fn orb_told(orb: &OrbView) -> bool {
+	let ended = match orb.stage {
+		OrbStage::BrokeFree => {
+			let pulse = orb.broke_free_on.unwrap_or(1).clamp(1, 3);
+			CaptureRules::PULSE_TICKS[pulse as usize - 1]
+		}
+		OrbStage::Missed => CaptureRules::IMPACT_TICK,
+		_ => return true,
+	};
+	orb.ticks < ended + ORB_AFTERWORD_TICKS
+}
+
+/// One line under the crosshair.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Caption {
+	pub text: String,
+	pub colour: Rgb,
+	/// Whether it teaches, rather than reports.
+	pub teaching: bool,
+}
+
+/// What the caption under the crosshair says: the orb's story while one is
+/// being told; the ring's meaning while the husk is fought, unless the
+/// player has `lesson` to learn and the husk is not about to strike.
+pub fn caption(words: &dyn Messages, sim: &HuntSim, lesson: Option<Prompt>) -> Option<Caption> {
+	if let Some(orb) = sim.orb().filter(orb_told) {
 		let text = match orb.stage {
 			OrbStage::Flight => words.hunt_orb_flight().to_owned(),
 			OrbStage::Drawing => words.hunt_orb_drawing().to_owned(),
@@ -107,8 +163,11 @@ pub fn caption(words: &dyn Messages, sim: &HuntSim) -> Option<(String, Rgb)> {
 			OrbStage::Missed => ASH,
 			_ => grade_colour(orb.grade),
 		};
-
-		return Some((text, colour));
+		return Some(Caption {
+			text,
+			colour,
+			teaching: false,
+		});
 	}
 
 	if !matches!(
@@ -123,6 +182,14 @@ pub fn caption(words: &dyn Messages, sim: &HuntSim) -> Option<(String, Rgb)> {
 	}
 
 	let ring = sim.ring();
+	let danger = matches!(ring, HuskRing::DrawingBreath | HuskRing::Charging);
+	if let Some(lesson) = lesson.filter(|_| !danger) {
+		return Some(Caption {
+			text: lesson.text(words).to_owned(),
+			colour: BONE,
+			teaching: true,
+		});
+	}
 	let text = match ring {
 		HuskRing::Open => words.hunt_ring_open(),
 		HuskRing::DrawingBreath => words.hunt_ring_drawing_breath(),
@@ -131,7 +198,21 @@ pub fn caption(words: &dyn Messages, sim: &HuntSim) -> Option<(String, Rgb)> {
 		HuskRing::Weakened => words.hunt_ring_weakened(),
 	};
 
-	Some((text.to_owned(), ring_colour(ring)))
+	Some(Caption {
+		text: text.to_owned(),
+		colour: ring_colour(ring),
+		teaching: false,
+	})
+}
+
+/// The words beside the crosshair, for the two states a shape alone does
+/// not explain.
+pub fn sight_words(words: &dyn Messages, sight: Sight, light: Rgb) -> Option<(&str, Rgb)> {
+	match sight {
+		Sight::Seal => Some((words.hunt_sight_seal(), light)),
+		Sight::TooFar => Some((words.hunt_sight_too_far(), ASH)),
+		Sight::Off | Sight::On => None,
+	}
 }
 
 /// Why an orb cannot be thrown right now, in words.
@@ -145,232 +226,429 @@ fn orb_reason(words: &dyn Messages, block: OrbBlock) -> String {
 }
 
 /// What the weapon in hand has left, and whether it is ready.
-fn readout(words: &dyn Messages, sim: &HuntSim, light: Rgb) -> (String, Rgb) {
-	let archetype = Arsenal::archetype_of(sim.selected_slot());
-
+fn readout(words: &dyn Messages, sim: &HuntSim, light: Rgb, aim: Vec3) -> (String, Rgb) {
 	if sim.draw_ticks_left() > 0 {
 		return (words.hunt_drawing().to_owned(), ASH);
 	}
+	let reach = sim.in_reach(aim);
 
-	match archetype {
+	match Arsenal::archetype_of(sim.selected_slot()) {
 		Some(Archetype::Gun) if sim.reload_jammed() => (words.hunt_jammed().to_owned(), WOUND),
 		Some(Archetype::Gun) if sim.in_active_reload() => {
 			(words.hunt_reload_now().to_owned(), ORB_GOLD)
 		}
-		Some(Archetype::Gun) if sim.reloading() => (words.hunt_reloading().to_owned(), ASH),
-		Some(Archetype::Gun) => {
+		Some(Archetype::Gun) if sim.reloading() => (words.hunt_reloading().to_owned(), BONE),
+		Some(Archetype::Gun) if sim.rounds() == 0 => (words.hunt_empty().to_owned(), WOUND),
+		Some(Archetype::Gun) if sim.magazine_boosted() => {
 			(
-				words.hunt_rounds(sim.rounds(), GunRules::ROUNDS),
-				if sim.magazine_boosted() {
-					ORB_GOLD
-				} else {
-					BONE
-				},
+				words.hunt_rounds_boosted(sim.rounds(), GunRules::ROUNDS),
+				ORB_GOLD,
 			)
 		}
+		Some(Archetype::Gun) => (words.hunt_rounds(sim.rounds(), GunRules::ROUNDS), BONE),
 		Some(Archetype::Blade) => {
 			(
 				words.hunt_dives(sim.dive_charges()),
-				if sim.in_reach(sim.pose().direction()) {
-					light
-				} else {
-					ASH
-				},
+				if reach { light } else { BONE },
 			)
 		}
-		Some(Archetype::Heavy) => {
-			(
-				if sim.in_reach(sim.pose().direction()) {
-					words.hunt_in_reach().to_owned()
-				} else {
-					words.hunt_out_of_reach().to_owned()
-				},
-				if sim.in_reach(sim.pose().direction()) {
-					light
-				} else {
-					ASH
-				},
-			)
-		}
+		Some(Archetype::Heavy) if reach => (words.hunt_in_reach().to_owned(), light),
+		Some(Archetype::Heavy) => (words.hunt_out_of_reach().to_owned(), ASH),
 		Some(Archetype::Art) => (words.hunt_throws(sim.art_charges()), BONE),
 		None => (String::new(), ASH),
 	}
 }
 
-/// How far through its readying the weapon in hand is, from 0 to 1.
-fn ready_fraction(sim: &HuntSim) -> f64 {
-	if sim.draw_ticks_left() > 0 {
-		return 1.0 - sim.draw_ticks_left() as f64 / Arsenal::SWITCH_TICKS as f64;
-	}
-
-	match Arsenal::archetype_of(sim.selected_slot()) {
-		Some(Archetype::Gun) if sim.reloading() => sim.reload_progress(),
-		Some(Archetype::Gun) => sim.rounds() as f64 / GunRules::ROUNDS as f64,
-		Some(Archetype::Blade | Archetype::Heavy) if sim.diving() => 1.0 - sim.dive_progress(),
-		Some(Archetype::Blade) => {
-			(sim.dive_charges() as f64 + sim.dive_recharge())
-				/ reapers_rules::BladeRules::DIVE_CHARGES as f64
-		}
-		Some(Archetype::Art) => 1.0 - sim.art_recharge(),
-		_ => 1.0,
-	}
-	.clamp(0.0, 1.0)
-}
-
-fn meter(fraction: f64, colour: Rgb, width: &str) -> Element {
+/// A word over the room: small capitals on a dark scrim.
+fn tag(text: &str, size: u32, colour: Rgb) -> Element {
 	View()
-		.class(format!("{width} h-[3px] bg-[#e9e4d42e]"))
-		.child(View().class(format!(
-			"h-full w-[{:.0}%] bg-[{}]",
-			fraction.clamp(0.0, 1.0) * 100.0,
-			colour.hex()
-		)))
+		.class(format!("px-2 py-[3px] rounded-[4px] {SCRIM}"))
+		.child(label(text, size, colour))
 }
 
-/// The controls over a fight, for a thumb. When `touchable` is false (a hunt
-/// that plays itself) they show and cannot be pressed.
-#[allow(
-	clippy::too_many_arguments,
-	reason = "one thumb's half of the screen, and what the other sees"
-)]
-pub fn controls(
-	words: &dyn Messages,
-	sim: &HuntSim,
-	slot: usize,
-	weapon: WeaponKind,
-	light: Rgb,
-	touchable: bool,
-	on_fire: fn(),
-	on_slot: fn(usize),
-) -> Element {
+/// `count` arcs round a dial with a little air between them, the first
+/// `lit` of them in `paint`, and a share of the next one when `part` is
+/// more than nothing.
+fn segments(sketch: &mut Sketch, count: i64, lit: i64, part: f64, paint: Rgb) {
+	let centre = (DIAL / 2.0, DIAL / 2.0);
+	let span = TAU / count as f64;
+	let air = 0.12;
+	for index in 0..count {
+		let start = -FRAC_PI_2 + span * index as f64 + air / 2.0;
+		let sweep = span - air;
+		sketch.arc(
+			centre,
+			DIAL_RADIUS,
+			start,
+			sweep,
+			colour(BONE, 0.18),
+			DIAL_WIDTH,
+		);
+		let fill = match index.cmp(&lit) {
+			std::cmp::Ordering::Less => 1.0,
+			std::cmp::Ordering::Equal => part.clamp(0.0, 1.0),
+			std::cmp::Ordering::Greater => 0.0,
+		};
+		if fill > 0.0 {
+			sketch.arc(
+				centre,
+				DIAL_RADIUS,
+				start,
+				sweep * fill,
+				colour(paint, if index < lit { 1.0 } else { 0.5 }),
+				DIAL_WIDTH,
+			);
+		}
+	}
+}
+
+/// A dial that fills clockwise from twelve o'clock.
+fn sweep(sketch: &mut Sketch, fraction: f64, paint: Rgb) {
+	let centre = (DIAL / 2.0, DIAL / 2.0);
+	sketch.ring(centre, DIAL_RADIUS, colour(BONE, 0.18), DIAL_WIDTH);
+	sketch.arc(
+		centre,
+		DIAL_RADIUS,
+		-FRAC_PI_2,
+		TAU * fraction.clamp(0.0, 1.0),
+		colour(paint, 1.0),
+		DIAL_WIDTH,
+	);
+}
+
+/// The ring round FIRE: the rounds left, a reload and its bright band, the
+/// knife's dives, the class weapon's reach, or the art's next throw.
+fn fire_dial(sim: &HuntSim, light: Rgb, aim: Vec3) -> Sketch {
+	let mut sketch = Sketch::default();
+	let centre = (DIAL / 2.0, DIAL / 2.0);
+	if sim.draw_ticks_left() > 0 {
+		let drawn = 1.0 - sim.draw_ticks_left() as f64 / Arsenal::SWITCH_TICKS as f64;
+		sweep(&mut sketch, drawn, ASH);
+		return sketch;
+	}
+	match Arsenal::archetype_of(sim.selected_slot()) {
+		Some(Archetype::Gun) if sim.reloading() => {
+			// The whole reload once round, and the band where FIRE finishes it.
+			let share = |tick: i64| tick as f64 / GunRules::RELOAD_TICKS as f64;
+			let band_from = share(GunRules::ACTIVE_FROM_TICK);
+			let band_to = share(GunRules::ACTIVE_UNTIL_TICK + 1);
+			let jammed = sim.reload_jammed();
+			sketch.ring(centre, DIAL_RADIUS, colour(BONE, 0.18), DIAL_WIDTH);
+			sketch.arc(
+				centre,
+				DIAL_RADIUS,
+				-FRAC_PI_2 + TAU * band_from,
+				TAU * (band_to - band_from),
+				colour(ORB_GOLD, if jammed { 0.3 } else { 1.0 }),
+				DIAL_WIDTH + 6.0,
+			);
+			let progress = sim.reload_progress().clamp(0.0, 1.0);
+			let paint = if jammed { WOUND } else { BONE };
+			sketch.arc(
+				centre,
+				DIAL_RADIUS,
+				-FRAC_PI_2,
+				TAU * progress,
+				colour(paint, 0.9),
+				DIAL_WIDTH - 2.0,
+			);
+			let angle = -FRAC_PI_2 + TAU * progress;
+			let head = (
+				centre.0 + DIAL_RADIUS * angle.cos(),
+				centre.1 + DIAL_RADIUS * angle.sin(),
+			);
+			sketch.dot(head, 6.0, colour(Rgb(0x02, 0x02, 0x03), 0.8));
+			sketch.dot(head, 4.5, colour(paint, 1.0));
+		}
+		Some(Archetype::Gun) => {
+			let paint = if sim.magazine_boosted() {
+				ORB_GOLD
+			} else {
+				BONE
+			};
+			segments(&mut sketch, GunRules::ROUNDS, sim.rounds(), 0.0, paint);
+		}
+		Some(Archetype::Blade) => {
+			segments(
+				&mut sketch,
+				BladeRules::DIVE_CHARGES,
+				sim.dive_charges(),
+				sim.dive_recharge(),
+				light,
+			);
+		}
+		Some(Archetype::Heavy) => {
+			let reach = sim.in_reach(aim);
+			sweep(
+				&mut sketch,
+				if sim.diving() {
+					1.0 - sim.dive_progress()
+				} else {
+					1.0
+				},
+				if reach { light } else { ASH },
+			);
+		}
+		Some(Archetype::Art) => {
+			let charges = sim.stats().art.map_or(0, |art| art.max_charges());
+			if charges > 0 {
+				segments(
+					&mut sketch,
+					charges,
+					sim.art_charges(),
+					1.0 - sim.art_recharge(),
+					BONE,
+				);
+			}
+		}
+		None => {}
+	}
+	sketch
+}
+
+/// The ring round ORB: the soul gathered, with a notch at what an orb
+/// costs, all gold once one can be thrown.
+fn orb_dial(sim: &HuntSim, ready: bool) -> Sketch {
+	let mut sketch = Sketch::default();
+	let centre = (DIAL / 2.0, DIAL / 2.0);
+	let soul = sim.soul() / CaptureRules::SOUL_MAX;
+	sweep(&mut sketch, soul, if ready { ORB_GOLD } else { ASH });
+	let cost = -FRAC_PI_2 + TAU * CaptureRules::COST / CaptureRules::SOUL_MAX;
+	let (dx, dy) = (cost.cos(), cost.sin());
+	sketch.line(
+		(
+			centre.0 + dx * (DIAL_RADIUS - 6.0),
+			centre.1 + dy * (DIAL_RADIUS - 6.0),
+		),
+		(
+			centre.0 + dx * (DIAL_RADIUS + 6.0),
+			centre.1 + dy * (DIAL_RADIUS + 6.0),
+		),
+		colour(BONE, 0.9),
+		2.0,
+	);
+	sketch
+}
+
+/// A thumb button inside its dial.
+fn dialled(dial: Sketch, button: Element) -> Element {
+	View()
+		.class(format!(
+			"relative w-[{DIAL}px] h-[{DIAL}px] items-center justify-center"
+		))
+		.child(dial.into_view(DIAL, DIAL))
+		.child(button)
+}
+
+/// Everything the thumbs' controls are drawn from.
+pub struct Thumbs<'a> {
+	pub sim: &'a HuntSim,
+	/// The slot in hand.
+	pub slot: usize,
+	/// Whether the reaper carries each slot into this fight.
+	pub carried: [bool; Arsenal::SLOTS],
+	/// The class weapon.
+	pub weapon: WeaponKind,
+	/// The husk's light.
+	pub light: Rgb,
+	/// Where the crosshair points.
+	pub aim: Vec3,
+	/// What the caption teaches, in a first practice.
+	pub lesson: Option<Prompt>,
+	/// False for a hunt that plays itself: the controls show and cannot be
+	/// pressed.
+	pub touchable: bool,
+	pub on_fire: fn(),
+	pub on_slot: fn(usize),
+}
+
+/// The controls over a fight, for a thumb.
+pub fn controls(words: &dyn Messages, thumbs: &Thumbs) -> Element {
 	let mut view = View().class("absolute inset-0");
-	if let Some((text, colour)) = caption(words, sim) {
-		// The caption sits under the crosshair, where the eye already is.
+	let sight = Sight::of(thumbs.sim, thumbs.aim);
+	if thumbs.sim.phase() != HuntPhase::Stalk
+		&& let Some((text, paint)) = sight_words(words, sight, thumbs.light)
+	{
+		// Beside the crosshair, on the right of the middle of the view.
 		view = view.child(
 			View()
-				.class("absolute left-0 right-0 top-[54%] items-center")
-				.test_id("hunt-caption")
-				.child(label(&text.to_uppercase(), 12, colour)),
+				.class("absolute inset-0 flex-row items-center")
+				.aria_hidden(true)
+				.child(View().class("flex-1"))
+				.child(
+					View()
+						.class("flex-1 items-start pl-[30px]")
+						.test_id("hunt-sight")
+						.child(tag(text, 11, paint)),
+				),
 		);
 	}
-	view.child(orb(words, sim, touchable)).child(fire(
-		words, sim, slot, weapon, light, touchable, on_fire, on_slot,
-	))
+	if let Some(line) = caption(words, thumbs.sim, thumbs.lesson) {
+		// The caption sits under the crosshair, where the eye already is.
+		let words_of_it = if line.teaching {
+			View()
+				.class(format!(
+					"max-w-[300px] px-4 py-2 rounded-[6px] border border-[{}] {SCRIM} items-center",
+					BONE.hex_alpha(0.6)
+				))
+				.child(body(line.text, 15, line.colour).class("text-center font-semibold"))
+		} else {
+			View()
+				.class(format!(
+					"flex-row items-center gap-2 px-3 py-[5px] rounded-full {SCRIM}"
+				))
+				.child(View().class(format!("w-2 h-2 rounded-full bg-[{}]", line.colour.hex())))
+				.child(label(&line.text, 12, line.colour))
+		};
+		view = view.child(
+			View()
+				.class("absolute left-6 right-6 top-[55%] items-center")
+				.test_id(if line.teaching {
+					"hunt-lesson"
+				} else {
+					"hunt-caption"
+				})
+				.aria_live(leptoskit::native::Live::Polite)
+				.child(words_of_it),
+		);
+	}
+	view.child(orb(words, thumbs.sim))
+		.child(fire(words, thumbs))
 }
 
-fn orb(words: &dyn Messages, sim: &HuntSim, touchable: bool) -> Element {
+fn orb(words: &dyn Messages, sim: &HuntSim) -> Element {
 	let block = sim.orb_block();
+	let ready = block.is_none();
 	let soul = sim.soul().floor() as i64;
-	let colour = if block.is_none() { ORB_GOLD } else { ASH };
-	let name = if block.is_none() {
-		words.hunt_soul(soul)
-	} else {
-		block.map_or_else(String::new, |block| orb_reason(words, block))
-	};
+	let paint = if ready { ORB_GOLD } else { ASH };
+	let state = block.map_or_else(
+		|| words.hunt_orb_ready().to_owned(),
+		|block| orb_reason(words, block),
+	);
 	let mut button = View()
 		.class(format!(
-			"w-[{BUTTON}px] h-[{BUTTON}px] rounded-full border items-center justify-center bg-[{}] border-[{}]",
-			colour.hex_alpha(0.12),
-			colour.hex()
+			"w-[{BUTTON}px] h-[{BUTTON}px] rounded-full border-2 items-center justify-center bg-[{}] border-[{}]",
+			if ready {
+				ORB_GOLD.hex_alpha(0.28)
+			} else {
+				"#07080bb3".to_owned()
+			},
+			paint.hex()
 		))
 		.test_id("hunt-orb")
 		.accessibility_label(words.hunt_orb_semantics(soul))
-		.child(display(words.hunt_orb(), 20, colour));
+		.child(display(
+			words.hunt_orb(),
+			20,
+			if ready { ORB_GOLD } else { BONE },
+		))
+		.child(figure(soul.to_string(), 12, paint));
 	if let Some(block) = block {
 		button = button.aria_description(orb_reason(words, block));
 	}
-	let _ = touchable;
+	// ORB is heard by the view's gestures: the whole lower left is its hold.
 	View()
-		.class("absolute left-4 bottom-5 pb-safe items-start")
-		.child(label(&name.to_uppercase(), 11, colour))
-		.child(gap(8))
-		.child(button)
-		.child(gap(6))
-		.child(meter(
-			sim.soul() / CaptureRules::SOUL_MAX,
-			colour,
-			&format!("w-[{BUTTON}px]"),
-		))
+		.class("absolute left-3 bottom-4 pb-safe items-center")
+		.child(
+			View()
+				.test_id("hunt-orb-state")
+				.child(tag(&state, 11, paint)),
+		)
+		.child(gap(4))
+		.child(dialled(orb_dial(sim, ready), button))
 }
 
-#[allow(clippy::too_many_arguments, reason = "one thumb's half of the screen")]
-fn fire(
-	words: &dyn Messages,
-	sim: &HuntSim,
-	slot: usize,
-	weapon: WeaponKind,
-	light: Rgb,
-	touchable: bool,
-	on_fire: fn(),
-	on_slot: fn(usize),
-) -> Element {
+fn fire(words: &dyn Messages, thumbs: &Thumbs) -> Element {
+	let sim = thumbs.sim;
 	let art = sim.stats().art;
-	let mut rail = View().class("items-end");
-	for index in 0..Arsenal::SLOTS {
-		let name = slot_name(words, index, weapon, art);
-		let selected = index == slot;
-		let enabled = Arsenal::archetype_of(index) != Some(Archetype::Art) || art.is_some();
-		let colour = if !enabled {
-			ASH
-		} else if selected {
-			light
-		} else {
-			ASH
-		};
-		let mut chip = View()
-			.class("flex-row items-center gap-2 min-h-[44px]")
-			.test_id(format!("hunt-slot-{index}"))
-			.accessibility_label(words.hunt_slot_semantics(&name, index as i64 + 1))
-			.child(label(
-				&name.to_uppercase(),
-				if selected { 12 } else { 11 },
-				colour,
-			))
-			.child(
-				View()
-					.class("w-[3px]")
-					.class(if selected { "h-[22px]" } else { "h-[12px]" })
-					.class(format!("bg-[{}]", colour.hex())),
-			);
-		if enabled && touchable {
-			chip = chip.on_press(move || on_slot(index));
-		}
-		rail = rail.child(chip);
+	// Two to a row, so the rail stays below the caption and above ORB.
+	let mut rail = View().class("flex-row flex-wrap justify-end gap-1 max-w-[300px]");
+	for index in (0..Arsenal::SLOTS).filter(|&index| thumbs.carried[index]) {
+		rail = rail.child(chip(words, thumbs, index, art));
 	}
-	let (text, colour) = readout(words, sim, light);
-	let ready = sim.cooldown_ticks() == 0 && !sim.reloading();
+	let (text, paint) = readout(words, sim, thumbs.light, thumbs.aim);
+	let window = sim.in_active_reload();
+	let ready = sim.cooldown_ticks() == 0 && !sim.reloading() && sim.draw_ticks_left() == 0;
+	let edge = if window {
+		ORB_GOLD
+	} else if ready {
+		thumbs.light
+	} else {
+		ASH
+	};
 	let mut button = View()
 		.class(format!(
-			"w-[{BUTTON}px] h-[{BUTTON}px] rounded-full border items-center justify-center bg-[{}] border-[{}]",
-			light.hex_alpha(if ready { 0.18 } else { 0.08 }),
-			if ready { light.hex() } else { ASH.hex() }
+			"w-[{BUTTON}px] h-[{BUTTON}px] rounded-full border-2 items-center justify-center bg-[{}] border-[{}]",
+			if window {
+				ORB_GOLD.hex_alpha(0.4)
+			} else if ready {
+				thumbs.light.hex_alpha(0.24)
+			} else {
+				"#07080bb3".to_owned()
+			},
+			edge.hex()
 		))
 		.test_id("hunt-fire")
-		.accessibility_label(
-			words.hunt_fire_semantics(&slot_name(words, slot, weapon, art)),
-		)
+		.accessibility_label(words.hunt_fire_semantics(&slot_name(
+			words,
+			thumbs.slot,
+			thumbs.weapon,
+			art,
+		)))
+		.aria_description(text.clone())
 		.child(display(
 			words.hunt_fire(),
 			20,
-			if sim.in_active_reload() { ORB_GOLD } else { BONE },
+			if window { ORB_GOLD } else { BONE },
 		));
-	if touchable {
-		button = button.on_press(on_fire);
+	if thumbs.touchable {
+		button = button.on_press(thumbs.on_fire);
 	}
 	View()
-		.class("absolute right-4 bottom-5 pb-safe items-end")
+		.class("absolute right-3 bottom-4 pb-safe items-end")
 		.child(rail)
 		.child(gap(8))
-		.child(label(&text.to_uppercase(), 12, colour))
-		.child(gap(8))
-		.child(button)
-		.child(gap(6))
-		.child(meter(
-			ready_fraction(sim),
-			light,
-			&format!("w-[{BUTTON}px]"),
-		))
+		.child(
+			View()
+				.class("items-center")
+				.child(View().test_id("hunt-readout").child(tag(&text, 12, paint)))
+				.child(gap(4))
+				.child(dialled(fire_dial(sim, thumbs.light, thumbs.aim), button)),
+		)
 		.into_view()
+}
+
+/// One slot on the rail: its name, and whether it is in hand, in words and
+/// in light.
+fn chip(words: &dyn Messages, thumbs: &Thumbs, index: usize, art: Option<ArtSkill>) -> Element {
+	let name = slot_name(words, index, thumbs.weapon, art);
+	let selected = index == thumbs.slot;
+	let enabled = Arsenal::archetype_of(index) != Some(Archetype::Art) || art.is_some();
+	let (text, back, edge) = if !enabled {
+		(ASH, SCRIM.to_owned(), "border-transparent".to_owned())
+	} else if selected {
+		(
+			BONE,
+			format!("bg-[{}]", thumbs.light.hex_alpha(0.32)),
+			format!("border-[{}]", thumbs.light.hex()),
+		)
+	} else {
+		(BONE, SCRIM.to_owned(), "border-transparent".to_owned())
+	};
+	let mut chip = View()
+		.class(format!(
+			"flex-row items-center gap-2 min-h-[{TARGET}px] min-w-[{TARGET}px] px-3 rounded-full border {back} {edge}"
+		))
+		.test_id(format!("hunt-slot-{index}"))
+		.accessibility_label(words.hunt_slot_semantics(&name, index as i64 + 1))
+		.aria_selected(selected)
+		.child(figure((index + 1).to_string(), 11, ASH))
+		.child(label(&name, if selected { 13 } else { 12 }, text));
+	if enabled && thumbs.touchable {
+		let on_slot = thumbs.on_slot;
+		chip = chip.on_press(move || on_slot(index));
+	}
+	chip
 }
 
 #[cfg(test)]
@@ -398,6 +676,13 @@ mod tests {
 		.unwrap()
 	}
 
+	fn found(sim: &mut HuntSim) {
+		while sim.phase() == HuntPhase::Stalk {
+			let input = reapers_rules::HuntInput::still(sim.pose().direction(), 0.0);
+			sim.step(&input);
+		}
+	}
+
 	#[test]
 	fn the_rail_names_the_four_slots_and_falls_back_to_no_art() {
 		let words = En;
@@ -417,14 +702,62 @@ mod tests {
 		let words = En;
 		let mut sim = sim();
 		// A husk that has not been found says nothing.
-		assert!(caption(&words, &sim).is_none());
-		while sim.phase() == HuntPhase::Stalk {
-			let input = reapers_rules::HuntInput::still(sim.pose().direction(), 0.0);
-			sim.step(&input);
-		}
+		assert!(caption(&words, &sim, None).is_none());
+		found(&mut sim);
 		assert_eq!(
-			caption(&words, &sim).map(|(text, _)| text),
+			caption(&words, &sim, None).map(|line| line.text),
 			Some(words.hunt_ring_open().to_owned())
 		);
+	}
+
+	#[test]
+	fn a_lesson_takes_the_caption_unless_the_husk_is_about_to_strike() {
+		let words = En;
+		let mut sim = sim();
+		found(&mut sim);
+		let line = caption(&words, &sim, Some(Prompt::Fire)).unwrap();
+		assert!(line.teaching);
+		assert_eq!(line.text, words.hunt_teach_fire());
+		while !matches!(sim.ring(), HuskRing::DrawingBreath | HuskRing::Charging) {
+			let input = reapers_rules::HuntInput::still(sim.pose().direction(), 0.0);
+			sim.step(&input);
+			assert!(sim.tick() < 60 * 120, "the husk draws breath in time");
+		}
+		let line = caption(&words, &sim, Some(Prompt::Fire)).unwrap();
+		assert!(!line.teaching, "a warning is never hidden by a lesson");
+	}
+
+	#[test]
+	fn an_ended_orb_is_told_for_a_moment_then_the_ring_again() {
+		let mut orb = OrbView {
+			thrown_at: 0,
+			ticks: CaptureRules::IMPACT_TICK + 10,
+			stage: OrbStage::Missed,
+			grade: CaptureGrade::Plain,
+			on_target: false,
+			pulses: 0,
+			target: Vec3::FORWARD,
+			chance: None,
+			broke_free_on: None,
+		};
+		assert!(orb_told(&orb));
+		orb.ticks = CaptureRules::IMPACT_TICK + ORB_AFTERWORD_TICKS;
+		assert!(!orb_told(&orb));
+		orb.stage = OrbStage::BrokeFree;
+		orb.broke_free_on = Some(2);
+		orb.ticks = CaptureRules::PULSE_TICKS[1] + 1;
+		assert!(orb_told(&orb));
+		orb.stage = OrbStage::Pulsing;
+		orb.ticks = 10_000;
+		assert!(orb_told(&orb), "a story under way is always told");
+	}
+
+	#[test]
+	fn every_state_of_the_sight_that_a_shape_cannot_explain_has_words() {
+		let words = En;
+		assert!(sight_words(&words, Sight::Seal, BONE).is_some());
+		assert!(sight_words(&words, Sight::TooFar, BONE).is_some());
+		assert!(sight_words(&words, Sight::On, BONE).is_none());
+		assert!(sight_words(&words, Sight::Off, BONE).is_none());
 	}
 }

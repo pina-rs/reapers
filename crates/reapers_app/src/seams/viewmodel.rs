@@ -10,10 +10,13 @@
 //! [`ViewAction::Draw`]; `ShotFired` is [`ViewAction::Fire`];
 //! `ReloadStarted` and `ReloadJammed` are [`ViewAction::Reload`] and
 //! [`ViewAction::Jam`]; `ReloadFinished` when active is
-//! [`ViewAction::ActiveReload`]; `DiveStarted` with the blade is
-//! [`ViewAction::DiveIn`], each of its strikes a [`ViewAction::Stab`], and
-//! `DiveEnded` is [`ViewAction::DiveOut`]; a heavy strike is
-//! [`ViewAction::Swing`], begun [`CONTACT`](arms::CONTACT) before it lands;
+//! [`ViewAction::ActiveReload`]; `DiveStarted` is [`ViewAction::DiveIn`],
+//! each of the blade's strikes a [`ViewAction::Stab`], and the dive's way
+//! back out [`ViewAction::DiveOut`]; a heavy dive's swing is
+//! [`ViewAction::Swing`], begun [`CONTACT_TICKS`](arms::CONTACT_TICKS)
+//! before the rules land it, and a heavy strike in arm's reach, which the
+//! rules land on the press, is [`ViewAction::Strike`]; a stab in arm's reach
+//! is a [`ViewAction::Stab`] that was not dived;
 //! `Parried` and `Struck` are [`ViewAction::Parry`] and
 //! [`ViewAction::Struck`]; ORB held is [`ViewAction::Raise`], and
 //! `OrbThrown` is [`ViewAction::Throw`]. The seam works out every pose
@@ -185,8 +188,9 @@ impl ViewmodelProps {
 pub fn dive(action: ViewAction, since: f32) -> f32 {
 	match action {
 		ViewAction::DiveIn => (since / arms::DIVE_IN_SECONDS).clamp(0.0, 1.0),
-		ViewAction::Stab { .. } => 1.0,
+		ViewAction::Stab { dived: true, .. } => 1.0,
 		ViewAction::DiveOut => 1.0 - (since / arms::DIVE_OUT_SECONDS).clamp(0.0, 1.0),
+		ViewAction::Swing { dived: true } => arms::swing_dive(since),
 		_ => 0.0,
 	}
 }
@@ -666,14 +670,31 @@ mod tests {
 	fn the_dive_lens_follows_the_dive() {
 		assert_eq!(dive(ViewAction::Idle, 1.0), 0.0);
 		assert_eq!(dive(ViewAction::DiveIn, arms::DIVE_IN_SECONDS), 1.0);
-		assert_eq!(dive(ViewAction::Stab { nth: 1 }, 0.0), 1.0);
+		let stab = |dived| ViewAction::Stab { nth: 1, dived };
+		assert_eq!(dive(stab(true), 0.0), 1.0);
+		assert_eq!(
+			dive(stab(false), 0.0),
+			0.0,
+			"a stab in arm's reach is not dived"
+		);
 		assert_eq!(dive(ViewAction::DiveOut, arms::DIVE_OUT_SECONDS), 0.0);
+		let swing = ViewAction::Swing { dived: true };
+		assert_eq!(dive(swing, arms::CONTACT), 1.0, "held in until the blow");
+		assert_eq!(
+			dive(swing, arms::CONTACT + arms::DIVE_OUT_SECONDS),
+			0.0,
+			"and back out as the rules' dive comes out"
+		);
+		assert_eq!(dive(ViewAction::Strike, 0.0), 0.0);
 	}
 
 	#[test]
 	fn the_arms_hold_still_through_a_hit_stop() {
 		let mut props = ViewmodelProps::at_rest(Archetype::Blade, WeaponKind::Scythe, 0);
-		props.action = ViewAction::Stab { nth: 0 };
+		props.action = ViewAction::Stab {
+			nth: 0,
+			dived: true,
+		};
 		props.juice.land(Jolt::Stab, 6);
 		let held = props.action_seconds(8.0);
 		assert_eq!(held, props.action_seconds(10.0));

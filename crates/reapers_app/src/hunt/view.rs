@@ -33,6 +33,8 @@ use super::hud::banner_for;
 use super::hud::knock_for;
 use super::hud::status;
 use super::hud::status_view;
+use super::lessons::Learned;
+use super::lessons::Teacher;
 use super::overlay::Lens;
 use super::overlay::Sketch;
 use super::overlay::fight;
@@ -47,11 +49,13 @@ use crate::l10n::Messages;
 use crate::l10n::use_l10n;
 use crate::lookups::difficulty_name;
 use crate::platform;
+use crate::platform::Prefs;
 use crate::render::pointer::Gesture;
 use crate::render::pointer::on_gesture;
 use crate::render::scene::HUNT;
 use crate::seams::HuntBrief;
 use crate::seams::HuntViewProps;
+use crate::seams::viewmodel_view;
 use crate::theme::ASH;
 use crate::theme::BONE;
 use crate::theme::Rgb;
@@ -117,6 +121,10 @@ pub struct HuntState {
 	/// The room drawn by hand the hunt is played in, with
 	/// `REAPERS_DRAWN_ROOM`.
 	room: Option<reapers_world::DrawnRoom>,
+	/// What a practice teaches through the caption, until it is learned.
+	teacher: Option<Teacher>,
+	/// Where what was learned is kept.
+	prefs: Option<Rc<dyn Prefs>>,
 }
 
 thread_local! {
@@ -166,17 +174,38 @@ impl HuntState {
 		let size = platform::viewport();
 		// The native apps ask for the camera's picture behind the hunt; with
 		// no session to give it, it draws as the browser's does.
-		let arena = Arena::new(
+		let mut arena = Arena::new(
 			HUNT,
 			props.brief.nft.collection.vessel(),
 			&props.brief.nft,
 			size.0 / size.1,
 			cfg!(feature = "native"),
 		);
+		arena.height = size.1;
 		let shared = Shared {
 			scene: Some(arena.scene.id().0),
 			..Shared::default()
 		};
+		let prefs =
+			reactive_graph::owner::use_context::<crate::state::Game>().map(|game| game.prefs());
+		let teacher = props.brief.is_practice().then(Teacher::default);
+		if teacher.is_some()
+			&& let Some(prefs) = prefs.clone()
+		{
+			platform::spawn(async move {
+				let Ok(Some(value)) = prefs.get(Learned::KEY).await else {
+					return;
+				};
+				let Some(bits) = value.as_u64().and_then(|bits| u8::try_from(bits).ok()) else {
+					return;
+				};
+				with_hunt(|hunt| {
+					if let Some(teacher) = hunt.teacher.as_mut() {
+						teacher.recall(Learned::from_bits(bits));
+					}
+				});
+			});
+		}
 		Self {
 			brief: props.brief,
 			difficulty: props.difficulty,
@@ -195,7 +224,23 @@ impl HuntState {
 			light: light_of(&props.brief),
 			size,
 			room: crate::dev::drawn_room::room(),
+			teacher,
+			prefs,
 		}
+	}
+
+	/// Keeps what this practice has taught, unless it played itself.
+	fn remember(&self) {
+		let (Some(prefs), Some(teacher)) = (self.prefs.clone(), self.teacher.as_ref()) else {
+			return;
+		};
+		if self.autoplay {
+			return;
+		}
+		let bits = teacher.learned().bits();
+		platform::spawn(async move {
+			let _ = prefs.set(Learned::KEY, serde_json::Value::from(bits)).await;
+		});
 	}
 
 	/// The fight for this husk, inside `plan`.
@@ -229,7 +274,7 @@ impl HuntState {
 			width: self.size.0,
 			height: self.size.1,
 			pose: self.arena.pose(live.pose()),
-			fov: self.arena.fov,
+			fov: self.arena.view_fov(),
 		}
 	}
 
@@ -284,7 +329,8 @@ impl HuntState {
 		} else {
 			HuntController::new(Fight::Hunt(sim))
 		};
-		self.arena.engage(controller, occlusion);
+		self.arena
+			.engage(controller, occlusion, self.brief.loadout.weapon.kind);
 		self.stage = Stage::Fighting;
 		self.banner = Some((
 			Banner {
@@ -371,11 +417,18 @@ impl HuntState {
 			controller.hold_orb(holding);
 		}
 		let events = self.arena.advance(delta, live_pose);
-		for event in &events {
+		let mut learned = false;
+		for (_, event) in &events {
 			knock_for(event);
 			if let Some(banner) = banner_for(words(), event) {
 				self.banner = Some((banner, self.seconds));
 			}
+			if let Some(teacher) = self.teacher.as_mut() {
+				learned |= teacher.hear(event);
+			}
+		}
+		if learned {
+			self.remember();
 		}
 		let Some(controller) = self.arena.controller.as_ref() else {
 			return;
@@ -543,6 +596,13 @@ pub fn hunt_view(props: &HuntViewProps) -> Element {
 				.class("absolute inset-0 w-full h-full")
 				.aria_hidden(true),
 		);
+	if state.stage == Stage::Fighting
+		&& let Some(arms) = state.arena.viewmodel()
+	{
+		// The reaper's own arms, over the room and under the marks and the
+		// thumbs' controls.
+		root = root.child(viewmodel_view(&arms));
+	}
 	let mut marks = Sketch::default();
 	match &state.stage {
 		Stage::Tracing(trace) => sigil(&mut marks, &lens, trace, state.light),
@@ -588,17 +648,22 @@ fn fighting(state: &HuntState) -> Element {
 		state.banner.as_ref().map(|(banner, _)| banner.clone()),
 		"",
 	);
-	let touchable = !controller.plays_itself();
-	let controls = super::controls::controls(
-		&*words,
-		controller.sim(),
-		controller.slot(),
-		state.brief.loadout.reaper_class.weapon(),
-		state.light,
-		touchable,
-		fire,
-		select_slot,
-	);
+	let thumbs = super::controls::Thumbs {
+		sim: controller.sim(),
+		slot: controller.slot(),
+		carried: std::array::from_fn(|slot| controller.carries(slot)),
+		weapon: state.brief.loadout.weapon.kind,
+		light: state.light,
+		aim: pose.forward,
+		lesson: state
+			.teacher
+			.as_ref()
+			.and_then(|teacher| teacher.prompt(controller.sim())),
+		touchable: !controller.plays_itself(),
+		on_fire: fire,
+		on_slot: select_slot,
+	};
+	let controls = super::controls::controls(&*words, &thumbs);
 	View()
 		.class("absolute inset-0")
 		.child(status_view(&*words, &shown, state.light, None))

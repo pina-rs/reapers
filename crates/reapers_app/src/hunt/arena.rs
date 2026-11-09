@@ -8,6 +8,7 @@
 use std::rc::Rc;
 
 use leptoskit::scene3d::Op;
+use leptoskit::scene3d::Transform;
 use reapers_rules::HuntEvent;
 use reapers_rules::HuntPhase;
 use reapers_rules::HuntSim;
@@ -15,20 +16,31 @@ use reapers_rules::HuskPose;
 use reapers_rules::Nft;
 use reapers_rules::Vec3;
 use reapers_rules::Vessel;
+use reapers_rules::WeaponKind;
 use reapers_world::ArPose;
 use reapers_world::OcclusionMap;
 use reapers_world::to_platform;
 
+use super::arms::Arms;
+use super::arms::HuskMarks;
 use super::controller::HuntController;
 use crate::render::camera::look_at;
 use crate::render::husk::HuskMood;
 use crate::render::husk::HuskRig;
+use crate::render::juice::dive_zoom;
+use crate::render::juice::zoomed_fov;
+use crate::render::orb::soul_taken;
 use crate::render::reaction::HuskPlight;
 use crate::render::scene::GameScene;
 use crate::render::scene::Key;
 use crate::render::scene::forget;
 use crate::render::scene::light_hunt;
 use crate::render::scene::scene;
+use crate::render::turn::multiply;
+use crate::seams::ViewmodelProps;
+use crate::seams::WorldView;
+use crate::seams::dive;
+use crate::seams::shake_turn;
 
 /// The vertical field of view the hunt is drawn with when there is no
 /// camera picture to match: a browser, a simulator, a refused permission.
@@ -45,12 +57,31 @@ const GATHER_SECONDS: f64 = 1.1;
 const WOUND_SECONDS: f64 = 0.9;
 /// How far a husk whose ward has broken has already come apart.
 const BROKEN_DISSOLVE: f64 = 0.2;
+/// How high above the ground under the husk an orb that has landed rests,
+/// in metres: its own radius.
+const ORB_REST: f64 = 0.126;
+/// How long a soul let out of an orb takes to gather itself again.
+const REFORM_SECONDS: f64 = 0.5;
+/// How quickly the arms' sense of the view's turn follows it, per second.
+const TURN_FOLLOW: f64 = 12.0;
 
 /// One husk's arena.
 pub struct Arena {
+	/// The scene's name.
+	key: Key,
 	pub scene: Rc<GameScene>,
 	pub rig: HuskRig,
 	pub controller: Option<HuntController>,
+	/// The reaper's own arms, once a fight is engaged.
+	pub arms: Option<Arms>,
+	/// How much of the husk an orb has drawn in, from 0 to 1.
+	taken: f64,
+	/// The view's turn, in radians a second to the right and up, and the
+	/// way it faced last tick.
+	turn_rate: [f64; 2],
+	facing: Option<(f64, f64)>,
+	/// The view's height in layout units, for the shake's few pixels.
+	pub height: f64,
 	/// Where the husk stands until a fight is engaged.
 	rest: Option<HuskPose>,
 	/// How far the husk has come apart, from 0 (whole) to 1 (gone).
@@ -66,8 +97,9 @@ pub struct Arena {
 	pub fov: f64,
 	/// The view's width over its height.
 	pub aspect: f64,
-	/// The camera last sent, so a still view sends nothing.
-	camera: Option<([i32; 6], i32)>,
+	/// The camera last sent, so a still view sends nothing, and its turn.
+	camera: Option<([i32; 10], i32)>,
+	turned: [f32; 4],
 	/// Whether the scene is drawn over the camera's picture, from the
 	/// platform's own view of the room.
 	camera_picture: bool,
@@ -85,9 +117,15 @@ impl Arena {
 		let rig = HuskRig::spawn(ops, vessel, nft);
 		scene.flush();
 		Self {
+			key,
 			scene,
 			rig,
 			controller: None,
+			arms: None,
+			taken: 0.0,
+			turn_rate: [0.0; 2],
+			facing: None,
+			height: 800.0,
 			rest: None,
 			come_apart: 0.0,
 			wound: 0.0,
@@ -97,6 +135,7 @@ impl Arena {
 			fov: HUNT_FOV,
 			aspect,
 			camera: None,
+			turned: [0.0, 0.0, 0.0, 1.0],
 			camera_picture,
 		}
 	}
@@ -115,10 +154,16 @@ impl Arena {
 		self.rig.place(&pose);
 	}
 
-	/// Hands the arena the fight it is to show. A husk that was not in view
-	/// gathers itself out of nothing where the fight begins. Where the room
-	/// was seen, `occlusion` is how it looked.
-	pub fn engage(&mut self, controller: HuntController, occlusion: Option<OcclusionMap>) {
+	/// Hands the arena the fight it is to show, fought with `heavy` in the
+	/// heavy slot. A husk that was not in view gathers itself out of nothing
+	/// where the fight begins. Where the room was seen, `occlusion` is how it
+	/// looked.
+	pub fn engage(
+		&mut self,
+		controller: HuntController,
+		occlusion: Option<OcclusionMap>,
+		heavy: WeaponKind,
+	) {
 		if self.rest.is_none()
 			|| self
 				.controller
@@ -131,6 +176,8 @@ impl Arena {
 		self.over_for = 0.0;
 		self.wound = 0.0;
 		self.rest(controller.sim().pose());
+		self.arms = Some(Arms::new(controller.sim(), heavy));
+		self.taken = 0.0;
 		self.controller = Some(controller);
 		self.occlusion = occlusion.filter(|map| map.pictures() > 0);
 	}
@@ -153,30 +200,128 @@ impl Arena {
 	}
 
 	/// Points the scene's camera along `pose`, sending it only when it moved.
+	/// Where the arena draws its own picture, the dive lens narrows it and
+	/// a blow shakes it, by a few pixels at most; a camera's picture of the
+	/// room is never moved.
 	pub fn aim(&mut self, pose: &ArPose) {
+		let point = |direction: Vec3| to_platform(direction).map(|value| value as f32);
+		let mut camera = look_at([0.0; 3], point(pose.forward), point(pose.up));
+		let fov = self.view_fov();
+		if let Some(shake) = self.shake(fov) {
+			camera.rotation = multiply(camera.rotation, shake);
+		}
+		self.turned = camera.rotation;
 		let quantum = |value: f64| (value * 2000.0).round() as i32;
-		let key = (
-			[
-				quantum(pose.forward.x),
-				quantum(pose.forward.y),
-				quantum(pose.forward.z),
-				quantum(pose.up.x),
-				quantum(pose.up.y),
-				quantum(pose.up.z),
-			],
-			quantum(self.fov),
-		);
+		let mut key = [0; 10];
+		for (slot, value) in key.iter_mut().zip(
+			[pose.forward, pose.up]
+				.iter()
+				.flat_map(|v| [v.x, v.y, v.z])
+				.chain(camera.rotation.iter().map(|&v| f64::from(v)).take(4)),
+		) {
+			*slot = quantum(value);
+		}
+		let key = (key, quantum(fov));
 		if self.camera == Some(key) {
 			return;
 		}
 		self.camera = Some(key);
-		let point = |direction: Vec3| to_platform(direction).map(|value| value as f32);
 		self.scene.ops().push(Op::SetCamera {
-			transform: look_at([0.0; 3], point(pose.forward), point(pose.up)),
-			fov_y: self.fov as f32,
+			transform: camera,
+			fov_y: fov as f32,
 			near: 0.05,
 			far: 120.0,
 		});
+	}
+
+	/// Whether the arena draws its own picture of the world, so the dive
+	/// lens and the shake may move it: not over a camera's picture, which
+	/// cannot zoom or shake with it, and not for a player who asks for less
+	/// motion.
+	fn moves_its_picture(&self) -> bool {
+		!self.camera_picture && !crate::platform::reduced_motion()
+	}
+
+	/// The vertical field of view the world is drawn with now: narrowed by
+	/// the dive lens as the reaper lunges in.
+	pub fn view_fov(&self) -> f64 {
+		if !self.moves_its_picture() {
+			return self.fov;
+		}
+		let (Some(arms), Some(controller)) = (&self.arms, &self.controller) else {
+			return self.fov;
+		};
+		let sim = controller.sim();
+		let props = arms.props(sim, None, [0.0; 2]);
+		let lens = dive(props.action, props.action_seconds(sim.tick() as f64));
+		let zoom = dive_zoom(lens, sim.pose().distance() as f32);
+		f64::from(zoomed_fov(self.fov as f32, zoom))
+	}
+
+	/// The turn a blow's shake gives the world's camera now, if any.
+	fn shake(&self, fov: f64) -> Option<[f32; 4]> {
+		if !self.moves_its_picture() {
+			return None;
+		}
+		let arms = self.arms.as_ref()?;
+		let tick = self.controller.as_ref()?.sim().tick() as f64;
+		let juice = arms.juice();
+		(juice.trauma_at(tick) > 0.0)
+			.then(|| shake_turn(juice, tick, fov as f32, self.height as f32))
+	}
+
+	/// The reaper's own arms and the light of their blows, for the
+	/// viewmodel seam, once a fight is engaged.
+	pub fn viewmodel(&self) -> Option<ViewmodelProps> {
+		let controller = self.controller.as_ref()?;
+		let arms = self.arms.as_ref()?;
+		let sim = controller.sim();
+		let marks = self.marks();
+		let husk = sim.pose();
+		let floor = husk.ground.unwrap_or(-sim.plan().eye_height());
+		let world = WorldView {
+			scene: self.key,
+			camera: Transform {
+				translation: self.rig.origin(),
+				rotation: self.turned,
+				scale: [1.0; 3],
+			},
+			fov_y: self.view_fov() as f32,
+			aspect: self.aspect as f32,
+			husk: marks.scene_point(husk.position),
+			ground: marks.scene_point(Vec3::new(
+				husk.position.x,
+				floor + ORB_REST,
+				husk.position.z,
+			)),
+		};
+		let turn = self.turn_rate.map(|rate| rate as f32);
+		Some(arms.props(sim, Some(world), turn))
+	}
+
+	fn marks(&self) -> HuskMarks {
+		HuskMarks {
+			origin: self.rig.origin(),
+			light: self.rig.light,
+		}
+	}
+
+	/// Follows how fast the view turns, for the arms to trail it.
+	fn follow_turn(&mut self, delta: f64, pose: &ArPose) {
+		let facing = (pose.forward.yaw(), pose.forward.pitch());
+		if let Some((yaw, pitch)) = self.facing
+			&& delta > 0.0
+		{
+			let turned = [
+				reapers_rules::wrap_angle(facing.0 - yaw) / delta,
+				(facing.1 - pitch) / delta,
+			];
+			let follow = 1.0 - (-TURN_FOLLOW * delta).exp();
+			for (rate, now) in self.turn_rate.iter_mut().zip(turned) {
+				*rate += (now - *rate) * follow;
+			}
+		}
+		self.facing = Some(facing);
 	}
 
 	/// While nothing is being fought: the husk drifts and the rules wait.
@@ -192,16 +337,25 @@ impl Arena {
 	}
 
 	/// Advances the fight and everything drawn from it, with the player at
-	/// `live`, and returns what happened. Before a fight is engaged this
-	/// only idles.
-	pub fn advance(&mut self, delta: f64, live: ArPose) -> Vec<HuntEvent> {
+	/// `live`, and returns what happened, each on the rules' tick it happened
+	/// on. Before a fight is engaged this only idles.
+	pub fn advance(&mut self, delta: f64, live: ArPose) -> Vec<(i64, HuntEvent)> {
 		let Some(controller) = self.controller.as_mut() else {
 			self.idle(delta, live);
 			return Vec::new();
 		};
 		let pose = controller.pose(live);
 		let events = controller.frame(delta, &pose);
-		for event in &events {
+		let marks = self.marks();
+		if let (Some(arms), Some(controller)) = (self.arms.as_mut(), self.controller.as_ref()) {
+			let sim = controller.sim();
+			for (tick, event) in &events {
+				arms.hear(sim, *tick, event, &marks);
+			}
+			arms.follow(sim);
+		}
+		self.follow_turn(delta, &pose);
+		for (_, event) in &events {
 			match event {
 				HuntEvent::HitLanded {
 					empowered,
@@ -270,7 +424,13 @@ impl Arena {
 				husk.distance() - husk.vessel.half_width(),
 			)
 		});
-		let dissolve = self.come_apart.max(1.0 - self.gathered);
+		// A soul an orb draws in goes into it; one that breaks out gathers
+		// itself again, never at once.
+		let taken = sim
+			.orb()
+			.map_or(0.0, |orb| soul_taken(&orb, sim.tick() as f64));
+		self.taken = taken.max(self.taken - delta / REFORM_SECONDS);
+		let dissolve = self.come_apart.max(1.0 - self.gathered).max(self.taken);
 		self.rig
 			.dissolve(if hidden { dissolve.max(0.92) } else { dissolve });
 		self.rig.animate(self.scene.ops(), delta, mood, plight);

@@ -89,14 +89,21 @@ pub enum ViewAction {
 	ActiveReload,
 	/// A reload pressed too early: it rattles and will not seat.
 	Jam,
-	/// The knife lunges in and is held ready.
+	/// The weapon lunges in and is held ready.
 	DiveIn,
-	/// One stab, from the dive. Each comes in from the other side.
-	Stab { nth: u8 },
-	/// The knife comes back out.
+	/// One stab: from the dive's ready pose when `dived`, or from rest at a
+	/// husk in arm's reach. Each comes in from the other side.
+	Stab { nth: u8, dived: bool },
+	/// The weapon comes back out.
 	DiveOut,
-	/// A heavy swing in the weapon's own manner.
-	Swing,
+	/// A heavy swing in the weapon's own manner: a wind-up, and the blow
+	/// [`CONTACT`] into it. Begun `dived`, it is held in the dive until the
+	/// blow, and comes back out as the swing follows through, as the rules'
+	/// dive does.
+	Swing { dived: bool },
+	/// A heavy swing at a husk in arm's reach: the rules land it on the
+	/// press, so it starts at its own blow and follows through, fast.
+	Strike,
 	/// The weapon brought up and across to turn a charge aside.
 	Parry,
 	/// The reaper is hit: the arm jolts.
@@ -198,6 +205,9 @@ pub const STRIKE_SECONDS: f32 = 0.18;
 const STRIKE: f32 = WIND_UP + STRIKE_SECONDS;
 /// When a heavy swing lands: halfway through its strike.
 pub const CONTACT: f32 = WIND_UP + STRIKE_SECONDS / 2.0;
+/// The ticks from the start of a swing to its blow: a swing the rules land
+/// on a tick begins this many ticks before it.
+pub const CONTACT_TICKS: i64 = (CONTACT * TICKS_PER_SECOND + 0.5) as i64;
 pub const PARRY_SECONDS: f32 = 0.42;
 pub const STRUCK_SECONDS: f32 = 0.45;
 /// The throw lets go of the orb at 0.3 s.
@@ -233,16 +243,30 @@ pub fn pose(manner: Swing, action: ViewAction, since: f32, clock: f32) -> Pose {
 			pose.arm.wrist_roll += 0.09 * rattle;
 			pose.arm.x += 0.004 * rattle;
 		}
-		ViewAction::DiveIn => dive(&mut pose.arm, sample(LUNGE, since / DIVE_IN_SECONDS)),
-		ViewAction::Stab { nth } => {
-			dive(&mut pose.arm, 1.0);
+		ViewAction::DiveIn => {
+			dive(
+				&mut pose.arm,
+				manner,
+				sample(LUNGE, since / DIVE_IN_SECONDS),
+			);
+		}
+		ViewAction::Stab { nth, dived } => {
+			if dived {
+				dive(&mut pose.arm, manner, 1.0);
+			}
 			stab(&mut pose.arm, since, nth);
 		}
 		ViewAction::DiveOut => {
 			let out = Ease::InOut.apply(since / DIVE_OUT_SECONDS);
-			dive(&mut pose.arm, 1.0 - out);
+			dive(&mut pose.arm, manner, 1.0 - out);
 		}
-		ViewAction::Swing => swing(&mut pose, manner, since),
+		ViewAction::Swing { dived } => {
+			if dived {
+				dive(&mut pose.arm, manner, swing_dive(since));
+			}
+			swing(&mut pose, manner, since);
+		}
+		ViewAction::Strike => swing(&mut pose, manner, CONTACT + since),
 		ViewAction::Parry => parry(&mut pose.arm, since),
 		ViewAction::Struck => struck(&mut pose.arm, since),
 		ViewAction::Raise => raised(&mut pose, since),
@@ -264,7 +288,8 @@ pub fn duration(manner: Swing, action: ViewAction) -> f32 {
 		ViewAction::DiveIn => DIVE_IN_SECONDS,
 		ViewAction::Stab { .. } => end(THRUST),
 		ViewAction::DiveOut => DIVE_OUT_SECONDS,
-		ViewAction::Swing => shape(manner).end,
+		ViewAction::Swing { .. } => shape(manner).end,
+		ViewAction::Strike => shape(manner).end - CONTACT,
 		ViewAction::Parry => PARRY_SECONDS,
 		ViewAction::Struck => STRUCK_SECONDS,
 		ViewAction::Throw => THROW_SECONDS,
@@ -405,15 +430,34 @@ const THRUST: Keys = &[
 	key(STAB_SECONDS + 0.15, 0.0),
 ];
 
-fn dive(arm: &mut ArmPose, ready: f32) {
-	// Raised, nearer the middle, the point brought down onto the husk.
-	arm.x -= 0.03 * ready;
-	arm.y += 0.03 * ready;
-	arm.z += 0.05 * ready;
-	arm.pitch += 0.1 * ready;
-	arm.wrist_pitch -= 0.3 * ready;
-	arm.yaw -= 0.06 * ready;
-	arm.wrist_yaw -= 0.08 * ready;
+/// How far in a swing begun in a dive is held, `since` seconds into it:
+/// all the way until its blow, then back out over the rules' dive out.
+pub fn swing_dive(since: f32) -> f32 {
+	1.0 - Ease::InOut.apply((since - CONTACT) / DIVE_OUT_SECONDS)
+}
+
+/// The arm lunged in, `ready` of the way, with a weapon that swings in
+/// `manner`.
+fn dive(arm: &mut ArmPose, manner: Swing, ready: f32) {
+	match manner {
+		Swing::Stab | Swing::Shoot => {
+			// Raised, nearer the middle, the point brought down onto the husk.
+			arm.x -= 0.03 * ready;
+			arm.y += 0.03 * ready;
+			arm.z += 0.05 * ready;
+			arm.pitch += 0.1 * ready;
+			arm.wrist_pitch -= 0.3 * ready;
+			arm.yaw -= 0.06 * ready;
+			arm.wrist_yaw -= 0.08 * ready;
+		}
+		Swing::Sweep | Swing::Thrust | Swing::Toll | Swing::Lash | Swing::Chop => {
+			// A heavy weapon is carried in raised, ready to swing: turned
+			// toward the middle it would be swung from the wrong side.
+			arm.y += 0.025 * ready;
+			arm.z += 0.05 * ready;
+			arm.pitch += 0.08 * ready;
+		}
+	}
 }
 
 fn stab(arm: &mut ArmPose, since: f32, nth: u8) {

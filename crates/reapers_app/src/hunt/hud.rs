@@ -109,30 +109,82 @@ pub fn banner_for(words: &dyn Messages, event: &HuntEvent) -> Option<Banner> {
 	})
 }
 
+/// What the player's hand feels for an event.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Knock {
+	/// A light tick: a shot, a throw, a pulse.
+	Tap,
+	/// A heavy blow: a stab or a swing landing, a parry, a jam, a kill.
+	Thud,
+	/// Two ticks: a perfect reload.
+	DoubleTap,
+	/// Two beats: the orb held.
+	Heartbeat,
+}
+
 /// How hard `event` knocks in the player's hand: the phone is the weapon,
 /// so what the weapon meets should be felt.
-pub fn knock_for(event: &HuntEvent) {
-	match event {
+pub const fn knock_of(event: &HuntEvent) -> Option<Knock> {
+	use reapers_rules::Archetype;
+	Some(match event {
+		HuntEvent::HuskCaptured(_) => Knock::Heartbeat,
+		HuntEvent::ReloadFinished { perfect: true } => Knock::DoubleTap,
 		HuntEvent::HitLanded {
 			empowered: true, ..
+		}
+		| HuntEvent::HitLanded {
+			weapon: Archetype::Blade | Archetype::Heavy,
+			..
 		}
 		| HuntEvent::ShriekBegan
 		| HuntEvent::Parried
 		| HuntEvent::Broken { .. }
-		| HuntEvent::HuskCaptured(_)
 		| HuntEvent::HuskEscaped(_)
 		| HuntEvent::ArtLanded { hit: true, .. }
 		| HuntEvent::IceShattered
 		| HuntEvent::Flinched { .. }
-		| HuntEvent::Struck { .. } => platform::thud(),
+		| HuntEvent::Struck { .. }
+		| HuntEvent::ReloadJammed
+		| HuntEvent::OrbImpact { .. }
+		| HuntEvent::OrbBrokeFree(_) => Knock::Thud,
 		HuntEvent::StalkEnded { .. }
 		| HuntEvent::HeldFirm
 		| HuntEvent::ChargeBegan
 		| HuntEvent::ArtThrown(_)
 		| HuntEvent::HitLanded { .. }
 		| HuntEvent::Missed(_)
-		| HuntEvent::OrbBrokeFree(_) => platform::tap(),
-		_ => {}
+		| HuntEvent::ShotFired { .. }
+		| HuntEvent::DiveStarted(_)
+		| HuntEvent::OrbThrown { .. }
+		| HuntEvent::OrbPulse(_) => Knock::Tap,
+		_ => return None,
+	})
+}
+
+/// Plays the knock for `event` through the device's motor, if it has one.
+pub fn knock_for(event: &HuntEvent) {
+	/// The time between the two beats of a heartbeat or a double tick.
+	const BEAT: std::time::Duration = std::time::Duration::from_millis(80);
+	match knock_of(event) {
+		Some(Knock::Tap) => platform::tap(),
+		Some(Knock::Thud) => platform::thud(),
+		Some(Knock::DoubleTap) => {
+			platform::tap();
+			platform::spawn(async {
+				if platform::sleep(BEAT).await {
+					platform::tap();
+				}
+			});
+		}
+		Some(Knock::Heartbeat) => {
+			platform::thud();
+			platform::spawn(async {
+				if platform::sleep(BEAT).await {
+					platform::thud();
+				}
+			});
+		}
+		None => {}
 	}
 }
 
@@ -289,37 +341,42 @@ pub fn status_view(
 	if status.cadence > 1 {
 		resolve = resolve.child(label(&words.hunt_cadence(status.cadence), 11, light));
 	}
-	let mut column = View()
-		.class("absolute inset-0 px-5 pt-3 pb-7 pt-safe pb-safe")
-		.test_id("hunt-status")
+	// The ledger sits on ink, so that it reads over a bright room.
+	let mut ledger = View()
+		.class("px-3 pt-2 pb-3 rounded-[8px] bg-[#07080ba6]")
 		.child(top)
 		.child(gap(8))
 		.child(ledger_meter(words.hunt_ward(), status.ward, light))
 		.child(gap(10))
 		.child(resolve);
 	if status.cadence > 0 && status.seconds.is_some() {
-		column = column
+		ledger = ledger
 			.child(gap(6))
 			.child(thin_meter(status.cadence_left, light));
 	}
+	let mut column = View()
+		.class("absolute left-0 right-0 top-0 px-3 pt-2 pt-safe")
+		.test_id("hunt-status")
+		.child(ledger);
 	if let Some(company) = company {
 		column = column.child(gap(12)).child(company);
 	}
-	column = column.child(gap(30));
-	if let Some(banner) = &status.banner {
-		let words_of_it = if banner.strike {
-			body(banner.text.clone(), 18, BONE)
-		} else {
-			display(banner.text.clone(), 40, BONE)
-		};
-		column = column.child(
+	// What to do now, and the phase's meter, under the ledger: the bottom
+	// of the screen is the thumbs'.
+	column = column.child(gap(12));
+	let prompt = if status.loud {
+		display(status.prompt.clone(), 28, BONE)
+	} else {
+		body(status.prompt.clone(), 14, BONE)
+	};
+	column = column.child(
+		View().class("items-center").child(
 			View()
-				.class("items-center")
-				.test_id("hunt-banner")
-				.child(words_of_it),
-		);
-	}
-	column = column.child(View().class("flex-1"));
+				.class("max-w-[320px] px-3 py-[5px] rounded-[6px] bg-[#07080bb8] items-center")
+				.test_id("hunt-prompt")
+				.child(prompt.class("text-center")),
+		),
+	);
 	if let Some(gauge) = &status.gauge {
 		let (name, fraction, colour) = match gauge {
 			Gauge::Steadiness { fraction, steady } => {
@@ -335,25 +392,28 @@ pub fn status_view(
 			}
 			Gauge::Broken { fraction } => (words.hunt_broken_window(), *fraction, BONE),
 		};
-		column = column.child(
+		column = column.child(gap(8)).child(
 			View()
-				.class("pb-3")
+				.class("px-3 py-2 rounded-[6px] bg-[#07080bb8]")
 				.child(label(name, 11, BONE))
 				.child(gap(6))
 				.child(thin_meter(fraction, colour)),
 		);
 	}
-	let prompt = if status.loud {
-		display(status.prompt.clone(), 30, BONE)
-	} else {
-		body(status.prompt.clone(), 16, BONE)
-	};
-	column.child(
-		View()
-			.class("items-center")
-			.test_id("hunt-prompt")
-			.child(prompt),
-	)
+	if let Some(banner) = &status.banner {
+		let words_of_it = if banner.strike {
+			body(banner.text.clone(), 18, BONE)
+		} else {
+			display(banner.text.clone(), 40, BONE)
+		};
+		column = column.child(gap(18)).child(
+			View()
+				.class("items-center")
+				.test_id("hunt-banner")
+				.child(words_of_it),
+		);
+	}
+	column
 }
 
 #[cfg(test)]
@@ -406,6 +466,38 @@ mod tests {
 			banner_for(&words, &HuntEvent::HuskEscaped(EscapeCause::Time)),
 			None
 		);
+	}
+
+	#[test]
+	fn a_blade_lands_heavier_in_the_hand_than_a_shot() {
+		let hit = |weapon| {
+			HuntEvent::HitLanded {
+				weapon,
+				damage: 6.0,
+				cadence: 1,
+				critical: false,
+				empowered: false,
+				seal: None,
+				cleaved: Vec::new(),
+			}
+		};
+		assert_eq!(
+			knock_of(&hit(reapers_rules::Archetype::Gun)),
+			Some(Knock::Tap)
+		);
+		assert_eq!(
+			knock_of(&hit(reapers_rules::Archetype::Blade)),
+			Some(Knock::Thud)
+		);
+		assert_eq!(
+			knock_of(&HuntEvent::ReloadFinished { perfect: true }),
+			Some(Knock::DoubleTap)
+		);
+		assert_eq!(
+			knock_of(&HuntEvent::ReloadFinished { perfect: false }),
+			None
+		);
+		assert_eq!(knock_of(&HuntEvent::ReloadJammed), Some(Knock::Thud));
 	}
 
 	#[test]

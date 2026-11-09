@@ -28,7 +28,9 @@ fn actions(archetype: Archetype) -> Vec<ViewAction> {
 	let mut actions = vec![
 		ViewAction::Idle,
 		ViewAction::Draw,
-		ViewAction::Swing,
+		ViewAction::Swing { dived: false },
+		ViewAction::Swing { dived: true },
+		ViewAction::Strike,
 		ViewAction::Parry,
 		ViewAction::Struck,
 		ViewAction::Raise,
@@ -47,9 +49,18 @@ fn actions(archetype: Archetype) -> Vec<ViewAction> {
 		Archetype::Blade => {
 			&[
 				ViewAction::DiveIn,
-				ViewAction::Stab { nth: 0 },
-				ViewAction::Stab { nth: 1 },
-				ViewAction::Stab { nth: 2 },
+				ViewAction::Stab {
+					nth: 0,
+					dived: true,
+				},
+				ViewAction::Stab {
+					nth: 1,
+					dived: true,
+				},
+				ViewAction::Stab {
+					nth: 2,
+					dived: false,
+				},
 				ViewAction::DiveOut,
 			]
 		}

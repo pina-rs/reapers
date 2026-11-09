@@ -129,9 +129,21 @@ impl HuntController {
 		self.slot
 	}
 
-	/// Selects a weapon slot. It is drawn on the next tick.
+	/// Whether the reaper carries what is in `slot` into this fight. In a
+	/// rift it carries only the pistol and its art: the husk stands beyond
+	/// any dive, so nothing else could reach it (`docs/gameplay.md`, "The
+	/// fight"), and the rail offers nothing that cannot.
+	pub const fn carries(&self, slot: usize) -> bool {
+		match self.fight {
+			Fight::Hunt(_) => slot < Arsenal::SLOTS,
+			Fight::Rift(_) => slot == Arsenal::GUN_SLOT || slot == Arsenal::ART_SLOT,
+		}
+	}
+
+	/// Selects a weapon slot. It is drawn on the next tick. A slot the
+	/// reaper does not carry is not selected.
 	pub fn select(&mut self, slot: usize) {
-		if slot < Arsenal::SLOTS {
+		if self.carries(slot) {
 			self.slot = slot;
 		}
 	}
@@ -166,8 +178,9 @@ impl HuntController {
 	}
 
 	/// Advances the hunt by `delta` seconds of real time, with the phone at
-	/// `pose`, and returns what happened.
-	pub fn frame(&mut self, delta: f64, pose: &ArPose) -> Vec<HuntEvent> {
+	/// `pose`, and returns what happened, each with the rules' tick it
+	/// happened on.
+	pub fn frame(&mut self, delta: f64, pose: &ArPose) -> Vec<(i64, HuntEvent)> {
 		if self.sim().is_over() || !delta.is_finite() || delta <= 0.0 {
 			return Vec::new();
 		}
@@ -180,7 +193,13 @@ impl HuntController {
 		{
 			let input = self.read_input(pose);
 			self.unspent -= Self::TICK_SECONDS;
-			events.extend(self.fight.step(&input));
+			let tick = self.sim().tick();
+			events.extend(
+				self.fight
+					.step(&input)
+					.into_iter()
+					.map(|event| (tick, event)),
+			);
 			self.recorded.push(input);
 			ticks += 1;
 		}
@@ -196,9 +215,15 @@ impl HuntController {
 	/// ORB is held.
 	fn read_input(&mut self, pose: &ArPose) -> HuntInput {
 		if let Some(bot) = self.bot.as_mut() {
-			let input = bot.decide(self.fight.sim());
+			let mut input = bot.decide(self.fight.sim());
 			self.bot_turn_speed = input.turn_radians_per_second();
 			self.fire_pending = false;
+			// The rules' player reaches for whatever the moment calls for;
+			// it only has what this fight carries.
+			if !self.carries(usize::from(input.slot)) {
+				input.slot = Arsenal::GUN_SLOT as u8;
+			}
+			self.slot = usize::from(input.slot);
 			return input;
 		}
 		let fire = std::mem::take(&mut self.fire_pending);
@@ -277,6 +302,45 @@ mod tests {
 		controller.hold_orb(false);
 		controller.frame(HuntController::TICK_SECONDS, &ArPose::AHEAD);
 		assert!(!controller.log().inputs[2].orb_held);
+	}
+
+	/// A rift is fought with the pistol and the art alone: the player cannot
+	/// draw the rest, and nor can a fight that plays itself.
+	#[test]
+	fn a_rift_carries_only_the_pistol_and_the_art() {
+		let seat = || {
+			reapers_rules::RiftSeat::new(
+				5,
+				reapers_rules::RiftSite::LondonBridge,
+				1000.0,
+				&HuntLoadout::BORROWED,
+				None,
+			)
+			.unwrap()
+		};
+		let mut controller = HuntController::new(Fight::Rift(seat()));
+		controller.select(Arsenal::BLADE_SLOT);
+		assert_eq!(controller.slot(), Arsenal::GUN_SLOT);
+		controller.select(Arsenal::HEAVY_SLOT);
+		assert_eq!(controller.slot(), Arsenal::GUN_SLOT);
+		controller.select(Arsenal::ART_SLOT);
+		assert_eq!(controller.slot(), Arsenal::ART_SLOT);
+		assert!(HuntController::new(Fight::Hunt(sim(1))).carries(Arsenal::BLADE_SLOT));
+
+		let mut autoplay = HuntController::autoplay(Fight::Rift(seat()));
+		let mut seconds = 0.0;
+		while !autoplay.sim().is_over() && seconds < 60.0 {
+			let pose = autoplay.pose(ArPose::AHEAD);
+			autoplay.frame(1.0 / 30.0, &pose);
+			seconds += 1.0 / 30.0;
+		}
+		assert!(
+			autoplay
+				.log()
+				.inputs
+				.iter()
+				.all(|input| autoplay.carries(usize::from(input.slot)))
+		);
 	}
 
 	/// What the view hands `on_finished` is a log the keeper's replay
