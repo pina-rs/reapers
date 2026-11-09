@@ -29,6 +29,7 @@ mod web {
 
 	use leptoskit::scene3d::SceneId;
 	use wasm_bindgen::JsCast as _;
+	use wasm_bindgen::convert::FromWasmAbi;
 	use wasm_bindgen::prelude::Closure;
 
 	use super::Gesture;
@@ -82,17 +83,27 @@ mod web {
 		}
 	}
 
-	fn listen(name: &str, handler: impl FnMut(web_sys::PointerEvent) + 'static) {
+	fn listen<E: FromWasmAbi + 'static>(name: &str, handler: impl FnMut(E) + 'static) {
 		let Some(document) = web_sys::window().and_then(|window| window.document()) else {
 			return;
 		};
-		let closure = Closure::<dyn FnMut(web_sys::PointerEvent)>::new(handler);
+		let closure = Closure::<dyn FnMut(E)>::new(handler);
 		let _ = document.add_event_listener_with_callback(name, closure.as_ref().unchecked_ref());
 		closure.forget();
 	}
 
 	fn install() {
-		listen("pointerdown", |event| {
+		// A drag across the words over a scene turns the scene. It must not
+		// select them: a press on selected words drags the text instead, and
+		// the browser cancels the pointer before the scene hears it move.
+		for name in ["selectstart", "dragstart"] {
+			listen(name, |event: web_sys::Event| {
+				if POINTERS.with_borrow(|pointers| pointers.active.is_some()) {
+					event.prevent_default();
+				}
+			});
+		}
+		listen("pointerdown", |event: web_sys::PointerEvent| {
 			let (x, y) = (f64::from(event.client_x()), f64::from(event.client_y()));
 			// A press on a button over the scene is the button's.
 			let on_control = event
@@ -120,7 +131,7 @@ mod web {
 				},
 			);
 		});
-		listen("pointermove", |event| {
+		listen("pointermove", |event: web_sys::PointerEvent| {
 			let (x, y) = (f64::from(event.client_x()), f64::from(event.client_y()));
 			let moved = POINTERS.with_borrow_mut(|pointers| {
 				let (id, last_x, last_y, fx, fy, dragging) = pointers.active?;
