@@ -1,6 +1,7 @@
 /.leptoskit
 /dist
 /android/.gradle
+/android/**/.cxx
 /android/**/build
 /android/local.properties
 # Mirrored by build.rs from the repository's assets.
