@@ -77,6 +77,43 @@ fn coarse_missing_nonfinite_and_out_of_range_coordinates_are_unusable() {
 }
 
 #[test]
+fn a_later_reading_replaces_an_earlier_one_and_the_same_instant_keeps_the_tighter() {
+	let coarse = fix();
+	let tighter = GeoFix {
+		accuracy: 3.0,
+		at: GeoPoint::new(51.501, -0.081),
+		..coarse
+	};
+	let elsewhere = GeoFix {
+		at: GeoPoint::new(51.6, -0.1),
+		observed_at: now().plus(Duration::from_secs(1)),
+		..coarse
+	};
+	let delayed = GeoFix {
+		accuracy: 20.0,
+		at: GeoPoint::new(51.4, -0.07),
+		..tighter
+	};
+
+	assert!(
+		tighter.replaces(&coarse),
+		"a refinement of the same instant"
+	);
+	assert!(!coarse.replaces(&tighter), "a coarser copy does not win");
+	assert!(
+		!GeoFix {
+			at: GeoPoint::new(51.49, -0.09),
+			..tighter
+		}
+		.replaces(&tighter),
+		"the same accuracy keeps the reading already stored"
+	);
+	assert!(elsewhere.replaces(&tighter), "a later instant wins");
+	assert!(!delayed.replaces(&tighter));
+	assert!(!coarse.replaces(&elsewhere), "an older upload is ignored");
+}
+
+#[test]
 fn a_live_standing_needs_a_fresh_fix_and_a_finite_compass_bearing() {
 	let fix = fix();
 	let standing = |facing: f64, time: Option<Timestamp>| {
