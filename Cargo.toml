@@ -3,6 +3,9 @@
 # new` lays them out, and build only after `leptoskit build` has generated
 # their registrants under `crates/reapers_app/.leptoskit/`.
 members = ["crates/*", "crates/reapers_app/android", "crates/reapers_app/ios"]
+# The vendored wgpu-hal is a patched dependency, not a workspace package: its
+# upstream formatting and lints stay exactly as published.
+exclude = ["vendor/wgpu-hal"]
 default-members = ["crates/*"]
 resolver = "3"
 
@@ -196,3 +199,9 @@ leptoskit_3d = { git = "https://github.com/leptoskit/leptoskit", rev = "72371309
 leptoskit_xr = { git = "https://github.com/leptoskit/leptoskit", rev = "723713098b125431f6e762cbf4b6f3ebe5506a23" }
 leptoskit_plugin_audio = { git = "https://github.com/leptoskit/leptoskit", rev = "723713098b125431f6e762cbf4b6f3ebe5506a23" }
 leptoskit_plugin_permissions = { git = "https://github.com/leptoskit/leptoskit", rev = "723713098b125431f6e762cbf4b6f3ebe5506a23" }
+
+# wgpu-hal 30.0.1 asks for an alpha channel only when it has sRGB. Android
+# needs one for a transparent `Scene3d` too, or the surface composites opaque
+# black. This is the published crate with that one Android-only change; see
+# docs/wgpu-hal-android-alpha.md.
+wgpu-hal = { path = "vendor/wgpu-hal" }
