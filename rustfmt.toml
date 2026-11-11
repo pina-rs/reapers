@@ -21,5 +21,10 @@ reorder_imports = true
 reorder_modules = true
 use_field_init_shorthand = true
 wrap_comments = false
-# Written by leptoskit for the app's native runners.
-ignore = ["crates/reapers_app/android/src/lib.rs", "crates/reapers_app/ios/src/lib.rs"]
+# Written by leptoskit: native runners and typed route modules.
+ignore = [
+    "crates/reapers_app/android/src/lib.rs",
+    "crates/reapers_app/ios/src/lib.rs",
+    "crates/reapers_app/src/routes.rs",
+    "crates/reapers_landing/src/routes.rs",
+]

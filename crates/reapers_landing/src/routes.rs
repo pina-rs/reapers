@@ -12,83 +12,96 @@ pub mod not_found;
 /// `leptoskit_router::Routable`.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Route {
-	/// `/`
-	Index,
-	/// `/*path?`
-	NotFound(::leptoskit_router::NotFound),
+    /// `/`
+    Index,
+    /// `/*path?`
+    NotFound(::leptoskit_router::NotFound),
 }
 /// Each route's pattern, in the order of the variants: what its href
 /// writes.
 const PATTERNS: [::leptoskit_router::Pattern; 2] = [
-	::leptoskit_router::Pattern::new(&[]),
-	::leptoskit_router::Pattern::new(&[::leptoskit_router::Segment::OptionalRest("path")]),
+    ::leptoskit_router::Pattern::new(&[]),
+    ::leptoskit_router::Pattern::new(
+        &[::leptoskit_router::Segment::OptionalRest("path")],
+    ),
 ];
 /// Each shape of URL a route matches, with each optional segment
 /// present or absent, and how to read the route from it: most specific
 /// first.
 const ROUTES: [(
-	::leptoskit_router::__private::Shape,
-	::leptoskit_router::__private::ReadRoute<Route>,
+    ::leptoskit_router::__private::Shape,
+    ::leptoskit_router::__private::ReadRoute<Route>,
 ); 2] = [
-	(
-		::leptoskit_router::__private::Shape::new(&[], &[]),
-		|_, _| ::core::option::Option::Some(Route::Index),
-	),
-	(
-		::leptoskit_router::__private::Shape::new(
-			&[::leptoskit_router::Segment::OptionalRest("path")],
-			&[],
-		),
-		|captures, url| {
-			::leptoskit_router::__private::decode(captures, url)
-				.ok()
-				.map(Route::NotFound)
-		},
-	),
+    (
+        ::leptoskit_router::__private::Shape::new(&[], &[]),
+        |_, _| ::core::option::Option::Some(Route::Index),
+    ),
+    (
+        ::leptoskit_router::__private::Shape::new(
+            &[::leptoskit_router::Segment::OptionalRest("path")],
+            &[],
+        ),
+        |captures, url| {
+            ::leptoskit_router::__private::decode(captures, url)
+                .ok()
+                .map(Route::NotFound)
+        },
+    ),
 ];
 impl ::leptoskit_router::Routable for Route {
-	fn from_url(
-		url: &::leptoskit_router::RouteUrl,
-	) -> ::core::result::Result<Self, ::leptoskit_router::NoMatch> {
-		ROUTES
-			.iter()
-			.find_map(|(shape, read)| read(&shape.capture(url.segments())?, url))
-			.ok_or(::leptoskit_router::NoMatch)
-	}
-
-	fn href(&self) -> ::leptoskit_router::Href {
-		match self {
-			Self::Index => PATTERNS[0].static_href(),
-			Self::NotFound(route) => PATTERNS[1].href(route),
-		}
-	}
+    fn from_url(
+        url: &::leptoskit_router::RouteUrl,
+    ) -> ::core::result::Result<Self, ::leptoskit_router::NoMatch> {
+        ROUTES
+            .iter()
+            .find_map(|(shape, read)| read(&shape.capture(url.segments())?, url))
+            .ok_or(::leptoskit_router::NoMatch)
+    }
+    fn href(&self) -> ::leptoskit_router::Href {
+        match self {
+            Self::Index => PATTERNS[0].static_href(),
+            Self::NotFound(route) => PATTERNS[1].href(route),
+        }
+    }
 }
-/// Paths for [`leptos_axum::LeptosRoutes::leptos_routes`].
+/// Paths for `leptos_axum::LeptosRoutes::leptos_routes`.
+#[allow(dead_code, reason = "client-rendered apps do not need the SSR route list")]
 pub fn axum_route_list() -> ::std::vec::Vec<::std::string::String> {
-	::std::vec![
-		::leptoskit_router::Pattern::new(&[]).axum_path(),
-		::leptoskit_router::Pattern::new(&[::leptoskit_router::Segment::OptionalRest("path")])
-			.axum_path()
-	]
+    ::std::vec![
+        ::leptoskit_router::Pattern::new(& []).axum_path(),
+        ::leptoskit_router::Pattern::new(&
+        [::leptoskit_router::Segment::OptionalRest("path")]).axum_path()
+    ]
 }
 /// The app's router: pages and layouts that take a `navigation` prop
 /// receive it, to navigate with and to build links.
 pub type Navigation = ::leptoskit_router::Router<Route>;
 impl ::leptoskit_router::Render for Route {
-	fn render(&self, _navigation: &Navigation) -> ::leptoskit_router::__private::Element {
-		match self {
-			Self::Index => {
-				let view = ::leptoskit_router::__private::IntoView::into_view(index::Page());
-				::leptoskit_router::__private::IntoView::into_view(layout::Layout(
-					::leptoskit_router::__private::Fragment::new().with(view),
-				))
-			}
-			Self::NotFound(_) => {
-				let view = ::leptoskit_router::__private::IntoView::into_view(not_found::Page());
-				::leptoskit_router::__private::IntoView::into_view(layout::Layout(
-					::leptoskit_router::__private::Fragment::new().with(view),
-				))
-			}
-		}
-	}
+    fn render(
+        &self,
+        _navigation: &Navigation,
+    ) -> ::leptoskit_router::__private::Element {
+        match self {
+            Self::Index => {
+                let view = ::leptoskit_router::__private::IntoView::into_view(
+                    index::Page(),
+                );
+                ::leptoskit_router::__private::IntoView::into_view(
+                    layout::Layout(
+                        ::leptoskit_router::__private::Fragment::new().with(view),
+                    ),
+                )
+            }
+            Self::NotFound(_) => {
+                let view = ::leptoskit_router::__private::IntoView::into_view(
+                    not_found::Page(),
+                );
+                ::leptoskit_router::__private::IntoView::into_view(
+                    layout::Layout(
+                        ::leptoskit_router::__private::Fragment::new().with(view),
+                    ),
+                )
+            }
+        }
+    }
 }
