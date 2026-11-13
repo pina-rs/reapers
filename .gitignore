@@ -36,6 +36,7 @@ art/build/
 
 # The server's secrets, and a PostgreSQL kept under the repository for it.
 crates/reapers_server/config/passwords.toml
+reapers_server/config/passwords.yaml
 /.postgres/
 
 # Solana keys are never committed: deploy keypairs live outside the repository.
@@ -45,3 +46,27 @@ crates/reapers_server/config/passwords.toml
 # The phones' depth model and its licence, fetched by
 # `cargo xtask fetch-depth-model` from the depth-model-v1 release.
 /assets/depth/
+
+# The Flutter project Reapers was written on before the port to Rust. Its
+# generated output and native build caches stay out of Git; its Dart sources,
+# pub manifests, Gradle wrappers and `.claude` skill docs stay visible.
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.gradle/
+.kotlin/
+.cxx/
+/build/
+/reapers_flutter/build/
+/reapers_flutter/flutter_scene_generated/
+/reapers_flutter/android/local.properties
+/reapers_flutter/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+/reapers_flutter/ios/Flutter/Generated.xcconfig
+/reapers_flutter/ios/Flutter/flutter_export_environment.sh
+/reapers_flutter/ios/Flutter/ephemeral/
+/reapers_flutter/ios/Runner/GeneratedPluginRegistrant.*
+/reapers_flutter/macos/Flutter/ephemeral/
+
+# The legacy Serverpod server's local state: an embedded PostgreSQL, its
+# lockfiles and local development credentials. Never deleted.
+.serverpod/
