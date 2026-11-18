@@ -1,0 +1,4 @@
+{
+  "name": "Reapers",
+  "install": "bash .cursor/cloud-install.sh"
+}
