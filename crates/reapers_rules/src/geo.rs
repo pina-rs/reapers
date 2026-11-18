@@ -124,6 +124,17 @@ impl GeoFix {
 	pub fn is_usable_at(&self, now: Timestamp) -> bool {
 		self.is_precise() && self.is_fresh_at(now)
 	}
+
+	/// Whether this reading should replace `before` in the player's books.
+	///
+	/// A later observation replaces an earlier one, so a delayed upload
+	/// never moves a player back. Two observations of the same instant keep
+	/// the more precise: a phone often tightens a fix without moving its
+	/// timestamp, and a delayed coarser copy of that instant must not win.
+	pub fn replaces(&self, before: &Self) -> bool {
+		self.observed_at > before.observed_at
+			|| (self.observed_at == before.observed_at && self.accuracy < before.accuracy)
+	}
 }
 
 fn micros(duration: core::time::Duration) -> i64 {

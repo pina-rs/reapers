@@ -92,9 +92,10 @@ pub async fn change(
 ///
 /// It writes the same row as every other change, so a location update and
 /// a purchase arriving together cannot overwrite each other: whichever
-/// commits second runs again on what the first left. A reading no newer
-/// than the one kept is ignored, so a delayed upload never moves a player
-/// back.
+/// commits second runs again on what the first left. A reading that does
+/// not [`GeoFix::replaces`] the one kept is ignored: a delayed upload never
+/// moves a player back, and a coarser copy of the same instant does not
+/// replace a tighter one.
 pub async fn locate(
 	tx: &impl Connection,
 	account: Id<Account>,
@@ -108,7 +109,7 @@ pub async fn locate(
 	let books = open(tx, account).await?;
 
 	if let (Some(fix), Some(Json(before))) = (fix, &books.location)
-		&& fix.observed_at <= before.observed_at
+		&& !fix.replaces(before)
 	{
 		return Ok(());
 	}

@@ -177,6 +177,46 @@ async fn out_of_order_uploads_cannot_replace_a_newer_location() {
 }
 
 #[tokio::test]
+async fn a_same_instant_refinement_replaces_a_coarser_location() {
+	let world = World::new().await;
+	let player = world.player().await;
+	let observed = now();
+	let coarse = GeoFix {
+		at: GeoPoint::new(51.5, -0.08),
+		accuracy: 20.0,
+		observed_at: observed,
+	};
+	let tight = GeoFix {
+		at: GeoPoint::new(51.501, -0.081),
+		accuracy: 4.0,
+		observed_at: observed,
+	};
+	let delayed = GeoFix {
+		at: GeoPoint::new(51.4, -0.07),
+		accuracy: 18.0,
+		observed_at: observed,
+	};
+
+	for fix in [coarse, tight, delayed] {
+		world
+			.call(
+				player,
+				UpdateLocation {
+					fix: shared(Some(fix)),
+				},
+			)
+			.await
+			.unwrap();
+	}
+
+	assert_eq!(
+		world.call(player, Location {}).await.unwrap().map(|f| f.at),
+		Some(tight.at),
+		"the tighter reading of that instant is kept"
+	);
+}
+
+#[tokio::test]
 async fn an_expired_stored_fix_is_not_returned() {
 	use reapers_server::tables::PlayerBooks;
 
