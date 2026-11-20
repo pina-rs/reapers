@@ -42,6 +42,19 @@ SURFACES = {
     "bone_dark": (7, (0.46, 0.42, 0.36)),
 }
 
+# Per-cell (roughness, metallic) PBR response so iron and gold gleam while
+# cloth stays matte and bone reads satin — all inside the single draw call.
+SURFACE_PBR = {
+    "bone": (0.68, 0.0),
+    "metal": (0.34, 0.95),
+    "cloth": (0.95, 0.0),
+    "accent": (0.28, 0.0),
+    "gold": (0.26, 0.98),
+    "wood": (0.78, 0.0),
+    "rope": (0.92, 0.0),
+    "bone_dark": (0.78, 0.0),
+}
+
 # The light each cell gives off of its own, as the emissive texture stores
 # it. Only soul light glows.
 GLOWS = {"accent": (0.62, 1.0, 0.90)}
@@ -49,7 +62,7 @@ GLOWS = {"accent": (0.62, 1.0, 0.90)}
 PALETTE_MATERIAL = "viewmodel"
 
 
-def _image(name, colours):
+def _image(name, colours, colorspace="sRGB"):
     """A CELLS-wide strip of flat cells, as a packed PNG image."""
 
     existing = bpy.data.images.get(name)
@@ -59,6 +72,7 @@ def _image(name, colours):
 
     width, height = CELLS * CELL_PIXELS, CELL_PIXELS
     image = bpy.data.images.new(name, width, height, alpha=False)
+    image.colorspace_settings.name = colorspace
     pixels = []
 
     for _ in range(height):
@@ -82,27 +96,38 @@ def palette_material():
 
     base = [(0.0, 0.0, 0.0)] * CELLS
     glow = [(0.0, 0.0, 0.0)] * CELLS
+    orm = [(1.0, 0.62, 0.0)] * CELLS
 
     for surface, (cell, colour) in SURFACES.items():
         base[cell] = colour
         glow[cell] = GLOWS.get(surface, (0.0, 0.0, 0.0))
+        rough, metal = SURFACE_PBR.get(surface, (0.62, 0.0))
+        orm[cell] = (1.0, rough, metal)
 
     result = bpy.data.materials.new(PALETTE_MATERIAL)
     result.use_nodes = True
     nodes = result.node_tree.nodes
     links = result.node_tree.links
     shader = nodes.get("Principled BSDF")
-    shader.inputs["Roughness"].default_value = 0.62
-    shader.inputs["Metallic"].default_value = 0.0
+    shader.inputs["Roughness"].default_value = 1.0
+    shader.inputs["Metallic"].default_value = 1.0
 
     for socket, name, colours in (
         ("Base Color", "viewmodel_palette", base),
         ("Emission Color", "viewmodel_glow", glow),
     ):
         texture = nodes.new("ShaderNodeTexImage")
-        texture.image = _image(name, colours)
+        texture.image = _image(name, colours, colorspace="sRGB")
         texture.interpolation = "Closest"
         links.new(texture.outputs["Color"], shader.inputs[socket])
+
+    pbr_tex = nodes.new("ShaderNodeTexImage")
+    pbr_tex.image = _image("viewmodel_pbr", orm, colorspace="Non-Color")
+    pbr_tex.interpolation = "Closest"
+    sep = nodes.new("ShaderNodeSeparateColor")
+    links.new(pbr_tex.outputs["Color"], sep.inputs["Color"])
+    links.new(sep.outputs["Green"], shader.inputs["Roughness"])
+    links.new(sep.outputs["Blue"], shader.inputs["Metallic"])
 
     shader.inputs["Emission Strength"].default_value = 1.0
 
@@ -170,9 +195,8 @@ def side_plate(name, outline, thickness, mat, parent=None, bevel=0.0015):
 
 
 def soul_drum(label, parent, length=0.042, radius=0.02, souls=6):
-    """A revolver's cylinder: an iron drum with a glowing soul set into each
-    chamber, on its axis along -Y and centred on the origin of `parent`, and
-    merged into one mesh, `<label>`."""
+    """A revolver's fluted cylinder: an iron drum with glowing soul chambers,
+    on its axis along -Y and centred on `parent`, merged into `<label>`."""
 
     metal = core.material("metal")
     accent = core.material("accent")
@@ -193,6 +217,10 @@ def soul_drum(label, parent, length=0.042, radius=0.02, souls=6):
         metal,
         parent,
         segments=18,
+        shape=lambda a, r, h: (
+            r * (1.0 - 0.065 * max(0.0, math.cos(a * souls)) ** 2 * (abs(h) < half - 0.005)),
+            h,
+        ),
     )
 
     pin = core.revolve(
@@ -221,7 +249,6 @@ def soul_drum(label, parent, length=0.042, radius=0.02, souls=6):
         )
 
     for part in (drum, pin, *vials):
-        # Built along +Z; the drum's axis runs along the barrel, toward -Y.
         part.data.transform(Matrix.Rotation(math.radians(90), 4, "X"))
 
     return merge(parent, label)

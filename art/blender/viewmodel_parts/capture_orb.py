@@ -38,23 +38,23 @@ HELD_SCALE = 0.4
 
 def build(parent=None):
     root = core.empty("capture_orb", parent)
-    _cup(root, segments=24)
+    _cup(root, segments=26)
     _talons(root, sides=6, samples=3)
     common.merge(root, "orb_body")
 
     core_node = core.empty("orb_core", root)
-    _core(core_node, subdivisions=2).data.materials[0] = effects.light_material()
+    _core(core_node, subdivisions=3).data.materials[0] = effects.light_material()
 
     sigil = core.empty("orb_sigil", root)
     common.paint(
         core.revolve(
             "orb_sigil_ring",
-            [(0.0638, -0.0255), (0.0652, -0.0262), (0.0656, -0.03), (0.0646, -0.0338), (0.063, -0.0345)],
+            [(0.0636, -0.0245), (0.0658, -0.0256), (0.0664, -0.030), (0.0650, -0.0342), (0.0628, -0.0352)],
             core.material("gold"),
             sigil,
             segments=36,
             shape=lambda angle, radius, height: (
-                radius + 0.0012 * (math.sin(angle * 12) > 0.35) * (abs(height + 0.03) < 0.003),
+                radius + 0.0018 * (math.sin(angle * 12) > 0.30) * (abs(height + 0.03) < 0.0036),
                 height,
             ),
         )

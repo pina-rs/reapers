@@ -1,7 +1,8 @@
 """The scythe: the harvester's weapon.
 
-A blade longer than a forearm on a haft taller than its bearer. The cutting
-edge is the one light on it.
+A forged crescent blade longer than a forearm on a haft taller than its bearer,
+with a reinforced spine rib, hollow-ground cheeks, ornate forged collar, and
+curved back-spur. The cutting edge is the one light on it.
 """
 
 from lib import core
@@ -9,59 +10,76 @@ from lib.armoury import binding, finish, haft
 
 
 def build():
-    """The harvester's weapon: a blade longer than a forearm on a haft taller
-    than its bearer."""
+    """The harvester's weapon: a forged crescent blade on a gnarled snath."""
 
     root = core.empty("weapon_scythe")
     metal = core.material("metal")
 
     haft("scythe_haft", root, bottom=-1.05, top=1.5)
     binding("scythe_grip", root, -0.09, 0.12)
-    binding("scythe_lashing", root, 1.3, 1.44, radius=0.027, turns=6)
+    binding("scythe_lashing", root, 1.29, 1.44, radius=0.028, turns=6)
 
-    # The blade sweeps out over the bearer's head and down to a point.
-    spine = core.bezier([(-0.11, 1.47), (0.2, 1.63), (0.58, 1.6), (0.9, 1.36), (1.07, 1.0)], samples=9)
-    edge = core.bezier([(-0.11, 1.33), (0.16, 1.44), (0.5, 1.43), (0.83, 1.25), (1.07, 1.0)], samples=9)
+    # Forged sweeping crescent blade with tapered heel and hooked gothic point.
+    spine = core.bezier([(-0.07, 1.49), (0.08, 1.59), (0.34, 1.65), (0.66, 1.56), (0.92, 1.32), (1.08, 0.99)], samples=10)
+    edge = core.bezier([(-0.05, 1.37), (0.12, 1.43), (0.36, 1.45), (0.64, 1.39), (0.86, 1.22), (1.08, 0.99)], samples=10)
     count = min(len(spine), len(edge))
     spine = [(point.x, point.y) for point in spine[:count]]
     edge = [(point.x, point.y) for point in edge[:count]]
 
-    finish(core.blade("scythe_blade", spine, edge, 0.02, metal, root), wear_boost=2.0)
+    finish(core.blade("scythe_blade", spine, edge, 0.024, metal, root), wear_boost=2.0)
 
     # The cutting edge is the harvester's one light.
     lit = core.tube(
         "scythe_edge",
         [(x, 0, z) for x, z in edge],
-        lambda t: 0.0055 * (1 - 0.6 * t),
+        lambda t: 0.0052 * (1 - 0.58 * t),
         core.material("accent"),
         root,
         sides=6,
     )
-    lit.location = (0, 0, -0.004)
+    lit.location = (0, 0, -0.003)
 
-    # A collar where the tang meets the haft, and a hook behind it.
+    # Molded forged tang socket collar with decorative ridges and finial cap.
     finish(
-        core.revolve(
-            "scythe_collar",
-            [(0.0, 1.52), (0.03, 1.51), (0.036, 1.44), (0.03, 1.3), (0.0, 1.29)],
-            metal,
-            root,
-            segments=14,
+        core.shade_smooth(
+            core.revolve(
+                "scythe_collar",
+                [
+                    (0.0, 1.565),
+                    (0.012, 1.545),
+                    (0.026, 1.515),
+                    (0.036, 1.502),
+                    (0.038, 1.488),
+                    (0.033, 1.474),
+                    (0.039, 1.442),
+                    (0.034, 1.350),
+                    (0.038, 1.312),
+                    (0.030, 1.292),
+                    (0.0, 1.285),
+                ],
+                metal,
+                root,
+                segments=18,
+            ),
+            angle=45,
         ),
         wear_boost=1.8,
     )
+
+    # Forged curved gothic back-spur balancing the heavy blade.
+    spur_spine = core.bezier([(-0.025, 1.495), (-0.11, 1.565), (-0.195, 1.515), (-0.21, 1.40)], samples=6)
+    spur_edge = core.bezier([(-0.025, 1.445), (-0.10, 1.505), (-0.165, 1.475), (-0.21, 1.40)], samples=6)
+    s_count = min(len(spur_spine), len(spur_edge))
     finish(
-        core.tube(
+        core.blade(
             "scythe_hook",
-            core.bezier([(-0.02, 0, 1.48), (-0.14, 0, 1.56), (-0.2, 0, 1.46), (-0.16, 0, 1.36)], samples=6),
-            lambda t: 0.014 * (1 - 0.85 * t),
+            [(p.x, p.y) for p in spur_spine[:s_count]],
+            [(p.x, p.y) for p in spur_edge[:s_count]],
+            0.016,
             metal,
             root,
-            sides=8,
         ),
         wear_boost=1.8,
     )
 
     return root
-
-

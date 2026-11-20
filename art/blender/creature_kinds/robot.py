@@ -492,10 +492,16 @@ def _drum_leg(root, hips, floor):
 
 
 def _palette():
-    """The five surfaces a robot is painted in: plating, frame, worn metal,
-    darkness and light."""
+    """The five surfaces a robot is painted in: painted scrap plating, machined
+    steel frame, chased brass/copper hardware, glossy optical lenses, and glow."""
 
-    return tuple(core.material(name) for name in ("body", "trim", "detail", "dark", "accent"))
+    return (
+        core.material("body", color=(1.0, 1.0, 1.0), roughness=0.44, metallic=0.65, pbr="machined"),
+        core.material("trim", color=(1.0, 1.0, 1.0), roughness=0.34, metallic=0.88, pbr="machined"),
+        core.material("detail", color=(1.0, 1.0, 1.0), roughness=0.28, metallic=0.92, pbr="gold"),
+        core.material("dark", color=(1.0, 1.0, 1.0), roughness=0.14, metallic=0.25),
+        core.material("accent", color=(1.0, 1.0, 1.0), roughness=0.20),
+    )
 
 
 def _outward(degrees):

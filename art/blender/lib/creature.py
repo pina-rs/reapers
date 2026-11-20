@@ -154,7 +154,7 @@ def studs(root, spec, radius=0.028):
 
         stud = bpy.context.object
         stud.name = f"seal_{index}"
-        stud.data.materials.append(core.material("glow"))
+        stud.data.materials.append(core.material("glow", color=(1.0, 1.0, 1.0), roughness=0.20))
         stud.parent = root
         core.shade_smooth(stud)
         made.append(stud)
@@ -193,7 +193,7 @@ def shadow(root, spec, scale=1.15):
 
             loop[layer].uv = (0.5 + at.x / radius / 2, 0.5 + at.y / radius / 2)
 
-    return core.object_from_bmesh("shadow", mesh, core.material("shadow"), root, smooth=False)
+    return core.object_from_bmesh("shadow", mesh, core.material("shadow", color=(0.0, 0.0, 0.0), roughness=1.0), root, smooth=False)
 
 
 def check(root, spec):

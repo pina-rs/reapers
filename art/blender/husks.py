@@ -96,8 +96,9 @@ def image_grid(name, mat, parent, origin, across, up, columns, rows, uv=(0.0, 0.
 
 
 def reliquary_stack(spec):
-    """A tower of image cubes held together by light. Each cube is its own
-    node, so the game can let one fall when the seam under it breaks."""
+    """A tower of ornate reliquary cubes held together by crystalline energy
+    seams. Each cube is its own node so the game can let one fall when the seam
+    under it breaks."""
 
     root = core.empty("husk")
     generator = random.Random(21)
@@ -107,32 +108,63 @@ def reliquary_stack(spec):
     side = spacing - gap
     half = side / 2
     centres = [seams[0] - spacing / 2 + spacing * index for index in range(len(seams) + 1)]
+    frame_mat = core.material("frame", color=(1.0, 1.0, 1.0), roughness=0.42, metallic=0.72, pbr="stone")
+    glow_mat = core.material("glow", color=(1.0, 1.0, 1.0), roughness=0.20)
 
     for index, centre in enumerate(centres):
         cube = core.empty(f"cube_{index}", root, location=(0, 0, centre))
         cube.rotation_euler = (0, 0, generator.uniform(-0.16, 0.16))
         offset = Vector((generator.uniform(-0.07, 0.07), generator.uniform(-0.07, 0.07), 0))
 
-        bpy.ops.mesh.primitive_cube_add(size=side * 0.985)
-        block = bpy.context.object
-        block.name = f"block_{index}"
-        block.data.materials.append(core.material("frame"))
-        block.location = offset
-        block.parent = cube
-        core.apply_modifier(block, "BEVEL", width=0.05, segments=3)
-        finish(block, wear_boost=1.8)
+        bpy.ops.mesh.primitive_cube_add(size=side * 0.96)
+        core_block = bpy.context.object
+        core_block.name = f"block_core_{index}"
+        core_block.data.materials.append(frame_mat)
+        core_block.location = offset
+        core.apply_modifier(core_block, "BEVEL", width=0.045, segments=3)
 
-        # An image on each of the four sides, set just proud of the block.
+        frame_parts = [core_block]
+        # Top and bottom gothic cornice moldings + 8 armored corner brackets.
+        for z_sign in (-1, 1):
+            bpy.ops.mesh.primitive_cube_add(size=1.0)
+            cornice = bpy.context.object
+            cornice.name = f"cornice_{index}_{z_sign}"
+            cornice.scale = (side * 1.02, side * 1.02, side * 0.085)
+            cornice.location = offset + Vector((0, 0, z_sign * half * 0.91))
+            cornice.data.materials.append(frame_mat)
+            core.activate(cornice)
+            bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+            core.apply_modifier(cornice, "BEVEL", width=0.015, segments=2)
+            frame_parts.append(cornice)
+
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                bpy.ops.mesh.primitive_cube_add(size=1.0)
+                pillar = bpy.context.object
+                pillar.name = f"pillar_{index}_{sx}_{sy}"
+                pillar.scale = (side * 0.11, side * 0.11, side * 0.99)
+                pillar.location = offset + Vector((sx * half * 0.93, sy * half * 0.93, 0))
+                pillar.data.materials.append(frame_mat)
+                core.activate(pillar)
+                bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+                core.apply_modifier(pillar, "BEVEL", width=0.014, segments=2)
+                frame_parts.append(pillar)
+
+        block = core.join(frame_parts, f"block_{index}")
+        block.parent = cube
+        finish(core.shade_smooth(block, angle=42), wear_boost=1.8)
+
+        # An image on each of the four sides, framed cleanly inside the corner pillars.
         for face in range(4):
             angle = math.pi / 2 * face
             outward = Vector((math.sin(angle), -math.cos(angle), 0))
             across = Vector((math.cos(angle), math.sin(angle), 0))
-            inset = half * 0.86
+            inset = half * 0.80
             panel = image_grid(
                 f"panel_{index}_{face}",
                 core.material("canvas"),
                 cube,
-                offset + outward * (half * 0.99) - across * inset - Vector((0, 0, inset)),
+                offset + outward * (half * 0.98) - across * inset - Vector((0, 0, inset)),
                 across * inset * 2,
                 (0, 0, inset * 2),
                 4,
@@ -141,15 +173,25 @@ def reliquary_stack(spec):
             finish_image(panel)
 
     for index, height in enumerate(seams):
-        bpy.ops.mesh.primitive_cube_add(size=1)
-        seam = bpy.context.object
-        seam.name = f"seam_{index}"
-        seam.scale = (side * 0.8, side * 0.8, gap * 0.9)
+        # Faceted octagonal crystalline energy core between each reliquary block.
+        seam = core.revolve(
+            f"seam_{index}",
+            [
+                (0.0, gap * 0.56),
+                (side * 0.30, gap * 0.50),
+                (side * 0.42, gap * 0.16),
+                (side * 0.42, -gap * 0.16),
+                (side * 0.30, -gap * 0.50),
+                (0.0, -gap * 0.56),
+            ],
+            glow_mat,
+            root,
+            segments=8,
+            cap_top=True,
+            cap_bottom=True,
+        )
         seam.location = (0, 0, height)
-        seam.data.materials.append(core.material("glow"))
-        seam.parent = root
-        core.activate(seam)
-        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+        core.shade_smooth(seam, angle=35)
 
     return root
 

@@ -51,11 +51,24 @@ def empty(name, parent=None, location=(0, 0, 0)):
     return node
 
 
-def material(name, color=(0.5, 0.5, 0.5), roughness=0.85, metallic=0.0, emission=None, strength=0.0):
+_AUTO_PBR_SURFACES = {
+    "cloth": (1.0, 0.0),
+    "cloth_alt": (1.0, 0.0),
+    "metal": (1.0, 1.0),
+    "gold": (1.0, 1.0),
+    "wood": (1.0, 0.0),
+    "bone": (1.0, 0.0),
+    "rope": (1.0, 0.0),
+    "feather": (1.0, 0.0),
+}
+
+
+def material(name, color=(0.5, 0.5, 0.5), roughness=0.85, metallic=0.0, emission=None, strength=0.0, pbr=None, use_albedo=True):
     """Returns the shared material called `name`, creating it on first use.
 
-    The game replaces every material with its own shader and only keeps the
-    name, so these values exist for Blender previews.
+    Standard reaper/weapon surfaces automatically receive deterministic
+    procedural PBR normal, ORM, and subtle albedo textures; husks may pass
+    `pbr="<preset>"` with explicit `color`, `roughness`, and `metallic`.
     """
 
     existing = bpy.data.materials.get(name)
@@ -74,6 +87,14 @@ def material(name, color=(0.5, 0.5, 0.5), roughness=0.85, metallic=0.0, emission
     if emission is not None:
         shader.inputs["Emission Color"].default_value = (*emission, 1)
         shader.inputs["Emission Strength"].default_value = strength
+
+    from . import textures
+
+    if pbr is not None:
+        textures.apply_pbr(result, pbr, roughness=roughness, metallic=metallic, use_albedo=use_albedo)
+    elif name in _AUTO_PBR_SURFACES:
+        auto_rough, auto_metal = _AUTO_PBR_SURFACES[name]
+        textures.apply_pbr(result, name, roughness=auto_rough, metallic=auto_metal, use_albedo=True)
 
     return result
 
@@ -431,34 +452,17 @@ def paint_masks(obj, char=None, hollow=None, wear_boost=1.0, ao_samples=24, seed
     return obj
 
 
-def _write_rest_position(obj):
-    """Stores each vertex's own position in the two UV channels.
+def _write_rest_position(obj, scale=3.5):
+    """Writes clean world-scale box-projected UVs into `TEXCOORD_0`.
 
-    The game's material grows its surface grain from this rather than from
-    the live position, so the grain stays put on cloth that sways. The first
-    channel holds x and y, the second holds z.
+    `leptoskit_3d` computes tangent frames from screen-space derivatives of
+    `TEXCOORD_0`, so box-projected coordinates avoid vertical smearing and give
+    every procedural normal/roughness/AO map consistent scale across folds.
     """
 
-    mesh = obj.data
+    from . import textures
 
-    # A mesh grown from a Blender primitive arrives with a UV map of its own.
-    # Left in place it would be exported first, pushing the rest position
-    # into channels the material does not read.
-    for layer in [layer for layer in mesh.uv_layers if layer.name not in (REST_XY, REST_Z)]:
-        mesh.uv_layers.remove(layer)
-
-    for name in (REST_XY, REST_Z):
-        if mesh.uv_layers.get(name) is None:
-            mesh.uv_layers.new(name=name)
-
-    plane = mesh.uv_layers[REST_XY].data
-    height = mesh.uv_layers[REST_Z].data
-
-    for loop in mesh.loops:
-        position = mesh.vertices[loop.vertex_index].co
-
-        plane[loop.index].uv = (position.x, position.y)
-        height[loop.index].uv = (position.z, 0.0)
+    textures.write_box_uvs(obj, scale=scale)
 
 
 # What a class or weapon module calls on each finished part.
@@ -620,26 +624,41 @@ def triangle_count(root):
 
 
 def blade(name, spine, edge, thickness, mat, parent=None):
-    """A blade between two curves in the XZ plane.
+    """A forged 3D blade between two curves in the XZ plane.
 
     `spine` and `edge` are equal-length lists of (x, z) points running from
-    the tang to the tip. The blade is `thickness` deep along its spine and
-    comes to nothing along its edge.
+    the tang to the tip. Each station has a raised forged spine rib, hollow-
+    ground cheeks, and a sharp bevelled edge, tapering cleanly toward the tip.
     """
 
-    mesh = bmesh.new()
-    front = [mesh.verts.new((x, -thickness / 2, z)) for x, z in spine]
-    back = [mesh.verts.new((x, thickness / 2, z)) for x, z in spine]
-    sharp = [mesh.verts.new((x, 0, z)) for x, z in edge]
+    rings = []
+    count = len(spine)
 
-    for index in range(len(spine) - 1):
-        follow = index + 1
+    for index, ((sx, sz), (ex, ez)) in enumerate(zip(spine, edge)):
+        t = index / max(count - 1, 1)
+        # Distal taper: strong at the heel/tang, keen toward the point.
+        taper = 1.0 - 0.72 * (t**1.4)
+        half = max(thickness * 0.5 * taper, 0.0008)
 
-        mesh.faces.new((front[index], front[follow], sharp[follow], sharp[index]))
-        mesh.faces.new((back[follow], back[index], sharp[index], sharp[follow]))
-        mesh.faces.new((front[follow], front[index], back[index], back[follow]))
+        def lerp(frac):
+            return sx + (ex - sx) * frac, sz + (ez - sz) * frac
 
-    mesh.faces.new((front[0], sharp[0], back[0]))
-    mesh.faces.new((front[-1], back[-1], sharp[-1]))
+        r_x, r_z = lerp(0.14)
+        h_x, h_z = lerp(0.46)
+        b_x, b_z = lerp(0.84)
 
-    return object_from_bmesh(name, mesh, mat, parent, smooth=False)
+        rings.append(
+            [
+                (sx, 0.0, sz),
+                (r_x, -half * 1.12, r_z),
+                (h_x, -half * 0.62, h_z),
+                (b_x, -half * 0.28, b_z),
+                (ex, 0.0, ez),
+                (b_x, half * 0.28, b_z),
+                (h_x, half * 0.62, h_z),
+                (r_x, half * 1.12, r_z),
+            ]
+        )
+
+    result = loft(name, rings, mat, parent, closed=True, cap_start=True, cap_end=True)
+    return shade_smooth(result, angle=32)

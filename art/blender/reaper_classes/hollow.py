@@ -300,7 +300,18 @@ def _arms(root):
         # A coat's sleeve: close to the arm, ending in a deep turned-back
         # cuff instead of a robe's hanging one.
         finish(
-            cloth.sleeve(f"{label}_upper_sleeve", core.material("cloth"), pivot, local[: middle + 2], 0.088, 0.08, droop=0, tatter=0, seed=4 + side),
+            cloth.sleeve(
+                f"{label}_upper_sleeve",
+                core.material("cloth"),
+                pivot,
+                local[: middle + 3],
+                0.088,
+                0.08,
+                droop=0,
+                tatter=0,
+                seed=4 + side,
+                cap_shoulder=True,
+            ),
             hollow=_whole,
         )
         finish(
@@ -354,8 +365,8 @@ def _arms(root):
 
 
 def _lantern(arm, grip):
-    """The hollow's own head, carried as a lantern: a rough skull in an iron
-    harness, hung from a stirrup, with the class's light burning inside it."""
+    """The hollow's own head, carried as a lantern: a sculpted gothic skull in
+    a riveted iron harness, hung from a stirrup."""
 
     metal = core.material("metal")
     lantern = core.empty("lantern", arm, location=grip)
@@ -390,21 +401,48 @@ def _lantern(arm, grip):
     carried.rotation_euler = (0, 0, math.radians(24))
     carried.scale = (1.25, 1.25, 1.25)
 
-    skull = core.sculpt(
-        "lantern_skull",
-        [
-            ("sphere", (0, 0.02, 0.03), (0.088, 0.105, 0.09)),
-            ("sphere", (0, -0.068, 0.012), (0.07, 0.03, 0.03)),
-            ("sphere", (0, -0.058, -0.045), (0.056, 0.048, 0.06)),
-            ("sphere", (-0.05, -0.058, -0.032), (0.024, 0.034, 0.02)),
-            ("sphere", (0.05, -0.058, -0.032), (0.024, 0.034, 0.02)),
-            ("sphere", (0, -0.064, -0.09), (0.04, 0.036, 0.03)),
-        ],
-        core.material("bone"),
-        voxel=0.008,
-    )
+    # Anatomical gothic cranium: parietal dome, supraorbital brow, prominent
+    # zygomatic cheekbones, sculpted maxilla/teeth arch, and narrow jawbone.
+    skull_blobs = [
+        ("sphere", (0, 0.022, 0.034), (0.086, 0.104, 0.088)),
+        ("sphere", (0, -0.048, 0.028), (0.074, 0.046, 0.042)),
+        # Heavy arched supraorbital brow ridge.
+        ("sphere", (-0.034, -0.078, 0.016), (0.034, 0.024, 0.016), (0, math.radians(10), 0)),
+        ("sphere", (0.034, -0.078, 0.016), (0.034, 0.024, 0.016), (0, math.radians(-10), 0)),
+        # Nasal bridge bone.
+        ("sphere", (0, -0.088, -0.012), (0.014, 0.018, 0.024)),
+        # Prominent sculpted cheekbones / zygomatic arches.
+        ("sphere", (-0.056, -0.058, -0.030), (0.028, 0.038, 0.022), (0, 0, math.radians(-16))),
+        ("sphere", (0.056, -0.058, -0.030), (0.028, 0.038, 0.022), (0, 0, math.radians(16))),
+        # Upper maxilla & dental arcade.
+        ("sphere", (0, -0.068, -0.058), (0.048, 0.044, 0.034)),
+        ("sphere", (0, -0.078, -0.082), (0.038, 0.034, 0.020)),
+        # Tapered gothic chin/jawbone.
+        ("sphere", (0, -0.068, -0.104), (0.032, 0.030, 0.022)),
+    ]
+    # Individual carved upper teeth ridges along the maxilla.
+    for tooth in (-2, -1, 0, 1, 2):
+        angle = tooth * 0.24
+        skull_blobs.append(
+            (
+                "cube",
+                (math.sin(angle) * 0.036, -0.072 - math.cos(angle) * 0.028, -0.088),
+                (0.0055, 0.006, 0.011),
+                (0, 0, angle),
+            )
+        )
 
-    for x, z, width, height, depth in ((-0.036, -0.012, 0.027, 0.024, 0.036), (0.036, -0.012, 0.027, 0.024, 0.036), (0, -0.058, 0.013, 0.02, 0.022)):
+    skull = core.sculpt("lantern_skull", skull_blobs, core.material("bone"), voxel=0.0055, smooth=2)
+    core.decimate(skull, 0.38)
+
+    # Deep recessed eye orbits, pear-shaped nasal cavity, and hollow cheeks.
+    for x, z, width, height, depth in (
+        (-0.036, -0.010, 0.028, 0.024, 0.044),
+        (0.036, -0.010, 0.028, 0.024, 0.044),
+        (0.0, -0.048, 0.015, 0.022, 0.034),
+        (-0.056, -0.066, 0.022, 0.024, 0.022),
+        (0.056, -0.066, 0.022, 0.024, 0.022),
+    ):
         _dent(skull, x, z, width, height, depth)
 
     # The light burns at the back of both sockets.
@@ -415,7 +453,7 @@ def _lantern(arm, grip):
         voxel=0.005,
     )
 
-    # Iron around the skull: a band at the brow and two over the crown,
+    # Iron around the skull: a riveted band at the brow and two over the crown,
     # meeting at the eye the chain hangs from.
     bands = [
         core.tube(
@@ -423,11 +461,17 @@ def _lantern(arm, grip):
             [(math.cos(math.tau * step / 32) * 0.094, 0.018 + math.sin(math.tau * step / 32) * 0.112, 0.04) for step in range(33)],
             0.01,
             metal,
-            sides=6,
+            sides=8,
             cap=False,
             flatten=0.4,
         )
     ]
+
+    for rivet_idx in range(8):
+        angle = math.tau * rivet_idx / 8 + math.pi / 8
+        rx = math.cos(angle) * 0.099
+        ry = 0.018 + math.sin(angle) * 0.117
+        bands.append(core.sculpt(f"lantern_rivet_{rivet_idx}", [("sphere", (rx, ry, 0.04), (0.006, 0.006, 0.006))], metal, voxel=0.003, smooth=0))
 
     for band, turn in enumerate((0.0, math.pi / 2)):
         path = []
@@ -437,14 +481,14 @@ def _lantern(arm, grip):
             reach = math.cos(arc)
             path.append((math.cos(turn) * reach * 0.094, 0.018 + math.sin(turn) * reach * 0.112, 0.04 + math.sin(arc) * 0.088))
 
-        bands.append(core.tube(f"lantern_crown_{band}", path, 0.008, metal, sides=6, cap=False, flatten=0.45))
+        bands.append(core.tube(f"lantern_crown_{band}", path, 0.0085, metal, sides=8, cap=False, flatten=0.45))
 
     bands.append(
         core.revolve(
             "lantern_eye",
-            [(0.0, 0.158), (0.012, 0.152), (0.016, 0.138), (0.024, 0.128), (0.0, 0.124)],
+            [(0.0, 0.162), (0.014, 0.156), (0.018, 0.140), (0.026, 0.128), (0.0, 0.124)],
             metal,
-            segments=10,
+            segments=12,
         )
     )
     bands[-1].location = (0, 0.018, 0)

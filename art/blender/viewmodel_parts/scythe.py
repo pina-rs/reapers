@@ -15,7 +15,7 @@ from lib import core
 from . import common
 
 # The share of its faces a large part of the scythe keeps.
-KEEP = 0.55
+KEEP = 0.36
 # A part with fewer faces than this is left whole.
 SMALL = 200
 

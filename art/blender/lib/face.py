@@ -25,51 +25,68 @@ CLIPS = {
 }
 
 
-def glyph(expression, narrow=1.0):
-    """A fixed topology: two eyes, a mouth outline and two tear trails."""
+def glyph(expression, narrow=1.0, curve=1.8):
+    """A fixed topology: two curved spectral eyes, an expressive mouth glyph, and tear trails.
+
+    At rest (`neutral`), the mouth collapses invisibly so every reaper reads
+    with dignified dark-fantasy glowing eyes alone; during emotes (`joy`,
+    `sorrow`, `anger`, `smirk`, `awe`, `fear`), the mouth and tears blossom.
+    """
     vertices, faces = [], []
-    # Eye height, tilt, mouth opening, smile curvature, asymmetry, tears.
+    # Eye height, tilt, mouth opening, smile curvature, asymmetry, tears, mouth_width, mouth_band.
     settings = {
-        "neutral": (0.010, 0, 0.003, 0, 0, 0.0001),
-        "joy": (0.004, 0.2, 0.022, 0.017, 0, 0.0001),
-        "sorrow": (0.006, -0.32, 0.005, -0.016, 0, 0.052),
-        "anger": (0.004, 0.38, 0.006, -0.007, 0, 0.0001),
-        "smirk": (0.005, 0.12, 0.003, 0.008, 0.018, 0.0001),
-        "awe": (0.014, 0, 0.014, 0, 0, 0.0001),
-        "fear": (0.018, -0.12, 0.022, -0.004, 0, 0.0001),
+        "neutral": (0.0085, 0.14, 0.0001, 0.0, 0.0, 0.0001, 0.0006, 0.00008),
+        "joy": (0.0045, 0.24, 0.019, 0.016, 0.0, 0.0001, 0.042, 0.0022),
+        "sorrow": (0.0065, -0.34, 0.005, -0.015, 0.0, 0.052, 0.036, 0.0020),
+        "anger": (0.0045, 0.42, 0.006, -0.008, 0.0, 0.0001, 0.038, 0.0022),
+        "smirk": (0.0055, 0.16, 0.0035, 0.008, 0.016, 0.0001, 0.038, 0.0020),
+        "awe": (0.0135, 0.0, 0.014, 0.0, 0.0, 0.0001, 0.020, 0.0022),
+        "fear": (0.0165, -0.14, 0.020, -0.004, 0.0, 0.0001, 0.022, 0.0022),
     }
-    eye, tilt, opening, smile, skew, tears = settings[expression]
+    eye, tilt, opening, smile, skew, tears, mouth_width, mouth_band = settings[expression]
+
+    def hug(x):
+        # Curve the spectral glyph gently around the mask/hood/skull plane.
+        return curve * x * x
+
     for side in (-1, 1):
         start = len(vertices)
-        vertices.append((side * 0.043, 0, 0))
+        cx = side * 0.041
+        vertices.append((cx, hug(cx), 0.0))
         for step in range(24):
             angle = math.tau * step / 24
-            x = 0.028 * math.cos(angle)
-            z = eye * narrow * math.sin(angle) + x * side * tilt
+            ca = math.cos(angle)
+            sa = math.sin(angle)
+            # Tapered almond/ember eye silhouette instead of a blunt oval.
+            x_off = 0.026 * ca
+            pinch = (1.0 - 0.55 * ca * ca) ** 0.7
+            z = eye * narrow * sa * pinch + x_off * side * tilt
             if expression == "smirk" and side == -1:
-                z += 0.008
-            vertices.append((side * 0.043 + x, 0, z))
+                z += 0.006
+            px = cx + x_off
+            vertices.append((px, hug(px), z))
         for step in range(24):
             faces.append((start, start + 1 + step, start + 1 + (step + 1) % 24))
 
     start = len(vertices)
-    mouth_width = 0.022 if expression in ("fear", "awe") else 0.047
     for edge in (1, -1):
         for step in range(40):
             angle = math.tau * step / 40
-            x = (mouth_width + edge * 0.0018) * math.cos(angle)
-            z = -0.068 + (opening + edge * 0.0015) * math.sin(angle)
-            z += smile * (x / mouth_width) ** 2 + skew * x / mouth_width
-            vertices.append((x, 0, z))
+            x = (mouth_width + edge * mouth_band) * math.cos(angle)
+            z = -0.064 + (opening + edge * mouth_band) * math.sin(angle)
+            z += smile * (x / max(mouth_width, 1e-4)) ** 2 + skew * x / max(mouth_width, 1e-4)
+            vertices.append((x, hug(x), z))
     for step in range(40):
         next_step = (step + 1) % 40
         faces.append((start + step, start + next_step, start + 40 + next_step, start + 40 + step))
 
     for side in (-1, 1):
         start = len(vertices)
-        x = side * 0.046
-        width = 0.003 if expression == "sorrow" else 0.00001
-        vertices.extend(((x - width, 0, -0.016), (x + width, 0, -0.016), (x + side * 0.009, 0, -0.016 - tears)))
+        x = side * 0.043
+        width = 0.0026 if expression == "sorrow" else 0.00001
+        y_top = hug(x)
+        y_bot = hug(x + side * 0.008)
+        vertices.extend(((x - width, y_top, -0.015), (x + width, y_top, -0.015), (x + side * 0.008, y_bot, -0.015 - tears)))
         faces.append((start, start + 2, start + 1))
     return vertices, faces
 
@@ -88,22 +105,29 @@ def build(root, calling):
     bpy.context.view_layer.update()
     result = []
     for index, parent in enumerate(parents):
-        # Local coordinates of the eye line. The ferryman's deeply recessed
-        # hood carries its face further forward; the hollow uses skull space.
-        origin = Vector((0, -0.15, 0.15))
+        # Local coordinates of the eye line.
+        origin = Vector((0, -0.15, 0.152))
         if calling == "ferryman":
-            origin = Vector((0, -0.22, 0.09))
+            origin = Vector((0, -0.22, 0.095))
         elif calling == "weigher":
-            origin = Vector((0, -0.16, 0.19))
+            origin = Vector((0, -0.16, 0.188))
         elif calling == "chooser":
             origin.z = (0.162, 0.154, 0.191)[index]
         elif calling == "hollow":
-            origin = Vector((0, -0.11, -0.012))
-        narrow = 0.65 if calling in ("chooser", "weigher") else 1.0
+            origin = Vector((0, -0.11, -0.010))
+        narrow = 0.62 if calling in ("chooser", "weigher") else 0.92
+        curve = 2.4 if calling in ("weigher", "hollow") else 1.6
+
+        # On Chooser helm_0, ignore the iron nasal bar when sampling eye depth so
+        # the glowing eyes gleam hauntingly from behind the nasal guard rather
+        # than floating outside the helmet.
+        prefixes = ("void_", "mask_", "veil_", "cowl_", "lantern_skull")
+        if calling == "chooser" and index == 2:
+            prefixes = ("void_", "helm_")
         surfaces = [
             node
             for node in parent.children_recursive
-            if node.type == "MESH" and node.name.startswith(("void_", "wrap_", "mask_", "veil_", "cowl_", "helm_", "lantern_skull"))
+            if node.type == "MESH" and node.name.startswith(prefixes)
         ]
 
         def depth(point):
@@ -120,12 +144,16 @@ def build(root, calling):
                         closest = at.y
             return closest if closest is not None else origin.y
 
-        # Keep the glyph on one plane just in front of the face covering.
-        # Projecting each animated vertex onto folds made the mouth buckle
-        # and sent eyes onto the brim as their shape changed.
-        origin.y = min(depth(point) for point in ((0, 0, 0), (-0.06, 0, 0), (0.06, 0, 0), (0, 0, -0.07), (0, 0, -0.10))) - 0.009
+        # Sample across the ocular zone so the glyph sits snugly right on the
+        # mask/void/socket plane without being pushed far out by lower wraps.
+        clearance = 0.015 if calling == "harvester" else (0.005 if calling in ("weigher", "mourner") else 0.007)
+        if calling == "hollow":
+            # Seat embers inside the recessed skull sockets cleanly.
+            origin.y = min(depth((-0.036, 0, 0)), depth((0.036, 0, 0))) - 0.005
+        else:
+            origin.y = min(depth(point) for point in ((0, 0, 0), (-0.045, 0, 0), (0.045, 0, 0))) - clearance
 
-        vertices, faces = glyph("neutral", narrow)
+        vertices, faces = glyph("neutral", narrow, curve)
         mesh = bpy.data.meshes.new(f"face_{index}")
         mesh.from_pydata(vertices, [], faces)
         mesh.update()
@@ -137,7 +165,7 @@ def build(root, calling):
         obj.shape_key_add(name="Basis")
         for expression in EXPRESSIONS:
             shape = obj.shape_key_add(name=expression)
-            points, _ = glyph(expression, narrow)
+            points, _ = glyph(expression, narrow, curve)
             for vertex, point in zip(shape.data, points):
                 vertex.co = point
             shape.value = 0

@@ -60,32 +60,33 @@ def void_head(parent, forward=0.0, name="void"):
     )
 
 
-def face_wrap(parent, forward=0.0, name="wrap", seed=2, bands=5, top=HEAD_HEIGHT - 0.045):
-    """Cloth wound over the neck and lower face, hiding everything below the
-    eyes."""
+def face_wrap(parent, forward=0.0, name="wrap", seed=2, bands=6, top=HEAD_HEIGHT - 0.04):
+    """Cloth wound tightly over the neck and lower face in layered folds."""
 
     mat = core.material("cloth_alt")
-    bottom = NECK_HEIGHT - 0.07
+    bottom = NECK_HEIGHT - 0.075
     parts = []
 
     for band in range(bands):
         share = band / (bands - 1)
         height = bottom + (top - bottom) * share
-        tilt = (band % 2 * 2 - 1) * 0.022
-        radius = 0.15 - 0.036 * share
+        tilt = (band % 2 * 2 - 1) * 0.017
+        radius = 0.146 - 0.038 * share
         path = []
 
-        for step in range(41):
-            angle = math.tau * step / 40
+        for step in range(45):
+            angle = math.tau * step / 44
+            # Slight front chin prominence and draped side folds.
+            front = max(0.0, -math.sin(angle))
             path.append(
                 (
-                    math.cos(angle) * radius,
-                    math.sin(angle) * radius * 0.98 - forward * (0.55 + 0.45 * share) - 0.01,
-                    height + math.sin(angle + band + seed) * tilt + 0.014 * math.cos(angle * 2 + band),
+                    math.cos(angle) * radius * (1.0 - 0.04 * front),
+                    math.sin(angle) * radius * (0.94 + 0.06 * front) - forward * (0.55 + 0.45 * share) - 0.012,
+                    height + math.sin(angle + band * 1.15 + seed) * tilt + 0.011 * math.cos(angle * 3 + band),
                 )
             )
 
-        parts.append(core.tube(f"{name}_{band}", path, 0.034 - 0.006 * share, mat, sides=10, cap=False, flatten=0.42))
+        parts.append(core.tube(f"{name}_{band}", path, 0.028 - 0.005 * share, mat, sides=12, cap=False, flatten=0.34))
 
     result = core.join(parts, name)
     result.parent = parent
@@ -131,12 +132,13 @@ def arms(
             f"{label}_upper_sleeve",
             mat,
             pivot,
-            local[: middle + 2],
-            sleeve_shoulder,
-            sleeve_shoulder * 1.12,
-            droop=0.015,
+            local[: middle + 3],
+            sleeve_shoulder * 1.04,
+            sleeve_shoulder * 1.10,
+            droop=0.018,
             tatter=0,
             seed=seed + side,
+            cap_shoulder=True,
         )
         finish(sleeve)
         finish(
@@ -145,7 +147,7 @@ def arms(
                 mat,
                 elbow,
                 [point - elbow_at for point in local[middle - 1 :]],
-                sleeve_shoulder * 1.08,
+                sleeve_shoulder * 1.06,
                 sleeve_cuff,
                 droop=droop,
                 tatter=tatter,

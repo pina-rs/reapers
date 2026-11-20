@@ -57,16 +57,25 @@ def limb(name, parent, material, rings):
 
 
 def build(root, calling):
-    """Fit anatomical mass around the existing class shoulders and garments."""
+    """Fit anatomical mass cleanly inside each class's shoulders and garments."""
     nodes = {node.name: node for node in root.children_recursive}
     shoulder = nodes["arm_l"].location
-    width = {"ferryman": 0.235, "hollow": 0.19, "mourner": 0.15}.get(calling, 0.185)
+    # Keep the inner spirit core tucked cleanly inside even the slimmest robes.
+    width = {
+        "ferryman": 0.195,
+        "hollow": 0.145,
+        "mourner": 0.115,
+        "harvester": 0.135,
+        "weigher": 0.145,
+        "chooser": 0.135,
+    }.get(calling, 0.14)
+    depth = 0.088 if calling == "ferryman" else 0.072
     material = core.material("spirit", color=(0.08, 0.12, 0.15))
     torso = core.sculpt(
         "spirit_body",
         [
-            ("sphere", (0, shoulder.y * 0.7, 1.44), (width, 0.12, 0.22)),
-            ("sphere", (0, shoulder.y * 0.35, 1.24), (width * 0.68, 0.105, 0.22)),
+            ("sphere", (0, shoulder.y * 0.85, 1.46), (width, depth, 0.20)),
+            ("sphere", (0, shoulder.y * 0.50, 1.24), (width * 0.66, depth * 0.88, 0.19)),
         ],
         material,
         root,
@@ -76,9 +85,9 @@ def build(root, calling):
     pelvis = core.sculpt(
         "pelvis_body",
         [
-            ("sphere", (0, 0.015, 1.04), (0.19, 0.125, 0.15)),
-            ("sphere", (-0.09, 0.04, 1.01), (0.10, 0.115, 0.115)),
-            ("sphere", (0.09, 0.04, 1.01), (0.10, 0.115, 0.115)),
+            ("sphere", (0, 0.015, 1.04), (0.16, 0.105, 0.14)),
+            ("sphere", (-0.08, 0.035, 1.01), (0.085, 0.095, 0.105)),
+            ("sphere", (0.08, 0.035, 1.01), (0.085, 0.095, 0.105)),
         ],
         material,
         root,
@@ -87,8 +96,22 @@ def build(root, calling):
     core.finish(pelvis)
     for side in ("l", "r"):
         arm, elbow, wrist = (nodes[f"{joint}_{side}"] for joint in ("arm", "elbow", "wrist"))
-        for parent, end, name in ((arm, elbow.location, "upper"), (elbow, wrist.location, "lower")):
-            core.finish(core.tube(f"spirit_arm_{side}_{name}", [Vector(), end], lambda t: 0.058 - 0.024 * t, material, parent, sides=16))
+        # Slim tapered spirit core tucked inside the sleeve and stopping cleanly
+        # before the skeletal wrist/hand so it never bursts through cuffs or palms.
+        if calling == "mourner":
+            upper_start = elbow.location * 0.14
+            upper_end = elbow.location * 0.94
+            lower_end = wrist.location * 0.62
+            r_upper = lambda t: 0.018 - 0.005 * t
+            r_lower = lambda t: 0.014 * (1.0 - 0.65 * t)
+        else:
+            upper_start = elbow.location * 0.08
+            upper_end = elbow.location * 0.98
+            lower_end = wrist.location * 0.68
+            r_upper = lambda t: 0.036 - 0.008 * t
+            r_lower = lambda t: 0.028 * (1.0 - 0.72 * t)
+        core.finish(core.tube(f"spirit_arm_{side}_upper", [upper_start, upper_end], r_upper, material, arm, sides=14))
+        core.finish(core.tube(f"spirit_arm_{side}_lower", [Vector(), lower_end], r_lower, material, elbow, sides=14))
 
     legs = core.empty("humanoid_form", root)
     pelvis.parent = legs
@@ -151,14 +174,21 @@ def build(root, calling):
         )
 
     tail = core.empty("spirit_form", root)
+    # Graceful tapered spectral wisps tucked inside the lower robe silhouette.
+    spread = 0.042 if calling == "mourner" else 0.054
+    sweep_x = -0.18 if calling == "chooser" else 0.0
+    back_y = 0.08 if calling == "hollow" else 0.01
     for strand in range(3):
         points = []
         for step in range(25):
             t = step / 24
-            angle = strand * math.tau / 3 + t * 2.8
-            radius = 0.095 * (1 - t)
-            points.append((math.cos(angle) * radius, math.sin(angle) * radius + 0.12 * t * t, 1.08 - 0.90 * t))
-        core.finish(core.tube(f"spirit_wisp_{strand}", points, lambda t: 0.065 * (1 - t) + 0.002, material, tail, sides=10))
+            angle = strand * math.tau / 3 + t * 2.6
+            radius = spread * (1.0 - 0.88 * t)
+            x = math.cos(angle) * radius + sweep_x * (t**1.8)
+            y = math.sin(angle) * radius + back_y + 0.09 * t * t
+            z = 0.96 - 0.80 * t
+            points.append((x, y, z))
+        core.finish(core.tube(f"spirit_wisp_{strand}", points, lambda t: 0.032 * (1.0 - t) ** 0.85 + 0.003, material, tail, sides=10))
 
     for node in root.children_recursive:
         if not node.name.startswith("robe_") or node.type != "MESH":

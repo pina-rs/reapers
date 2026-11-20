@@ -81,6 +81,12 @@ def _style_materials(silhouette, look=None):
     for mat in bpy.data.materials:
         mat.use_nodes = True
         tree = mat.node_tree
+        authored_metallic = 0.0
+        authored_roughness = 0.86
+        prev_bsdf = tree.nodes.get("Principled BSDF")
+        if prev_bsdf is not None:
+            authored_metallic = prev_bsdf.inputs["Metallic"].default_value
+            authored_roughness = prev_bsdf.inputs["Roughness"].default_value
         tree.nodes.clear()
 
         output = tree.nodes.new("ShaderNodeOutputMaterial")
@@ -116,6 +122,7 @@ def _style_materials(silhouette, look=None):
             continue
 
         name = mat.name.split(".")[0]
+        pbr_kind = mat.get("_pina_pbr_kind")
         base = colours.get(name, PREVIEW_COLORS.get(name, (0.3, 0.3, 0.3)))
         shader = tree.nodes.new("ShaderNodeBsdfPrincipled")
         masks = tree.nodes.new("ShaderNodeVertexColor")
@@ -129,7 +136,7 @@ def _style_materials(silhouette, look=None):
         wear = tree.nodes.new("ShaderNodeMix")
         wear.data_type = "RGBA"
         wear.blend_type = "ADD"
-        wear.inputs["B"].default_value = (base[0] * 1.6 + 0.05, base[1] * 1.6 + 0.05, base[2] * 1.6 + 0.05, 1)
+        wear.inputs["B"].default_value = (base[0] * 1.45 + 0.04, base[1] * 1.45 + 0.04, base[2] * 1.45 + 0.04, 1)
 
         tree.links.new(masks.outputs["Color"], split.inputs["Color"])
         tree.links.new(split.outputs["Red"], tint.inputs["B"])
@@ -139,8 +146,29 @@ def _style_materials(silhouette, look=None):
         tree.links.new(shader.outputs["BSDF"], output.inputs["Surface"])
 
         metal = mat.name.startswith(("metal", "gold"))
-        shader.inputs["Metallic"].default_value = 1.0 if metal else 0.0
-        shader.inputs["Roughness"].default_value = 0.42 if metal else 0.86
+        if pbr_kind:
+            from . import textures
+
+            normal_img, _, _, strength = textures.get_maps(pbr_kind)
+            tex_norm = tree.nodes.new("ShaderNodeTexImage")
+            tex_norm.image = normal_img
+            norm_map = tree.nodes.new("ShaderNodeNormalMap")
+            norm_map.inputs["Strength"].default_value = strength * 0.85
+            tree.links.new(tex_norm.outputs["Color"], norm_map.inputs["Color"])
+            tree.links.new(norm_map.outputs["Normal"], shader.inputs["Normal"])
+
+        if metal or pbr_kind in ("gold", "metal"):
+            shader.inputs["Metallic"].default_value = max(authored_metallic, 0.90)
+            shader.inputs["Roughness"].default_value = min(authored_roughness, 0.34)
+        elif pbr_kind in ("machined", "stone"):
+            shader.inputs["Metallic"].default_value = max(authored_metallic, 0.65)
+            shader.inputs["Roughness"].default_value = min(authored_roughness, 0.38)
+        elif name == "dark":
+            shader.inputs["Metallic"].default_value = authored_metallic
+            shader.inputs["Roughness"].default_value = min(authored_roughness, 0.25)
+        else:
+            shader.inputs["Metallic"].default_value = authored_metallic
+            shader.inputs["Roughness"].default_value = 0.72 if pbr_kind == "plumage" else min(authored_roughness, 0.84)
 
 
 def _light(name, kind, location, energy, color, size=1.0, target=(0, 0, 1.1)):
@@ -274,6 +302,9 @@ def render_portrait(path, look, size=384):
 
     scene = bpy.context.scene
     scene.render.engine = "BLENDER_EEVEE"
+    scene.eevee.taa_render_samples = 16
+    if hasattr(scene.eevee, "use_raytracing"):
+        scene.eevee.use_raytracing = False
     scene.render.resolution_x = size
     scene.render.resolution_y = size
     scene.render.film_transparent = False

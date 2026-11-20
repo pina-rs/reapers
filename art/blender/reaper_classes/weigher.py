@@ -146,41 +146,126 @@ def _cowl(name, mat, radii, opening, fall, rings=24, segments=48):
     return core.loft(name, loops, mat, cap_end=True)
 
 
+def _mask(name, mat, parent=None, rows=32, segments=48):
+    """A sculpted golden funerary mask with brow arches, nose ridge, cheekbones,
+    recessed ocular hollows, and a bevelled rim border."""
+
+    rings = []
+
+    for row in range(rows + 1):
+        share = 0.012 + 0.976 * row / rows
+        height, rim, width, bulge = _mask_row(share)
+        ring = []
+
+        for segment in range(segments):
+            angle = math.tau * segment / segments
+            ca = math.cos(angle)
+            sa = math.sin(angle)
+            if sa > 0:
+                # Smooth closed back shell inside the hood.
+                y = rim + sa * 0.015
+                x = ca * width
+            else:
+                # Front sculpted face planes (`front` is 1 at midline, 0 at rim).
+                front = -sa
+                x = ca * width
+                mid = math.exp(-((ca / 0.16) ** 2))
+                eye_x = abs(abs(ca) - 0.36)
+                brow_ridge = 0.010 * math.exp(-(((share - 0.72) / 0.065) ** 2)) * (0.35 + 0.65 * math.exp(-((eye_x / 0.28) ** 2)))
+                orbit_hollow = -0.011 * math.exp(-(((share - 0.61) / 0.065) ** 2) - ((eye_x / 0.21) ** 2))
+                nose_bridge = 0.017 * mid * max(0.0, 1.0 - ((share - 0.48) / 0.20) ** 2) ** 1.3 * (0.45 + 0.55 * (1.0 - abs(share - 0.39) / 0.25))
+                cheek_plane = 0.008 * math.exp(-(((share - 0.45) / 0.11) ** 2) - (((abs(ca) - 0.48) / 0.22) ** 2))
+                cheek_hollow = -0.006 * math.exp(-(((share - 0.26) / 0.11) ** 2) - (((abs(ca) - 0.46) / 0.20) ** 2))
+                chin_point = 0.007 * mid * math.exp(-(((share - 0.10) / 0.08) ** 2))
+                # Ornate raised rim bezel around the mask edge.
+                edge_bezel = 0.005 * math.exp(-(((front - 0.14) / 0.09) ** 2))
+                relief = brow_ridge + orbit_hollow + nose_bridge + cheek_plane + cheek_hollow + chin_point + edge_bezel
+                y = rim - front * bulge - relief * (front**0.4)
+            ring.append((x, y, height))
+
+        rings.append(ring)
+
+    return core.loft(name, rings, mat, parent, cap_start=True, cap_end=True)
+
+
 def _crest(name, mat, parent, prong, bar=None):
-    """Two prongs rising from the crown of the mask. `prong` lists (x, z)
-    knots for one of them, from the root they share to its tip; the other
-    mirrors it. `bar` is the height of a rail joining the two."""
+    """Two fluted blade-like prongs rising from a sculpted diadem clasp on the
+    crown of the mask."""
 
     knots = [(-x, CREST_DEPTH, z) for x, z in reversed(prong[1:])] + [(x, CREST_DEPTH, z) for x, z in prong]
-    parts = [
-        core.tube(
-            name,
-            core.bezier(knots, samples=8),
-            lambda t: 0.007 + 0.016 * (1 - abs(2 * t - 1)) ** 0.7,
-            mat,
-            sides=8,
-            flatten=0.4,
+    path = core.bezier(knots, samples=8)
+
+    # Fluted diamond-section blade prongs instead of a plain round pipe.
+    rings = []
+    normal = None
+    for idx, point in enumerate(path):
+        ahead = path[min(idx + 1, len(path) - 1)]
+        behind = path[max(idx - 1, 0)]
+        tangent = (ahead - behind).normalized()
+        if normal is None:
+            normal = Vector((0, -1, 0))
+            normal = (normal - tangent * normal.dot(tangent)).normalized()
+        else:
+            normal = (normal - tangent * normal.dot(tangent)).normalized()
+        binormal = tangent.cross(normal).normalized()
+        t = idx / max(len(path) - 1, 1)
+        size = 0.006 + 0.017 * (1.0 - abs(2.0 * t - 1.0)) ** 0.72
+        thick = size * 0.48
+        rings.append(
+            [
+                point + binormal * size,
+                point + binormal * (size * 0.35) + normal * thick,
+                point + normal * (thick * 1.15),
+                point - binormal * (size * 0.35) + normal * thick,
+                point - binormal * size,
+                point - binormal * (size * 0.35) - normal * thick,
+                point - normal * (thick * 1.15),
+                point + binormal * (size * 0.35) - normal * thick,
+            ]
         )
-    ]
+
+    parts = [core.loft(name, rings, mat, cap_start=True, cap_end=True)]
+
+    # Sculpted diadem medallion where the two prongs root into the crown.
+    root_z = prong[0][1] + 0.018
+    clasp = core.revolve(
+        f"{name}_clasp",
+        [
+            (0.0, root_z + 0.036),
+            (0.018, root_z + 0.022),
+            (0.030, root_z + 0.004),
+            (0.028, root_z - 0.016),
+            (0.014, root_z - 0.030),
+            (0.0, root_z - 0.034),
+        ],
+        mat,
+        segments=12,
+    )
+    clasp.location = (0, CREST_DEPTH - 0.004, 0)
+    clasp.scale = (1.0, 0.55, 1.0)
+    core.activate(clasp)
+    import bpy
+    bpy.ops.object.transform_apply(location=True, rotation=False, scale=True)
+    parts.append(clasp)
 
     if bar is not None:
-        reach = max(x for x, z in prong if z <= bar) + 0.05
+        reach = max(x for x, z in prong if z <= bar) + 0.055
 
         parts.append(
             core.tube(
                 f"{name}_bar",
                 [(-reach, CREST_DEPTH, bar), (0, CREST_DEPTH, bar), (reach, CREST_DEPTH, bar)],
-                lambda t: 0.009 + 0.006 * abs(2 * t - 1) ** 6,
+                lambda t: 0.0085 + 0.0075 * abs(2 * t - 1) ** 5,
                 mat,
                 sides=8,
-                flatten=0.6,
+                flatten=0.55,
             )
         )
 
     result = core.join(parts, name)
     result.parent = parent
 
-    return core.shade_smooth(result, angle=50)
+    return core.shade_smooth(result, angle=38)
 
 
 def _light(name, parent, length):
@@ -218,13 +303,11 @@ def _heads(head):
         dict(prong=[(0.0, 1.99), (0.045, 2.08), (0.075, 2.24), (0.115, 2.42), (0.165, 2.58)], brow=0.72, slit=0.085, bar=2.33),
     ]
 
-    face = [(*_mask_row(0.015 + 0.97 * row / 26), 0.012) for row in range(27)]
-
     for index, variant in enumerate(variants):
         group = core.empty(f"head_{index}", head)
 
         # The mask and its crest outlast the figure: hollowing never eats them.
-        mask = core.shade_smooth(_stack(f"mask_{index}", face, gold, group, capped=True), angle=50)
+        mask = core.shade_smooth(_mask(f"mask_{index}", gold, group), angle=42)
         place(finish(mask, hollow=lambda co: 1.0, wear_boost=1.4, seed=index))
         crest = _crest(f"crest_{index}", gold, group, variant["prong"], variant.get("bar"))
         place(finish(crest, hollow=lambda co: 1.0, wear_boost=1.6, seed=index))

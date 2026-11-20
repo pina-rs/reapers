@@ -203,11 +203,14 @@ def sleeve(
     seed=3,
     rings=26,
     segments=40,
+    cap_shoulder=False,
 ):
     """A sleeve swept along `path`, widening to a long, ragged cuff.
 
     `droop` is how far the underside of the cuff hangs below the wrist, which
-    is what gives a robed arm its long pointed shape.
+    is what gives a robed arm its long pointed shape. When `cap_shoulder` is
+    True, the shoulder entry rounds closed into the deltoid so no open pipe
+    gap ever shows at the torso seam.
     """
 
     generator = random.Random(seed)
@@ -240,13 +243,20 @@ def sleeve(
         binormal = tangent.cross(normal)
         row = []
 
+        # Smooth rounded deltoid cap over the first two rings when requested.
+        cap_scale = 1.0
+        cap_pull = 0.0
+        if cap_shoulder and ring < 3:
+            cap_scale = (0.35, 0.78, 0.96)[ring]
+            cap_pull = (-0.028, -0.012, -0.002)[ring]
+
         for segment in range(segments):
             angle = math.tau * segment / segments
             reach = depth * (1 - torn(angle))
-            radius = shoulder + (cuff - shoulder) * reach**1.7
+            radius = (shoulder + (cuff - shoulder) * reach**1.7) * cap_scale
             fold = 1 + 0.16 * reach * _fold(angle, reach, (3, 5, 8), phases)
             around = normal * math.cos(angle) + binormal * math.sin(angle)
-            point = sample(reach) + around * radius * fold
+            point = sample(reach) + tangent * cap_pull + around * radius * fold
 
             # The underside of the cuff hangs: the lower a point sits on its
             # ring, the further it falls.
@@ -262,6 +272,9 @@ def sleeve(
             follow = (segment + 1) % segments
 
             mesh.faces.new((grid[ring][segment], grid[ring + 1][segment], grid[ring + 1][follow], grid[ring][follow]))
+
+    if cap_shoulder:
+        mesh.faces.new(list(reversed(grid[0])))
 
     return object_from_bmesh(name, mesh, mat, parent)
 

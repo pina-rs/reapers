@@ -358,19 +358,36 @@ def _heads(head, mat):
     group = core.empty("head_0", head)
     place(finish(_drape("veil_0", mat, plain, rows=30, segments=120, uneven=0.05, seed=41), seed=4), group)
 
-    # The band sits low on the brow in front and high behind.
+    # The gothic circlet sits low on the brow in front and high behind, with a
+    # pointed diadem peak centered over the forehead.
     band = []
 
     for step in range(65):
         angle = math.tau * step / 64
-        height = BROW + 0.045 + 0.03 * math.sin(angle)
-        ring = math.sqrt(1 - ((height - BROW) / SKULL) ** 2)
-        width, thickness = _veil(BROW, HEAD_LAYER + 0.004)
-        push = _face(height, 0.0) * max(0.0, math.cos(_aside(angle))) ** 2
+        front = max(0.0, math.cos(_aside(angle)))
+        peak = 0.024 * (front**10) + 0.009 * (max(0.0, math.cos(_aside(angle) * 3)) ** 6) * (front**2)
+        height = BROW + 0.044 + 0.03 * math.sin(angle) + peak
+        ring = math.sqrt(max(0.05, 1 - ((height - BROW) / SKULL) ** 2))
+        width, thickness = _veil(BROW, HEAD_LAYER + 0.005)
+        push = _face(height, 0.0) * (front**2)
 
         band.append((math.cos(angle) * width * ring, math.sin(angle) * thickness * ring - push, height))
 
-    place(finish(core.tube("circlet_0", band, 0.01, core.material("metal"), sides=8, cap=False, flatten=0.4), wear_boost=1.8), group)
+    place(
+        finish(
+            core.tube(
+                "circlet_0",
+                band,
+                lambda t: 0.010 + 0.006 * (max(0.0, math.cos((t - 0.75) * math.tau)) ** 6),
+                core.material("metal"),
+                sides=8,
+                cap=False,
+                flatten=0.38,
+            ),
+            wear_boost=1.8,
+        ),
+        group,
+    )
     place(void(0), group)
 
     # A tall pointed frame: the same slope, carried up to a point.
@@ -471,7 +488,7 @@ def _arms(root):
     # The second hand rests inside the veil and emerges for two-handed poses.
     left_shoulder = Vector((0.17, 0, SHOULDER[0]))
     left_elbow = Vector((0.14, 0.03, 1.25))
-    left_grip = Vector((0.18, -0.08, 1.08))
+    left_grip = Vector((0.14, -0.02, 1.10))
     left = core.empty("arm_l", root, location=left_shoulder)
     left_joint = core.empty("elbow_l", left, location=left_elbow - left_shoulder)
     finish(anatomy.forearm("arm_l_upper", left, left_elbow - left_shoulder, Vector()), wear_boost=1.6)

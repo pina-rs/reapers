@@ -202,11 +202,13 @@ def _cowl(index, mat, forward, look):
     def outside(step, around):
         point = ring(step * hem(around), around)
 
-        # The cape hangs in pleats: ridges of uneven size that deepen toward
-        # its hem.
+        # Heavy wet-wool folds along the hood crown and deeper pleats down the cape.
+        hood_fold = (0.5 + 0.5 * math.sin(around * 6 + phase * 0.8)) * math.sin(min(step * 2.2, 1.0) * math.pi)
         pleat = (0.5 + 0.5 * math.sin(around * 7 + phase)) ** 2 * (0.6 + 0.4 * math.sin(around * 3 + phase * 1.7))
+        outward = Vector((math.sin(around), 0.35 * math.cos(around), 0.25 * math.cos(around)))
+        point = point + outward * (0.011 * hood_fold)
 
-        return _clear(point, CAPE_PAD + look["fold"] * _ease((1.67 - point.z) / 0.2) * pleat)
+        return _clear(point, CAPE_PAD + look["fold"] * 1.25 * _ease((1.67 - point.z) / 0.2) * pleat)
 
     out = Vector((1, 0, 0)).cross(_along(crest, 0) - _along(bib, 0))
     out.x = 0
@@ -219,14 +221,14 @@ def _cowl(index, mat, forward, look):
         roll = math.pi * step / 4
         scale = 1 - THICK * (1 - math.cos(roll)) / 2
 
-        rings.append([ring(0, around, scale) + out * (0.02 * math.sin(roll)) for around in arounds])
+        rings.append([ring(0, around, scale) + out * (0.022 * math.sin(roll)) for around in arounds])
 
     rings += [[outside(step / 34, around) for around in arounds] for step in range(35)]
 
     # Closed under the cape as well as behind the lining, so the cloth has
     # one unambiguous outside.
     hood = core.loft(f"cowl_{index}", rings, mat, cap_start=True, cap_end=True)
-    core.roughen(hood, 0.01, 4.0, seed=index + 1.0)
+    core.roughen(hood, 0.008, 4.5, seed=index + 1.0)
 
     # The void closes the opening just inside the rim. It is a lens, dished
     # toward the viewer and closed behind, so that it too has one outside.

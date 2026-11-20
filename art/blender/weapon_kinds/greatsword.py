@@ -47,39 +47,54 @@ def build():
         )
         fuller.scale = (1.0, 0.6, 1.0)
 
-    # A crossguard that bends a little toward the point at its ends.
+    # Swept gothic crossguard with flared quillon finials.
     finish(
-        core.tube(
-            "greatsword_guard",
-            core.bezier([(-0.21, 0, GUARD + 0.03), (-0.1, 0, GUARD - 0.008), (0.1, 0, GUARD - 0.008), (0.21, 0, GUARD + 0.03)], samples=10),
-            lambda t: 0.017 + 0.009 * abs(2 * t - 1) ** 3,
-            metal,
-            root,
-            sides=8,
-            flatten=0.7,
+        core.shade_smooth(
+            core.tube(
+                "greatsword_guard",
+                core.bezier([(-0.225, 0, GUARD + 0.042), (-0.11, 0, GUARD - 0.010), (0.0, 0, GUARD - 0.014), (0.11, 0, GUARD - 0.010), (0.225, 0, GUARD + 0.042)], samples=10),
+                lambda t: 0.015 + 0.012 * abs(2 * t - 1) ** 3 + 0.009 * (1.0 - abs(2 * t - 1)) ** 4,
+                metal,
+                root,
+                sides=8,
+                flatten=0.65,
+            ),
+            angle=42,
         ),
         wear_boost=1.8,
     )
 
-    # A long grip for two hands, wrapped, and a heavy pommel below it.
+    # A long grip for two hands, wrapped, and a faceted gothic pommel below it.
     finish(
         core.revolve(
             "greatsword_grip",
             [(0.0, GUARD - 0.02), (0.019, GUARD - 0.025), (0.021, 0.0), (0.019, POMMEL + 0.07), (0.0, POMMEL + 0.065)],
             core.material("wood"),
             root,
-            segments=12,
+            segments=14,
         ),
         wear_boost=1.2,
     )
     binding("greatsword_wrap", root, POMMEL + 0.08, GUARD - 0.04, radius=0.021, turns=11)
     finish(
-        core.revolve(
-            "greatsword_pommel",
-            [(0.0, POMMEL + 0.07), (0.022, POMMEL + 0.065), (0.04, POMMEL + 0.04), (0.042, POMMEL + 0.015), (0.03, POMMEL - 0.012), (0.0, POMMEL - 0.02)],
-            metal,
-            root,
-            segments=14,
+        core.shade_smooth(
+            core.revolve(
+                "greatsword_pommel",
+                [
+                    (0.0, POMMEL + 0.074),
+                    (0.020, POMMEL + 0.068),
+                    (0.032, POMMEL + 0.056),
+                    (0.046, POMMEL + 0.036),
+                    (0.046, POMMEL + 0.016),
+                    (0.030, POMMEL - 0.008),
+                    (0.014, POMMEL - 0.022),
+                    (0.0, POMMEL - 0.034),
+                ],
+                metal,
+                root,
+                segments=8,
+            ),
+            angle=40,
         ),
         wear_boost=1.8,
     )
@@ -103,31 +118,36 @@ def _half_width(t):
     """Half the blade's width: broad at the guard, narrowing slowly, then
     running quickly to the point over the last fifth."""
 
-    taper = 0.052 - 0.014 * t
+    taper = 0.054 - 0.015 * t
 
     return taper * (1.0 if t < 0.8 else math.cos((t - 0.8) / 0.2 * math.pi / 2) ** 0.8)
 
 
 def _blade(name, mat, parent):
-    """A blade in the XZ plane, thick down its middle and thin at its edges."""
+    """A hollow-ground diamond-section blade with recessed fuller groove."""
 
     rings = []
 
-    for t in _steps(0.0, 1.0, 20):
+    for t in _steps(0.0, 1.0, 24):
         width = max(_half_width(t), 0.0008)
-        middle = 0.0085 * (1 - 0.7 * t) + 0.0008
+        middle = 0.0105 * (1 - 0.68 * t) + 0.0009
+        fuller = 0.68 if t < 0.58 else 1.05
         height = _height(t)
 
         rings.append(
             [
                 (-width, 0, height),
-                (-width * 0.45, -middle * 0.85, height),
-                (0, -middle, height),
-                (width * 0.45, -middle * 0.85, height),
+                (-width * 0.58, -middle * 0.62, height),
+                (-width * 0.22, -middle * 1.05, height),
+                (0, -middle * fuller, height),
+                (width * 0.22, -middle * 1.05, height),
+                (width * 0.58, -middle * 0.62, height),
                 (width, 0, height),
-                (width * 0.45, middle * 0.85, height),
-                (0, middle, height),
-                (-width * 0.45, middle * 0.85, height),
+                (width * 0.58, middle * 0.62, height),
+                (width * 0.22, middle * 1.05, height),
+                (0, middle * fuller, height),
+                (-width * 0.22, middle * 1.05, height),
+                (-width * 0.58, middle * 0.62, height),
             ]
         )
 

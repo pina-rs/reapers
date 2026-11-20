@@ -51,25 +51,28 @@ pub fn morph_names(path: &str) -> Vec<String> {
 }
 
 /// The parts drawn in each material, parents first: what
-/// [`super::parts`] lists.
+/// [`super::parts`] lists. gltfpack hangs a quantized mesh on an unnamed child
+/// node under its named part, so a mesh goes by the nearest name above it.
 pub fn parts_by_material(path: &str) -> Vec<(String, Vec<String>)> {
 	let gltf = gltf(path);
 	let nodes = gltf["nodes"].as_array().unwrap();
 	let materials = gltf["materials"].as_array().unwrap();
-	let mut queue: std::collections::VecDeque<usize> = gltf["scenes"][0]["nodes"]
+	let mut queue: std::collections::VecDeque<(usize, String)> = gltf["scenes"][0]["nodes"]
 		.as_array()
 		.unwrap()
 		.iter()
-		.map(|index| index.as_u64().unwrap() as usize)
+		.map(|index| (index.as_u64().unwrap() as usize, String::new()))
 		.collect();
 	let mut groups: Vec<(String, Vec<String>)> = Vec::new();
-	while let Some(index) = queue.pop_front() {
+	while let Some((index, inherited)) = queue.pop_front() {
 		let node = &nodes[index];
+		let own = name(node);
+		let part = if own.is_empty() { inherited } else { own };
 		if let Some(children) = node["children"].as_array() {
 			queue.extend(
 				children
 					.iter()
-					.map(|child| child.as_u64().unwrap() as usize),
+					.map(|child| (child.as_u64().unwrap() as usize, part.clone())),
 			);
 		}
 		let Some(mesh) = node["mesh"].as_u64() else {
@@ -89,8 +92,8 @@ pub fn parts_by_material(path: &str) -> Vec<(String, Vec<String>)> {
 			.iter_mut()
 			.find(|(existing, _)| *existing == material)
 		{
-			Some((_, parts)) => parts.push(name(node)),
-			None => groups.push((material, vec![name(node)])),
+			Some((_, parts)) => parts.push(part),
+			None => groups.push((material, vec![part])),
 		}
 	}
 	groups

@@ -71,33 +71,59 @@ def _heads(head, alt, forward):
         return obj
 
     def ragged(angle, radius, height, variant, seed):
-        """Moves a point of the hat's profile: the brim sags, tips forward
-        and frays, more so the further out it is."""
+        """Moves a point of the hat's profile: the brim sags, tips forward,
+        carries subtle weathered crown creases, and frays at the outer rim."""
 
         edge = max(0.0, (radius - 0.16) / 0.36)
+        crown_pinch = max(0.0, 1.0 - radius / 0.15) * max(0.0, (height - brim - 0.05) / 0.18)
         wobble = noise.noise(Vector((math.cos(angle) * 1.7, math.sin(angle) * 1.7, seed)))
         nick = noise.noise(Vector((math.cos(angle) * 6.0, math.sin(angle) * 6.0, seed + 4)))
         sag = variant["droop"] * edge**2 * (0.7 + 0.5 * math.cos(angle * 2 + variant["twist"]))
         tip = variant["tip"] * radius * -math.sin(angle)
+        crease = -0.016 * crown_pinch * (math.sin(angle) ** 2)
 
         return (
-            radius * (1 + edge * (0.06 * wobble - variant["tear"] * max(0.0, nick) ** 1.5)),
-            height - sag - tip + 0.018 * edge * wobble,
+            radius * (1 + edge * (0.065 * wobble - variant["tear"] * max(0.0, nick) ** 1.5)),
+            height - sag - tip + crease + 0.018 * edge * wobble,
         )
 
     brim = HEAD_HEIGHT + 0.075
     variants = [
-        # A flat, wide brim over a low crown, tipped down over the eyes.
+        # A flat, wide brim over a weathered creased crown, tipped down over the eyes.
         dict(
-            profile=[(0.0, 0.135), (0.105, 0.13), (0.13, 0.1), (0.138, 0.02), (0.2, 0.008), (0.54, 0.014), (0.542, 0.004), (0.2, -0.006), (0.1, -0.006)],
-            droop=0.07,
+            profile=[
+                (0.0, 0.145),
+                (0.075, 0.148),
+                (0.112, 0.132),
+                (0.132, 0.092),
+                (0.140, 0.024),
+                (0.21, 0.011),
+                (0.54, 0.018),
+                (0.548, 0.008),
+                (0.542, -0.002),
+                (0.21, -0.008),
+                (0.1, -0.008),
+            ],
+            droop=0.075,
             tear=0.22,
             tip=0.16,
             twist=0.0,
         ),
-        # A tall, crushed crown and a brim that sags at the sides.
+        # A tall, crushed gothic crown and a brim that sags at the sides.
         dict(
-            profile=[(0.0, 0.33), (0.06, 0.32), (0.1, 0.24), (0.132, 0.02), (0.2, 0.008), (0.46, 0.01), (0.462, 0.0), (0.2, -0.006), (0.1, -0.006)],
+            profile=[
+                (0.0, 0.34),
+                (0.055, 0.33),
+                (0.095, 0.24),
+                (0.125, 0.12),
+                (0.135, 0.024),
+                (0.20, 0.010),
+                (0.46, 0.014),
+                (0.468, 0.004),
+                (0.462, -0.004),
+                (0.20, -0.008),
+                (0.1, -0.008),
+            ],
             droop=0.2,
             tear=0.3,
             tip=0.12,
@@ -105,7 +131,7 @@ def _heads(head, alt, forward):
         ),
         # A shallow woven cone, wider than the shoulders.
         dict(
-            profile=[(0.0, 0.19), (0.04, 0.18), (0.3, 0.07), (0.6, -0.05), (0.602, -0.06), (0.3, 0.045), (0.1, 0.02)],
+            profile=[(0.0, 0.195), (0.04, 0.185), (0.3, 0.072), (0.6, -0.048), (0.606, -0.056), (0.60, -0.064), (0.3, 0.045), (0.1, 0.02)],
             droop=0.0,
             tear=0.08,
             tip=0.1,
@@ -147,7 +173,7 @@ def _heads(head, alt, forward):
         else:
             band = core.revolve(
                 f"band_{index}",
-                [(0.14, brim + 0.075), (0.15, brim + 0.065), (0.15, brim + 0.03), (0.142, brim + 0.022)],
+                [(0.14, brim + 0.078), (0.153, brim + 0.068), (0.155, brim + 0.048), (0.152, brim + 0.03), (0.142, brim + 0.022)],
                 core.material("rope"),
                 None,
                 segments=48,
@@ -168,22 +194,22 @@ def _mantles(root, alt):
 
     forward = HUNCH
 
-    # A short capelet over both shoulders, frayed to points.
+    # A draped, pleated capelet over both shoulders, frayed into ragged points.
     capelet = cloth.robe(
         "capelet",
         alt,
         None,
-        top=NECK_HEIGHT - 0.03,
-        hem=SHOULDER_HEIGHT - 0.4,
-        profile=((0.0, 0.1, 0.1), (0.28, 0.25, 0.15), (1.0, 0.33, 0.21)),
-        folds=(4, 7, 11),
-        fold_depth=0.09,
-        tatter=0.6,
+        top=NECK_HEIGHT - 0.025,
+        hem=SHOULDER_HEIGHT - 0.42,
+        profile=((0.0, 0.105, 0.105), (0.18, 0.24, 0.145), (0.52, 0.295, 0.18), (1.0, 0.34, 0.22)),
+        folds=(5, 9, 15),
+        fold_depth=0.14,
+        tatter=0.52,
         tears=9,
-        slits=0,
+        slits=4,
         seed=21,
-        rings=18,
-        segments=96,
+        rings=24,
+        segments=112,
     )
     capelet.shape_key_clear()
     capelet.location = (0, -forward, 0)
