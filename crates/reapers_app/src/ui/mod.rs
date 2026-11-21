@@ -33,19 +33,19 @@ use crate::theme::reaper_light;
 
 /// The foot of a stage falling into the page's ink, over the lowest
 /// `height` percent of its parent, to `alpha` at the bottom. leptoskit has
-/// no gradients, so the fall is drawn as a few steps of growing darkness.
+/// no gradients, so the fall is drawn as thin smoothstep strips from clear
+/// to ink without a hard top seam.
 pub fn foot_scrim(height: u32, alpha: u8) -> leptoskit::prelude::Element {
 	use leptoskit::prelude::*;
-	const STEPS: u32 = 6;
+	const STEPS: u32 = 24;
 	let mut scrim = View()
 		.enabled(false)
 		.class(format!("absolute left-0 right-0 bottom-0 h-[{height}%]"));
-	for step in 1..=STEPS {
-		let shade = (f64::from(alpha) * f64::from(step) / f64::from(STEPS)).round() as u8;
-		scrim = scrim.child(View().class(format!(
-			"h-[{:.2}%] w-full bg-[#07080b{shade:02x}]",
-			100.0 / f64::from(STEPS)
-		)));
+	for step in 0..STEPS {
+		let t = f64::from(step) / f64::from(STEPS - 1);
+		let smooth = t * t * (3.0 - 2.0 * t);
+		let shade = (f64::from(alpha) * smooth).round() as u8;
+		scrim = scrim.child(View().class(format!("flex-1 w-full bg-[#07080b{shade:02x}]")));
 	}
 	scrim
 }

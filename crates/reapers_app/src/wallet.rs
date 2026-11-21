@@ -217,6 +217,24 @@ mod mobile {
 		Ok((wallet, account, Address::from_bytes(key)))
 	}
 
+	fn is_declined(reason: &str) -> bool {
+		let lower = reason.to_ascii_lowercase();
+		lower.contains("declin")
+			|| lower.contains("reject")
+			|| lower.contains("cancel")
+			|| lower.contains("-1")
+			|| lower.contains("-3")
+	}
+
+	fn classify_error(error: impl std::fmt::Display) -> ChainFailure {
+		let reason = error.to_string();
+		if is_declined(&reason) {
+			ChainFailure::Declined
+		} else {
+			ChainFailure::Unreachable(reason)
+		}
+	}
+
 	#[async_trait::async_trait(?Send)]
 	impl WalletProver for MobileWalletProver {
 		fn available(&self) -> bool {
@@ -231,7 +249,7 @@ mod mobile {
 			let mut events = Events::take().map_err(KeeperError::unavailable)?;
 			let (mut wallet, account, address) = authorize(&mut events, status)
 				.await
-				.map_err(KeeperError::unavailable)?;
+				.map_err(|reason| KeeperError::Chain(classify_error(reason)))?;
 
 			let proof = async {
 				let issued = challenge(address.to_string()).await?;
@@ -245,7 +263,7 @@ mod mobile {
 						})),
 					)
 					.await
-					.map_err(KeeperError::unavailable)?;
+					.map_err(|error| KeeperError::Chain(classify_error(error)))?;
 				let payloads = signed
 					.get("signed_payloads")
 					.and_then(Value::as_array)
@@ -276,14 +294,14 @@ mod mobile {
 				Events::take().map_err(|error| ChainFailure::Unreachable(error.to_string()))?;
 			let (mut wallet, _account, _address) = authorize(&mut events, status)
 				.await
-				.map_err(|_| ChainFailure::Declined)?;
+				.map_err(classify_error)?;
 			let signed = wallet
 				.call(
 					Method::SignTransactions,
 					object(json!({ "payloads": [BASE64.encode(&transaction)] })),
 				)
 				.await
-				.map_err(|_| ChainFailure::Declined);
+				.map_err(classify_error);
 			let _ = wallet.close().await;
 			signed?
 				.get("signed_payloads")

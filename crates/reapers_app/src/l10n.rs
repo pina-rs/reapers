@@ -481,13 +481,13 @@ pub trait Messages: Send + Sync {
 	fn gift_reprisal_lore(&self) -> &'static str;
 	/// `Returning Light`
 	fn gift_return_light(&self) -> &'static str;
-	/// `Five hits in cadence prepare a light that forgives your next flinch, up to {uses} times per hunt.`
+	/// `Five hits in cadence prepare a light that forgives your next flinch, {uses, plural, =1{once} other{up to {uses} times}} per hunt.`
 	fn gift_return_light_effect(&self, uses: i64) -> String;
 	/// `Every stroke of the pole leaves a little light behind. Enough light can guide a trembling hand home.`
 	fn gift_return_light_lore(&self) -> &'static str;
 	/// `Unbroken`
 	fn gift_unbroken(&self) -> &'static str;
-	/// `Up to {uses} misses preserve cadence each hunt. Its timer keeps running.`
+	/// `{uses, plural, =1{One miss preserves} other{Up to {uses} misses preserve}} cadence each hunt. Its timer keeps running.`
 	fn gift_unbroken_effect(&self, uses: i64) -> String;
 	/// `There is no head to lose. Even a wandering hand cannot break the chain at once.`
 	fn gift_unbroken_lore(&self) -> &'static str;
@@ -699,6 +699,8 @@ pub trait Messages: Send + Sync {
 	fn hunt_reloading(&self) -> &'static str;
 	/// `Resolve`
 	fn hunt_resolve(&self) -> &'static str;
+	/// `Retreat`
+	fn hunt_retreat(&self) -> &'static str;
 	/// `Red · swing to parry`
 	fn hunt_ring_charging(&self) -> &'static str;
 	/// `Amber · hold still`
@@ -719,6 +721,10 @@ pub trait Messages: Send + Sync {
 	fn hunt_safety(&self) -> &'static str;
 	/// `{seconds}s`
 	fn hunt_seconds(&self, seconds: i64) -> String;
+	/// `Your hunt is recorded, but the keeper did not answer. Try again to settle it, or lower the blade to leave.`
+	fn hunt_settle_failed_body(&self) -> &'static str;
+	/// `The reckoning could not land`
+	fn hunt_settle_failed_title(&self) -> &'static str;
 	/// `Shattered`
 	fn hunt_shattered(&self) -> &'static str;
 	/// Beside the crosshair when a press now would strike an open seal.
@@ -1143,6 +1149,52 @@ pub trait Messages: Send + Sync {
 	fn perk_toll(&self) -> &'static str;
 	/// `Each shriek you hold through keeps a broken husk down longer.`
 	fn perk_toll_line(&self) -> &'static str;
+	/// `Depth`
+	fn probe_depth(&self) -> &'static str;
+	/// `measured`
+	fn probe_depth_measured(&self) -> &'static str;
+	/// `none`
+	fn probe_depth_none(&self) -> &'static str;
+	/// `Facing`
+	fn probe_facing(&self) -> &'static str;
+	/// `{yaw}° right, {pitch}° up, turning {speed} rad/s`
+	fn probe_facing_value(&self, yaw: &str, pitch: &str, speed: &str) -> String;
+	/// `Floor below`
+	fn probe_floor(&self) -> &'static str;
+	/// `no floor plane yet`
+	fn probe_floor_none(&self) -> &'static str;
+	/// `{metres} m`
+	fn probe_floor_value(&self, metres: &str) -> String;
+	/// `Following`
+	fn probe_following(&self) -> &'static str;
+	/// `Start to follow the platform.`
+	fn probe_idle(&self) -> &'static str;
+	/// `What the platform's AR measures of the room: the hunt's grid of rays, cast against its depth once a second.`
+	fn probe_intro(&self) -> &'static str;
+	/// `Last look`
+	fn probe_last_look(&self) -> &'static str;
+	/// `{hits} of {total} rays hit, in {millis} ms`
+	fn probe_last_look_value(&self, hits: i64, total: i64, millis: i64) -> String;
+	/// `Lens`
+	fn probe_lens(&self) -> &'static str;
+	/// `not reported`
+	fn probe_lens_none(&self) -> &'static str;
+	/// `{degrees}° tall`
+	fn probe_lens_value(&self, degrees: &str) -> String;
+	/// `{columns} by {rows} rays`
+	fn probe_rays_label(&self, columns: i64, rows: i64) -> String;
+	/// `Start`
+	fn probe_start(&self) -> &'static str;
+	/// `Depth bench`
+	fn probe_title(&self) -> &'static str;
+	/// `nothing: a finger would steer`
+	fn probe_track_drag(&self) -> &'static str;
+	/// `the rotation sensor (turns, no position)`
+	fn probe_track_turning(&self) -> &'static str;
+	/// `the platform's AR (camera and position)`
+	fn probe_track_world(&self) -> &'static str;
+	/// `No look yet: it needs a phone whose AR measures depth (ARKit on LiDAR iPhones, ARCore's Depth API).`
+	fn probe_waiting(&self) -> &'static str;
 	/// `Common`
 	fn rarity_common(&self) -> &'static str;
 	/// `Epic`
@@ -1297,7 +1349,7 @@ pub trait Messages: Send + Sync {
 	fn roster_buy_help(&self) -> &'static str;
 	/// `Connect Solana wallet`
 	fn roster_connect(&self) -> &'static str;
-	/// `{count} reapers`
+	/// `{count, plural, =1{1 reaper} other{{count} reapers}}`
 	fn roster_count(&self, count: i64) -> String;
 	/// `Import owned reaper`
 	fn roster_import(&self) -> &'static str;
@@ -1423,8 +1475,12 @@ pub trait Messages: Send + Sync {
 	fn sigil_steady(&self) -> &'static str;
 	/// `Accounts`
 	fn simnet_accounts(&self) -> &'static str;
+	/// `A faucet pays an airdrop; it cannot be sent again.`
+	fn simnet_airdrop_cannot_replay(&self) -> &'static str;
 	/// `Amount`
 	fn simnet_amount(&self) -> &'static str;
+	/// `The validator returned an invalid blockhash.`
+	fn simnet_bad_blockhash(&self) -> &'static str;
 	/// `{amount} SOL · simnet`
 	fn simnet_balance(&self, amount: &str) -> String;
 	/// `Burned`
@@ -1565,9 +1621,9 @@ pub trait Messages: Send + Sync {
 	fn soul_marks(&self) -> &'static str;
 	/// `One mark per path per absorption. Escapes and abandoned hunts grant none. Old hunts keep their XP; memories begin with your next hunt.`
 	fn soul_memory_help(&self) -> &'static str;
-	/// `Level {level} · {marks} {path} marks`
+	/// `Level {level} · {marks, plural, =1{1 {path} mark} other{{marks} {path} marks}}`
 	fn soul_milestone(&self, level: i64, marks: i64, path: &str) -> String;
-	/// `Next awakening: level {level} and {marks} {path} marks. You have {earned}.`
+	/// `Next awakening: level {level} and {marks, plural, =1{1 {path} mark} other{{marks} {path} marks}}. You have {earned}.`
 	fn soul_next(&self, level: i64, marks: i64, path: &str, earned: i64) -> String;
 	/// `These memories are an unsaved specimen. Real memories come from the keeper’s replay of your hunts.`
 	fn soul_preview_help(&self) -> &'static str;
@@ -2697,8 +2753,13 @@ impl Messages for En {
 	}
 
 	fn gift_return_light_effect(&self, uses: i64) -> String {
+		let uses_form = if uses == 1 {
+			"once".to_owned()
+		} else {
+			format!("up to {uses} times")
+		};
 		format!(
-			"Five hits in cadence prepare a light that forgives your next flinch, up to {uses} times per hunt."
+			"Five hits in cadence prepare a light that forgives your next flinch, {uses_form} per hunt."
 		)
 	}
 
@@ -2711,7 +2772,12 @@ impl Messages for En {
 	}
 
 	fn gift_unbroken_effect(&self, uses: i64) -> String {
-		format!("Up to {uses} misses preserve cadence each hunt. Its timer keeps running.")
+		let uses_form = if uses == 1 {
+			"One miss preserves".to_owned()
+		} else {
+			format!("Up to {uses} misses preserve")
+		};
+		format!("{uses_form} cadence each hunt. Its timer keeps running.")
 	}
 
 	fn gift_unbroken_lore(&self) -> &'static str {
@@ -3128,6 +3194,10 @@ impl Messages for En {
 		"Resolve"
 	}
 
+	fn hunt_retreat(&self) -> &'static str {
+		"Retreat"
+	}
+
 	fn hunt_ring_charging(&self) -> &'static str {
 		"Red · swing to parry"
 	}
@@ -3162,6 +3232,14 @@ impl Messages for En {
 
 	fn hunt_seconds(&self, seconds: i64) -> String {
 		format!("{seconds}s")
+	}
+
+	fn hunt_settle_failed_body(&self) -> &'static str {
+		"Your hunt is recorded, but the keeper did not answer. Try again to settle it, or lower the blade to leave."
+	}
+
+	fn hunt_settle_failed_title(&self) -> &'static str {
+		"The reckoning could not land"
 	}
 
 	fn hunt_shattered(&self) -> &'static str {
@@ -3975,6 +4053,98 @@ impl Messages for En {
 		"Each shriek you hold through keeps a broken husk down longer."
 	}
 
+	fn probe_depth(&self) -> &'static str {
+		"Depth"
+	}
+
+	fn probe_depth_measured(&self) -> &'static str {
+		"measured"
+	}
+
+	fn probe_depth_none(&self) -> &'static str {
+		"none"
+	}
+
+	fn probe_facing(&self) -> &'static str {
+		"Facing"
+	}
+
+	fn probe_facing_value(&self, yaw: &str, pitch: &str, speed: &str) -> String {
+		format!("{yaw}° right, {pitch}° up, turning {speed} rad/s")
+	}
+
+	fn probe_floor(&self) -> &'static str {
+		"Floor below"
+	}
+
+	fn probe_floor_none(&self) -> &'static str {
+		"no floor plane yet"
+	}
+
+	fn probe_floor_value(&self, metres: &str) -> String {
+		format!("{metres} m")
+	}
+
+	fn probe_following(&self) -> &'static str {
+		"Following"
+	}
+
+	fn probe_idle(&self) -> &'static str {
+		"Start to follow the platform."
+	}
+
+	fn probe_intro(&self) -> &'static str {
+		"What the platform's AR measures of the room: the hunt's grid of rays, cast against its depth once a second."
+	}
+
+	fn probe_last_look(&self) -> &'static str {
+		"Last look"
+	}
+
+	fn probe_last_look_value(&self, hits: i64, total: i64, millis: i64) -> String {
+		format!("{hits} of {total} rays hit, in {millis} ms")
+	}
+
+	fn probe_lens(&self) -> &'static str {
+		"Lens"
+	}
+
+	fn probe_lens_none(&self) -> &'static str {
+		"not reported"
+	}
+
+	fn probe_lens_value(&self, degrees: &str) -> String {
+		format!("{degrees}° tall")
+	}
+
+	fn probe_rays_label(&self, columns: i64, rows: i64) -> String {
+		format!("{columns} by {rows} rays")
+	}
+
+	fn probe_start(&self) -> &'static str {
+		"Start"
+	}
+
+	fn probe_title(&self) -> &'static str {
+		"Depth bench"
+	}
+
+	fn probe_track_drag(&self) -> &'static str {
+		"nothing: a finger would steer"
+	}
+
+	fn probe_track_turning(&self) -> &'static str {
+		"the rotation sensor (turns, no position)"
+	}
+
+	fn probe_track_world(&self) -> &'static str {
+		"the platform's AR (camera and position)"
+	}
+
+	fn probe_waiting(&self) -> &'static str {
+		"No look yet: it needs a phone whose AR measures depth (ARKit on LiDAR iPhones, ARCore's Depth API)."
+	}
+
 	fn rarity_common(&self) -> &'static str {
 		"Common"
 	}
@@ -4286,7 +4456,11 @@ impl Messages for En {
 	}
 
 	fn roster_count(&self, count: i64) -> String {
-		format!("{count} reapers")
+		if count == 1 {
+			"1 reaper".to_owned()
+		} else {
+			format!("{count} reapers")
+		}
 	}
 
 	fn roster_import(&self) -> &'static str {
@@ -4559,8 +4733,16 @@ impl Messages for En {
 		"Accounts"
 	}
 
+	fn simnet_airdrop_cannot_replay(&self) -> &'static str {
+		"A faucet pays an airdrop; it cannot be sent again."
+	}
+
 	fn simnet_amount(&self) -> &'static str {
 		"Amount"
+	}
+
+	fn simnet_bad_blockhash(&self) -> &'static str {
+		"The validator returned an invalid blockhash."
 	}
 
 	fn simnet_balance(&self, amount: &str) -> String {
@@ -4824,11 +5006,21 @@ impl Messages for En {
 	}
 
 	fn soul_milestone(&self, level: i64, marks: i64, path: &str) -> String {
-		format!("Level {level} · {marks} {path} marks")
+		let marks_form = if marks == 1 {
+			format!("1 {path} mark")
+		} else {
+			format!("{marks} {path} marks")
+		};
+		format!("Level {level} · {marks_form}")
 	}
 
 	fn soul_next(&self, level: i64, marks: i64, path: &str, earned: i64) -> String {
-		format!("Next awakening: level {level} and {marks} {path} marks. You have {earned}.")
+		let marks_form = if marks == 1 {
+			format!("1 {path} mark")
+		} else {
+			format!("{marks} {path} marks")
+		};
+		format!("Next awakening: level {level} and {marks_form}. You have {earned}.")
 	}
 
 	fn soul_preview_help(&self) -> &'static str {

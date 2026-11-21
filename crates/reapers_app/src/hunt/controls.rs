@@ -55,14 +55,15 @@ pub const BUTTON: f64 = 92.0;
 /// The gold of a husk weak enough for an orb, and of an excellent throw.
 pub const ORB_GOLD: Rgb = Rgb::from_hex(0x00E9_C25C);
 
-/// The side of the square a thumb button and its dial are drawn in.
-const DIAL: f64 = BUTTON + 24.0;
+/// The side of the square a thumb button and its dial are drawn in: wide
+/// enough for the active-reload band and orb cost notch without clipping.
+const DIAL: f64 = BUTTON + 32.0;
 /// The radius of the dial's ring, just outside the button.
 const DIAL_RADIUS: f64 = BUTTON / 2.0 + 7.0;
 /// How thick the dial's ring is.
 const DIAL_WIDTH: f64 = 5.0;
 /// The smallest a touch target is, either way, in points.
-const TARGET: f64 = 44.0;
+const TARGET: f64 = 48.0;
 /// How opaque the ground under every word over the room is: enough that
 /// the words hold over the brightest room, or the reaper's bone-white arms.
 const GROUND_ALPHA: f64 = 0.9;
@@ -619,6 +620,7 @@ fn orb(words: &dyn Messages, sim: &HuntSim) -> Element {
 			ground(under),
 			paint.hex()
 		))
+		.role(leptoskit::native::Role::Button)
 		.test_id("hunt-orb")
 		.accessibility_label(words.hunt_orb_semantics(soul))
 		.child(display(

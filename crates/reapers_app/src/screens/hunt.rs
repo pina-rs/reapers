@@ -22,6 +22,7 @@ use reapers_rules::SoulRules;
 use reapers_rules::market_listings;
 
 use super::back;
+use super::back_or_home;
 use crate::backend::KeeperKind;
 use crate::l10n::use_l10n;
 use crate::lookups::art_name;
@@ -60,6 +61,9 @@ enum Stage {
 	Fighting(HuntBrief),
 	/// Over, and with the keeper.
 	Settling(HuntBrief),
+	/// Over, but the keeper did not settle it: keeps the recorded log so the
+	/// player can retry without fighting again.
+	SettleFailed(HuntBrief, HuntLog, HuntOutcome),
 	/// What it came to.
 	Done(HuntBrief, HuntReward),
 }
@@ -73,7 +77,10 @@ fn stage() -> RwSignal<Option<Stage>> {
 
 const fn brief_of(stage: &Stage) -> &HuntBrief {
 	match stage {
-		Stage::Fighting(brief) | Stage::Settling(brief) | Stage::Done(brief, _) => brief,
+		Stage::Fighting(brief)
+		| Stage::Settling(brief)
+		| Stage::SettleFailed(brief, ..)
+		| Stage::Done(brief, _) => brief,
 	}
 }
 
@@ -176,8 +183,37 @@ fn show(game: Game, stage: &Stage) -> Element {
 						.class(format!("text-[15px] text-[{}]", ASH.hex())),
 				)
 		}
+		Stage::SettleFailed(brief, ref log, outcome) => {
+			settle_failed(game, brief, log.clone(), outcome)
+		}
 		Stage::Done(ref brief, ref reward) => result(game, brief, reward),
 	}
+}
+
+/// Offers to re-submit a finished hunt's recorded log when settlement fails
+/// (for example on a transient network outage), or to leave without losing
+/// control of the screen.
+fn settle_failed(game: Game, brief: HuntBrief, log: HuntLog, outcome: HuntOutcome) -> Element {
+	let words = use_l10n();
+	View()
+		.class(format!(
+			"flex-1 min-h-screen w-full {CONTENT_WIDTH} self-center justify-center p-7 gap-[14px]"
+		))
+		.test_id("hunt-settle-failed")
+		.child(display(words.hunt_settle_failed_title(), 36, BONE))
+		.child(body(words.hunt_settle_failed_body(), 15, ASH))
+		.child(gap(12))
+		.child(
+			LedgerButton::new(words.common_retry())
+				.test_id("hunt-settle-retry")
+				.on_press(move || settle(game, brief, log.clone(), outcome)),
+		)
+		.child(
+			LedgerButton::new(words.hunt_leave())
+				.quiet()
+				.test_id("hunt-leave")
+				.on_press(move || leave(game)),
+		)
 }
 
 /// Hands a finished hunt to the keeper, which judges it by replaying the
@@ -193,11 +229,12 @@ fn settle(game: Game, brief: HuntBrief, log: HuntLog, outcome: HuntOutcome) {
 	};
 	stage.set(Some(Stage::Settling(brief)));
 	let art = Art::carried_by(brief.nft.collection.vessel());
+	let retry_log = log.clone();
 	game.attempt(
 		move |keeper| async move { keeper.settle_hunt(sighting_id, &log).await },
 		move |settlement| {
 			let Some(settlement) = settlement else {
-				stage.set(Some(Stage::Fighting(brief)));
+				stage.set(Some(Stage::SettleFailed(brief, retry_log, outcome)));
 				return;
 			};
 			let after = &settlement.state;
@@ -236,10 +273,11 @@ fn settle(game: Game, brief: HuntBrief, log: HuntLog, outcome: HuntOutcome) {
 }
 
 /// Leaves the hunt, and forgets it, so the next is fought afresh.
-fn leave(game: Game) {
+pub fn leave(game: Game) {
+	crate::hunt::view::clear();
 	stage().set(None);
 	game.play(Score::Sanctum);
-	back();
+	back_or_home();
 }
 
 /// What the hunt came to.
@@ -343,8 +381,9 @@ fn result(game: Game, brief: &HuntBrief, reward: &HuntReward) -> Element {
 					} else if game.keeper_kind.get() == Some(KeeperKind::Simnet) {
 						words.hunt_receipt_simnet()
 					} else if game.cluster().is_some()
-						&& game.ledger.get().last().is_some_and(|transaction| {
+						&& game.ledger.get().iter().rev().any(|transaction| {
 							transaction.instruction == crate::simnet::SimnetInstruction::Burn
+								&& transaction.nft == Some(brief.nft)
 						}) {
 						words.hunt_receipt_cluster()
 					} else {

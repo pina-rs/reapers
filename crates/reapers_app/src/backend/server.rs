@@ -239,10 +239,11 @@ impl Client {
 				.await?;
 			match reply.status {
 				200..=299 => return self.session.hold(decode(&reply)?).await,
-				// The session is over: start again as a new guest. A server
-				// that could not answer may still know the token, so it is
-				// kept for the next try.
-				400..=499 => self.session.forget().await,
+				// Only forget the stored refresh token when the server
+				// explicitly rejects it as unauthorized (401). Rate limits
+				// (429), timeouts (408) and other transient errors keep the
+				// session intact for the next try.
+				401 => self.session.forget().await,
 				_ => return Err(failure(&reply)),
 			}
 		}

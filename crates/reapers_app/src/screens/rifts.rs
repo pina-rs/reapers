@@ -89,8 +89,8 @@ fn site_block(site: RiftSite, attuned: bool, demo: bool) -> Element {
 		.class("pt-[26px] gap-[6px]")
 		.child(
 			View()
-				.class("flex-row items-center gap-3")
-				.child(View().class("flex-1").child(label(
+				.class("flex-row flex-wrap items-center gap-x-3 gap-y-1")
+				.child(View().class("flex-1 min-w-[140px]").child(label(
 					&words.rifts_site(site.city(), site.collection().title()),
 					10,
 					ASH,

@@ -86,24 +86,30 @@ pub fn page() -> Element {
 
 	if let Some(reaper) = player.active_reaper() {
 		let open = soul_open();
+		let expanded = open.get();
 		let soul = reaper.soul();
 		let mut soul_block = View().class("w-full").child(
 			Pressable(words.soul_title().to_owned())
-				.class("py-3 gap-1")
+				.class("flex-row items-center justify-between gap-3 py-3")
 				.test_id("codex-soul")
-				.aria_expanded(open.get())
+				.aria_expanded(expanded)
 				.on_press(move || open.update(|open| *open = !*open))
-				.child(display(words.soul_title(), 24, BONE))
-				.child(body(
-					words.soul_birth_link(
-						gift_name(&*words, soul.gift),
-						temperament_name(&*words, soul.temperament),
-					),
-					13,
-					ASH,
-				)),
+				.child(
+					View()
+						.class("flex-1 gap-1")
+						.child(display(words.soul_title(), 24, BONE))
+						.child(body(
+							words.soul_birth_link(
+								gift_name(&*words, soul.gift),
+								temperament_name(&*words, soul.temperament),
+							),
+							13,
+							ASH,
+						)),
+				)
+				.child(label(if expanded { "−" } else { "+" }, 16, ASH)),
 		);
-		if open.get() {
+		if expanded {
 			soul_block = soul_block.child(soul_ledger(
 				reaper.genome(),
 				reaper.level(),

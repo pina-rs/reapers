@@ -430,7 +430,9 @@ impl Cluster {
 					return Ok(slot);
 				}
 			}
-			(self.pause)(Self::POLL).await;
+			if !(self.pause)(Self::POLL).await {
+				break;
+			}
 		}
 		Err(ChainFailure::NotFinalized(signature.to_owned()))
 	}

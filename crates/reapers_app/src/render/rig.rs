@@ -68,6 +68,8 @@ pub struct ReaperRig {
 	pub root: NodeId,
 	/// The class's model.
 	pub body: NodeId,
+	/// The asset ID of the class's model, for matching load events.
+	body_asset: AssetId,
 	/// The weapons model, following the hand.
 	pub weapons: NodeId,
 	pub genome: ReaperGenome,
@@ -98,6 +100,7 @@ impl ReaperRig {
 		let mut rig = Self {
 			root,
 			body,
+			body_asset: model,
 			weapons,
 			genome,
 			weapon,
@@ -113,6 +116,10 @@ impl ReaperRig {
 		idle.select(ReaperMotion::Idle, true);
 		rig.perform(scene, &idle);
 		rig
+	}
+
+	pub const fn body_asset(&self) -> AssetId {
+		self.body_asset
 	}
 
 	pub const fn weapon(&self) -> Weapon {

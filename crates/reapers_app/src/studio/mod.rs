@@ -114,9 +114,9 @@ fn open(genome: ReaperGenome, gallery: bool, make: impl FnOnce() -> Specimen) ->
 }
 
 /// Leaves the studio, forgetting the specimen: the next opens afresh.
-fn leave() {
+pub fn leave() {
 	specimen().set(None);
-	crate::screens::back();
+	crate::screens::back_or_home();
 }
 
 /// The studio, opened on `genome`.
@@ -141,7 +141,7 @@ fn page(specimen: &Specimen) -> Element {
 	}
 	let content = View()
 		.class(format!(
-			"w-full {CONTENT_WIDTH} self-center px-6 pt-6 pb-10"
+			"w-full {CONTENT_WIDTH} self-center px-6 pt-6 pb-10 pb-safe"
 		))
 		.child(display(words.studio_title(), 38, BONE))
 		.child(gap(12))
@@ -174,13 +174,13 @@ fn page(specimen: &Specimen) -> Element {
 			Section::Soul => soul::soul(specimen),
 		});
 	let mut view = View()
-		.class("w-full min-h-screen")
+		.class("flex-1 h-full w-full")
 		.test_id("studio-view")
 		.child(portrait(specimen));
 	if let Some(index) = specimen.gallery {
 		view = view.child(gallery_bar(index));
 	}
-	view.child(content)
+	view.child(ScrollView().class("flex-1 w-full").child(content))
 }
 
 /// The specimen on its stage, with its name and the stage's controls.
@@ -197,7 +197,7 @@ fn portrait(specimen: &Specimen) -> Element {
 	if specimen.gallery.is_none() {
 		left = left.child(
 			Pressable(words.common_back().to_owned())
-				.class("min-w-[48px] min-h-[44px] justify-center")
+				.class("min-w-[48px] min-h-[48px] justify-center")
 				.test_id("ledger-back")
 				.on_press(|| {
 					platform::tap();
@@ -246,7 +246,7 @@ fn portrait(specimen: &Specimen) -> Element {
 		foot = foot.child(body(words.studio_model_failed(), 13, ASH));
 	}
 	View()
-		.class("relative w-full h-[390px] overflow-hidden")
+		.class("relative w-full h-[44vh] min-h-[280px] max-h-[390px] shrink-0 overflow-hidden")
 		.child(view)
 		.child(foot_scrim(40, 0xd0))
 		.child(top)

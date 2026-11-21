@@ -38,9 +38,19 @@ use crate::ui::sketch;
 /// The sanctum for `player`.
 pub fn page(player: &PlayerState) -> Element {
 	let game = Game::get();
+	game.play(crate::sound::Score::Sanctum);
 	let words = use_l10n();
 	let light = light();
-	let now = game.now.get();
+	let untracked_now = game.now.get_untracked();
+	let now = if player
+		.sightings()
+		.iter()
+		.any(|sighting| !sighting.has_surfaced(untracked_now))
+	{
+		game.now.get()
+	} else {
+		untracked_now
+	};
 	let genome = player.genome();
 	let Some(weapon) = player.weapon() else {
 		return View();

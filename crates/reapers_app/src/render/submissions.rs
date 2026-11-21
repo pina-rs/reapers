@@ -21,7 +21,11 @@ impl Submissions {
 		F: FnOnce() -> Task + 'static,
 		Task: Future<Output = Result<(), ClientError>> + 'static,
 	{
-		let previous = self.tail.borrow().clone();
+		let previous = self
+			.tail
+			.borrow()
+			.clone()
+			.filter(|tail| tail.peek().is_none());
 		let next = async move {
 			if let Some(previous) = previous {
 				// Each caller observes its own result. In particular, a

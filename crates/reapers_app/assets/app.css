@@ -36,6 +36,7 @@ body,
 body * {
   font-family: "DM Sans", system-ui, sans-serif !important;
   -webkit-tap-highlight-color: transparent;
+  overflow-wrap: anywhere;
 }
 
 h1,

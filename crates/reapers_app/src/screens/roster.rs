@@ -93,22 +93,17 @@ fn run(game: Game, panel: Panel, action: impl AsyncFnOnce() -> Result<(), Keeper
 		if let Err(error) = result {
 			panel.failure.set(Some(match (&error, error.refusal()) {
 				(KeeperError::Chain(failure), _) => {
-					crate::lookups::chain_failure_message(game_words(), failure).to_owned()
+					crate::lookups::chain_failure_message(crate::app::messages(), failure)
+						.to_owned()
 				}
-				(_, Some(refusal)) => refusal_message(game_words(), refusal).to_owned(),
-				(_, None) => game_words().common_unreachable().to_owned(),
+				(_, Some(refusal)) => refusal_message(crate::app::messages(), refusal).to_owned(),
+				(_, None) => crate::app::messages().common_unreachable().to_owned(),
 			}));
 		} else {
 			game.reload().await;
 			ask_chain(game, panel);
 		}
 	});
-}
-
-/// The words for a message set after the page that asked has rendered.
-fn game_words() -> &'static dyn crate::l10n::Messages {
-	use leptoskit_l10n::Translations as _;
-	crate::l10n::AppTranslations::messages(&crate::l10n::AppTranslations::supported_locales()[0])
 }
 
 /// The roster.

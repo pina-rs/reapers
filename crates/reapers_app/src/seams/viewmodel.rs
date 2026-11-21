@@ -357,6 +357,10 @@ impl Seam {
 			.is_none_or(|(key, spawned, _)| *key != world.scene || *spawned != id)
 		{
 			self.world = Some((world.scene, id, WorldFx::spawn(ops, None)));
+			self.shards = [None; 2];
+			self.thrown = None;
+			self.sway = [0.0; 2];
+			self.numbers.set(Vec::new());
 		}
 		let mut frame = WorldFrame {
 			eye: world.camera.translation,
@@ -441,6 +445,9 @@ impl Seam {
 
 	/// Hides every effect in the world.
 	fn hide_world(&mut self) {
+		self.shards = [None; 2];
+		self.thrown = None;
+		self.numbers.set(Vec::new());
 		let Some((key, id, fx)) = &mut self.world else {
 			return;
 		};

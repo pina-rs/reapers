@@ -597,18 +597,7 @@ pub fn fight(
 	match sim.phase() {
 		HuntPhase::Stalk => {
 			pointer(sketch);
-			// The ring that closes as the reaper steadies on an unaware husk,
-			// and frays as the husk grows alarmed.
-			let steady = sim.steadiness();
-			let alarm = sim.awareness();
-			let eased = 1.0 - (1.0 - steady).powi(2);
-			let radius = 40.0 - 18.0 * eased;
-			let tint = BONE.lerp(WOUND, alarm);
-			let (cx, cy) = lens.centre();
-			let at = (cx + alarm * 3.0 * (sim.tick() as f64 * 1.7).sin(), cy);
-			sketch.ring(at, radius, colour(tint, 0.35), 1.0);
-			sketch.arc(at, radius, -FRAC_PI_2, TAU * steady, colour(tint, 1.0), 2.4);
-			sketch.dot((cx, cy), 1.6, colour(tint, 1.0));
+			stalk_ring(sketch, lens, sim);
 		}
 		HuntPhase::Fight | HuntPhase::Windup | HuntPhase::Charge => {
 			pointer(sketch);
@@ -618,33 +607,18 @@ pub fn fight(
 				orb_ring(sketch, lens, sim);
 				crosshair(sketch, lens, sim, light);
 			}
-			if sim.phase() == HuntPhase::Charge {
-				// A ring that closes on the husk as it comes.
-				if let Some(at) = seen() {
-					let left = 1.0 - sim.charge_progress();
-					sketch.ring(
-						at,
-						30.0 + 140.0 * left,
-						colour(WOUND, 0.4 + 0.4 * pulse),
-						2.0,
-					);
-				}
+			if sim.phase() == HuntPhase::Charge
+				&& let Some(at) = seen()
+			{
+				let radius = 30.0 + 140.0 * (1.0 - sim.charge_progress());
+				sketch.ring(at, radius, colour(SHADOW, 0.45), 4.4);
+				sketch.ring(at, radius, colour(WOUND, 0.4 + 0.4 * pulse), 2.0);
 			}
 		}
 		HuntPhase::Shriek => {
 			pointer(sketch);
 			husk_ring(sketch, lens, sim, seconds);
-			// A still ring that shows how much of the hold is left.
-			let centre = lens.centre();
-			sketch.ring(centre, 54.0, colour(BONE, 0.25), 1.0);
-			sketch.arc(
-				centre,
-				54.0,
-				-FRAC_PI_2,
-				TAU * (1.0 - sim.shriek_progress()),
-				colour(light, 0.95),
-				3.0,
-			);
+			shriek_ring(sketch, lens, sim, light);
 		}
 		HuntPhase::Broken => {
 			pointer(sketch);
@@ -678,6 +652,41 @@ pub fn fight(
 		// A blow the reaper took: the edges bruise, and the bruise fades.
 		edge(sketch, lens, WOUND, 0.45 * wound, 26.0);
 	}
+}
+
+/// The ring that closes as the reaper steadies on an unaware husk, and frays
+/// as the husk grows alarmed.
+fn stalk_ring(sketch: &mut Sketch, lens: &Lens, sim: &HuntSim) {
+	let steady = sim.steadiness();
+	let alarm = sim.awareness();
+	let eased = 1.0 - (1.0 - steady).powi(2);
+	let radius = 40.0 - 18.0 * eased;
+	let tint = BONE.lerp(WOUND, alarm);
+	let (cx, cy) = lens.centre();
+	let at = (cx + alarm * 3.0 * (sim.tick() as f64 * 1.7).sin(), cy);
+	sketch.ring(at, radius, colour(SHADOW, 0.55), 3.4);
+	sketch.ring(at, radius, colour(tint, 0.35), 1.0);
+	sketch.arc(
+		at,
+		radius,
+		-FRAC_PI_2,
+		TAU * steady,
+		colour(SHADOW, 0.65),
+		4.6,
+	);
+	sketch.arc(at, radius, -FRAC_PI_2, TAU * steady, colour(tint, 1.0), 2.4);
+	sketch.dot((cx, cy), 2.8, colour(SHADOW, 0.65));
+	sketch.dot((cx, cy), 1.6, colour(tint, 1.0));
+}
+
+/// A still ring that shows how much of the shriek hold is left.
+fn shriek_ring(sketch: &mut Sketch, lens: &Lens, sim: &HuntSim, light: Rgb) {
+	let centre = lens.centre();
+	let sweep = TAU * (1.0 - sim.shriek_progress());
+	sketch.ring(centre, 54.0, colour(SHADOW, 0.55), 3.6);
+	sketch.ring(centre, 54.0, colour(BONE, 0.25), 1.0);
+	sketch.arc(centre, 54.0, -FRAC_PI_2, sweep, colour(SHADOW, 0.65), 5.4);
+	sketch.arc(centre, 54.0, -FRAC_PI_2, sweep, colour(light, 0.95), 3.0);
 }
 
 /// A frame of `width` units round the screen.
@@ -714,43 +723,42 @@ fn seals(
 		let first = show_order && rank == 0;
 		let beat = 0.5 + 0.5 * (seconds * 5.0 + index as f64 * 1.7).sin();
 		let ring = colour(light, 0.75 + 0.25 * beat);
+		let ring_width = if first { 2.6 } else { 1.8 };
 		sketch.dot(at, SEAL_RADIUS * 1.5, colour(light, 0.14));
 		sketch.ring(
 			at,
 			SEAL_RADIUS - 3.0 * beat,
-			ring,
-			if first { 2.6 } else { 1.8 },
+			colour(SHADOW, 0.6),
+			ring_width + 2.4,
 		);
+		sketch.ring(at, SEAL_RADIUS - 3.0 * beat, ring, ring_width);
+		sketch.dot(at, 4.4, colour(SHADOW, 0.75));
 		sketch.dot(at, 3.2, colour(BONE, 1.0));
 		// Four ticks turning round the ring: a seal reads as a mechanism
 		// that is open, not as a button.
 		for tick in 0..4 {
 			let angle = seconds * 1.4 + index as f64 + f64::from(tick) * FRAC_PI_2;
 			let (dx, dy) = (angle.cos(), angle.sin());
-			sketch.line(
-				(
-					at.0 + dx * (SEAL_RADIUS + 3.0),
-					at.1 + dy * (SEAL_RADIUS + 3.0),
-				),
-				(
-					at.0 + dx * (SEAL_RADIUS + 9.0),
-					at.1 + dy * (SEAL_RADIUS + 9.0),
-				),
-				ring,
-				1.8,
+			let from = (
+				at.0 + dx * (SEAL_RADIUS + 3.0),
+				at.1 + dy * (SEAL_RADIUS + 3.0),
 			);
+			let to = (
+				at.0 + dx * (SEAL_RADIUS + 9.0),
+				at.1 + dy * (SEAL_RADIUS + 9.0),
+			);
+			sketch.line(from, to, colour(SHADOW, 0.6), 4.0);
+			sketch.line(from, to, ring, 1.8);
 		}
 		if show_order {
 			// The order, as pips under the ring: one for the first to strike.
 			for pip in 0..=rank.min(4) {
-				sketch.dot(
-					(
-						at.0 - 8.0 * rank.min(4) as f64 / 2.0 + 8.0 * pip as f64,
-						at.1 + SEAL_RADIUS + 16.0,
-					),
-					2.4,
-					colour(BONE, 0.9),
+				let pip_at = (
+					at.0 - 8.0 * rank.min(4) as f64 / 2.0 + 8.0 * pip as f64,
+					at.1 + SEAL_RADIUS + 16.0,
 				);
+				sketch.dot(pip_at, 3.6, colour(SHADOW, 0.7));
+				sketch.dot(pip_at, 2.4, colour(BONE, 0.9));
 			}
 		}
 	}
@@ -868,7 +876,7 @@ fn crosshair(sketch: &mut Sketch, lens: &Lens, sim: &HuntSim, light: Rgb) {
 	let paint = colour(tint, alpha);
 	// A dark edge under every stroke, so the crosshair reads over a bright
 	// room as well as a dark one.
-	let shadow = colour(Rgb(0x02, 0x02, 0x03), 0.55);
+	let shadow = colour(SHADOW, 0.55);
 	let arm = 9.0;
 	let stroke = |sketch: &mut Sketch, from: (f64, f64), to: (f64, f64)| {
 		sketch.line(from, to, shadow, width + 2.0);
@@ -891,8 +899,10 @@ fn crosshair(sketch: &mut Sketch, lens: &Lens, sim: &HuntSim, light: Rgb) {
 			(cx + dx * (gap + arm), cy + dy * (gap + arm)),
 		);
 	}
+	sketch.dot((cx, cy), 2.8, shadow);
 	sketch.dot((cx, cy), 1.6, paint);
 	if sight == Sight::Seal {
+		sketch.ring((cx, cy), gap + arm + 5.0, shadow, 3.6);
 		sketch.ring((cx, cy), gap + arm + 5.0, colour(light, 0.9), 1.6);
 	}
 }
@@ -909,11 +919,11 @@ fn orb_ring(sketch: &mut Sketch, lens: &Lens, sim: &HuntSim) {
 		.place_point(pose.position)
 		.unwrap_or_else(|| lens.centre());
 	let (cx, cy) = husk;
+	let distance = (pose.position - lens.eye).length().max(0.25);
+	let tan_half = (lens.fov / 2.0).tan().max(0.05);
 	let husk_radius = f64::max(
 		24.0,
-		pose.half_height() / (pose.position - lens.eye).length() / (lens.fov / 2.0).tan()
-			* lens.height
-			/ 2.0,
+		pose.half_height() / distance / tan_half * lens.height / 2.0,
 	);
 	let outer = f64::min(lens.width, lens.height) * 0.48;
 	let radius_at = |share: f64| outer - (outer - husk_radius) * share;
@@ -924,6 +934,12 @@ fn orb_ring(sketch: &mut Sketch, lens: &Lens, sim: &HuntSim) {
 	}
 	sketch.ring((cx, cy), husk_radius, colour(BONE, 0.32), 1.0);
 	let grade = sim.orb_grade(lens.pose.forward);
+	sketch.ring(
+		(cx, cy),
+		radius_at(progress),
+		colour(SHADOW, 0.6),
+		4.0 + 2.0 * grade.index() as f64,
+	);
 	sketch.ring(
 		(cx, cy),
 		radius_at(progress),

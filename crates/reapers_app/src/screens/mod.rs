@@ -58,9 +58,62 @@ pub fn back() {
 	}
 }
 
+/// Goes back to the screen before, or home when there is no history entry
+/// beneath this screen (for example after a deep link).
+pub fn back_or_home() {
+	if let Some(navigation) = navigation()
+		&& !navigation.back()
+	{
+		navigation.replace(Route::Index);
+	}
+}
+
 /// Goes home: the sanctum, or the threshold for an unbound player.
 pub fn home() {
 	if let Some(navigation) = navigation() {
 		navigation.replace(Route::Index);
+	}
+}
+
+/// Handles a platform Back action (Android Back gesture or hardware button).
+/// Returns `true` when the app consumed it, `false` when the platform should
+/// leave the app.
+pub fn handle_system_back(game: crate::state::Game) -> bool {
+	use reactive_graph::traits::GetUntracked as _;
+	use reactive_graph::traits::Set as _;
+
+	if !game.arrived.get_untracked() {
+		return true;
+	}
+	if game.overlay.get_untracked().is_some() {
+		game.overlay.set(None);
+		return true;
+	}
+	let Some(navigation) = navigation() else {
+		return false;
+	};
+	match navigation.current() {
+		Route::Hunt(_) | Route::Practice => {
+			hunt::leave(game);
+			true
+		}
+		Route::Rift(_) => {
+			rift::leave_current(game);
+			true
+		}
+		Route::Studio => {
+			if crate::studio::specimen()
+				.get_untracked()
+				.is_some_and(|specimen| specimen.book)
+			{
+				crate::studio::act(|specimen| specimen.book = false);
+				true
+			} else {
+				crate::studio::leave();
+				true
+			}
+		}
+		Route::Oath if oath::is_turning() => true,
+		_ => navigation.back(),
 	}
 }

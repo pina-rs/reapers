@@ -215,8 +215,8 @@ pub fn ledger_notice(
 		)
 }
 
-/// A page of the ledger: a way back, a heading in two sizes, and a column of
-/// content that scrolls.
+/// A page of the ledger: a pinned way back, a heading in two sizes, and a
+/// column of content that scrolls beneath it.
 pub fn ledger_page(
 	overline: &str,
 	title: Option<&str>,
@@ -224,23 +224,26 @@ pub fn ledger_page(
 	children: Vec<Element>,
 ) -> Element {
 	let mut top = View()
-		.class("flex-row items-center justify-between")
+		.class(format!(
+			"w-full {CONTENT_WIDTH} self-center flex-row items-center justify-between px-6 pt-safe-offset-2 pb-1"
+		))
 		.child(ledger_back(None));
 	if let Some(trailing) = trailing {
 		top = top.child(trailing);
 	}
 	let mut column = View()
 		.class(format!(
-			"w-full {CONTENT_WIDTH} self-center px-6 pt-2 pb-10"
+			"w-full {CONTENT_WIDTH} self-center px-6 pt-3 pb-10 pb-safe"
 		))
-		.child(top.class("mb-[18px]"))
 		.child(margin(overline));
 	if let Some(title) = title {
 		column = column.child(display(title, 34, BONE).class("mt-[10px]"));
 	}
-	ScrollView()
-		.class("flex-1 w-full pt-safe pb-safe")
-		.child(column.child(View().class("h-2")).children(children))
+	View().class("flex-1 w-full h-full").child(top).child(
+		ScrollView()
+			.class("flex-1 w-full")
+			.child(column.child(View().class("h-2")).children(children)),
+	)
 }
 
 /// Space between entries, in layout units.

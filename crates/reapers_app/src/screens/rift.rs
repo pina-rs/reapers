@@ -2,6 +2,7 @@
 //! session's frames are read as they come, and the rift's view is given the
 //! latest one.
 
+use std::cell::Cell;
 use std::sync::Arc;
 
 use futures::StreamExt as _;
@@ -10,10 +11,12 @@ use reactive_graph::owner::LocalStorage;
 use reactive_graph::owner::StoredValue;
 use reactive_graph::traits::GetValue;
 use reactive_graph::traits::SetValue;
+use reactive_graph::traits::WithValue;
 use reapers_rules::RiftFrame;
 use reapers_rules::RiftSite;
 
 use super::back;
+use super::back_or_home;
 use crate::backend::RiftSession;
 use crate::l10n::use_l10n;
 use crate::platform;
@@ -32,6 +35,24 @@ struct Seat {
 	site: RwSignal<Option<RiftSite>>,
 	frame: RwSignal<Option<RiftFrame>>,
 	session: StoredValue<Option<Shared>, LocalStorage>,
+	/// Incremented on every enter and leave so stale async replies or frame
+	/// streams cannot overwrite a newer seat or navigate away after leaving.
+	generation: StoredValue<Cell<u64>, LocalStorage>,
+}
+
+impl Seat {
+	fn next_generation(self) -> u64 {
+		self.generation.with_value(|generation| {
+			let next = generation.get().wrapping_add(1);
+			generation.set(next);
+			next
+		})
+	}
+
+	fn is_current(self, run: u64) -> bool {
+		self.generation
+			.with_value(|generation| generation.get() == run)
+	}
 }
 
 fn seat() -> Seat {
@@ -40,6 +61,7 @@ fn seat() -> Seat {
 			site: RwSignal::new(None),
 			frame: RwSignal::new(None),
 			session: StoredValue::new_local(None),
+			generation: StoredValue::new_local(Cell::new(0)),
 		});
 	}
 	SEAT.with(|seat| *seat)
@@ -47,6 +69,11 @@ fn seat() -> Seat {
 
 /// Seats the player at `site` with the keeper, and reads its frames.
 fn enter(game: Game, seat: Seat, site: RiftSite) {
+	if let Some(previous) = seat.session.get_value() {
+		previous.borrow().leave();
+	}
+	seat.session.set_value(None);
+	let run = seat.next_generation();
 	seat.site.set(Some(site));
 	seat.frame.set(None);
 	let demo = game.flags.demo_rift;
@@ -61,9 +88,15 @@ fn enter(game: Game, seat: Seat, site: RiftSite) {
 			}
 		},
 		move |session| {
+			if !seat.is_current(run) {
+				if let Some(session) = session {
+					session.leave();
+				}
+				return;
+			}
 			let Some(mut session) = session else {
 				seat.site.set(None);
-				back();
+				back_or_home();
 				return;
 			};
 			let frames = session.frames();
@@ -74,6 +107,9 @@ fn enter(game: Game, seat: Seat, site: RiftSite) {
 			};
 			platform::spawn(async move {
 				while let Some(frame) = frames.next().await {
+					if !seat.is_current(run) {
+						break;
+					}
 					match frame {
 						Ok(frame) => {
 							let over = frame.phase.is_over();
@@ -94,14 +130,21 @@ fn enter(game: Game, seat: Seat, site: RiftSite) {
 
 /// Walks away from the rift.
 fn leave(game: Game, seat: Seat) {
+	let _ = seat.next_generation();
 	if let Some(session) = seat.session.get_value() {
 		session.borrow().leave();
 	}
 	seat.session.set_value(None);
 	seat.site.set(None);
 	seat.frame.set(None);
+	crate::rift::view::clear();
 	game.play(Score::Sanctum);
-	back();
+	back_or_home();
+}
+
+/// Leaves whichever rift is open on screen (for system Back).
+pub fn leave_current(game: Game) {
+	leave(game, seat());
 }
 
 /// The rift at the site named `name`.

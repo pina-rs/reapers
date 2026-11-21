@@ -30,6 +30,7 @@ use reapers_world::RiftPlacer;
 use crate::hunt::arena::Arena;
 use crate::hunt::controller::Fight;
 use crate::hunt::controller::HuntController;
+use crate::hunt::controls::SCRIM;
 use crate::hunt::hud::Banner;
 use crate::hunt::hud::banner_for;
 use crate::hunt::hud::knock_for;
@@ -43,7 +44,6 @@ use crate::hunt::overlay::veil;
 use crate::hunt::pose::Tracking;
 use crate::hunt::xr::Shared;
 use crate::hunt::xr::follow;
-use crate::l10n::AppTranslations;
 use crate::l10n::Messages;
 use crate::l10n::use_l10n;
 use crate::platform;
@@ -76,8 +76,7 @@ const REPORT_EVERY_TICKS: i64 = 6;
 const BANNER_SECONDS: f64 = 1.3;
 
 fn words() -> &'static dyn Messages {
-	use leptoskit_l10n::Translations as _;
-	AppTranslations::messages(&AppTranslations::supported_locales()[0])
+	crate::app::messages()
 }
 
 /// Everything a rift keeps between renders.
@@ -87,6 +86,7 @@ fn words() -> &'static dyn Messages {
 )]
 pub struct RiftState {
 	pub site: RiftSite,
+	audio: Option<crate::state::Game>,
 	arena: Arena,
 	shared: Shared,
 	/// Who the reaper was on the way in: sealing the rift changes the
@@ -113,6 +113,15 @@ pub struct RiftState {
 
 thread_local! {
 	static CURRENT: RefCell<Option<Rc<RefCell<RiftState>>>> = const { RefCell::new(None) };
+}
+
+/// Tears down any active rift view state so the next entry starts cleanly.
+pub fn clear() {
+	if let Some(rift) = CURRENT.with_borrow_mut(Option::take) {
+		let mut state = rift.borrow_mut();
+		state.shared.done.set(true);
+		state.mounted = 0;
+	}
 }
 
 fn current() -> Option<Rc<RefCell<RiftState>>> {
@@ -149,6 +158,7 @@ impl RiftState {
 		let relics = props.site.relics();
 		let first = relics[0];
 		let accent = reapers_rules::NftLook::of(&first).accent;
+		let audio = reactive_graph::owner::use_context::<crate::state::Game>();
 		// As the hunt's: the camera's picture behind it in the native apps.
 		let mut arena = Arena::new(
 			RIFT,
@@ -165,6 +175,7 @@ impl RiftState {
 		};
 		Self {
 			site: props.site,
+			audio,
 			arena,
 			shared,
 			loadout,
@@ -285,6 +296,9 @@ impl RiftState {
 				controller.hold_orb(holding);
 			}
 			let events = self.arena.advance(delta, live_pose, None);
+			if let (Some(game), Some(controller)) = (self.audio, self.arena.controller.as_ref()) {
+				game.shape(crate::sound::hunt_mix(controller.sim()));
+			}
 			for (_, event) in &events {
 				knock_for(event);
 				if let Some(banner) = banner_for(words(), event) {
@@ -409,7 +423,16 @@ fn mount(rift: &Rc<RefCell<RiftState>>) {
 
 fn rift_for(props: &RiftViewProps) -> Rc<RefCell<RiftState>> {
 	if let Some(rift) = current() {
-		if rift.borrow().site == props.site {
+		let same = {
+			let state = rift.borrow();
+			let same_session = match (&state.frame, &props.frame) {
+				(Some(seen), Some(next)) => seen.seed == next.seed,
+				(Some(seen), None) => !seen.phase.is_over(),
+				(None, _) => true,
+			};
+			state.site == props.site && same_session && !state.shared.done.get()
+		};
+		if same {
 			rift.borrow_mut().report = props.report.clone();
 			return rift;
 		}
@@ -532,6 +555,7 @@ pub fn rift_view(props: &RiftViewProps) -> Element {
 				afterword,
 			);
 			let controls = thumbs(&*words, &state, controller, &live);
+			let leave = props.on_leave.clone();
 			root = root.child(
 				View()
 					.class("absolute inset-0")
@@ -540,6 +564,7 @@ pub fn rift_view(props: &RiftViewProps) -> Element {
 						&shown,
 						state.light,
 						Some(circle(&*words, frame, state.light)),
+						Some(Box::new(move || leave())),
 					))
 					.child(controls),
 			);
@@ -596,7 +621,9 @@ fn circle(words: &dyn Messages, frame: &RiftFrame, light: Rgb) -> Element {
 				),
 		);
 	}
-	let mut column = View().child(row);
+	let mut column = View()
+		.class(format!("px-3 py-2 rounded-[8px] {SCRIM}"))
+		.child(row);
 	if frame.phase == RiftPhase::Reap {
 		column = column.child(gap(8)).child(label(
 			&words.rift_cuts(frame.cuts() as i64, frame.cuts_needed() as i64),

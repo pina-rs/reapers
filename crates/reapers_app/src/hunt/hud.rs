@@ -316,20 +316,32 @@ fn thin_meter(fraction: f64, colour: Rgb) -> Element {
 
 /// The ledger over the fight, in the husk's own `light`. `company` is
 /// whoever else is in the fight, shown under the reaper's own standing.
+/// `on_leave` adds a retreat button to the top strip.
 pub fn status_view(
 	words: &dyn Messages,
 	status: &Status,
 	light: Rgb,
 	company: Option<Element>,
+	on_leave: Option<Box<dyn Fn() + Send + Sync>>,
 ) -> Element {
-	let mut top =
+	let mut top = View().class("flex-row items-center gap-2");
+	if let Some(leave) = on_leave {
+		top = top.child(
+			Pressable(words.hunt_retreat().to_owned())
+				.class("min-w-[48px] min-h-[48px] -ml-2 items-center justify-center")
+				.test_id("hunt-retreat")
+				.on_press(move || {
+					platform::tap();
+					leave();
+				})
+				.child(label("←", 15, BONE)),
+		);
+	}
+	top = top.child(
 		View()
-			.class("flex-row items-end gap-3")
-			.child(
-				View()
-					.class("flex-1")
-					.child(display(status.title.clone(), 22, BONE)),
-			);
+			.class("flex-1")
+			.child(display(status.title.clone(), 22, BONE)),
+	);
 	if let Some(seconds) = status.seconds {
 		top = top.child(figure(words.hunt_seconds(seconds), 13, BONE));
 	}

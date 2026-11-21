@@ -52,6 +52,12 @@ enum Moment {
 	Drawn,
 }
 
+/// Whether the oath shuffle is currently turning and back navigation should
+/// be held until it settles.
+pub fn is_turning() -> bool {
+	matches!(moment_signal().get_untracked(), Moment::Turning(_))
+}
+
 /// The oath.
 pub fn page() -> Element {
 	let game = Game::get();
@@ -133,7 +139,7 @@ fn reading(game: Game, moment: RwSignal<Moment>, turning: Option<usize>) -> Elem
 				.child(body(words.oath_body(), 15, ASH))
 		}
 	};
-	column.child(gap(34)).child(match turning {
+	let column = column.child(gap(34)).child(match turning {
 		Some(_) => {
 			LedgerButton::new(words.oath_turning())
 				.test_id("oath-speak")
@@ -144,7 +150,8 @@ fn reading(game: Game, moment: RwSignal<Moment>, turning: Option<usize>) -> Elem
 				.test_id("oath-speak")
 				.on_press(move || speak(game, moment))
 		}
-	})
+	});
+	ScrollView().class("flex-1 w-full").child(column)
 }
 
 /// The reaper the shuffle drew, shown for the first time.
@@ -178,49 +185,59 @@ fn drawn(player: &PlayerState) -> Element {
 	}
 
 	View()
-		.class("relative flex-1 min-h-screen w-full")
+		.class("flex-1 h-full w-full")
 		.test_id("oath-drawn")
-		.child(rising(
-			0,
-			View()
-				.class("absolute inset-0")
-				.child(reaper_stage(&ReaperStageProps {
-					turns_on_its_own: true,
-					..ReaperStageProps::new(genome, weapon, player.outfit())
-				})),
-		))
-		// The foot of the stage darkens so the ledger over it stays
-		// readable.
-		.child(foot_scrim(64, 0xF2))
 		.child(
 			View()
-				.class(format!(
-					"flex-1 w-full {CONTENT_WIDTH} self-center px-7 pt-safe-offset-6 pb-safe-offset-7"
-				))
-				.child(rising(700, margin(words.oath_drawn_overline())))
-				.child(View().class("flex-1"))
+				.class("relative w-full h-[46vh] min-h-[260px] shrink-0")
 				.child(rising(
-					1100,
-					label(class_name(&*words, reaper_class), 13, light),
+					0,
+					View()
+						.class("absolute inset-0")
+						.child(reaper_stage(&ReaperStageProps {
+							turns_on_its_own: true,
+							..ReaperStageProps::new(genome, weapon, player.outfit())
+						})),
 				))
-				.child(gap(8))
-				.child(rising(
-					1300,
-					display(genome.name(), 40, BONE).test_id("oath-name"),
-				))
-				.child(gap(10))
-				.child(rising(
-					1500,
-					body(class_line(&*words, reaper_class), 15, ASH),
-				))
-				.child(gap(14))
-				.child(rising(1650, details))
-				.child(gap(22))
-				.child(rising(
-					1700,
-					LedgerButton::new(words.oath_enter())
-						.test_id("oath-enter")
-						.on_press(home),
-				)),
+				.child(foot_scrim(38, 0xFF))
+				.child(
+					View()
+						.enabled(false)
+						.class(format!(
+							"absolute left-0 right-0 top-0 w-full {CONTENT_WIDTH} self-center px-7 pt-safe-offset-4"
+						))
+						.child(rising(700, margin(words.oath_drawn_overline()))),
+				),
+		)
+		.child(
+			ScrollView().class("flex-1 w-full").child(
+				View()
+					.class(format!(
+						"w-full {CONTENT_WIDTH} self-center px-7 pt-3 pb-safe-offset-7"
+					))
+					.child(rising(
+						1100,
+						label(class_name(&*words, reaper_class), 13, light),
+					))
+					.child(gap(8))
+					.child(rising(
+						1300,
+						display(genome.name(), 40, BONE).test_id("oath-name"),
+					))
+					.child(gap(10))
+					.child(rising(
+						1500,
+						body(class_line(&*words, reaper_class), 15, ASH),
+					))
+					.child(gap(14))
+					.child(rising(1650, details))
+					.child(gap(22))
+					.child(rising(
+						1700,
+						LedgerButton::new(words.oath_enter())
+							.test_id("oath-enter")
+							.on_press(home),
+					)),
+			),
 		)
 }

@@ -121,7 +121,7 @@ impl<D: Device> ScoreEngine for PluginEngine<D> {
 		platform::spawn(async move {
 			inner.device.ready().await;
 			let sample = inner.sample(effect).await;
-			inner.queued.set(inner.queued.get() - 1);
+			inner.queued.set(inner.queued.get().saturating_sub(1));
 			if inner.held.get() || inner.effect_epoch.get() != epoch {
 				return;
 			}
@@ -234,24 +234,36 @@ impl<D: Device> Inner<D> {
 			.looping(true)
 			.fade_in(fade);
 		let voice = self.device.play(sound, play).await;
-		if let Ok(voice) = voice {
-			self.veil(voice, mix, Duration::ZERO).await;
+
+		let Ok(voice) = voice else {
+			if let Some(leaving) = leaving {
+				self.device.stop(Target::Voice(leaving), fade).await;
+			}
+			return;
+		};
+
+		if !self.still_wanted(asked) {
+			if let Some(leaving) = leaving {
+				self.device.stop(Target::Voice(leaving), fade).await;
+			}
+			self.device.stop(Target::Voice(voice), fade).await;
+			return;
 		}
+
+		self.veil(voice, mix, Duration::ZERO).await;
 
 		if let Some(leaving) = leaving {
 			self.device.stop(Target::Voice(leaving), fade).await;
 		}
-
-		let Ok(voice) = voice else {
-			return;
-		};
 
 		if !self.still_wanted(asked) {
 			self.device.stop(Target::Voice(voice), fade).await;
 			return;
 		}
 
-		self.playing.set(Some(voice));
+		if let Some(displaced) = self.playing.replace(Some(voice)) {
+			self.device.stop(Target::Voice(displaced), fade).await;
+		}
 
 		// A line for whoever is wondering why there is no sound. Never in a
 		// release build.

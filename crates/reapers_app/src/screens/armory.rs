@@ -183,14 +183,12 @@ pub fn page() -> Element {
 				.child(
 					View()
 						.class(
-							"absolute left-0 right-0 top-0 flex-row items-start justify-between px-6 pt-safe-offset-2",
+							"absolute left-0 right-0 top-0 flex-row items-center justify-between px-6 pt-safe-offset-2",
 						)
 						.child(ledger_back(Some(words.armory_overline())))
 						.child(
-							View().class("pt-4").child(
-								figure(words.armory_anima(player.anima()), 14, BONE)
-									.test_id("armory-anima"),
-							),
+							figure(words.armory_anima(player.anima()), 14, BONE)
+								.test_id("armory-anima"),
 						),
 				),
 		)

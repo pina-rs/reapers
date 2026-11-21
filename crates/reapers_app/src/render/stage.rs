@@ -278,13 +278,23 @@ fn mount(stage: &Rc<RefCell<Stage>>) {
 					return;
 				};
 				if events.is_empty() {
+					stage.borrow_mut().listening = false;
 					return;
 				}
-				let loading = stage.borrow().loading;
+				let (loading, active_asset) = {
+					let state = stage.borrow();
+					(state.loading, state.rig.as_ref().map(ReaperRig::body_asset))
+				};
 				for event in events {
 					match event {
-						Event::AssetLoaded { .. } => loading.set(Loading::Shown),
-						Event::AssetFailed { message, .. } => {
+						Event::AssetLoaded { asset, .. }
+							if active_asset.is_none_or(|expected| expected == asset) =>
+						{
+							loading.set(Loading::Shown);
+						}
+						Event::AssetFailed { asset, message }
+							if active_asset.is_none_or(|expected| expected == asset) =>
+						{
 							crate::platform::log(&format!("a reaper's model failed: {message}"));
 							loading.set(Loading::Failed);
 						}

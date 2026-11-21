@@ -87,6 +87,10 @@ pub fn follow(shared: &Shared) {
 
 #[cfg(all(target_arch = "wasm32", any(feature = "web", feature = "native")))]
 mod platform {
+	use std::cell::Cell;
+	use std::rc::Rc;
+	use std::time::Duration;
+
 	use leptoskit_xr::Availability;
 	use leptoskit_xr::DepthSource;
 	use leptoskit_xr::Features;
@@ -106,11 +110,21 @@ mod platform {
 	use reapers_rules::Vec3;
 	use reapers_world::DepthFrame;
 	use reapers_world::RayGrid;
+	use reapers_world::RayHit;
 	use reapers_world::from_platform;
 	use reapers_world::to_platform;
 
 	use super::Shared;
 	use crate::hunt::pose::Tracking;
+
+	thread_local! {
+		/// Serializes XR camera sessions across hunts and rifts so the next
+		/// session never starts before the previous session finishes `stop()`
+		/// (preventing GPU/camera resource conflicts on fragile Android devices
+		/// such as the Seeker).
+		static SESSION_LOCK: Rc<futures::lock::Mutex<()>> =
+			Rc::new(futures::lock::Mutex::new(()));
+	}
 
 	/// The modes asked for, best first. A Meta Quest, the only device here
 	/// that offers it, draws the hunt into the headset over its passthrough.
@@ -133,6 +147,9 @@ mod platform {
 	/// [`RayGrid::COLUMNS`] for what this many can and cannot see.
 	const LOOK_COLUMNS: usize = 12;
 	const LOOK_ROWS: usize = 16;
+	/// Yield to the event loop every this many rays so frame tracking and
+	/// input stay responsive while scanning depth.
+	const LOOK_YIELD_EVERY: usize = 24;
 
 	fn quaternion(frame: &Frame) -> [f64; 4] {
 		let rotation = frame.viewer.orientation;
@@ -173,9 +190,15 @@ mod platform {
 		Some(eye - floor)
 	}
 
-	async fn start(xr: Xr) -> Option<(leptoskit_xr::Session, Tracking)> {
+	async fn start(xr: Xr, done: &Cell<bool>) -> Option<(leptoskit_xr::Session, Tracking)> {
+		if done.get() {
+			return None;
+		}
 		let capabilities = xr.capabilities().await.ok()?;
 		for mode in MODES {
+			if done.get() {
+				return None;
+			}
 			if !capabilities.supports(mode) {
 				continue;
 			}
@@ -183,6 +206,9 @@ mod platform {
 			let Ok(mut ready) = xr.prepare(mode, false).await else {
 				continue;
 			};
+			if done.get() {
+				return None;
+			}
 			// The rotation sensor answers ready without the camera, which a
 			// phone without AR (the Seeker) still shows behind the hunt: ask
 			// for it first there too.
@@ -193,10 +219,16 @@ mod platform {
 				let _ = permissions
 					.request(leptoskit_plugin_permissions::Permission::Camera)
 					.await;
+				if done.get() {
+					return None;
+				}
 				let Ok(prepared) = xr.prepare(mode, false).await else {
 					continue;
 				};
 				ready = prepared;
+			}
+			if done.get() {
+				return None;
 			}
 			if ready != Availability::Ready {
 				continue;
@@ -210,6 +242,10 @@ mod platform {
 				)
 				.frame_rate(30);
 			if let Ok(session) = xr.start(config).await {
+				if done.get() {
+					let _ = session.stop().await;
+					return None;
+				}
 				let tracking = if mode == Mode::Orientation {
 					Tracking::Turning
 				} else {
@@ -222,11 +258,16 @@ mod platform {
 	}
 
 	pub async fn run(shared: Shared) {
+		let lock = SESSION_LOCK.with(Rc::clone);
+		let _session_guard = lock.lock().await;
+		if shared.done.get() {
+			return;
+		}
 		let Ok(xr) = Xr::new() else {
 			shared.live.borrow_mut().no_sensor();
 			return;
 		};
-		let Some((mut session, tracking)) = start(xr).await else {
+		let Some((mut session, tracking)) = start(xr, &shared.done).await else {
 			shared.live.borrow_mut().no_sensor();
 			return;
 		};
@@ -245,6 +286,9 @@ mod platform {
 			let Ok(frame) = session.next_frame().await else {
 				break;
 			};
+			if shared.done.get() {
+				break;
+			}
 			let at = frame.viewer.position;
 			let position = [f64::from(at.x), f64::from(at.y), f64::from(at.z)];
 			let normal = super::usable_frame(
@@ -311,6 +355,9 @@ mod platform {
 	async fn impacts(shared: &Shared, session: &leptoskit_xr::Session) {
 		let requests = shared.environment.borrow_mut().take_requests();
 		for request in requests {
+			if shared.done.get() {
+				break;
+			}
 			let point = |v: reapers_rules::Vec3| {
 				let [x, y, z] = reapers_world::to_platform(v).map(|v| v as f32);
 				leptoskit_xr::Vec3::new(x, y, z)
@@ -379,8 +426,13 @@ mod platform {
 			])
 		});
 		let started = crate::platform::now();
-		let mut distances = Vec::with_capacity(LOOK_COLUMNS * LOOK_ROWS);
-		for direction in grid.rays() {
+		let total = LOOK_COLUMNS * LOOK_ROWS;
+		let mut distances = Vec::with_capacity(total);
+		let mut ray_hits = Vec::with_capacity(total);
+		for (index, direction) in grid.rays().enumerate() {
+			if shared.done.get() || !shared.live.borrow().follows_device() {
+				return;
+			}
 			let [x, y, z] = to_platform(direction);
 			let ray = Ray::new(eye, leptoskit_xr::Vec3::new(x as f32, y as f32, z as f32));
 			let hit = match ray {
@@ -409,19 +461,35 @@ mod platform {
 				}
 			}
 			distances.push(hit.map(|hit| f64::from(hit.distance)));
+			ray_hits.push(hit.map(|hit| {
+				let up = hit.pose.orientation.rotate(leptoskit_xr::Vec3::Y);
+				let world_normal = from_platform([up.x, up.y, up.z].map(f64::from));
+				let normal = (world_normal.x.is_finite()
+					&& world_normal.y.is_finite()
+					&& world_normal.z.is_finite()
+					&& world_normal.length() > 0.5)
+					.then(|| world_normal.normalized());
+				RayHit {
+					distance: f64::from(hit.distance),
+					normal,
+				}
+			}));
+			if index % LOOK_YIELD_EVERY == LOOK_YIELD_EVERY - 1 {
+				let _ = crate::platform::sleep(Duration::ZERO).await;
+			}
 		}
 		// Ray casts can outlive the frame they came from. Never chart one
-		// after that source has gone silent.
-		if !shared.live.borrow().follows_device() {
+		// after that source has gone silent or the hunt has ended.
+		if shared.done.get() || !shared.live.borrow().follows_device() {
 			return;
 		}
 		*shared.last_look.borrow_mut() = Some(super::Look {
 			columns: LOOK_COLUMNS,
 			rows: LOOK_ROWS,
-			distances: distances.clone(),
+			distances,
 			millis: crate::platform::now().millis() - started.millis(),
 		});
-		let picture = DepthFrame::from_rays_at(&grid, &distances, origin);
+		let picture = DepthFrame::from_ray_hits_at(&grid, &ray_hits, origin);
 		chart(shared, eye, source, eye_height, picture).await;
 	}
 

@@ -38,9 +38,9 @@ mod web {
 	#[derive(Default)]
 	struct Pointers {
 		handlers: HashMap<u32, Handler>,
-		/// The scene a finger went down on, where it went down, and whether
-		/// it has moved far enough to be a drag.
-		active: Option<(u32, f64, f64, f64, f64, bool)>,
+		/// The scene a finger went down on, its `pointer_id`, where it went
+		/// down, and whether it has moved far enough to be a drag.
+		active: Option<(u32, i32, f64, f64, f64, f64, bool)>,
 		installed: bool,
 	}
 
@@ -50,6 +50,18 @@ mod web {
 
 	/// How far a finger may move and still tap, in CSS pixels.
 	const TAP_SLOP: f64 = 8.0;
+
+	fn modal_open() -> bool {
+		web_sys::window()
+			.and_then(|window| window.document())
+			.and_then(|document| {
+				document
+					.query_selector("[aria-modal=\"true\"]")
+					.ok()
+					.flatten()
+			})
+			.is_some()
+	}
 
 	fn canvas_under(x: f64, y: f64) -> Option<(u32, f64, f64)> {
 		let document = web_sys::window()?.document()?;
@@ -103,6 +115,12 @@ mod web {
 			});
 		}
 		listen("pointerdown", |event: web_sys::PointerEvent| {
+			if event.pointer_type() == "mouse" && event.button() != 0 {
+				return;
+			}
+			if modal_open() || POINTERS.with_borrow(|pointers| pointers.active.is_some()) {
+				return;
+			}
 			let (x, y) = (f64::from(event.client_x()), f64::from(event.client_y()));
 			// A press on a button over the scene is the button's.
 			let on_control = event
@@ -121,7 +139,10 @@ mod web {
 			let Some((id, fx, fy)) = canvas_under(x, y) else {
 				return;
 			};
-			POINTERS.with_borrow_mut(|pointers| pointers.active = Some((id, x, y, fx, fy, false)));
+			let pointer_id = event.pointer_id();
+			POINTERS.with_borrow_mut(|pointers| {
+				pointers.active = Some((id, pointer_id, x, y, fx, fy, false));
+			});
 			send(
 				id,
 				Gesture::Down {
@@ -131,14 +152,18 @@ mod web {
 			);
 		});
 		listen("pointermove", |event: web_sys::PointerEvent| {
+			let pointer_id = event.pointer_id();
 			let (x, y) = (f64::from(event.client_x()), f64::from(event.client_y()));
 			let moved = POINTERS.with_borrow_mut(|pointers| {
-				let (id, last_x, last_y, fx, fy, dragging) = pointers.active?;
+				let (id, active_pointer, last_x, last_y, fx, fy, dragging) = pointers.active?;
+				if active_pointer != pointer_id {
+					return None;
+				}
 				let far = dragging || (x - last_x).hypot(y - last_y) > TAP_SLOP;
 				if !far {
 					return None;
 				}
-				pointers.active = Some((id, x, y, fx, fy, true));
+				pointers.active = Some((id, active_pointer, x, y, fx, fy, true));
 				Some((id, x - last_x, y - last_y))
 			});
 			if let Some((id, dx, dy)) = moved {
@@ -151,9 +176,19 @@ mod web {
 				);
 			}
 		});
-		let up = |_event: web_sys::PointerEvent| {
-			let ended = POINTERS.with_borrow_mut(|pointers| pointers.active.take());
-			if let Some((id, _, _, fx, fy, dragged)) = ended {
+		let up = |event: web_sys::PointerEvent| {
+			let pointer_id = event.pointer_id();
+			let ended = POINTERS.with_borrow_mut(|pointers| {
+				if pointers
+					.active
+					.is_some_and(|(_, active_pointer, ..)| active_pointer == pointer_id)
+				{
+					pointers.active.take()
+				} else {
+					None
+				}
+			});
+			if let Some((id, _, _, _, fx, fy, dragged)) = ended {
 				if !dragged {
 					send(
 						id,

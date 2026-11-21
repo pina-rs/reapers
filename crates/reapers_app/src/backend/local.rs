@@ -82,6 +82,9 @@ pub struct LocalBackend {
 	clock: Rc<dyn Fn() -> Timestamp>,
 	dice: Rc<dyn Dice>,
 	sign_receipt: Option<ReceiptSigner>,
+	/// Serializes read-modify-write mutations against `prefs` so overlapping
+	/// offline requests cannot clobber each other's updates.
+	lock: Rc<futures::lock::Mutex<()>>,
 }
 
 impl LocalBackend {
@@ -99,6 +102,7 @@ impl LocalBackend {
 			clock: Rc::new(platform::now),
 			dice: Rc::new(DeviceDice),
 			sign_receipt: None,
+			lock: Rc::new(futures::lock::Mutex::new(())),
 		}
 	}
 
@@ -142,6 +146,7 @@ impl LocalBackend {
 
 	/// Forgets the player, as if the game had just been installed.
 	pub async fn forget_player(&self) -> KeeperResult<()> {
+		let _guard = self.lock.lock().await;
 		Ok(self.prefs.remove(self.storage_key).await?)
 	}
 
@@ -154,6 +159,7 @@ impl LocalBackend {
 		&self,
 		apply: impl FnOnce(&PlayerState) -> RuleResult<PlayerState>,
 	) -> KeeperResult<PlayerState> {
+		let _guard = self.lock.lock().await;
 		let next = apply(&self.load().await?)?;
 		self.save(&next).await?;
 		Ok(next)
@@ -216,6 +222,7 @@ impl GameBackend for LocalBackend {
 
 	async fn settle_hunt(&self, sighting_id: i64, log: &HuntLog) -> KeeperResult<HuntSettlement> {
 		let feeding_seed = self.dice.seed().await?;
+		let _guard = self.lock.lock().await;
 		let mut settlement = self.load().await?.judge_hunt(
 			sighting_id,
 			log,

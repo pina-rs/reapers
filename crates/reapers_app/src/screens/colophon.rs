@@ -39,7 +39,7 @@ pub fn page() -> Element {
 				})
 				.test_id("colophon-music")
 				.on_press(move || game.toggle_music()),
-			ledger_heading(words.colophon_music_heading(), None),
+			gap(8),
 			LedgerButton::new(words.colophon_effects())
 				.detail(if effects {
 					words.colophon_music_on()
@@ -48,6 +48,7 @@ pub fn page() -> Element {
 				})
 				.test_id("colophon-effects")
 				.on_press(move || game.toggle_effects()),
+			ledger_heading(words.colophon_music_heading(), None),
 			credit(
 				words.colophon_effects(),
 				words.colophon_effects_piece(),

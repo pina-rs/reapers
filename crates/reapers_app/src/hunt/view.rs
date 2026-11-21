@@ -53,7 +53,6 @@ use super::pose::Tracking;
 use super::xr::Shared;
 use super::xr::follow;
 use crate::dev::room_overlay::RoomOverlay;
-use crate::l10n::AppTranslations;
 use crate::l10n::Messages;
 use crate::l10n::use_l10n;
 use crate::lookups::difficulty_name;
@@ -75,7 +74,6 @@ use crate::ui::display;
 use crate::ui::figure;
 use crate::ui::gap;
 use crate::ui::label;
-use crate::ui::ledger_back;
 use crate::ui::ledger_row;
 
 /// How long a sigil is given before the player is offered the hunt without
@@ -117,6 +115,7 @@ pub struct HuntState {
 	pub difficulty: Difficulty,
 	pub autoplay: bool,
 	pub stage: Stage,
+	audio: Option<crate::state::Game>,
 	pub arena: Arena,
 	pub shared: Shared,
 	on_finished: Arc<dyn Fn(HuntLog, HuntOutcome) + Send + Sync>,
@@ -156,6 +155,27 @@ thread_local! {
 	static CURRENT: RefCell<Option<Rc<RefCell<HuntState>>>> = const { RefCell::new(None) };
 }
 
+/// Tears down any active hunt view state so its ticker and XR session stop
+/// immediately and the next hunt starts fresh.
+pub fn clear() {
+	if let Some(hunt) = CURRENT.with_borrow_mut(Option::take) {
+		let mut state = hunt.borrow_mut();
+		state.shared.done.set(true);
+		state.mounted = 0;
+	}
+}
+
+/// Leaves the hunt on screen cleanly through the hunt screen when a [`Game`]
+/// context is available, or falls back to router back.
+fn retreat(audio: Option<crate::state::Game>) {
+	if let Some(game) = audio {
+		crate::screens::hunt::leave(game);
+	} else {
+		clear();
+		crate::screens::back_or_home();
+	}
+}
+
 /// Moves the hunt on screen on by `seconds`, a tick at a time, as the
 /// ticker would: for a host with no timer, and the tests. Answers whether
 /// it has been handed to the books.
@@ -191,10 +211,9 @@ fn with_hunt(action: impl FnOnce(&mut HuntState)) {
 }
 
 /// The game's words, for what the hunt says between renders, where there
-/// is no component to ask: the game speaks English only.
+/// is no component to ask.
 fn words() -> &'static dyn Messages {
-	use leptoskit_l10n::Translations as _;
-	AppTranslations::messages(&AppTranslations::supported_locales()[0])
+	crate::app::messages()
 }
 
 fn light_of(brief: &HuntBrief) -> Rgb {
@@ -220,8 +239,8 @@ impl HuntState {
 			scene: Some(arena.scene.id().0),
 			..Shared::default()
 		};
-		let prefs =
-			reactive_graph::owner::use_context::<crate::state::Game>().map(|game| game.prefs());
+		let game = reactive_graph::owner::use_context::<crate::state::Game>();
+		let prefs = game.map(|game| game.prefs());
 		let teacher = props.brief.is_practice().then(Teacher::default);
 		if teacher.is_some()
 			&& let Some(prefs) = prefs.clone()
@@ -245,6 +264,7 @@ impl HuntState {
 			difficulty: props.difficulty,
 			autoplay: props.autoplay,
 			stage: Stage::Briefing,
+			audio: game,
 			arena,
 			shared,
 			on_finished: props.on_finished.clone(),
@@ -514,6 +534,9 @@ impl HuntState {
 					SigilEvent::SigilClosed => closed = Some(trace.clone()),
 				}
 			}
+			if let Some(game) = self.audio {
+				game.shape(crate::sound::sigil_mix(trace));
+			}
 		}
 		match self.stage {
 			Stage::Briefing | Stage::Aligning | Stage::Tracing(_) => {
@@ -570,6 +593,9 @@ impl HuntState {
 		let Some(controller) = self.arena.controller.as_ref() else {
 			return;
 		};
+		if let Some(game) = self.audio {
+			game.shape(crate::sound::hunt_mix(controller.sim()));
+		}
 		if !controller.sim().is_over() {
 			return;
 		}
@@ -763,26 +789,42 @@ pub fn hunt_view(props: &HuntViewProps) -> Element {
 	// targets above it so the very thing the player must find stays visible.
 	// Combat marks stay below the weapon controls.
 	if let Stage::Tracing(trace) = &state.stage {
-		let tracing = root
+		let mut tracing = root
 			.child(scan(&state, trace))
-			.child(marks.into_view(state.size.0, state.size.1));
-		return if let Some(skip) = scan_skip(trace) {
-			tracing.child(skip)
-		} else {
-			tracing
-		};
+			.child(marks.into_view(state.size.0, state.size.1))
+			.child(
+				View()
+					.class("absolute left-4 top-0 pt-4 pt-safe")
+					.child(retreat_button(state.audio)),
+			);
+		if let Some(skip) = scan_skip(trace) {
+			tracing = tracing.child(skip);
+		}
+		return tracing;
 	}
 	if !marks.is_empty() {
 		root = root.child(marks.into_view(state.size.0, state.size.1));
 	}
 	root = match &state.stage {
 		Stage::Briefing => root.child(briefing(&state, props)),
-		Stage::Aligning => root.child(aligning()),
+		Stage::Aligning => root.child(aligning(state.audio)),
 		Stage::Tracing(trace) => root.child(scan(&state, trace)),
 		Stage::Fighting => root.child(fighting(&state)),
 		Stage::Finished => root,
 	};
 	root
+}
+
+fn retreat_button(audio: Option<crate::state::Game>) -> Element {
+	let words = use_l10n();
+	Pressable(words.hunt_retreat().to_owned())
+		.class("min-w-[48px] min-h-[48px] -ml-2 items-center justify-center")
+		.test_id("hunt-retreat")
+		.on_press(move || {
+			platform::tap();
+			retreat(audio);
+		})
+		.child(label("←", 15, BONE))
 }
 
 fn fighting(state: &HuntState) -> Element {
@@ -827,28 +869,29 @@ fn fighting(state: &HuntState) -> Element {
 		on_fire: fire,
 		on_slot: select_slot,
 	};
-	let mut screen =
-		View()
-			.class("absolute inset-0")
-			.child(status_view(&*words, &shown, state.light, None));
+	let audio = state.audio;
+	let mut screen = View().class("absolute inset-0").child(status_view(
+		&*words,
+		&shown,
+		state.light,
+		None,
+		Some(Box::new(move || retreat(audio))),
+	));
 	if pause.is_none() {
 		screen = screen.child(super::controls::controls(&*words, &thumbs));
-	} else {
-		screen = screen.child(
-			View()
-				.class("absolute left-3 bottom-4 pb-safe px-3 py-2 rounded-[8px] bg-black")
-				.child(label(words.hunt_orb(), 16, BONE)),
-		);
 	}
 	if let Some(message) = pause {
 		screen = screen.child(
 			View()
-				.class("absolute left-3 right-3 top-0 pt-safe pt-3")
+				.enabled(false)
+				.class("absolute inset-0 items-center justify-center px-6")
 				.child(
 					View()
-						.class(format!("px-3 py-2 rounded-[8px] {SCRIM}"))
+						.class(format!(
+							"w-full max-w-[440px] px-4 py-3 rounded-[8px] {SCRIM}"
+						))
 						.test_id("hunt-pause-guidance")
-						.child(body(message, 14, BONE).aria_live(leptoskit::native::Live::Polite)),
+						.child(body(message, 15, BONE).aria_live(leptoskit::native::Live::Polite)),
 				),
 		);
 	}
@@ -889,9 +932,18 @@ fn scan(state: &HuntState, trace: &SigilTrace) -> Element {
 	let mut column = View()
 		.class(format!("px-3 pt-2 pb-3 rounded-[8px] {SCRIM}"))
 		.test_id("hunt-scan-panel")
-		.child(label(words.scan_label(), 11, ASH))
-		.child(gap(6))
-		.child(display(words.scan_title(), 26, BONE))
+		.child(
+			View()
+				.class("flex-row items-center gap-2")
+				.child(View().class("w-[40px] h-[48px]"))
+				.child(
+					View()
+						.class("flex-1")
+						.child(label(words.scan_label(), 11, ASH))
+						.child(gap(4))
+						.child(display(words.scan_title(), 26, BONE)),
+				),
+		)
 		.child(gap(6))
 		.child(figure(
 			format!("{} / {}", trace.caught(), trace.sigil.lights.len()),
@@ -960,7 +1012,7 @@ fn next_light_words(words: &dyn Messages, next: NextLight, drag: bool) -> &'stat
 /// The moment between raising the blade and the sigil: the phone is finding
 /// where it faces, and the player is told it is being waited on rather than
 /// left at a still 0 / 3.
-fn aligning() -> Element {
+fn aligning(audio: Option<crate::state::Game>) -> Element {
 	let words = use_l10n();
 
 	View().class("absolute inset-0").child(
@@ -970,9 +1022,18 @@ fn aligning() -> Element {
 				View()
 					.class(format!("px-3 pt-2 pb-3 rounded-[8px] {SCRIM}"))
 					.test_id("hunt-aligning")
-					.child(label(words.scan_label(), 11, ASH))
-					.child(gap(6))
-					.child(display(words.scan_title(), 26, BONE))
+					.child(
+						View()
+							.class("flex-row items-center gap-2")
+							.child(retreat_button(audio))
+							.child(
+								View()
+									.class("flex-1")
+									.child(label(words.scan_label(), 11, ASH))
+									.child(gap(4))
+									.child(display(words.scan_title(), 26, BONE)),
+							),
+					)
 					.child(gap(8))
 					.child(
 						body(words.scan_starting(), 14, BONE)
@@ -987,9 +1048,19 @@ fn aligning() -> Element {
 fn briefing(state: &HuntState, props: &HuntViewProps) -> Element {
 	let words = use_l10n();
 	let brief = state.brief;
+	let audio = state.audio;
 	let mut column = View()
 		.class("w-full max-w-[520px] self-center px-7 pt-2 pb-7")
-		.child(ledger_back(None))
+		.child(
+			Pressable(words.common_back().to_owned())
+				.class("min-w-[48px] min-h-[48px] justify-center self-start")
+				.test_id("ledger-back")
+				.on_press(move || {
+					platform::tap();
+					retreat(audio);
+				})
+				.child(label("←", 13, BONE)),
+		)
 		.child(gap(18))
 		.child(label(
 			if brief.is_practice() {

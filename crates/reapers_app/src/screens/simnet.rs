@@ -159,17 +159,18 @@ fn send_local(chain: Rc<SimnetChain>, rpc: Rc<SurfpoolRpc>, transaction: SimnetT
 	let sent = sent();
 	sent.set(None);
 	platform::spawn(async move {
+		let words = crate::app::messages();
 		let outcome = async {
 			let blockhash: Hash = rpc
 				.latest_blockhash()
 				.await
 				.map_err(|error| error.to_string())?
 				.parse()
-				.map_err(|_| "the validator's blockhash is not one".to_owned())?;
+				.map_err(|_| words.simnet_bad_blockhash().to_owned())?;
 			let wire = chain
 				.rebuild(&transaction, blockhash)
 				.map_err(|error| error.to_string())?
-				.ok_or_else(|| "a faucet pays an airdrop".to_owned())?;
+				.ok_or_else(|| words.simnet_airdrop_cannot_replay().to_owned())?;
 			let signature = rpc
 				.send_transaction(&wire)
 				.await

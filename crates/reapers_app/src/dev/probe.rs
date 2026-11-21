@@ -12,6 +12,7 @@ use leptoskit::prelude::*;
 use crate::hunt::pose::Tracking;
 use crate::hunt::xr::Shared;
 use crate::hunt::xr::follow;
+use crate::l10n::use_l10n;
 use crate::theme::ASH;
 use crate::theme::BONE;
 use crate::ui::LedgerButton;
@@ -29,6 +30,7 @@ struct Bench {
 	started: bool,
 	drawn: RwSignal<u64>,
 	ticking: bool,
+	mounted: usize,
 }
 
 thread_local! {
@@ -46,10 +48,27 @@ fn bench() -> Rc<RefCell<Bench>> {
 					started: false,
 					drawn: crate::ui::lasting(|| RwSignal::new(0)),
 					ticking: false,
+					mounted: 0,
 				}))
 			})
 			.clone()
 	})
+}
+
+fn mount(bench: &Rc<RefCell<Bench>>) {
+	bench.borrow_mut().mounted += 1;
+	let unmount = send_wrapper::SendWrapper::new(Rc::downgrade(bench));
+	reactive_graph::owner::on_cleanup(move || {
+		if let Some(bench) = unmount.take().upgrade() {
+			let mut state = bench.borrow_mut();
+			state.mounted = state.mounted.saturating_sub(1);
+			if state.mounted == 0 {
+				state.shared.done.set(true);
+				state.started = false;
+				state.ticking = false;
+			}
+		}
+	});
 }
 
 fn start() {
@@ -58,15 +77,25 @@ fn start() {
 	if state.started {
 		return;
 	}
+	state.shared = Shared::default();
+	state.shared.probing.set(true);
 	state.started = true;
 	follow(&state.shared);
 	if !state.ticking {
 		state.ticking = true;
-		let drawn = state.drawn;
-		let shared = state.shared.clone();
+		let ticking = Rc::downgrade(&bench);
 		crate::render::ticker::every_frame(move |delta| {
-			shared.live.borrow_mut().advance(delta);
-			drawn.update(|drawn| *drawn = drawn.wrapping_add(1));
+			let Some(bench) = ticking.upgrade() else {
+				return false;
+			};
+			let mut state = bench.borrow_mut();
+			if state.mounted == 0 || !state.started {
+				state.ticking = false;
+				state.shared.done.set(true);
+				return false;
+			}
+			state.shared.live.borrow_mut().advance(delta);
+			state.drawn.update(|drawn| *drawn = drawn.wrapping_add(1));
 			true
 		});
 	}
@@ -74,51 +103,62 @@ fn start() {
 
 /// The bench.
 pub fn page() -> Element {
+	let words = use_l10n();
 	let bench = bench();
+	mount(&bench);
 	let state = bench.borrow();
 	let _ = state.drawn.get();
 	let live = state.shared.live.borrow();
 	let pose = live.pose();
 	let tracking = match live.tracking() {
-		Tracking::Drag => "nothing: a finger would steer",
-		Tracking::Turning => "the rotation sensor (turns, no position)",
-		Tracking::World => "the platform's AR (camera and position)",
+		Tracking::Drag => words.probe_track_drag(),
+		Tracking::Turning => words.probe_track_turning(),
+		Tracking::World => words.probe_track_world(),
 	};
 	let mut column = View()
 		.class("w-full max-w-[520px] self-center px-7 pt-2 pb-10")
 		.test_id("depth-probe")
 		.child(ledger_back(None))
 		.child(gap(14))
-		.child(display("Depth bench", 30, BONE))
+		.child(display(words.probe_title(), 30, BONE))
 		.child(gap(8))
-		.child(body(
-			"What the platform's AR measures of the room: the hunt's grid of rays, cast against its depth once a second.",
-			14,
-			ASH,
-		))
+		.child(body(words.probe_intro(), 14, ASH))
 		.child(gap(16))
-		.child(ledger_row("Following", tracking, false))
+		.child(ledger_row(words.probe_following(), tracking, false))
 		.child(ledger_row(
-			"Facing",
-			format!(
-				"{:.0}° right, {:.0}° up, turning {:.1} rad/s",
-				pose.forward.yaw().to_degrees(),
-				pose.forward.pitch().to_degrees(),
-				pose.turn_speed
+			words.probe_facing(),
+			words.probe_facing_value(
+				&format!("{:.0}", pose.forward.yaw().to_degrees()),
+				&format!("{:.0}", pose.forward.pitch().to_degrees()),
+				&format!("{:.1}", pose.turn_speed),
 			),
 			false,
 		))
 		.child(ledger_row(
-			"Lens",
-			live.fov.map_or_else(|| "not reported".to_owned(), |fov| format!("{:.1}° tall", fov.to_degrees())),
+			words.probe_lens(),
+			live.fov.map_or_else(
+				|| words.probe_lens_none().to_owned(),
+				|fov| words.probe_lens_value(&format!("{:.1}", fov.to_degrees())),
+			),
 			false,
 		))
 		.child(ledger_row(
-			"Floor below",
-			live.eye_height.map_or_else(|| "no floor plane yet".to_owned(), |height| format!("{height:.2} m")),
+			words.probe_floor(),
+			live.eye_height.map_or_else(
+				|| words.probe_floor_none().to_owned(),
+				|height| words.probe_floor_value(&format!("{height:.2}")),
+			),
 			false,
 		))
-		.child(ledger_row("Depth", if live.depth { "measured" } else { "none" }, live.depth));
+		.child(ledger_row(
+			words.probe_depth(),
+			if live.depth {
+				words.probe_depth_measured()
+			} else {
+				words.probe_depth_none()
+			},
+			live.depth,
+		));
 	let look = state.shared.last_look.borrow().clone();
 	match look {
 		Some(look) => {
@@ -129,23 +169,23 @@ pub fn page() -> Element {
 				.count();
 			column = column
 				.child(ledger_row(
-					"Last look",
-					format!(
-						"{hits} of {} rays hit, in {} ms",
-						look.distances.len(),
-						look.millis
+					words.probe_last_look(),
+					words.probe_last_look_value(
+						hits as i64,
+						look.distances.len() as i64,
+						look.millis,
 					),
 					false,
 				))
 				.child(gap(12))
-				.child(picture(&look));
+				.child(picture(&*words, &look));
 		}
 		None => {
 			column = column.child(gap(12)).child(body(
 				if state.started {
-					"No look yet: it needs a phone whose AR measures depth (ARKit on LiDAR iPhones, ARCore's Depth API)."
+					words.probe_waiting()
 				} else {
-					"Start to follow the platform."
+					words.probe_idle()
 				},
 				14,
 				ASH,
@@ -154,7 +194,7 @@ pub fn page() -> Element {
 	}
 	if !state.started {
 		column = column.child(gap(18)).child(
-			LedgerButton::new("Start")
+			LedgerButton::new(words.probe_start())
 				.test_id("probe-start")
 				.on_press(start),
 		);
@@ -165,7 +205,7 @@ pub fn page() -> Element {
 }
 
 /// The look as a picture: one cell for each ray, nearest brightest.
-fn picture(look: &crate::hunt::xr::Look) -> Element {
+fn picture(words: &dyn crate::l10n::Messages, look: &crate::hunt::xr::Look) -> Element {
 	let (columns, rows) = (look.columns as f32, look.rows as f32);
 	let Ok(view_box) = ViewBox::new(0.0, 0.0, columns, rows) else {
 		return View();
@@ -183,5 +223,5 @@ fn picture(look: &crate::hunt::xr::Look) -> Element {
 	}
 	drawing
 		.class(format!("w-full h-[{}px]", (360.0 * rows / columns) as u32))
-		.accessibility_label(format!("{} by {} rays", look.columns, look.rows))
+		.accessibility_label(words.probe_rays_label(look.columns as i64, look.rows as i64))
 }

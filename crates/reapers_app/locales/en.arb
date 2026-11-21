@@ -786,6 +786,9 @@
   },
   "huntPracticeDone": "A stray, so nothing was gained and nothing was owed.",
   "huntLeave": "Lower the blade",
+  "huntRetreat": "Retreat",
+  "huntSettleFailedTitle": "The reckoning could not land",
+  "huntSettleFailedBody": "Your hunt is recorded, but the keeper did not answer. Try again to settle it, or lower the blade to leave.",
   "huntFailedTitle": "The veil would not part",
   "huntFailedBody": "The hunt could not be started: {reason}",
   "@huntFailedBody": {
@@ -920,7 +923,7 @@
   "rosterBalance": "Wallet SOL",
   "rosterNetwork": "Network",
   "rosterUnconfigured": "NFT imports are unavailable until a reaper collection is configured. Your starter remains yours.",
-  "rosterCount": "{count} reapers",
+  "rosterCount": "{count, plural, =1{1 reaper} other{{count} reapers}}",
   "@rosterCount": {
     "placeholders": {
       "count": {
@@ -948,9 +951,9 @@
   "soulMarks": "Hunts remembered",
   "soulRank": "Awakening {rank} / {max}",
   "@soulRank": {"placeholders": {"rank": {"type": "int"}, "max": {"type": "int"}}},
-  "soulMilestone": "Level {level} · {marks} {path} marks",
+  "soulMilestone": "Level {level} · {marks, plural, =1{1 {path} mark} other{{marks} {path} marks}}",
   "@soulMilestone": {"placeholders": {"level": {"type": "int"}, "marks": {"type": "int"}, "path": {"type": "String"}}},
-  "soulNext": "Next awakening: level {level} and {marks} {path} marks. You have {earned}.",
+  "soulNext": "Next awakening: level {level} and {marks, plural, =1{1 {path} mark} other{{marks} {path} marks}}. You have {earned}.",
   "@soulNext": {"placeholders": {"level": {"type": "int"}, "marks": {"type": "int"}, "path": {"type": "String"}, "earned": {"type": "int"}}},
   "soulComplete": "Every awakening earned. Your birth gift stays yours.",
   "soulLore": "What the gift remembers",
@@ -1007,7 +1010,7 @@
   "@giftPassageEffect": {"placeholders": {"seconds": {"type": "String"}}},
   "giftAnchorEffect": "An unflinching hold restores one lost resolve, {uses, plural, one{once} other{up to {uses} times}} per hunt.",
   "@giftAnchorEffect": {"placeholders": {"uses": {"type": "int"}}},
-  "giftReturnLightEffect": "Five hits in cadence prepare a light that forgives your next flinch, up to {uses} times per hunt.",
+  "giftReturnLightEffect": "Five hits in cadence prepare a light that forgives your next flinch, {uses, plural, =1{once} other{up to {uses} times}} per hunt.",
   "@giftReturnLightEffect": {"placeholders": {"uses": {"type": "int"}}},
   "giftForeknowledgeEffect": "An ambush keeps the seals open for {seconds}s longer.",
   "@giftForeknowledgeEffect": {"placeholders": {"seconds": {"type": "String"}}},
@@ -1025,7 +1028,7 @@
   "@giftHungerEffect": {"placeholders": {"beats": {"type": "int"}}},
   "giftEchoEffect": "An unflinching hold restores your cadence from the warning, plus {beats}. Cadence still caps at ten.",
   "@giftEchoEffect": {"placeholders": {"beats": {"type": "int"}}},
-  "giftUnbrokenEffect": "Up to {uses} misses preserve cadence each hunt. Its timer keeps running.",
+  "giftUnbrokenEffect": "{uses, plural, =1{One miss preserves} other{Up to {uses} misses preserve}} cadence each hunt. Its timer keeps running.",
   "@giftUnbrokenEffect": {"placeholders": {"uses": {"type": "int"}}},
   "giftHushEffect": "An ambush delays the first shriek by {seconds}s.",
   "@giftHushEffect": {"placeholders": {"seconds": {"type": "String"}}},
@@ -1358,5 +1361,56 @@
   "armsBenchQuarterSpeed": "Quarter speed",
   "armsBenchLookAround": "Look around",
   "@armsBenchLookAround": { "description": "Turns the view slowly from side to side, so the arms trail it." },
-  "armsBenchDoing": "Doing"
+  "armsBenchDoing": "Doing",
+  "simnetBadBlockhash": "The validator returned an invalid blockhash.",
+  "simnetAirdropCannotReplay": "A faucet pays an airdrop; it cannot be sent again.",
+  "probeTitle": "Depth bench",
+  "probeIntro": "What the platform's AR measures of the room: the hunt's grid of rays, cast against its depth once a second.",
+  "probeFollowing": "Following",
+  "probeFacing": "Facing",
+  "probeLens": "Lens",
+  "probeFloor": "Floor below",
+  "probeDepth": "Depth",
+  "probeLastLook": "Last look",
+  "probeTrackDrag": "nothing: a finger would steer",
+  "probeTrackTurning": "the rotation sensor (turns, no position)",
+  "probeTrackWorld": "the platform's AR (camera and position)",
+  "probeFacingValue": "{yaw}° right, {pitch}° up, turning {speed} rad/s",
+  "@probeFacingValue": {
+    "placeholders": {
+      "yaw": { "type": "String" },
+      "pitch": { "type": "String" },
+      "speed": { "type": "String" }
+    }
+  },
+  "probeLensNone": "not reported",
+  "probeLensValue": "{degrees}° tall",
+  "@probeLensValue": {
+    "placeholders": { "degrees": { "type": "String" } }
+  },
+  "probeFloorNone": "no floor plane yet",
+  "probeFloorValue": "{metres} m",
+  "@probeFloorValue": {
+    "placeholders": { "metres": { "type": "String" } }
+  },
+  "probeDepthMeasured": "measured",
+  "probeDepthNone": "none",
+  "probeLastLookValue": "{hits} of {total} rays hit, in {millis} ms",
+  "@probeLastLookValue": {
+    "placeholders": {
+      "hits": { "type": "int" },
+      "total": { "type": "int" },
+      "millis": { "type": "int" }
+    }
+  },
+  "probeWaiting": "No look yet: it needs a phone whose AR measures depth (ARKit on LiDAR iPhones, ARCore's Depth API).",
+  "probeIdle": "Start to follow the platform.",
+  "probeStart": "Start",
+  "probeRaysLabel": "{columns} by {rows} rays",
+  "@probeRaysLabel": {
+    "placeholders": {
+      "columns": { "type": "int" },
+      "rows": { "type": "int" }
+    }
+  }
 }

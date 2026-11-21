@@ -6,6 +6,7 @@
 //! asks the keeper and then shows what it says: a refusal leaves the player
 //! as they were and puts the rules' reason in front of them.
 
+use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::future::Future;
@@ -149,6 +150,7 @@ pub struct Game {
 	cluster: StoredValue<Option<Rc<Cluster>>, LocalStorage>,
 	soundtrack: StoredValue<Rc<Soundtrack>, LocalStorage>,
 	waiting: StoredValue<RefCell<BTreeSet<i64>>, LocalStorage>,
+	in_flight: StoredValue<Cell<u32>, LocalStorage>,
 }
 
 impl Game {
@@ -194,6 +196,7 @@ impl Game {
 			// Silent, and held until the player's setting has been read.
 			soundtrack: StoredValue::new_local(Rc::new(Soundtrack::new(Box::new(Silence), false))),
 			waiting: StoredValue::new_local(RefCell::new(BTreeSet::new())),
+			in_flight: StoredValue::new_local(Cell::new(0)),
 		}
 	}
 
@@ -351,7 +354,7 @@ impl Game {
 					}
 				});
 			}
-			if platform::sleep(Self::SLIP_SHOWN.checked_sub(Self::FINALITY).unwrap()).await
+			if platform::sleep(Self::SLIP_SHOWN.saturating_sub(Self::FINALITY)).await
 				&& showing(self.slip.get_untracked())
 			{
 				self.slip.set(None);
@@ -463,6 +466,24 @@ impl Game {
 		}
 	}
 
+	/// Marks one more request as in flight and keeps [`Self::busy`] true until
+	/// every concurrent request has settled.
+	fn begin_busy(self) {
+		self.in_flight.with_value(|count| {
+			count.set(count.get().saturating_add(1));
+		});
+		self.busy.set(true);
+	}
+
+	fn end_busy(self) {
+		let still_busy = self.in_flight.with_value(|count| {
+			let next = count.get().saturating_sub(1);
+			count.set(next);
+			next > 0
+		});
+		self.busy.set(still_busy);
+	}
+
 	/// Runs `request` against the keeper. A refusal or an unreachable
 	/// keeper is explained to the player, never silently dropped. `then` is
 	/// told whether it went through.
@@ -476,10 +497,10 @@ impl Game {
 			then(None);
 			return;
 		};
-		self.busy.set(true);
+		self.begin_busy();
 		platform::spawn(async move {
 			let result = request(keeper).await;
-			self.busy.set(false);
+			self.end_busy();
 			match result {
 				Ok(value) => then(Some(value)),
 				Err(error) => {

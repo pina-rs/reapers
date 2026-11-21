@@ -249,7 +249,7 @@ pub fn nft_sheet(game: Game, nft: Nft) -> Element {
 				.child(husk_portrait(HuskPortraitProps {
 					nft,
 					size: 132,
-					spent: false,
+					spent: matches!(holding, Holding::Absorbed | Holding::Unburned),
 				}))
 				.child(
 					View()

@@ -244,9 +244,8 @@ pub fn book_view(on_close: impl Fn() + Send + Sync + 'static) -> Element {
 		Chapter::Nfts => nft_future(),
 		Chapter::Decisions => decisions(),
 	};
-	View()
-		.class("w-full max-w-[720px] self-center px-6 pt-safe-offset-2 pb-16")
-		.test_id("studio-book")
+	let back = View()
+		.class("w-full max-w-[720px] self-center px-6 pt-safe-offset-2 pb-1")
 		.child(
 			Pressable(words.common_back().to_owned())
 				.class("min-w-[48px] min-h-[48px] justify-center self-start")
@@ -260,8 +259,9 @@ pub fn book_view(on_close: impl Fn() + Send + Sync + 'static) -> Element {
 					13,
 					BONE,
 				)),
-		)
-		.child(gap(10))
+		);
+	let content = View()
+		.class("w-full max-w-[720px] self-center px-6 pt-2 pb-16 pb-safe")
 		.child(display(words.ledger_title(), 40, BONE))
 		.child(gap(18))
 		.child(body(words.ledger_intro(), 17, BONE))
@@ -284,7 +284,12 @@ pub fn book_view(on_close: impl Fn() + Send + Sync + 'static) -> Element {
 		.child(gap(18))
 		.child(body(words.ledger_current(), 13, ASH))
 		.child(View().class(format!("h-px w-full my-5 {}", class::HAIRLINE_BG)))
-		.child(chapter)
+		.child(chapter);
+	View()
+		.class("flex-1 h-full w-full")
+		.test_id("studio-book")
+		.child(back)
+		.child(ScrollView().class("flex-1 w-full").child(content))
 }
 
 /// A heading and a readable entry.

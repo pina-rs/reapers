@@ -45,36 +45,41 @@ fn blade() -> Element {
 
 /// The threshold.
 pub fn page() -> Element {
+	if let Some(game) = reactive_graph::owner::use_context::<crate::state::Game>() {
+		game.play(crate::sound::Score::Sanctum);
+	}
 	let words = use_l10n();
 	View()
-		.class("relative flex-1 min-h-screen w-full")
+		.class("relative flex-1 h-full w-full")
 		.test_id("threshold")
 		.child(blade())
 		.child(
-			View()
-				.class(format!(
-					"flex-1 w-full {CONTENT_WIDTH} self-center justify-end px-7 pt-safe-offset-6 pb-safe-offset-7 \
-					 starting:opacity-0 transition-opacity duration-700 delay-500"
-				))
-				.child(reapers_mark(88, false))
-				.child(gap(20))
-				.child(display(words.app_title(), 84, BONE).test_id("threshold-title"))
-				.child(gap(18))
-				.child(body(words.threshold_tagline(), 16, ASH))
-				.child(gap(34))
-				.child(
-					LedgerButton::new(words.threshold_oath())
-						.detail(words.threshold_oath_detail())
-						.test_id("threshold-oath")
-						.on_press(|| open(Route::Oath)),
-				)
-				.child(gap(4))
-				.child(
-					LedgerButton::new(words.threshold_shade())
-						.detail(words.threshold_shade_detail())
-						.quiet()
-						.test_id("threshold-shade")
-						.on_press(|| open(Route::Practice)),
-				),
+			ScrollView().class("relative flex-1 w-full").child(
+				View()
+					.class(format!(
+						"flex-1 min-h-screen w-full {CONTENT_WIDTH} self-center justify-end px-7 pt-safe-offset-6 pb-safe-offset-7 \
+						 starting:opacity-0 transition-opacity duration-700 delay-500"
+					))
+					.child(reapers_mark(88, false))
+					.child(gap(20))
+					.child(display(words.app_title(), 84, BONE).test_id("threshold-title"))
+					.child(gap(18))
+					.child(body(words.threshold_tagline(), 16, ASH))
+					.child(gap(34))
+					.child(
+						LedgerButton::new(words.threshold_oath())
+							.detail(words.threshold_oath_detail())
+							.test_id("threshold-oath")
+							.on_press(|| open(Route::Oath)),
+					)
+					.child(gap(4))
+					.child(
+						LedgerButton::new(words.threshold_shade())
+							.detail(words.threshold_shade_detail())
+							.quiet()
+							.test_id("threshold-shade")
+							.on_press(|| open(Route::Practice)),
+					),
+			),
 		)
 }

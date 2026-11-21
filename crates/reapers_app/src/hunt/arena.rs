@@ -435,12 +435,8 @@ impl Arena {
 	fn hear_events(&mut self, events: &[(i64, HuntEvent)], pose: &ArPose, eye: Vec3) {
 		let origin = reapers_world::from_platform(self.rig.origin().map(f64::from));
 		let heavy = self.arms.as_ref().map_or(WeaponKind::Scythe, Arms::weapon);
-		if let Some(game) = self.audio {
-			game.combat_sounds(
-				events,
-				self.controller.as_ref().unwrap().sim().vessel(),
-				heavy,
-			);
+		if let (Some(game), Some(controller)) = (self.audio, self.controller.as_ref()) {
+			game.combat_sounds(events, controller.sim().vessel(), heavy);
 		}
 		self.environment
 			.borrow_mut()

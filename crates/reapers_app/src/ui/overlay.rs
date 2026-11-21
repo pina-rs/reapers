@@ -23,18 +23,22 @@ fn scrim(game: Game) -> Element {
 /// A dialog: a ruled panel in the middle of the page.
 pub fn dialog(game: Game, seed_text: &str, children: Vec<Element>) -> Element {
 	View()
-		.class("absolute inset-0 items-center justify-center px-6")
+		.class("absolute inset-0 items-center justify-center px-6 py-6")
 		.child(scrim(game))
 		.child(
-			View()
+			ScrollView()
 				.class(format!(
-					"relative w-full {CONTENT_WIDTH} bg-[#0f1116] p-6 gap-3"
+					"relative w-full {CONTENT_WIDTH} max-h-[86vh] bg-[#0f1116]"
 				))
 				.role(Role::Dialog)
 				.aria_modal(true)
 				.test_id("dialog")
-				.child(sketch(seed_for(seed_text), BONE, 0.18))
-				.children(children),
+				.child(
+					View()
+						.class("relative w-full p-6 gap-3")
+						.child(sketch(seed_for(seed_text), BONE, 0.18))
+						.children(children),
+				),
 		)
 }
 

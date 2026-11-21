@@ -3,15 +3,35 @@
 
 #![allow(unsafe_code)] // Exported C names form the native runtime's entry points.
 
+use std::cell::Cell;
+
 use reactive_graph::owner::Owner;
+
+use crate::app::RenderScope;
+use crate::state::Game;
+
+thread_local! {
+	static GAME: Cell<Option<Game>> = const { Cell::new(None) };
+}
 
 /// Mounts the game in the native Wasm runtime.
 #[unsafe(no_mangle)]
 pub extern "C" fn leptoskit_main() {
 	let owner = Owner::new();
 	let navigation = crate::app::navigation();
-	owner.with(|| crate::app::start(navigation.clone()));
-	leptoskit::guest::mount(move || owner.with(|| crate::app::screen(&navigation)));
+	let game = owner.with(|| crate::app::start(navigation.clone()));
+	GAME.with(|slot| slot.set(Some(game)));
+	let scope = RenderScope::new(owner);
+	leptoskit::guest::mount(move || scope.render(|| crate::app::screen(&navigation)));
+}
+
+/// Handles the Android system Back gesture or button: dismisses overlays,
+/// leaves active hunts or rifts cleanly, or pops the route stack. Returns
+/// `1` when handled and `0` when the host should leave the app.
+#[unsafe(no_mangle)]
+pub extern "C" fn leptoskit_system_back() -> i32 {
+	let handled = GAME.with(|slot| slot.get().is_some_and(crate::screens::handle_system_back));
+	i32::from(handled)
 }
 
 /// Forwards platform-neutral events to the tree's handlers.
