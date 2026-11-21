@@ -214,59 +214,69 @@ fn longest_encoded_log_fits_the_rpc_request_limit() {
 	use reapers_rules::HuntInput;
 	use reapers_rules::RoomCell;
 	use reapers_rules::RoomGrid;
-	for side in [100_u8, 255] {
-		let cells = (0..usize::from(side).pow(2))
-			.map(|i| {
-				if i % 2 == 0 {
-					RoomCell::UNKNOWN.byte()
-				} else {
-					RoomCell::WALL.byte()
-				}
-			})
-			.collect();
-		let room = RoomGrid::new(
-			160,
-			0,
-			0,
-			side,
-			side,
-			side / 2,
-			side / 2,
-			(0..31).collect(),
-			cells,
-		);
-		assert!(room.is_well_formed());
-		let plan = HuntPlan {
-			eye_centimetres: 160,
-			reach_decimetres: vec![60; HuntPlan::SLICES],
-			cover_centimetres: vec![0; HuntPlan::SLICES],
-			hide_decimetres: vec![0; HuntPlan::SLICES],
-			ledges: vec![false; HuntPlan::SLICES],
-			room: Some(room),
-			..HuntPlan::OPEN
-		};
-		let log = HuntLog {
-			plan,
-			inputs: vec![
-				HuntInput::new(Aim::AHEAD, 0).with_eye(Eye::new(1, 0, 0));
-				HuntLog::MAX_TICKS
-			],
-			difficulty: Difficulty::Normal,
-		};
-		let bytes = log.encode();
-		assert_eq!(HuntLog::decode(&bytes), Ok(log));
-		// Standard base64 has exactly four JSON-safe characters per three bytes.
-		let base64_len = bytes.len().div_ceil(3) * 4;
-		let json =
-			serde_json::json!({"sighting": i64::MAX, "log": "A".repeat(base64_len)}).to_string();
-		// leptoskit_rpc's HTTP BODY_LIMIT at the pinned revision is 2 MiB.
-		assert!(json.len() + 1024 < 2 * 1024 * 1024);
-		println!(
-			"{side}x{side}: {} bytes, {base64_len} base64 characters, {} JSON bytes",
-			bytes.len(),
-			json.len()
-		);
-	}
+	let side = RoomGrid::MAX_SIDE;
+	let cells = (0..usize::from(side).pow(2))
+		.map(|i| {
+			if i % 2 == 0 {
+				RoomCell::UNKNOWN.byte()
+			} else {
+				RoomCell::WALL.byte()
+			}
+		})
+		.collect();
+	let room = RoomGrid::new(
+		160,
+		0,
+		0,
+		side,
+		side,
+		side / 2,
+		side / 2,
+		(0..RoomCell::MAX_LEVELS as u8).collect(),
+		cells,
+	);
+	assert!(room.is_well_formed());
+	let plan = HuntPlan {
+		eye_centimetres: 160,
+		reach_decimetres: vec![60; HuntPlan::SLICES],
+		cover_centimetres: vec![0; HuntPlan::SLICES],
+		hide_decimetres: vec![0; HuntPlan::SLICES],
+		ledges: vec![false; HuntPlan::SLICES],
+		room: Some(room),
+		..HuntPlan::OPEN
+	};
+	let log = HuntLog {
+		plan,
+		inputs: vec![HuntInput::new(Aim::AHEAD, 0).with_eye(Eye::new(1, 0, 0)); HuntLog::MAX_TICKS],
+		difficulty: Difficulty::Normal,
+	};
+	let bytes = log.encode();
+	assert_eq!(HuntLog::decode(&bytes), Ok(log));
+	// Standard base64 has exactly four JSON-safe characters per three bytes.
+	let base64_len = bytes.len().div_ceil(3) * 4;
+	let json = serde_json::json!({"sighting": i64::MAX, "log": "A".repeat(base64_len)}).to_string();
+	// leptoskit_rpc's HTTP BODY_LIMIT at the pinned revision is 2 MiB.
+	assert!(json.len() + 1024 < 2 * 1024 * 1024);
+
+	// Grids larger than the 10×10 m bound are refused to prevent RLE amplification DoS.
+	let oversized = RoomGrid::new(
+		160,
+		0,
+		0,
+		RoomGrid::MAX_SIDE + 1,
+		RoomGrid::MAX_SIDE + 1,
+		50,
+		50,
+		vec![0],
+		vec![RoomCell::UNKNOWN.byte(); usize::from(RoomGrid::MAX_SIDE + 1).pow(2)],
+	);
+	assert!(!oversized.is_well_formed());
+	assert!(RoomGrid::decode(&oversized.encode()).is_err());
+	println!(
+		"{side}x{side}: {} bytes, {base64_len} base64 characters, {} JSON bytes",
+		bytes.len(),
+		json.len()
+	);
 }
 
 #[test]

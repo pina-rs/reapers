@@ -28,6 +28,7 @@ pub mod room_survey;
 
 pub use depth_frame::DepthFrame;
 pub use depth_frame::RayGrid;
+pub use depth_frame::RayHit;
 pub use drawn_room::Block;
 pub use drawn_room::DrawnRoom;
 pub use drawn_room::Shot;

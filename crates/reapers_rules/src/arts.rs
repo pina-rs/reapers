@@ -119,7 +119,13 @@ impl ArtSkill {
 	}
 
 	const fn step(&self) -> i64 {
-		self.rank - 1
+		if self.rank <= 1 {
+			0
+		} else if self.rank >= ArtRules::MAX_RANK {
+			ArtRules::MAX_RANK - 1
+		} else {
+			self.rank - 1
+		}
 	}
 
 	/// Ward removed when it lands, in strikes.

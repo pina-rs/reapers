@@ -201,46 +201,61 @@ impl DrawnRoom {
 	/// farther side of it. Both directions are swept, so a desk's front and
 	/// its side are both smeared.
 	fn smear_flying(depths: &mut [f32], width: usize, height: usize, pixels: usize) {
+		if width == 0 || height == 0 || pixels == 0 {
+			return;
+		}
+
 		let source = depths.to_vec();
-		let mut smear = |one: usize, other: usize| {
-			let (near, far) = (source[one], source[other]);
-
+		let is_edge = |near: f32, far: f32| -> Option<f32> {
 			if !(near > 0.0 && near.is_finite() && far > 0.0 && far.is_finite()) {
-				return;
+				return None;
 			}
-
 			let step = (f64::from(near) - f64::from(far)).abs() / f64::from(near.min(far));
-
-			if step <= Shot::FLYING_EDGE {
-				return;
-			}
-
-			let midpoint = near.midpoint(far);
-
-			// The band lies on the farther side of the silhouette, running
-			// away from the nearer pixel.
-			let (at, stride) = if near < far { (other, 1) } else { (one, -1) };
-
-			for offset in 0..pixels {
-				let at = at as i64 + stride * offset as i64;
-
-				if at < 0 || at >= depths.len() as i64 {
-					break;
-				}
-
-				depths[at as usize] = midpoint;
-			}
+			(step > Shot::FLYING_EDGE).then(|| near.midpoint(far))
 		};
 
 		for row in 0..height {
-			for column in 0..width - 1 {
-				smear(row * width + column, row * width + column + 1);
+			let base = row * width;
+			for column in 0..width.saturating_sub(1) {
+				let one = source[base + column];
+				let other = source[base + column + 1];
+				let Some(midpoint) = is_edge(one, other) else {
+					continue;
+				};
+				let (start, step): (i64, i64) = if one < other {
+					((column + 1) as i64, 1)
+				} else {
+					(column as i64, -1)
+				};
+				for offset in 0..pixels {
+					let col = start + step * offset as i64;
+					if col < 0 || col >= width as i64 {
+						break;
+					}
+					depths[base + col as usize] = midpoint;
+				}
 			}
 		}
 
 		for column in 0..width {
-			for row in 0..height - 1 {
-				smear(row * width + column, (row + 1) * width + column);
+			for row in 0..height.saturating_sub(1) {
+				let one = source[row * width + column];
+				let other = source[(row + 1) * width + column];
+				let Some(midpoint) = is_edge(one, other) else {
+					continue;
+				};
+				let (start, step): (i64, i64) = if one < other {
+					((row + 1) as i64, 1)
+				} else {
+					(row as i64, -1)
+				};
+				for offset in 0..pixels {
+					let r = start + step * offset as i64;
+					if r < 0 || r >= height as i64 {
+						break;
+					}
+					depths[r as usize * width + column] = midpoint;
+				}
 			}
 		}
 	}

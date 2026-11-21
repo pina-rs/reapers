@@ -83,13 +83,25 @@ impl ArPose {
 	/// Where `direction` appears on the screen, as x and y from -1 to 1 with
 	/// y up, or `None` when it is behind the player.
 	pub fn project(&self, direction: Vec3, vertical_fov: f64, aspect: f64) -> Option<(f64, f64)> {
+		if !vertical_fov.is_finite()
+			|| vertical_fov <= 0.0
+			|| vertical_fov >= PI
+			|| !aspect.is_finite()
+			|| aspect <= 0.0
+		{
+			return None;
+		}
+
 		let depth = direction.dot(self.forward);
 
-		if depth <= 1e-6 {
+		if !depth.is_finite() || depth <= 1e-6 {
 			return None;
 		}
 
 		let half_height = math::tan(vertical_fov / 2.0);
+		if !half_height.is_finite() || half_height <= 1e-9 {
+			return None;
+		}
 
 		Some((
 			direction.dot(self.right) / depth / (half_height * aspect),
@@ -206,6 +218,15 @@ impl AttitudeFilter {
 	/// Feeds one gyroscope sample, in radians a second, taken
 	/// `delta_seconds` after the last.
 	pub fn add_rotation(&mut self, x: f64, y: f64, z: f64, delta_seconds: f64) {
+		if !(x.is_finite()
+			&& y.is_finite()
+			&& z.is_finite()
+			&& delta_seconds.is_finite()
+			&& delta_seconds > 0.0)
+		{
+			return;
+		}
+
 		let speed = math::length(x, y, z);
 		let blend = 1.0 - math::exp(-delta_seconds / Self::SPEED_SMOOTHING);
 
@@ -489,6 +510,10 @@ impl Rotation {
 	fn normalized(self) -> Self {
 		let size =
 			math::sqrt(self.w * self.w + self.x * self.x + self.y * self.y + self.z * self.z);
+
+		if !size.is_finite() || size < 1e-12 {
+			return Self::IDENTITY;
+		}
 
 		Self::new(self.w / size, self.x / size, self.y / size, self.z / size)
 	}

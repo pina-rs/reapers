@@ -400,8 +400,19 @@ impl TryFrom<HuntOutcomeRecord> for HuntOutcome {
 	type Error = FormatError;
 
 	fn try_from(record: HuntOutcomeRecord) -> Result<Self, FormatError> {
+		if record.ticks < 0 {
+			return Err(FormatError::new(
+				"A hunt outcome cannot carry negative ticks",
+			));
+		}
+
 		let end = match (record.grade, record.escape) {
-			(Some(grade), _) => HuntEnd::Absorbed(grade),
+			(Some(_), Some(_)) => {
+				return Err(FormatError::new(
+					"A hunt outcome cannot carry both a grade and an escape",
+				));
+			}
+			(Some(grade), None) => HuntEnd::Absorbed(grade),
 			(None, Some(escape)) => HuntEnd::Escaped(escape),
 			(None, None) => {
 				return Err(FormatError::new(

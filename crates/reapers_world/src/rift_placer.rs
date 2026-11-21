@@ -33,6 +33,7 @@ pub struct RiftPlacer {
 
 	frames_since_told: u32,
 	frames_waited: u32,
+	last_fix_usable: bool,
 }
 
 impl Default for RiftPlacer {
@@ -60,12 +61,18 @@ impl RiftPlacer {
 			sighting: None,
 			frames_since_told: Self::TELL_EVERY_FRAMES,
 			frames_waited: 0,
+			last_fix_usable: false,
 		}
 	}
 
 	/// Whether the phone is still being given time to find itself.
 	pub const fn still_looking(&self) -> bool {
-		self.fix.is_none() && self.frames_waited < Self::FRAMES_TO_FIND_ITSELF
+		let have_fix = if self.frames_waited == 0 {
+			self.fix.is_some()
+		} else {
+			self.last_fix_usable
+		};
+		!have_fix && self.frames_waited < Self::FRAMES_TO_FIND_ITSELF
 	}
 
 	/// Takes in `frame` at the time `now`, with the phone facing `facing`
@@ -83,6 +90,7 @@ impl RiftPlacer {
 		now: Timestamp,
 	) -> Option<GeoStanding> {
 		let here = self.fix.filter(|fix| fix.is_usable_at(now));
+		self.last_fix_usable = here.is_some();
 
 		self.frames_waited = self.frames_waited.saturating_add(1);
 

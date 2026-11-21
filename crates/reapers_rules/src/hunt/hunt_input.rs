@@ -402,6 +402,11 @@ impl HuntLog {
 			ledges,
 			room,
 		};
+
+		if !plan.is_well_formed() {
+			return Err(HuntLogError::BrokenPlan);
+		}
+
 		let inputs = Self::decode_inputs(bytes, offset, &plan)?;
 
 		Ok(Self {

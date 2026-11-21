@@ -132,10 +132,19 @@ impl Leap {
 	}
 
 	fn solve_once(from: Vec3, to: Vec3, clearance: f64) -> Self {
+		let clearance = math::max(
+			0.0,
+			if clearance.is_finite() {
+				clearance
+			} else {
+				0.0
+			},
+		);
 		let apex = math::max(from.y, to.y) + clearance;
-		let rise = math::sqrt(2.0 * (apex - from.y) / LeapRules::GRAVITY);
-		let fall = math::sqrt(2.0 * (apex - to.y) / LeapRules::GRAVITY);
-		let ticks = math::ceil_int(math::max(1.0, (rise + fall) * HuntRules::TICK_RATE as f64));
+		let rise = math::sqrt(math::max(0.0, 2.0 * (apex - from.y) / LeapRules::GRAVITY));
+		let fall = math::sqrt(math::max(0.0, 2.0 * (apex - to.y) / LeapRules::GRAVITY));
+		let ticks =
+			math::ceil_int(math::max(1.0, (rise + fall) * HuntRules::TICK_RATE as f64)).max(1);
 		let flight = ticks as f64 / HuntRules::TICK_RATE as f64;
 		let vertical = (to.y - from.y + 0.5 * LeapRules::GRAVITY * flight * flight) / flight;
 

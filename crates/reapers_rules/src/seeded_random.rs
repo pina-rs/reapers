@@ -106,7 +106,15 @@ pub fn mix_seed(values: &[i64]) -> i64 {
 /// A stable 32-bit hash of `text`, over its UTF-16 code units, for seeding
 /// from string identifiers.
 pub fn hash_text(text: &str) -> i64 {
-	let units: Vec<i64> = text.encode_utf16().map(i64::from).collect();
+	let mut hash: u32 = 0x811C_9DC5;
 
-	mix_seed(&units)
+	for unit in text.encode_utf16() {
+		let value = u32::from(unit);
+		for shift in (0..32).step_by(8) {
+			hash ^= (value >> shift) & 0xFF;
+			hash = hash.wrapping_mul(0x0100_0193);
+		}
+	}
+
+	i64::from(hash)
 }

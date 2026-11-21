@@ -245,8 +245,13 @@ impl Sigil {
 
 		(0..count)
 			.map(|column| {
+				let yaw = if count > 1 {
+					-span / 2.0 + span * column as f64 / (count as f64 - 1.0)
+				} else {
+					0.0
+				};
 				SigilLight {
-					yaw: -span / 2.0 + span * column as f64 / (count as f64 - 1.0),
+					yaw,
 					pitch: low + (high - low) * heights[column] as f64 / 2.0,
 				}
 			})
@@ -409,7 +414,12 @@ impl SigilTrace {
 	/// [`HuntRules::SIGIL_STEADY_SPEED`]. Resting on it while turning faster
 	/// holds it where it is, and looking away drains it.
 	pub fn advance(&mut self, aim: Vec3, turn_speed: f64, delta_seconds: f64) -> Vec<SigilEvent> {
-		if self.is_closed() {
+		if self.is_closed()
+			|| !delta_seconds.is_finite()
+			|| delta_seconds <= 0.0
+			|| !self.sigil.hold_seconds.is_finite()
+			|| self.sigil.hold_seconds <= 0.0
+		{
 			return Vec::new();
 		}
 

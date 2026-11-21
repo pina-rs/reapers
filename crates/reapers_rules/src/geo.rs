@@ -75,10 +75,12 @@ impl GeoPoint {
 	pub fn moved(&self, bearing: f64, metres: f64) -> Self {
 		let arc = metres / Self::EARTH_RADIUS;
 		let from_latitude = radians(self.latitude);
-		let to_latitude = math::asin(
+		let to_latitude = math::asin(math::clamp(
 			math::sin(from_latitude) * math::cos(arc)
 				+ math::cos(from_latitude) * math::sin(arc) * math::cos(bearing),
-		);
+			-1.0,
+			1.0,
+		));
 		let across_longitude = math::atan2(
 			math::sin(bearing) * math::sin(arc) * math::cos(from_latitude),
 			math::cos(arc) - math::sin(from_latitude) * math::sin(to_latitude),

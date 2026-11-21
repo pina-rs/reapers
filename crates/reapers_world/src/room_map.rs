@@ -97,6 +97,143 @@ const FLOOR_SHARE: f64 = 0.15;
 ///
 /// This holds no camera and no model, only arithmetic, so that it can be
 /// tested against rooms drawn by hand.
+/// Tracks the room's floor height and per-picture floor scale without
+/// allocating the 2 MiB slice/furniture tables of a full [`RoomMap`].
+/// Shared between [`RoomMap`] and [`RoomGridBuilder`](crate::RoomGridBuilder)
+/// so the plan and the 10 cm grid always agree on the floor to the bit.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct FloorTracker {
+	floors: Vec<f64>,
+	measured_floor: Option<f64>,
+	frames: usize,
+	last_picture_floor: Option<f64>,
+}
+
+impl FloorTracker {
+	pub(crate) const fn new() -> Self {
+		Self {
+			floors: Vec::new(),
+			measured_floor: None,
+			frames: 0,
+			last_picture_floor: None,
+		}
+	}
+
+	pub(crate) const fn frames(&self) -> usize {
+		self.frames
+	}
+
+	pub(crate) const fn last_picture_floor(&self) -> Option<f64> {
+		self.last_picture_floor
+	}
+
+	pub(crate) const fn floor_is_measured(&self) -> bool {
+		self.measured_floor.is_some()
+	}
+
+	pub(crate) fn floor_depth(&self) -> Option<f64> {
+		if self.measured_floor.is_some() {
+			return self.measured_floor;
+		}
+
+		self.picture_floor_depth()
+	}
+
+	fn picture_floor_depth(&self) -> Option<f64> {
+		if self.floors.is_empty() {
+			return None;
+		}
+
+		Some(self.floors.iter().sum::<f64>() / self.floors.len() as f64)
+	}
+
+	pub(crate) fn measure_floor(&mut self, eye_height: f64) -> bool {
+		if !(FLOOR_NEAREST..=FLOOR_FARTHEST).contains(&eye_height) {
+			return false;
+		}
+
+		self.measured_floor = Some(eye_height);
+		true
+	}
+
+	/// Evaluates a picture's floor against this tracker for a walking room
+	/// grid (accepting only pictures with a valid, agreeing floor).
+	pub(crate) fn accept_ground(&mut self, frame: &DepthFrame, estimated: bool) -> bool {
+		let columns = frame.width / STRIDE;
+		let rows = frame.height / STRIDE;
+		let cloud = Cloud::of(frame);
+		let level = level_points(&cloud, columns, rows);
+		self.evaluate(&cloud, &level, frame.origin, Gait::Ground, estimated)
+			.is_some()
+	}
+
+	/// Resolves `(picture_floor, scale, unit)` for `frame`, updating floor
+	/// tracking state if accepted. Returns `None` if the picture is rejected.
+	fn evaluate(
+		&mut self,
+		cloud: &Cloud,
+		level: &[bool],
+		origin: Vec3,
+		gait: Gait,
+		estimated: bool,
+	) -> Option<(Option<f64>, Option<f64>, Option<f64>)> {
+		let measured = self.measured_floor.filter(|_| !estimated);
+		let own = if measured.is_some() {
+			None
+		} else {
+			floor_of(&cloud.ys, level)
+		};
+		let agreed = if self.floors.len() < PICTURES_TO_AGREE {
+			None
+		} else {
+			self.picture_floor_depth()
+		};
+
+		// The floor below this picture's own eye, in its own metres.
+		let floor = measured
+			.map(|floor| floor + origin.y)
+			.or(own)
+			.filter(|floor| floor.is_finite() && *floor > 0.0);
+		let floor_at_origin = floor
+			.map(|floor| floor - origin.y)
+			.filter(|at_origin| (FLOOR_NEAREST..=FLOOR_FARTHEST).contains(at_origin));
+
+		let agrees = floor_at_origin.is_some_and(|floor| {
+			measured.is_some()
+				|| agreed.is_none_or(|agreed| (floor / agreed - 1.0).abs() <= FLOOR_LEEWAY)
+		});
+
+		if gait == Gait::Ground && !agrees {
+			return None;
+		}
+		if estimated && self.measured_floor.is_some() && !agrees {
+			return None;
+		}
+		if agrees
+			&& let Some(at_origin) = floor_at_origin
+			&& own.is_some()
+		{
+			self.floors.push(at_origin);
+		}
+		let chart = floor.filter(|_| agrees);
+		let unit = self.floor_depth().filter(|u| u.is_finite() && *u > 0.0);
+		let scale = chart.and_then(|floor| {
+			let numerator = unit.unwrap_or(floor - origin.y) + origin.y;
+			let scale = numerator / floor;
+			(scale.is_finite() && scale > 0.0).then_some(scale)
+		});
+
+		if gait != Gait::Ground && estimated && self.measured_floor.is_some() && scale.is_none() {
+			return None;
+		}
+
+		self.last_picture_floor = chart;
+		self.frames += 1;
+
+		Some((chart, scale, unit))
+	}
+}
+
 #[derive(Clone, Debug)]
 pub struct RoomMap {
 	/// The husk the room is being read for: how it gets about decides what
@@ -106,8 +243,7 @@ pub struct RoomMap {
 	clear: Vec<u32>,
 	taken: Vec<u32>,
 	seen: Vec<u32>,
-	floors: Vec<f64>,
-	measured_floor: Option<f64>,
+	floor: FloorTracker,
 
 	// What stands on the floor, whatever the husk. Every length is in
 	// multiples of the floor's depth in its own picture, like the rings.
@@ -121,9 +257,6 @@ pub struct RoomMap {
 	/// and the same for the points among them that lie on a level surface.
 	heights: Vec<u32>,
 	level_heights: Vec<u32>,
-
-	frames: usize,
-	last_picture_floor: Option<f64>,
 
 	// What the pictures so far add up to. Worked out once for each picture
 	// taken in, not each time it is asked for.
@@ -212,14 +345,11 @@ impl RoomMap {
 			clear: vec![0; cells],
 			taken: vec![0; cells],
 			seen: vec![0; HuntPlan::SLICES],
-			floors: Vec::new(),
-			measured_floor: None,
+			floor: FloorTracker::new(),
 			floor_at: vec![0; cells],
 			solid: vec![0; cells],
 			heights: vec![0; cells * HEIGHT_BINS],
 			level_heights: vec![0; cells * HEIGHT_BINS],
-			frames: 0,
-			last_picture_floor: None,
 			read: vec![0.0; HuntPlan::SLICES],
 			reach: vec![None; HuntPlan::SLICES],
 			furniture: vec![None; HuntPlan::SLICES],
@@ -233,7 +363,7 @@ impl RoomMap {
 
 	/// Pictures taken in so far.
 	pub const fn frames(&self) -> usize {
-		self.frames
+		self.floor.frames()
 	}
 
 	/// How far below the eye of the last picture the floor was in that
@@ -241,7 +371,7 @@ impl RoomMap {
 	/// this is how far to scale it to agree with
 	/// [`floor_depth`](Self::floor_depth).
 	pub const fn last_picture_floor(&self) -> Option<f64> {
-		self.last_picture_floor
+		self.floor.last_picture_floor()
 	}
 
 	/// How far the floor is below the hunt's origin, in metres: as the
@@ -251,25 +381,13 @@ impl RoomMap {
 	/// The mean is the one estimate the plan and the room's grid both use, so
 	/// the grid a husk walks is always one the plan agrees with.
 	pub fn floor_depth(&self) -> Option<f64> {
-		if self.measured_floor.is_some() {
-			return self.measured_floor;
-		}
-
-		self.picture_floor_depth()
-	}
-
-	fn picture_floor_depth(&self) -> Option<f64> {
-		if self.floors.is_empty() {
-			return None;
-		}
-
-		Some(self.floors.iter().sum::<f64>() / self.floors.len() as f64)
+		self.floor.floor_depth()
 	}
 
 	/// Whether the floor's depth was measured by the platform rather than
 	/// found in the pictures.
 	pub const fn floor_is_measured(&self) -> bool {
-		self.measured_floor.is_some()
+		self.floor.floor_is_measured()
 	}
 
 	/// Takes the floor as `eye_height` metres below the hunt's origin, as the
@@ -301,11 +419,10 @@ impl RoomMap {
 	/// a measured floor: use [`add_estimated`](Self::add_estimated) for a
 	/// depth model's pictures, which must first find their own floors.
 	pub fn measure_floor(&mut self, eye_height: f64) -> bool {
-		if !(FLOOR_NEAREST..=FLOOR_FARTHEST).contains(&eye_height) {
+		if !self.floor.measure_floor(eye_height) {
 			return false;
 		}
 
-		self.measured_floor = Some(eye_height);
 		self.reckon();
 
 		true
@@ -330,51 +447,13 @@ impl RoomMap {
 		let columns = frame.width / STRIDE;
 		let rows = frame.height / STRIDE;
 		let mut cloud = Cloud::of(frame);
-
 		let level = level_points(&cloud, columns, rows);
-		let measured = self.measured_floor.filter(|_| !estimated);
-		let own = if measured.is_some() {
-			None
-		} else {
-			floor_of(&cloud.ys, &level)
-		};
-		let agreed = if self.floors.len() < PICTURES_TO_AGREE {
-			None
-		} else {
-			self.picture_floor_depth()
-		};
-
-		// The floor below this picture's own eye, in its own metres: the
-		// measured floor is below the hunt's origin, so a picture taken from
-		// above or below it sees the floor that much farther away.
-		let floor = measured.map(|floor| floor + frame.origin.y).or(own);
-		// The same floor below the hunt's origin. Every picture is measured
-		// against this, so a picture taken from elsewhere still says what the
-		// room is.
-		let floor_at_origin = floor.map(|floor| floor - frame.origin.y);
-		// A picture with a table across it and hardly any floor takes the
-		// table for the floor. Once a few pictures agree where the floor is,
-		// one that puts it somewhere else altogether is not charted.
-		let agrees = floor_at_origin.is_some_and(|floor| {
-			measured.is_some()
-				|| agreed.is_none_or(|agreed| (floor / agreed - 1.0).abs() <= FLOOR_LEEWAY)
-		});
-
-		if self.vessel.gait() == Gait::Ground && !agrees {
+		let Some((chart, scale, unit)) =
+			self.floor
+				.evaluate(&cloud, &level, frame.origin, self.vessel.gait(), estimated)
+		else {
 			return false;
-		}
-		// An estimate cannot borrow the measured floor as its own scale.
-		if estimated && self.measured_floor.is_some() && !agrees {
-			return false;
-		}
-		// Only accepted pictures contribute to the floor at the hunt's origin.
-		if agrees && let Some(own) = own {
-			self.floors.push(own - frame.origin.y);
-		}
-		let chart = floor.filter(|_| agrees);
-		let unit = self.floor_depth();
-		let scale =
-			chart.map(|floor| (unit.unwrap_or(floor - frame.origin.y) + frame.origin.y) / floor);
+		};
 
 		if let (Some(floor), Some(scale), Some(unit)) = (chart, scale, unit) {
 			if self.vessel.gait() == Gait::Ground {
@@ -383,7 +462,7 @@ impl RoomMap {
 			self.chart_furniture(&cloud, &level, floor, scale, frame.origin, unit);
 		}
 		if self.vessel.gait() != Gait::Ground {
-			if estimated && self.measured_floor.is_some() {
+			if estimated && self.floor.floor_is_measured() {
 				// Air is classified in metres; the model's floor calibrates
 				// distances from this picture's eye before its origin is added.
 				let Some(scale) = scale else {
@@ -398,8 +477,6 @@ impl RoomMap {
 			self.chart_air(&cloud, &level, frame.origin);
 		}
 
-		self.last_picture_floor = floor;
-		self.frames += 1;
 		self.reckon();
 
 		true
@@ -722,7 +799,7 @@ impl RoomMap {
 			let Some((x, y, z, away, ring)) = cloud.point(index, scale, origin, unit) else {
 				continue;
 			};
-			let above = floor + y;
+			let above = (floor + y) * scale;
 			let slack = FLOOR_SLACK + FLOOR_SLACK_PER_METRE * away;
 			let slice = slice_of(x, z);
 			let cell = slice * RINGS + ring;
@@ -756,11 +833,11 @@ impl RoomMap {
 				continue;
 			};
 
-			if y > 0.0 {
+			if y * scale + origin.y > 0.0 {
 				continue;
 			}
 
-			let above = floor + y;
+			let above = (floor + y) * scale;
 			let slack = FLOOR_SLACK + FLOOR_SLACK_PER_METRE * away;
 			let cell = slice_of(x, z) * RINGS + ring;
 
@@ -773,15 +850,9 @@ impl RoomMap {
 				continue;
 			}
 
-			// How high it stands, as a share of the hunt's own floor: the
-			// picture's metres scaled to the room's, then taken against the
-			// floor the plan stands on. A picture taken from above or below
-			// the hunt's origin sees the floor that much farther below its
-			// own eye, so its heights must come back to the origin's eye
-			// here too, or the room's furniture reads proportionally lower
-			// than it is.
-			let bin = math::floor(above * scale / unit / HEIGHT_BIN)
-				.clamp(0, HEIGHT_BINS as i64 - 1) as usize;
+			// How high it stands, as a share of the hunt's own floor.
+			let bin =
+				math::floor(above / unit / HEIGHT_BIN).clamp(0, HEIGHT_BINS as i64 - 1) as usize;
 
 			self.solid[cell] += 1;
 			self.heights[cell * HEIGHT_BINS + bin] += 1;
@@ -813,12 +884,12 @@ impl RoomMap {
 			}
 
 			let slice = slice_of(x, z);
-			let ring = math::floor(away / RING_SIZE) as usize;
+			let ring = math::floor(away / RING_SIZE);
 
 			self.seen[slice] += 1;
 
-			if ring < RINGS {
-				self.taken[slice * RINGS + ring] += 1;
+			if ring >= 0 && ring < RINGS as i64 {
+				self.taken[slice * RINGS + ring as usize] += 1;
 			}
 		}
 	}
@@ -885,19 +956,23 @@ impl Cloud {
 		origin: Vec3,
 		unit: f64,
 	) -> Option<(f64, f64, f64, f64, usize)> {
+		if !unit.is_finite() || unit <= 0.0 || !scale.is_finite() || scale <= 0.0 {
+			return None;
+		}
+
 		let y = f64::from(self.ys[index]);
 		let x = f64::from(self.xs[index]) * scale + origin.x;
 		let z = f64::from(self.zs[index]) * scale + origin.z;
 		let away = math::sqrt(x * x + z * z);
 
 		// A point that was not seen is NaN, and fails this too.
-		if away.is_nan() || away < SELF_METRES {
+		if !away.is_finite() || !y.is_finite() || away < SELF_METRES {
 			return None;
 		}
 
 		let ring = math::floor(away / unit / RING_SIZE);
 
-		(ring < RINGS as i64).then_some((x, y, z, away, ring as usize))
+		(ring >= 0 && ring < RINGS as i64).then_some((x, y, z, away, ring as usize))
 	}
 }
 

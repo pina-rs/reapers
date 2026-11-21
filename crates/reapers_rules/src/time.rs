@@ -246,7 +246,7 @@ fn parse_iso(text: &str) -> Option<Timestamp> {
 	}
 	let day = reader.digits(2)?;
 
-	if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+	if !(1..=12).contains(&month) || !(1..=days_in_month(year, month)).contains(&day) {
 		return None;
 	}
 
@@ -282,7 +282,8 @@ fn parse_iso(text: &str) -> Option<Timestamp> {
 		}
 	}
 
-	if hour > 24 || minute > 59 || second > 59 {
+	let midnight_end = hour == 24 && minute == 0 && second == 0 && micros == 0;
+	if (!midnight_end && hour >= 24) || minute > 59 || second > 59 {
 		return None;
 	}
 
@@ -294,8 +295,15 @@ fn parse_iso(text: &str) -> Option<Timestamp> {
 		Some(sign @ (b'+' | b'-')) => {
 			reader.at += 1;
 			let hours = reader.digits(2)?;
-			reader.eat(b':');
-			let minutes = reader.digits(2).unwrap_or(0);
+			let has_colon = reader.eat(b':');
+			let minutes = match reader.digits(2) {
+				Some(value) => value,
+				None if has_colon => return None,
+				None => 0,
+			};
+			if hours > 23 || minutes > 59 {
+				return None;
+			}
 			offset = (hours * 60 + minutes) * 60 * if sign == b'-' { -1 } else { 1 };
 		}
 		Some(_) => return None,
@@ -306,13 +314,32 @@ fn parse_iso(text: &str) -> Option<Timestamp> {
 	}
 
 	let days = days_from_civil(year, month, day);
-	let seconds = ((days * 24 + hour) * 60 + minute) * 60 + second - offset;
+	let seconds = days
+		.checked_mul(24)?
+		.checked_add(hour)?
+		.checked_mul(60)?
+		.checked_add(minute)?
+		.checked_mul(60)?
+		.checked_add(second)?
+		.checked_sub(offset)?;
 
 	Some(Timestamp::from_micros(
 		seconds
 			.checked_mul(MICROS_PER_SECOND)?
 			.checked_add(micros)?,
 	))
+}
+
+fn days_in_month(year: i64, month: i64) -> i64 {
+	match month {
+		1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+		4 | 6 | 9 | 11 => 30,
+		2 => {
+			let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+			if leap { 29 } else { 28 }
+		}
+		_ => 0,
+	}
 }
 
 #[cfg(test)]

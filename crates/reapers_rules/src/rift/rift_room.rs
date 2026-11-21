@@ -184,11 +184,19 @@ struct Member {
 	outcome: Option<HuntOutcome>,
 
 	/// A shade's own fight, played by the room, and the bot that plays it.
-	/// `None` for a person, whose fight is played on their phone.
+	/// `None` for a person whose fight is played on their phone.
 	fight: Option<(RiftSeat, HuntBot)>,
+
+	/// A person's own fight when the room runs authoritatively, with queued
+	/// per-tick inputs stepped alongside the shades.
+	authoritative_seat: Option<RiftSeat>,
+	queued_inputs: std::collections::VecDeque<HuntInput>,
 }
 
 impl Member {
+	/// Upper bound on queued inputs per seat so a client cannot exhaust memory.
+	const MAX_QUEUED_INPUTS: usize = 600;
+
 	fn new(entrant: RiftEntrant, shade: bool) -> Self {
 		Self {
 			entrant,
@@ -198,6 +206,8 @@ impl Member {
 			dealt: 0.0,
 			outcome: None,
 			fight: None,
+			authoritative_seat: None,
+			queued_inputs: std::collections::VecDeque::new(),
 		}
 	}
 
@@ -214,11 +224,13 @@ impl Member {
 /// how much ward is left, and whether the rift was sealed. It reads no clock
 /// and rolls no dice of its own: whoever hosts it, the game alone or the
 /// server for many, calls [`advance`](Self::advance) as time passes and
-/// [`report`](Self::report) as reapers act.
+/// [`report`](Self::report) (or [`queue_inputs`](Self::queue_inputs) when
+/// constructed with [`authoritative`](Self::authoritative)) as reapers act.
 #[derive(Clone, Debug)]
 pub struct RiftRoom {
 	site: RiftSite,
 	seed: i64,
+	authoritative: bool,
 	members: Vec<Member>,
 	phase: RiftPhase,
 	tick: i64,
@@ -230,6 +242,9 @@ pub struct RiftRoom {
 }
 
 impl RiftRoom {
+	/// Bounds historical join/leave entries during gathering so repeated churn
+	/// cannot grow `members` without limit.
+	const MAX_GATHER_HISTORY: usize = 32;
 	/// A reap is given this long past its window before the room gives up on
 	/// reapers who have not said how theirs ended.
 	const REPORT_GRACE_TICKS: i64 = 45;
@@ -238,6 +253,7 @@ impl RiftRoom {
 		Self {
 			site,
 			seed,
+			authoritative: false,
 			members: Vec::new(),
 			phase: RiftPhase::Gathering,
 			tick: 0,
@@ -247,6 +263,30 @@ impl RiftRoom {
 			countdown: None,
 			reap_ends_tick: 0,
 		}
+	}
+
+	/// A rift whose human seats are simulated directly inside the room from
+	/// submitted [`HuntInput`] streams rather than trusting client-reported
+	/// damage and outcomes.
+	pub const fn authoritative(site: RiftSite, seed: i64) -> Self {
+		Self {
+			site,
+			seed,
+			authoritative: true,
+			members: Vec::new(),
+			phase: RiftPhase::Gathering,
+			tick: 0,
+			ward_max: 0.0,
+			anchor: None,
+			gather_ticks: 0,
+			countdown: None,
+			reap_ends_tick: 0,
+		}
+	}
+
+	/// Whether human seats are stepped authoritatively by the room.
+	pub const fn is_authoritative(&self) -> bool {
+		self.authoritative
 	}
 
 	pub const fn site(&self) -> RiftSite {
@@ -282,7 +322,9 @@ impl RiftRoom {
 
 	/// Whether another reaper may still join.
 	pub fn is_open(&self) -> bool {
-		self.phase == RiftPhase::Gathering && self.present().count() < RiftRules::CIRCLE
+		self.phase == RiftPhase::Gathering
+			&& self.present().count() < RiftRules::CIRCLE
+			&& self.members.len() < Self::MAX_GATHER_HISTORY
 	}
 
 	/// Whether any reaper who joined is still here.
@@ -295,7 +337,9 @@ impl RiftRoom {
 		let mut dealt = 0.0;
 
 		for member in &self.members {
-			dealt += member.dealt;
+			if member.dealt.is_finite() && member.dealt > 0.0 {
+				dealt += member.dealt;
+			}
 		}
 
 		math::max(0.0, self.ward_max - dealt)
@@ -331,10 +375,62 @@ impl RiftRoom {
 		};
 
 		member.left = true;
+		member.queued_inputs.clear();
 
 		if self.phase == RiftPhase::Gathering {
 			self.countdown = None;
 		}
+	}
+
+	/// Queues per-tick inputs for an authoritative human seat. Inputs with
+	/// impossible aim or excess backlog are silently dropped/clamped so one
+	/// client cannot corrupt or exhaust the room.
+	pub fn queue_inputs(&mut self, seat: usize, inputs: &[HuntInput]) {
+		if !self.authoritative || self.phase.is_over() {
+			return;
+		}
+
+		let Some(member) = self.members.get_mut(seat) else {
+			return;
+		};
+
+		if member.left || member.shade {
+			return;
+		}
+
+		for input in inputs {
+			if member.queued_inputs.len() >= Member::MAX_QUEUED_INPUTS {
+				break;
+			}
+			if !input.aim.is_valid() {
+				continue;
+			}
+			let mut clean = input.clone();
+			clean.turn_speed = clean.turn_speed.clamp(0, HuntInput::MAX_TURN_SPEED);
+			clean.slot = (usize::from(clean.slot) % crate::hunt::arsenal::Arsenal::SLOTS) as u8;
+			member.queued_inputs.push_back(clean);
+		}
+	}
+
+	/// A generous upper bound on the damage `seat` could plausibly have dealt
+	/// by the current fight tick (used by hosts validating untrusted
+	/// [`RiftReport`] messages).
+	pub fn max_plausible_dealt(&self, seat: usize) -> f64 {
+		let Some(member) = self.members.get(seat) else {
+			return 0.0;
+		};
+		let Ok(stats) = HuntStats::derive(&member.entrant.loadout, 1.0) else {
+			return 0.0;
+		};
+		// Generous ceiling: active-reload critical shots with max cadence +
+		// gifts + art bursts, plus a small clock-skew grace window (120 ticks).
+		let effective_ticks = (self.tick.max(0) + 120) as f64;
+		let max_shots =
+			effective_ticks / crate::hunt::arsenal::GunRules::FIRE_INTERVAL_TICKS as f64;
+		let peak_shot =
+			stats.hit * crate::hunt::arsenal::GunRules::SHOT_STRIKE * 2.0 * 1.25 * 2.0 * 3.0;
+		let art_burst = stats.hit * 6.0 * (1.0 + effective_ticks / 420.0);
+		math::min(self.ward_max, max_shots * peak_shot + art_burst)
 	}
 
 	/// Takes in what the reaper in `seat` says of their own fight. A seat
@@ -342,6 +438,8 @@ impl RiftRoom {
 	pub fn report(&mut self, seat: usize, report: &RiftReport) {
 		let phase = self.phase;
 		let site = self.site;
+		let ward_max = self.ward_max;
+		let authoritative = self.authoritative;
 		let Some(member) = self.members.get_mut(seat) else {
 			return;
 		};
@@ -358,6 +456,8 @@ impl RiftRoom {
 			// from it.
 			if let Some(standing) = &report.standing
 				&& self.anchor.is_none()
+				&& standing.at.is_valid()
+				&& standing.facing.is_finite()
 			{
 				self.anchor = Some(site.anchor_for(standing));
 			}
@@ -365,7 +465,16 @@ impl RiftRoom {
 			return;
 		}
 
-		member.dealt = math::max(member.dealt, report.dealt);
+		// Authoritative rooms derive dealt and outcome solely from stepped
+		// human seats; reports only carry readiness and gathering anchor.
+		if authoritative {
+			return;
+		}
+
+		if report.dealt.is_finite() && report.dealt >= 0.0 {
+			let clamped = math::min(report.dealt, ward_max);
+			member.dealt = math::max(member.dealt, clamped);
+		}
 		member.outcome = member.outcome.or(report.outcome);
 	}
 
@@ -409,8 +518,9 @@ impl RiftRoom {
 				RiftPhase::Gathering => {
 					self.countdown
 						.unwrap_or(RiftRules::GATHER_LIMIT_TICKS - self.gather_ticks)
+						.max(0)
 				}
-				RiftPhase::Fight => RiftRules::FIGHT_LIMIT_TICKS - self.tick,
+				RiftPhase::Fight => (RiftRules::FIGHT_LIMIT_TICKS - self.tick).max(0),
 				RiftPhase::Reap => (self.reap_ends_tick - self.tick).max(0),
 				RiftPhase::Sealed | RiftPhase::Failed => 0,
 			},
@@ -449,7 +559,7 @@ impl RiftRoom {
 			return RiftReward::default();
 		};
 
-		if self.phase != RiftPhase::Sealed || member.left {
+		if self.phase != RiftPhase::Sealed || member.left || self.ward_max <= 0.0 {
 			return RiftReward::default();
 		}
 
@@ -530,29 +640,33 @@ impl RiftRoom {
 
 		self.ward_max = RiftRules::ward_for(&circle);
 
-		let (seed, site, ward_max) = (self.seed, self.site, self.ward_max);
+		let (seed, site, ward_max, authoritative) =
+			(self.seed, self.site, self.ward_max, self.authoritative);
 
-		for member in self
-			.members
-			.iter_mut()
-			.filter(|member| !member.left && member.shade)
-		{
-			if let Ok(seat) = RiftSeat::new(seed, site, ward_max, &member.entrant.loadout, None) {
-				// A shade is slower to see a seal, wider of the mark, waits
-				// out every reload and never draws the knife, so company is
-				// always worth more than shades.
-				let bot = HuntBot::new(
-					&seat.sim,
-					HuntBotStyle {
-						reaction_ticks: 34,
-						miss_every: 3,
-						active_reload_tick: None,
-						knife: false,
-						..HuntBotStyle::CAREFUL
-					},
-				);
+		for member in self.members.iter_mut().filter(|member| !member.left) {
+			if member.shade {
+				if let Ok(seat) = RiftSeat::new(seed, site, ward_max, &member.entrant.loadout, None)
+				{
+					// A shade is slower to see a seal, wider of the mark, waits
+					// out every reload and never draws the knife, so company is
+					// always worth more than shades.
+					let bot = HuntBot::new(
+						&seat.sim,
+						HuntBotStyle {
+							reaction_ticks: 34,
+							miss_every: 3,
+							active_reload_tick: None,
+							knife: false,
+							..HuntBotStyle::CAREFUL
+						},
+					);
 
-				member.fight = Some((seat, bot));
+					member.fight = Some((seat, bot));
+				}
+			} else if authoritative
+				&& let Ok(seat) = RiftSeat::new(seed, site, ward_max, &member.entrant.loadout, None)
+			{
+				member.authoritative_seat = Some(seat);
 			}
 		}
 
@@ -581,7 +695,7 @@ impl RiftRoom {
 
 	fn fight(&mut self) {
 		self.tick += 1;
-		self.step_shades();
+		self.step_seats();
 
 		if self.ward() <= 0.0 {
 			self.phase = RiftPhase::Reap;
@@ -599,7 +713,7 @@ impl RiftRoom {
 
 	fn reap(&mut self) {
 		self.tick += 1;
-		self.step_shades();
+		self.step_seats();
 
 		let standing = self.present().filter(|member| member.standing()).count();
 		let everyone_done = self
@@ -627,23 +741,37 @@ impl RiftRoom {
 		};
 	}
 
-	fn step_shades(&mut self) {
+	fn step_seats(&mut self) {
 		let shared = self.ward();
 
 		for member in &mut self.members {
-			let Some((seat, bot)) = &mut member.fight else {
-				continue;
-			};
+			if let Some((seat, bot)) = &mut member.fight {
+				if seat.sim.is_over() {
+					continue;
+				}
 
-			if seat.sim.is_over() {
+				seat.sync(shared, seat.dealt());
+				let input = bot.decide(&seat.sim);
+				seat.step(&input);
+				member.dealt = seat.dealt();
+				member.outcome = seat.sim.outcome();
 				continue;
 			}
 
-			seat.sync(shared, seat.dealt());
-			let input = bot.decide(&seat.sim);
-			seat.step(&input);
-			member.dealt = seat.dealt();
-			member.outcome = seat.sim.outcome();
+			if let Some(seat) = &mut member.authoritative_seat {
+				if member.left || seat.sim.is_over() {
+					continue;
+				}
+
+				seat.sync(shared, seat.dealt());
+				let input = member
+					.queued_inputs
+					.pop_front()
+					.unwrap_or_else(|| HuntInput::new(Aim::AHEAD, 0));
+				seat.step(&input);
+				member.dealt = seat.dealt();
+				member.outcome = seat.sim.outcome();
+			}
 		}
 	}
 }

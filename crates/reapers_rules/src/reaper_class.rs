@@ -45,7 +45,7 @@ pub enum ClassPerk {
 	/// The first flinch of a hunt costs no resolve.
 	Steadfast,
 
-	/// Seals are numbered, and striking them in order doubles the strike.
+	/// Seals are numbered, and striking them in order lands 20% harder.
 	Measure,
 
 	/// The strike after an unflinching hold lands three times as hard.

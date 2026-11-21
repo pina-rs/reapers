@@ -164,8 +164,14 @@ impl HuntStats {
 
 		if loadout.level < 1
 			|| loadout.level > Progression::LEVEL_CAP
+			|| loadout.completed_sets < 0
 			|| loadout.soul_rank < 0
 			|| loadout.soul_rank > SoulRules::MAX_RANK
+			|| !leniency.is_finite()
+			|| leniency <= 0.0
+			|| loadout
+				.art
+				.is_some_and(|art| !(1..=crate::arts::ArtRules::MAX_RANK).contains(&art.rank))
 			|| loadout
 				.soul
 				.is_some_and(|soul| soul.gift.reaper_class() != loadout.reaper_class)

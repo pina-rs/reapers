@@ -199,7 +199,12 @@ impl Nft {
 	}
 
 	pub fn rarity(&self) -> Rarity {
-		self.collection.rarities()[self.serial.saturating_sub(1)]
+		let rarities = self.collection.rarities();
+		let index = self
+			.serial
+			.saturating_sub(1)
+			.min(rarities.len().saturating_sub(1));
+		rarities[index]
 	}
 
 	/// The name shown on a market listing, such as "Thugbirdz #3".

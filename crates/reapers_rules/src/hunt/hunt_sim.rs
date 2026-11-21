@@ -350,7 +350,7 @@ impl HuntSim {
 			seed,
 			vessel,
 			CaptureRules::rarity_factor(rarity),
-			f64::from(ward as i32) * difficulty.ward(),
+			(ward.max(1) as f64) * difficulty.ward(),
 			stats.at(difficulty),
 			plan,
 			difficulty,
@@ -427,6 +427,11 @@ impl HuntSim {
 			return Err(IllFormedPlan);
 		}
 
+		let ward_max = if ward.is_finite() && ward >= 1.0 {
+			ward
+		} else {
+			1.0
+		};
 		let seals = vessel.seals().len();
 		let mut sim = Self {
 			seed,
@@ -437,7 +442,7 @@ impl HuntSim {
 			difficulty,
 			in_rift,
 			rarity_odds,
-			ward_max: ward,
+			ward_max,
 			schedule: SeededRandom::new(mix_seed(&[seed, 0x5EA1])),
 			shrieks: SeededRandom::new(mix_seed(&[seed, 0x5C81])),
 			path: SeededRandom::new(mix_seed(&[seed, 0x9A7B])),
@@ -1122,8 +1127,7 @@ impl HuntSim {
 			Some(Archetype::Gun) => {
 				self.on_open_seal(aim)
 					|| (current.covers(self.eye.point(), aim, self.stats.assist_radians)
-						&& (self.eye.is_origin()
-							|| !self.room_hides(aim * current.distance_from(self.eye.point()))))
+						&& !self.room_hides(aim * current.distance_from(self.eye.point())))
 			}
 			Some(Archetype::Blade) => {
 				current.covers(self.eye.point(), aim, self.stats.blade_reach_radians)
@@ -2079,10 +2083,6 @@ impl HuntSim {
 		let ray = aim.direction();
 
 		if current.distance_from(self.eye.point()) <= Arsenal::CLOSE_METRES {
-			if self.tick < self.next_melee_tick {
-				return;
-			}
-
 			self.engage(events);
 			self.next_melee_tick = self.tick + BladeRules::STAB_INTERVAL_TICKS;
 			self.strike(Archetype::Blade, ray, BladeRules::STAB_STRIKE, events);
@@ -2121,10 +2121,6 @@ impl HuntSim {
 		let ray = aim.direction();
 
 		if current.distance_from(self.eye.point()) <= Arsenal::CLOSE_METRES {
-			if self.tick < self.next_melee_tick {
-				return;
-			}
-
 			self.engage(events);
 			self.next_melee_tick = self.tick + self.stats.swing_ticks;
 			self.strike(Archetype::Heavy, ray, self.stats.heavy_strike, events);
@@ -2608,12 +2604,19 @@ impl HuntSim {
 		}
 
 		let tick = self.tick;
-		let (landing, flying): (Vec<ArtFlight>, Vec<ArtFlight>) = self
-			.flights
-			.iter()
-			.partition(|flight| tick >= flight.lands_at());
+		if !self.flights.iter().any(|flight| tick >= flight.lands_at()) {
+			return;
+		}
 
-		self.flights = flying;
+		let mut landing = Vec::new();
+		let mut index = 0;
+		while index < self.flights.len() {
+			if tick >= self.flights[index].lands_at() {
+				landing.push(self.flights.remove(index));
+			} else {
+				index += 1;
+			}
+		}
 
 		for flight in landing {
 			self.art_lands(&flight, events);

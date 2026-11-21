@@ -112,14 +112,23 @@ pub struct ReaperSoul {
 impl ReaperSoul {
 	pub fn from_genome(genome: &ReaperGenome) -> Self {
 		let per_class = SoulRules::GIFTS_PER_CLASS as u32;
-		let offset = (genome.given_name * 17 + genome.epithet * 31 + genome.gaze) % per_class;
+		let offset = genome
+			.given_name
+			.wrapping_mul(17)
+			.wrapping_add(genome.epithet.wrapping_mul(31))
+			.wrapping_add(genome.gaze)
+			% per_class;
 		let temperaments = Temperament::ALL.len() as u32;
+		let temperament_index = genome
+			.stature
+			.wrapping_add(genome.gauntness)
+			.wrapping_add(genome.tatter)
+			% temperaments;
 
 		Self {
 			gift: ReaperGift::ALL
 				[genome.reaper_class.index() * SoulRules::GIFTS_PER_CLASS + offset as usize],
-			temperament: Temperament::ALL
-				[((genome.stature + genome.gauntness + genome.tatter) % temperaments) as usize],
+			temperament: Temperament::ALL[temperament_index as usize],
 		}
 	}
 }

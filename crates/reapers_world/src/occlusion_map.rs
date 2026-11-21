@@ -73,6 +73,10 @@ impl OcclusionMap {
 	/// floor the hunt stands on and moving it from where it was taken to the
 	/// hunt's origin.
 	pub fn add(&mut self, frame: &DepthFrame, floor: f64, scale: f64) {
+		if !floor.is_finite() || floor <= 0.0 || !scale.is_finite() || scale <= 0.0 {
+			return;
+		}
+
 		let pose = frame.pose;
 		let origin = frame.origin;
 
@@ -101,7 +105,7 @@ impl OcclusionMap {
 				let Some(cell) = Self::cell_of(math::atan2(x, z), math::atan2(y, away)) else {
 					continue;
 				};
-				let on_floor = (floor + local_y).abs()
+				let on_floor = ((floor + local_y) * scale).abs()
 					<= Self::FLOOR_SLACK + Self::FLOOR_SLACK_PER_METRE * away;
 
 				if on_floor {

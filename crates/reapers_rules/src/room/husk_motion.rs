@@ -347,15 +347,16 @@ impl<N: Deref<Target = RoomNav>> HuskMotion<'_, N> {
 		self.steps = None;
 		self.step_index = 0;
 		self.flight_waypoints = Vec::new();
+		self.flight_index = 0;
+		self.perch_target = None;
 		self.arrival_facing = None;
 
-		if !matches!(
-			self.state,
-			HuskMotionState::Air
-				| HuskMotionState::Crouch
-				| HuskMotionState::Land
-				| HuskMotionState::Recover
-		) {
+		let mid_leap = !self.profile().flies() && self.state == HuskMotionState::Air;
+		if !mid_leap
+			&& !matches!(
+				self.state,
+				HuskMotionState::Crouch | HuskMotionState::Land | HuskMotionState::Recover
+			) {
 			self.speed = 0.0;
 			self.state = HuskMotionState::Idle;
 			self.state_fraction = 0.0;
@@ -962,6 +963,11 @@ impl<N: Deref<Target = RoomNav>> HuskMotion<'_, N> {
 		self.state_fraction = 0.0;
 		self.look_at = None;
 
+		self.turn_toward_face();
+	}
+
+	/// Turns the body in place towards `face_target`, when one is set.
+	fn turn_toward_face(&mut self) {
 		let Some(face) = self.face_target else {
 			return;
 		};
@@ -1240,28 +1246,7 @@ impl<N: Deref<Target = RoomNav>> HuskMotion<'_, N> {
 		self.state_fraction = 0.0;
 		self.look_at = None;
 
-		let Some(face) = self.face_target else {
-			return;
-		};
-
-		let error = wrap_angle(face - self.heading);
-
-		if error.abs() <= radians(1.0) {
-			self.face_target = None;
-
-			return;
-		}
-
-		self.heading = wrap_angle(
-			self.heading
-				+ math::clamp(
-					error,
-					-Self::TURN_RATE / HuntRules::TICK_RATE as f64,
-					Self::TURN_RATE / HuntRules::TICK_RATE as f64,
-				),
-		);
-		self.state = HuskMotionState::Turn;
-		self.state_fraction = math::clamp(1.0 - error.abs() / math::PI, 0.0, 1.0);
+		self.turn_toward_face();
 	}
 
 	/// Whether a straight flight between two places stays clear of the

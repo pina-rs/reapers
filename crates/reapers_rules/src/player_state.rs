@@ -438,6 +438,36 @@ impl TryFrom<PlayerRecord> for PlayerState {
 			));
 		}
 
+		let nft_count = roster.iter().filter(|reaper| reaper.is_nft()).count();
+		if nft_count > PlayerState::MAX_NFT_REAPERS {
+			return Err(FormatError::new("Too many NFT reapers in roster"));
+		}
+
+		if record.anima < 0 || record.lamports < 0 || record.next_sighting_id < 1 {
+			return Err(FormatError::new(
+				"Player counters must be non-negative and sighting id positive",
+			));
+		}
+
+		if record.sightings.len() > PlayerState::MAX_SIGHTINGS {
+			return Err(FormatError::new("Too many loose sightings in save"));
+		}
+
+		let unique_sightings = record
+			.sightings
+			.iter()
+			.enumerate()
+			.all(|(index, sighting)| {
+				sighting.id >= 1
+					&& record.sightings[..index]
+						.iter()
+						.all(|other| other.id != sighting.id && other.nft != sighting.nft)
+			});
+
+		if !unique_sightings {
+			return Err(FormatError::new("Duplicate or invalid sighting in save"));
+		}
+
 		Ok(Self {
 			reapers: roster,
 			active_reaper_id: selected,
@@ -641,6 +671,14 @@ impl PlayerState {
 	/// leaves this roster; its progression stays in the server's asset
 	/// ledger.
 	pub fn reconcile_reapers(&self, owned: Vec<ReaperState>) -> RuleResult<Self> {
+		if owned.iter().any(|reaper| !reaper.is_nft()) {
+			return refuse(Refusal::NotOwned);
+		}
+
+		if owned.len() > Self::MAX_NFT_REAPERS {
+			return refuse(Refusal::RosterFull);
+		}
+
 		let mut roster: Vec<ReaperState> = self
 			.reapers
 			.iter()
@@ -725,13 +763,16 @@ impl PlayerState {
 	/// The caller supplies the seed, so the server decides it for an online
 	/// player and nobody picks their own reaper.
 	pub fn take_oath(&self, seed: i64) -> RuleResult<Self> {
-		if self.oath_taken() {
+		if self.reapers.iter().any(|reaper| !reaper.is_nft()) {
 			return refuse(Refusal::OathAlreadyTaken);
 		}
 
 		let genome = ReaperGenome::shuffle(seed);
+		let mut roster = Vec::with_capacity(self.reapers.len() + 1);
+		roster.push(ReaperState::bound(ReaperState::OATH_ID, genome));
+		roster.extend(self.reapers.iter().cloned());
 
-		Ok(self.with_roster(vec![ReaperState::bound(ReaperState::OATH_ID, genome)]))
+		Ok(self.with_roster(roster))
 	}
 
 	/// Buys `nft` from the stand-in market into the vault.
@@ -977,8 +1018,11 @@ impl PlayerState {
 	pub fn settle_rift(&self, xp: i64, anima: i64, reaper_id: Option<&str>) -> RuleResult<Self> {
 		self.require_oath()?;
 
-		let id = reaper_id.or(self.active_reaper_id());
+		if xp < 0 || anima < 0 {
+			return refuse(Refusal::RiftUnproven);
+		}
 
+		let id = reaper_id.or(self.active_reaper_id());
 		if !self.reapers.iter().any(|reaper| Some(reaper.id()) == id) {
 			return refuse(Refusal::NotOwned);
 		}
@@ -1062,6 +1106,8 @@ impl PlayerState {
 
 	/// Puts on a bought `outfit`.
 	pub fn wear(&self, outfit: Outfit) -> RuleResult<Self> {
+		self.require_oath()?;
+
 		if !self.outfits().contains(&outfit) {
 			return refuse(Refusal::NotOwned);
 		}

@@ -93,10 +93,14 @@ impl RoomSurvey {
 		if learnt
 			&& let (Some(picture_floor), Some(floor)) =
 				(self.map.last_picture_floor(), self.map.floor_depth())
+			&& picture_floor > 0.0
+			&& floor + frame.origin.y > 0.0
 		{
 			let scale = (floor + frame.origin.y) / picture_floor;
 
-			self.occlusion.add(frame, picture_floor, scale);
+			if scale.is_finite() && scale > 0.0 {
+				self.occlusion.add(frame, picture_floor, scale);
+			}
 		}
 
 		learnt

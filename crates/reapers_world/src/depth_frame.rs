@@ -94,6 +94,32 @@ impl DepthFrame {
 	/// picture. The origin is kept so that the picture charts where it was
 	/// taken rather than where the hunt began.
 	pub fn from_rays_at(grid: &RayGrid, distances: &[Option<f64>], origin: Vec3) -> Self {
+		let hits: Vec<Option<RayHit>> = distances
+			.iter()
+			.map(|distance| {
+				distance.map(|distance| {
+					RayHit {
+						distance,
+						normal: None,
+					}
+				})
+			})
+			.collect();
+
+		Self::from_ray_hits_at(grid, &hits, origin)
+	}
+
+	/// Like [`from_rays`](Self::from_rays), taking optional surface normals
+	/// alongside each ray distance so sparse ray grids can verify flat quads
+	/// in 2×2 cells and reconstruct single-row horizontal ledges (such as
+	/// counters or tables).
+	pub fn from_ray_hits(grid: &RayGrid, hits: &[Option<RayHit>]) -> Self {
+		Self::from_ray_hits_at(grid, hits, Vec3::ZERO)
+	}
+
+	/// Like [`from_rays_at`](Self::from_rays_at), using surface normals when
+	/// the platform provides them.
+	pub fn from_ray_hits_at(grid: &RayGrid, hits: &[Option<RayHit>], origin: Vec3) -> Self {
 		let width = (math::round(2.0 * grid.tan_half_width / Self::PIXEL).max(0) as usize)
 			.max(grid.columns);
 		let height =
@@ -108,63 +134,166 @@ impl DepthFrame {
 			tan_half_height: grid.tan_half_height,
 		};
 
-		if grid.columns < 2 || grid.rows < 2 || distances.len() < grid.columns * grid.rows {
+		if grid.columns < 2 || grid.rows < 2 || hits.len() < grid.columns * grid.rows {
 			return frame;
 		}
 
-		let inverse = Reciprocals::of(grid, distances);
-		let flat: Vec<bool> = (0..grid.rows - 1)
-			.flat_map(|row| (0..grid.columns - 1).map(move |column| (column, row)))
-			.map(|(column, row)| inverse.is_flat(column, row))
-			.collect();
+		let has_normals = hits
+			.iter()
+			.take(grid.columns * grid.rows)
+			.any(|hit| hit.as_ref().and_then(|h| h.normal).is_some());
 
-		// Where a pixel falls among the grid's rays, with ray `i` at `i`, or
-		// `None` outside the outermost rays: what lies there is not known.
-		let among = |along: f64, rays: usize| {
-			(0.0..=(rays - 1) as f64).contains(&along).then(|| {
-				let before = (math::floor(along) as usize).min(rays - 2);
+		if !has_normals && (grid.columns < 3 || grid.rows < 3) {
+			return frame;
+		}
 
-				(before, along - before as f64)
-			})
-		};
+		let samples = RaySamples::of(grid, hits);
+		let col_scale = grid.columns as f64 / width as f64;
+		let row_scale = grid.rows as f64 / height as f64;
 
-		for row in 0..height {
-			let (_, up) = frame.tangents(0, row);
-			let Some((top, down)) = among(
-				(1.0 - up / grid.tan_half_height) * (grid.rows as f64 / 2.0) - 0.5,
-				grid.rows,
-			) else {
+		// Rasterize only flat 2×2 ray cells directly over their pixel bounds.
+		for top in 0..grid.rows - 1 {
+			let y0 = math::ceil((top as f64 + 0.5) / row_scale - 0.5).max(0);
+			let y1 = math::floor((top as f64 + 1.5) / row_scale - 0.5).min(height as i64 - 1);
+			if y1 < y0 {
 				continue;
-			};
+			}
+			let (y0, y_end) = (y0 as usize, y1 as usize);
 
-			for column in 0..width {
-				let (across, _) = frame.tangents(column, row);
-				let Some((left, right)) = among(
-					(across / grid.tan_half_width + 1.0) * (grid.columns as f64 / 2.0) - 0.5,
-					grid.columns,
-				) else {
-					continue;
-				};
-
-				if !flat[top * (grid.columns - 1) + left] {
+			for left in 0..grid.columns - 1 {
+				if !samples.is_flat(left, top) {
 					continue;
 				}
 
-				let reciprocal = (inverse.at(left, top) * (1.0 - right)
-					+ inverse.at(left + 1, top) * right)
-					* (1.0 - down)
-					+ (inverse.at(left, top + 1) * (1.0 - right)
-						+ inverse.at(left + 1, top + 1) * right)
-						* down;
+				let x0 = math::ceil((left as f64 + 0.5) / col_scale - 0.5).max(0);
+				let x1 = math::floor((left as f64 + 1.5) / col_scale - 0.5).min(width as i64 - 1);
+				if x1 < x0 {
+					continue;
+				}
+				let (x0, x_end) = (x0 as usize, x1 as usize);
 
-				if reciprocal > 0.0 {
-					frame.depths[row * width + column] = (1.0 / reciprocal) as f32;
+				let r00 = samples.reciprocal(left, top);
+				let r10 = samples.reciprocal(left + 1, top);
+				let r01 = samples.reciprocal(left, top + 1);
+				let r11 = samples.reciprocal(left + 1, top + 1);
+
+				for row in y0..=y_end {
+					let down = ((row as f64 + 0.5) * row_scale - 0.5 - top as f64).clamp(0.0, 1.0);
+					let inv_down = 1.0 - down;
+					let left_edge = r00 * inv_down + r01 * down;
+					let right_edge = r10 * inv_down + r11 * down;
+					let row_base = row * width;
+
+					for column in x0..=x_end {
+						let right =
+							((column as f64 + 0.5) * col_scale - 0.5 - left as f64).clamp(0.0, 1.0);
+						let reciprocal = left_edge * (1.0 - right) + right_edge * right;
+
+						if reciprocal > 0.0 && reciprocal.is_finite() {
+							frame.depths[row_base + column] = (1.0 / reciprocal) as f32;
+						}
+					}
 				}
 			}
 		}
 
+		// Single-row horizontal ledge reconstruction: when two adjacent rays
+		// hit the same upward-facing level plane (e.g. a narrow kitchen counter
+		// top on a sparse 12×16 ray grid), synthesize that plane over ±0.5
+		// ray-rows where no flat quad already filled the pixels.
+		if has_normals {
+			Self::reconstruct_horizontal_ledges(&mut frame, grid, &samples, col_scale, row_scale);
+		}
+
 		frame
 	}
+
+	fn reconstruct_horizontal_ledges(
+		frame: &mut Self,
+		grid: &RayGrid,
+		samples: &RaySamples,
+		col_scale: f64,
+		row_scale: f64,
+	) {
+		const LEVEL_NORMAL_Y: f64 = 0.90;
+		const MAX_PLANE_HEIGHT_GAP: f64 = 0.03;
+		const MAX_HORIZONTAL_STEP: f64 = 0.35;
+
+		let width = frame.width;
+		let height = frame.height;
+		let pose = grid.pose;
+
+		for r in 0..grid.rows {
+			let y0 = math::ceil((r as f64) / row_scale - 0.5).max(0);
+			let y1 = math::floor((r as f64 + 1.0) / row_scale - 0.5).min(height as i64 - 1);
+			if y1 < y0 {
+				continue;
+			}
+			let (y0, y_end) = (y0 as usize, y1 as usize);
+
+			for c in 0..grid.columns - 1 {
+				let (Some(n0), Some(n1)) = (samples.normal(c, r), samples.normal(c + 1, r)) else {
+					continue;
+				};
+				if n0.y < LEVEL_NORMAL_Y || n1.y < LEVEL_NORMAL_Y {
+					continue;
+				}
+				let (Some(p0), Some(p1)) = (samples.point(c, r), samples.point(c + 1, r)) else {
+					continue;
+				};
+				if (p0.y - p1.y).abs() > MAX_PLANE_HEIGHT_GAP {
+					continue;
+				}
+				let d0 = samples.distance(c, r);
+				let d1 = samples.distance(c + 1, r);
+				if (d0 - d1).abs() > MAX_HORIZONTAL_STEP {
+					continue;
+				}
+
+				let plane_y = f64::midpoint(p0.y, p1.y);
+				let min_d = d0.min(d1) * 0.75;
+				let max_d = d0.max(d1) * 1.25;
+
+				let x0 = math::ceil((c as f64 + 0.5) / col_scale - 0.5).max(0);
+				let x1 = math::floor((c as f64 + 1.5) / col_scale - 0.5).min(width as i64 - 1);
+				if x1 < x0 {
+					continue;
+				}
+				let (x0, x_end) = (x0 as usize, x1 as usize);
+
+				for row in y0..=y_end {
+					let row_base = row * width;
+					for column in x0..=x_end {
+						if frame.depths[row_base + column].is_finite() {
+							continue;
+						}
+						let (across, up) = frame.tangents(column, row);
+						let dir_y = pose.forward.y + pose.right.y * across + pose.up.y * up;
+						if dir_y.abs() < 1e-4 {
+							continue;
+						}
+						let z_depth = plane_y / dir_y;
+						if !z_depth.is_finite() || z_depth <= 0.0 {
+							continue;
+						}
+						let stretch = math::sqrt(1.0 + across * across + up * up);
+						let ray_dist = z_depth * stretch;
+						if ray_dist >= min_d && ray_dist <= max_d {
+							frame.depths[row_base + column] = z_depth as f32;
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+/// One ray-cast hit returned by the platform: distance along the ray in metres
+/// and an optional unit surface normal in the hunt's world space.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RayHit {
+	pub distance: f64,
+	pub normal: Option<Vec3>,
 }
 
 /// The rays to ask the platform about, to make a [`DepthFrame`] from its
@@ -186,8 +315,8 @@ pub struct RayGrid {
 	pub tan_half_width: f64,
 	pub tan_half_height: f64,
 
-	/// Rays across and down. Three each way at the least: see
-	/// [`DepthFrame::from_rays`].
+	/// Rays across and down. Three each way at the least without normals
+	/// (two each way with surface normals): see [`DepthFrame::from_ray_hits`].
 	pub columns: usize,
 	pub rows: usize,
 }
@@ -198,22 +327,15 @@ impl RayGrid {
 	///
 	/// Fewer do for most of the room. In the drawn kitchen, 12 by 16 rays
 	/// find the floor to a millimetre and the counter's front and height to
-	/// a few centimetres. What they miss is the counter's top. It is under
-	/// three degrees tall from standing height, 2.2 m away, and a surface is
-	/// only filled in where three rows of rays land on it (see
-	/// [`DepthFrame::from_rays`]), so its top is never read as a ledge
-	/// until there are 48 by 64. A grid may also be laid over only part of
-	/// the view, such as its lower half, where the floor and what stands on
-	/// it are.
+	/// a few centimetres. Without surface normals a flat surface needs three
+	/// rows of rays to pass the slope-continuity check; supplying platform
+	/// normals via [`DepthFrame::from_ray_hits`] lets 12 by 16 rays verify
+	/// 2×2 quads and reconstruct narrow horizontal ledges directly.
 	pub const COLUMNS: usize = 48;
 	/// How far the corners of one cell of four rays may be from lying on one
 	/// flat surface, and how far its slope may be from its neighbour's, as a
 	/// share of the nearest corner's reciprocal depth: a little more than
-	/// the platform's depth is out by on its own. A crease shallow enough to
-	/// pass, such as the floor running into a far wall, is filled in a
-	/// little nearer than it is: in the drawn rooms, never more than 2.5%.
-	/// Half this, and the drawn kitchen's counter top is no longer read as a
-	/// ledge.
+	/// the platform's depth is out by on its own.
 	pub const FLATNESS: f64 = 0.04;
 	/// See [`COLUMNS`](Self::COLUMNS).
 	pub const ROWS: usize = 64;
@@ -255,60 +377,131 @@ impl RayGrid {
 	}
 }
 
-/// The reciprocal of each ray's z-depth, laid out as the grid is, or NaN
-/// where the ray hit nothing.
-struct Reciprocals {
-	values: Vec<f64>,
+/// Per-ray reciprocal z-depth, hit position, ray distance, and optional unit
+/// surface normal laid out in grid order.
+struct RaySamples {
+	reciprocals: Vec<f64>,
+	distances: Vec<f64>,
+	points: Vec<Option<Vec3>>,
+	normals: Vec<Option<Vec3>>,
 	columns: usize,
 	rows: usize,
 }
 
-impl Reciprocals {
-	fn of(grid: &RayGrid, distances: &[Option<f64>]) -> Self {
-		let values = (0..grid.rows)
-			.flat_map(|row| (0..grid.columns).map(move |column| (column, row)))
-			.zip(distances)
-			.map(|((column, row), distance)| {
-				let (across, up) = grid.tangents(column, row);
-				let stretch = math::sqrt(1.0 + across * across + up * up);
+impl RaySamples {
+	/// Cosine of 10 degrees: normal agreement threshold for a planar 2×2 cell.
+	const NORMAL_DOT_MIN: f64 = 0.9848;
+	/// Maximum plane distance error (metres) for normal-verified 2×2 cells.
+	const PLANE_TOLERANCE: f64 = 0.03;
 
-				match distance {
-					Some(metres) if *metres > 0.0 && metres.is_finite() => stretch / metres,
-					_ => f64::NAN,
+	fn of(grid: &RayGrid, hits: &[Option<RayHit>]) -> Self {
+		let count = grid.columns * grid.rows;
+		let mut reciprocals = Vec::with_capacity(count);
+		let mut distances = Vec::with_capacity(count);
+		let mut points = Vec::with_capacity(count);
+		let mut normals = Vec::with_capacity(count);
+		let pose = grid.pose;
+
+		for (index, hit) in hits.iter().take(count).enumerate() {
+			let row = index / grid.columns;
+			let column = index % grid.columns;
+			let (across, up) = grid.tangents(column, row);
+			let direction = pose.forward + pose.right * across + pose.up * up;
+			let stretch = math::sqrt(1.0 + across * across + up * up);
+
+			match hit {
+				Some(hit) if hit.distance > 0.0 && hit.distance.is_finite() => {
+					let z_depth = hit.distance / stretch;
+					reciprocals.push(1.0 / z_depth);
+					distances.push(hit.distance);
+					points.push(Some(direction * z_depth));
+					let unit_normal = hit.normal.and_then(|n| {
+						let len = n.length();
+						(len.is_finite() && len > 1e-6).then(|| n / len)
+					});
+					normals.push(unit_normal);
 				}
-			})
-			.collect();
+				_ => {
+					reciprocals.push(f64::NAN);
+					distances.push(f64::NAN);
+					points.push(None);
+					normals.push(None);
+				}
+			}
+		}
 
 		Self {
-			values,
+			reciprocals,
+			distances,
+			points,
+			normals,
 			columns: grid.columns,
 			rows: grid.rows,
 		}
 	}
 
-	/// The value at `column` and `row`, or NaN off the grid.
-	fn at(&self, column: usize, row: usize) -> f64 {
+	fn reciprocal(&self, column: usize, row: usize) -> f64 {
 		if column < self.columns && row < self.rows {
-			self.values[row * self.columns + column]
+			self.reciprocals[row * self.columns + column]
 		} else {
 			f64::NAN
 		}
 	}
 
+	fn distance(&self, column: usize, row: usize) -> f64 {
+		self.distances[row * self.columns + column]
+	}
+
+	fn point(&self, column: usize, row: usize) -> Option<Vec3> {
+		self.points[row * self.columns + column]
+	}
+
+	fn normal(&self, column: usize, row: usize) -> Option<Vec3> {
+		self.normals[row * self.columns + column]
+	}
+
 	/// Whether the cell from `column` and `row` to the next of each lies on
-	/// one flat surface. A NaN anywhere it is needed fails every test.
+	/// one flat surface. Uses surface normals when all four corners carry
+	/// them; otherwise falls back to the 3×3 reciprocal-slope continuity test.
 	fn is_flat(&self, column: usize, row: usize) -> bool {
+		if let (Some(n0), Some(n1), Some(n2), Some(n3)) = (
+			self.normal(column, row),
+			self.normal(column + 1, row),
+			self.normal(column, row + 1),
+			self.normal(column + 1, row + 1),
+		) && let (Some(p0), Some(p1), Some(p2), Some(p3)) = (
+			self.point(column, row),
+			self.point(column + 1, row),
+			self.point(column, row + 1),
+			self.point(column + 1, row + 1),
+		) {
+			let aligned = n0.dot(n1) >= Self::NORMAL_DOT_MIN
+				&& n0.dot(n2) >= Self::NORMAL_DOT_MIN
+				&& n0.dot(n3) >= Self::NORMAL_DOT_MIN
+				&& n1.dot(n2) >= Self::NORMAL_DOT_MIN
+				&& n1.dot(n3) >= Self::NORMAL_DOT_MIN
+				&& n2.dot(n3) >= Self::NORMAL_DOT_MIN;
+			if aligned {
+				let avg = (n0 + n1 + n2 + n3).normalized();
+				let coplanar = [p1 - p0, p2 - p0, p3 - p0]
+					.iter()
+					.all(|delta| delta.dot(avg).abs() <= Self::PLANE_TOLERANCE);
+				if coplanar {
+					return true;
+				}
+			}
+			// Normals were present and explicitly disagreed (crease or edge).
+			return false;
+		}
+
 		let corners = [
-			self.at(column, row),
-			self.at(column + 1, row),
-			self.at(column, row + 1),
-			self.at(column + 1, row + 1),
+			self.reciprocal(column, row),
+			self.reciprocal(column + 1, row),
+			self.reciprocal(column, row + 1),
+			self.reciprocal(column + 1, row + 1),
 		];
 		let leeway = RayGrid::FLATNESS * corners.iter().copied().fold(0.0, f64::max);
 		let close = |a: f64, b: f64| (a - b).abs() <= leeway;
-		// Whether the step from `a` to `b` is the step before it or the one
-		// after it along the same line, where `step(i)` is the step from
-		// point `i` of the line to point `i + 1`.
 		let even = |step: &dyn Fn(usize) -> f64, at: usize| {
 			let before = at.checked_sub(1).map_or(f64::NAN, step);
 
@@ -316,11 +509,17 @@ impl Reciprocals {
 		};
 
 		close(corners[0] + corners[3], corners[1] + corners[2])
-			&& [row, row + 1]
-				.iter()
-				.all(|line| even(&|at| self.at(at + 1, *line) - self.at(at, *line), column))
-			&& [column, column + 1]
-				.iter()
-				.all(|line| even(&|at| self.at(*line, at + 1) - self.at(*line, at), row))
+			&& [row, row + 1].iter().all(|line| {
+				even(
+					&|at| self.reciprocal(at + 1, *line) - self.reciprocal(at, *line),
+					column,
+				)
+			})
+			&& [column, column + 1].iter().all(|line| {
+				even(
+					&|at| self.reciprocal(*line, at + 1) - self.reciprocal(*line, at),
+					row,
+				)
+			})
 	}
 }

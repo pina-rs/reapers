@@ -34,13 +34,12 @@ use reapers_rules::RoomCell;
 use reapers_rules::RoomCellKind;
 use reapers_rules::RoomGrid;
 use reapers_rules::Vec3;
-use reapers_rules::Vessel;
 
 use crate::depth_frame::DepthFrame;
 use crate::math;
 use crate::math::PI;
 use crate::room_map::Cloud;
-use crate::room_map::RoomMap;
+use crate::room_map::FloorTracker;
 use crate::room_map::SELF_METRES;
 use crate::room_map::STRIDE;
 use crate::room_map::surface_normals;
@@ -167,7 +166,7 @@ const HIDDEN_RAYS: usize = 720;
 const HIDDEN_STEP: f64 = 0.04;
 
 /// The most levels a grid's five-bit payload carries.
-const MAX_LEVELS: usize = 32;
+const MAX_LEVELS: usize = RoomCell::MAX_LEVELS;
 
 /// The floor the fine grid keeps its heights against: the hunt's usual eye
 /// height. Every picture's heights are divided by its own floor and then
@@ -206,12 +205,13 @@ struct PictureAt {
 ///
 /// Feed it every picture the survey takes with
 /// [`add_frame`](Self::add_frame), then call [`finish`](Self::finish). It
-/// keeps its own [`RoomMap`] for the floor and the per-picture scale, so
-/// what it reads agrees with the plan a hunt plays inside.
+/// uses the same [`FloorTracker`] rules as [`RoomMap`](crate::RoomMap) for the
+/// floor and per-picture scale, so what it reads agrees with the plan a hunt
+/// plays inside without allocating a duplicate 2 MiB slice table.
 #[derive(Clone, Debug)]
 pub struct RoomGridBuilder {
-	/// The floor and the picture scale, as the hunt's map finds them.
-	map: RoomMap,
+	/// The floor and the picture scale, shared with [`RoomMap`](crate::RoomMap).
+	floor: FloorTracker,
 
 	/// The count of points in each height bin of each fine cell.
 	counts: Vec<u8>,
@@ -234,9 +234,7 @@ impl RoomGridBuilder {
 	/// A builder that has read nothing yet.
 	pub fn new() -> Self {
 		Self {
-			// The map is only asked where the floor is; a ground body is all
-			// it needs, and the smallest keeps its charting cheap.
-			map: RoomMap::new(Vessel::Penguin),
+			floor: FloorTracker::new(),
 			counts: vec![0; FINE_HEIGHT_COUNTS],
 			clear: vec![f32::INFINITY; FINE_CELLS],
 			yaw_weights: [0.0; YAW_BINS],
@@ -244,21 +242,22 @@ impl RoomGridBuilder {
 	}
 
 	/// Takes the floor as measured by the platform: see
-	/// [`RoomMap::measure_floor`]. Every picture is then charted against it,
-	/// in real metres, instead of against its own floor.
+	/// [`RoomMap::measure_floor`](crate::RoomMap::measure_floor). Every picture
+	/// is then charted against it, in real metres, instead of against its own
+	/// floor.
 	pub fn measure_floor(&mut self, eye_height: f64) -> bool {
-		self.map.measure_floor(eye_height)
+		self.floor.measure_floor(eye_height)
 	}
 
 	/// Pictures charted so far.
 	pub fn frames(&self) -> usize {
-		self.map.frames()
+		self.floor.frames()
 	}
 
 	/// How far the floor is below the hunt's origin, in metres, as the
 	/// pictures so far have it: the same estimate the hunt's plan uses.
 	pub fn floor_depth(&self) -> Option<f64> {
-		self.map.floor_depth()
+		self.floor.floor_depth()
 	}
 
 	/// Takes in one picture. Answers whether it was charted: a picture with
@@ -268,7 +267,7 @@ impl RoomGridBuilder {
 	/// The picture's own eye is taken into account: a picture taken from
 	/// elsewhere is charted where it was taken, in the room's own frame.
 	pub fn add_frame(&mut self, frame: &DepthFrame) -> bool {
-		if !self.map.add(frame) {
+		if !self.floor.accept_ground(frame, false) {
 			return false;
 		}
 		self.chart_frame(frame)
@@ -277,14 +276,14 @@ impl RoomGridBuilder {
 	/// Takes estimated depth, finding its own floor before calibrating it
 	/// against a platform measurement, as the room survey does.
 	pub fn add_estimated(&mut self, frame: &DepthFrame) -> bool {
-		if !self.map.add_estimated(frame) {
+		if !self.floor.accept_ground(frame, true) {
 			return false;
 		}
 		self.chart_frame(frame)
 	}
 
 	fn chart_frame(&mut self, frame: &DepthFrame) -> bool {
-		let Some(picture_floor) = self.map.last_picture_floor() else {
+		let Some(picture_floor) = self.floor.last_picture_floor() else {
 			return false;
 		};
 		let origin = frame.origin;
@@ -303,19 +302,7 @@ impl RoomGridBuilder {
 	/// Where one picture was taken and how its metres are brought into the
 	/// hunt's frame: the floor is `picture_floor` below its own eye, in its
 	/// own metres, and the eye itself was at `origin`.
-	///
-	/// Along the ground, `ground` turns the picture's own metres into the
-	/// room's, so its furniture stands where the other pictures put it. Up,
-	/// a picture taken from above or below the hunt's origin sees the floor
-	/// that much farther below its own eye, so the share of the eye's
-	/// height its furniture stands at has to be brought back to the
-	/// origin's eye by `heights` before `finish` scales every height by the
-	/// room's floor. Without that, a raised eye would read the whole room's
-	/// furniture as proportionally lower: a desk 75 cm tall, read from 30
-	/// cm above where the room was charted, as 62 cm.
 	fn placement(&self, picture_floor: f64, origin: Vec3) -> PictureAt {
-		// The pictures' floor is the room's metres; until it is known, the
-		// first picture is charted against itself.
 		let floor = self.room_floor();
 
 		PictureAt {
@@ -326,21 +313,25 @@ impl RoomGridBuilder {
 		}
 	}
 
-	/// How far below the hunt's origin the room's floor is, in metres: the
-	/// platform's measurement, or the mean of every picture's own floor,
-	/// brought back to the origin. This is the same estimate
-	/// [`RoomMap`](crate::RoomMap)'s plan uses, so the plan and the grid
-	/// always agree about the floor.
+	/// How far below the hunt's origin the room's floor is, in metres.
 	fn room_floor(&self) -> Option<f64> {
-		self.map.floor_depth()
+		self.floor.floor_depth()
 	}
 
 	/// Charts one picture's points, and the directions its vertical
 	/// structure faces, into the fine grid, taken where [`PictureAt`] says
-	/// it was. A height is kept as a share of the hunt's usual eye height,
-	/// divided out of the picture's own scale and brought from its eye's
-	/// floor to the hunt's, so the picture's scale is divided out of it.
+	/// it was.
 	fn chart(&mut self, cloud: &Cloud, columns: usize, rows: usize, at: PictureAt) {
+		if !at.ground.is_finite()
+			|| at.ground <= 0.0
+			|| !at.picture_floor.is_finite()
+			|| at.picture_floor <= 0.0
+			|| !at.heights.is_finite()
+			|| at.heights <= 0.0
+		{
+			return;
+		}
+
 		let normals = surface_normals(cloud, columns, rows);
 		let (scale, origin) = (at.ground, at.origin);
 
@@ -372,8 +363,11 @@ impl RoomGridBuilder {
 
 			let height = (y + at.picture_floor) / at.picture_floor * NOMINAL_FLOOR * at.heights;
 
-			// A point at or a hair under the floor is the floor.
-			if height < -FLOOR_SLACK || height >= HEIGHT_BIN * HEIGHT_BINS as f64 {
+			// Reject non-finite values and points outside the valid height range.
+			if !height.is_finite()
+				|| height < -FLOOR_SLACK
+				|| height >= HEIGHT_BIN * HEIGHT_BINS as f64
+			{
 				continue;
 			}
 
@@ -382,18 +376,29 @@ impl RoomGridBuilder {
 			let Some(cell) = fine_cell(x, z) else {
 				continue;
 			};
-			let bin = (height / HEIGHT_BIN) as usize;
-			let at = cell * HEIGHT_BINS + bin;
+			let bin = ((height / HEIGHT_BIN) as usize).min(HEIGHT_BINS - 1);
+			let slot = cell * HEIGHT_BINS + bin;
 
-			self.counts[at] = self.counts[at].saturating_add(1);
+			self.counts[slot] = self.counts[slot].saturating_add(1);
 		}
 	}
 
 	/// Records, for every fine cell a ray crossed before it hit something,
 	/// the lowest height above the floor at which it crossed. A point well
-	/// above that flew, since the ray passed beneath it. The ray starts at
-	/// the eye the picture was taken from, as [`PictureAt`] says.
+	/// above that flew, since the ray passed beneath it.
 	fn carve(&mut self, frame: &DepthFrame, at: PictureAt) {
+		if !at.ground.is_finite()
+			|| at.ground <= 0.0
+			|| !at.picture_floor.is_finite()
+			|| at.picture_floor <= 0.0
+			|| !at.heights.is_finite()
+			|| at.heights <= 0.0
+		{
+			return;
+		}
+
+		let half_extent = EXTENT / 2.0;
+
 		for row in (0..frame.height).step_by(CARVE_STRIDE) {
 			for column in (0..frame.width).step_by(CARVE_STRIDE) {
 				let depth = f64::from(frame.depths[row * frame.width + column]);
@@ -413,20 +418,27 @@ impl RoomGridBuilder {
 				}
 
 				let ray = direction / stretch;
-				let hit = depth * stretch;
+				let hit_world = depth * stretch * at.ground;
 				let hit_cell = fine_cell(
-					ray.x * hit * at.ground + at.origin.x,
-					ray.z * hit * at.ground + at.origin.z,
+					ray.x * hit_world + at.origin.x,
+					ray.z * hit_world + at.origin.z,
 				);
-				let mut along = SELF_METRES;
+				let end_world = hit_world - CARVE_MARGIN;
+				let mut along_world = SELF_METRES;
 
-				while along < hit - CARVE_MARGIN {
-					let x = ray.x * along * at.ground + at.origin.x;
-					let y = ray.y * along;
-					let z = ray.z * along * at.ground + at.origin.z;
-					let height =
-						((y + at.picture_floor) / at.picture_floor * NOMINAL_FLOOR * at.heights)
-							.max(0.0);
+				while along_world < end_world {
+					let x = ray.x * along_world + at.origin.x;
+					let z = ray.z * along_world + at.origin.z;
+
+					if x.abs() > half_extent || z.abs() > half_extent {
+						break;
+					}
+
+					let y_picture = ray.y * (along_world / at.ground);
+					let height = ((y_picture + at.picture_floor) / at.picture_floor
+						* NOMINAL_FLOOR
+						* at.heights)
+						.max(0.0);
 
 					if let Some(cell) = fine_cell(x, z) {
 						// The surface's own cell is not free space: the ray
@@ -440,7 +452,7 @@ impl RoomGridBuilder {
 						}
 					}
 
-					along += CARVE_STEP;
+					along_world += CARVE_STEP;
 				}
 			}
 		}
@@ -832,6 +844,7 @@ fn room_yaw(weights: &[f64; YAW_BINS]) -> u8 {
 struct CoarseVotes {
 	/// Walkable votes, by cell and then by level index.
 	walk: Vec<u16>,
+	level_count: usize,
 	unknown: Vec<u16>,
 	obstacle: Vec<u16>,
 	wall: Vec<u16>,
@@ -840,11 +853,13 @@ struct CoarseVotes {
 }
 
 impl CoarseVotes {
-	fn new() -> Self {
+	fn new(level_count: usize) -> Self {
 		let cells = GRID_SIDE * GRID_SIDE;
+		let level_count = level_count.max(1);
 
 		Self {
-			walk: vec![0; cells * MAX_LEVELS],
+			walk: vec![0; cells * level_count],
+			level_count,
 			unknown: vec![0; cells],
 			obstacle: vec![0; cells],
 			wall: vec![0; cells],
@@ -858,25 +873,30 @@ impl CoarseVotes {
 		let mut cells = vec![RoomCell::UNKNOWN.byte(); GRID_SIDE * GRID_SIDE];
 
 		for cell in 0..cells.len() {
-			let (best_level, walk) = (0..levels.len()).fold((0usize, 0u16), |best, level| {
-				let votes = self.walk[cell * MAX_LEVELS + level];
+			let base = cell * self.level_count;
+			let mut best_level = 0usize;
+			let mut best_walk = 0u16;
+			let mut total_walk = 0u16;
 
-				if votes >= best.1 {
-					(level, votes)
-				} else {
-					best
+			for level in 0..levels.len() {
+				let votes = self.walk[base + level];
+				total_walk = total_walk.saturating_add(votes);
+				if votes >= best_walk {
+					best_level = level;
+					best_walk = votes;
 				}
-			});
+			}
+
 			let unknown = self.unknown[cell];
 			let obstacle = self.obstacle[cell];
 			let wall = self.wall[cell];
-			let known = walk + obstacle + wall;
+			let known = total_walk.saturating_add(obstacle).saturating_add(wall);
 
-			if wall > 0 && wall >= walk && wall >= obstacle && wall >= unknown {
+			if wall > 0 && wall >= total_walk && wall >= obstacle && wall >= unknown {
 				cells[cell] = RoomCell::WALL.byte();
 			} else if unknown > known {
 				// Nothing was seen in most of it, so nothing is known.
-			} else if walk > 0 && walk >= obstacle {
+			} else if total_walk > 0 && total_walk >= obstacle {
 				cells[cell] = RoomCell::walkable(best_level as u8).byte();
 			} else if obstacle > 0 {
 				let centimetres = math::round(f64::from(self.top[cell]) * 100.0)
@@ -892,7 +912,7 @@ impl CoarseVotes {
 
 /// Votes every fine cell into the 10 cm grid, turned by `yaw`.
 fn downsample(kinds: &[FineKind], levels: &[u8], yaw: u8) -> Vec<u8> {
-	let mut votes = CoarseVotes::new();
+	let mut votes = CoarseVotes::new(levels.len());
 	let angle = f64::from(yaw) * 2.0 * PI / 256.0;
 	let sine = math::sin(angle);
 	let cosine = math::cos(angle);
@@ -912,7 +932,9 @@ fn downsample(kinds: &[FineKind], levels: &[u8], yaw: u8) -> Vec<u8> {
 
 		match *kind {
 			FineKind::Unknown => votes.unknown[coarse] += 1,
-			FineKind::Walkable(level) => votes.walk[coarse * MAX_LEVELS + level as usize] += 1,
+			FineKind::Walkable(level) => {
+				votes.walk[coarse * votes.level_count + level as usize] += 1;
+			}
 			FineKind::Obstacle(top) => {
 				votes.obstacle[coarse] += 1;
 				votes.top[coarse] = votes.top[coarse].max(top);
@@ -931,7 +953,8 @@ fn downsample(kinds: &[FineKind], levels: &[u8], yaw: u8) -> Vec<u8> {
 /// how far a top above the floor hides what is behind it: a blocker `b` out
 /// and `height` up hides the floor from `b` to `b / (1 - height / eye)`,
 /// where the line of sight from the eye over that blocker meets the floor.
-/// An unknown cell inside that reach is floor the player cannot see.
+/// An obstacle as tall as or taller than the eye shadows the floor all the
+/// way to the edge of the grid.
 fn hide(cells: &mut [u8], levels: &[u8], eye_height: f64) {
 	let hidden = RoomCell::hidden(0).byte();
 
@@ -975,7 +998,9 @@ fn hide(cells: &mut [u8], levels: &[u8], eye_height: f64) {
 						};
 						let top = centimetres as f64 / 100.0;
 
-						if top > 0.0 && top < eye_height {
+						if top >= eye_height {
+							shadow_end = EXTENT;
+						} else if top > 0.0 {
 							shadow_end = shadow_end
 								.max((along + GRID_CELL / 2.0) / (1.0 - top / eye_height));
 						}

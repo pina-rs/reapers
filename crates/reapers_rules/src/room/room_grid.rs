@@ -73,8 +73,10 @@ pub struct RoomCell {
 }
 
 impl RoomCell {
-	/// The most levels a grid can carry in five bits.
+	/// The highest five-bit level index a cell can carry (`0..=31`).
 	pub const MAX_LEVEL: u8 = 31;
+	/// The most distinct levels a five-bit payload can index (`32`).
+	pub const MAX_LEVELS: usize = Self::MAX_LEVEL as usize + 1;
 	/// The tallest obstacle the format can store, in centimetres.
 	pub const MAX_OBSTACLE_CENTIMETRES: i64 = 248;
 	/// A cell nothing saw.
@@ -93,7 +95,7 @@ impl RoomCell {
 	/// The five-bit payload carries levels up to 31; anything else is a
 	/// mistake on the caller's part.
 	pub const fn walkable(level: u8) -> Self {
-		assert!(level <= Self::MAX_LEVEL, "a level index must be in 0..31");
+		assert!(level <= Self::MAX_LEVEL, "a level index must be in 0..=31");
 		Self {
 			kind: RoomCellKind::Walkable,
 			payload: level,
@@ -102,7 +104,7 @@ impl RoomCell {
 
 	/// Floor at `level` that is known but out of sight behind something.
 	pub const fn hidden(level: u8) -> Self {
-		assert!(level <= Self::MAX_LEVEL, "a level index must be in 0..31");
+		assert!(level <= Self::MAX_LEVEL, "a level index must be in 0..=31");
 		Self {
 			kind: RoomCellKind::Hidden,
 			payload: level,
@@ -171,6 +173,7 @@ impl RoomCell {
 /// Everything a husk reads from the grid is an integer or a quotient of
 /// integers, so a hunt replays exactly.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(try_from = "RoomGridRecord")]
 pub struct RoomGrid {
 	/// How far the floor is below the player's eye, in centimetres.
 	pub eye_height_centimetres: u16,
@@ -210,11 +213,59 @@ pub struct RoomGrid {
 	yaw_sin: f64,
 }
 
+#[derive(Deserialize)]
+struct RoomGridRecord {
+	eye_height_centimetres: u16,
+	pivot_arm_centimetres: u8,
+	grid_yaw: u8,
+	width: u8,
+	depth: u8,
+	player_x: u8,
+	player_z: u8,
+	levels_centimetres: Vec<u8>,
+	cells: Vec<u8>,
+}
+
+impl TryFrom<RoomGridRecord> for RoomGrid {
+	type Error = FormatError;
+
+	fn try_from(record: RoomGridRecord) -> Result<Self, Self::Error> {
+		let expected = usize::from(record.width) * usize::from(record.depth);
+
+		if record.cells.len() != expected {
+			return Err(FormatError::new("a room grid needs one cell per square"));
+		}
+
+		let grid = Self::new(
+			record.eye_height_centimetres,
+			record.pivot_arm_centimetres,
+			record.grid_yaw,
+			record.width,
+			record.depth,
+			record.player_x,
+			record.player_z,
+			record.levels_centimetres,
+			record.cells,
+		);
+
+		if !grid.is_well_formed() {
+			return Err(FormatError::new("a room grid is not well formed"));
+		}
+
+		Ok(grid)
+	}
+}
+
 impl RoomGrid {
 	/// One cell is 10 centimetres across.
 	pub const CELL_CENTIMETRES: i64 = 10;
 	/// One cell is a tenth of a metre across.
 	pub const CELL_METRES: f64 = 0.1;
+	/// Upper bound on sampled steps along a line-of-sight or surface ray
+	/// (well beyond the diagonal of a maximum-size 10 × 10 m grid).
+	const MAX_RAY_STEPS: i64 = 512;
+	/// The largest width or depth a well-formed grid may carry (10 metres).
+	pub const MAX_SIDE: u8 = 100;
 	/// The format this grid is written in.
 	pub const VERSION: u8 = 1;
 	/// How high a wall is taken to be, in centimetres. It is above
@@ -292,12 +343,20 @@ impl RoomGrid {
 
 	/// The column of `index`.
 	pub fn x_of(&self, index: usize) -> i64 {
-		(index % usize::from(self.width)) as i64
+		let width = usize::from(self.width);
+		if width == 0 {
+			return 0;
+		}
+		(index % width) as i64
 	}
 
 	/// The row of `index`.
 	pub fn z_of(&self, index: usize) -> i64 {
-		(index / usize::from(self.width)) as i64
+		let width = usize::from(self.width);
+		if width == 0 {
+			return 0;
+		}
+		(index / width) as i64
 	}
 
 	/// The cell at `x`, `z`, or an unknown cell outside the grid.
@@ -342,7 +401,10 @@ impl RoomGrid {
 
 		match cell.kind {
 			RoomCellKind::Walkable | RoomCellKind::Hidden => {
-				i64::from(self.levels_centimetres[usize::from(cell.payload)])
+				self.levels_centimetres
+					.get(usize::from(cell.payload))
+					.copied()
+					.map_or(Self::WALL_CENTIMETRES, i64::from)
 			}
 			RoomCellKind::Obstacle => cell.top_centimetres(),
 			RoomCellKind::Unknown => 0,
@@ -422,8 +484,11 @@ impl RoomGrid {
 	/// point, both ends included, so the cell under the point counts too.
 	/// Beyond the grid the room is taken to be a wall.
 	pub fn hides(&self, point: Vec3) -> bool {
+		if !point.x.is_finite() || !point.y.is_finite() || !point.z.is_finite() {
+			return true;
+		}
 		let away = math::sqrt(point.x * point.x + point.z * point.z);
-		let steps = math::ceil_int(away / Self::CELL_METRES).max(1);
+		let steps = math::ceil_int(away / Self::CELL_METRES).clamp(1, Self::MAX_RAY_STEPS);
 
 		for step in 0..=steps {
 			let along = step as f64 / steps as f64;
@@ -444,7 +509,15 @@ impl RoomGrid {
 	/// The ray is sampled a cell's width apart, so where it lands is good
 	/// to a cell.
 	pub fn surface_along(&self, ray: Vec3, farthest: f64) -> f64 {
-		let steps = math::ceil_int(farthest / Self::CELL_METRES).max(1);
+		if !farthest.is_finite()
+			|| farthest <= 0.0
+			|| !ray.x.is_finite()
+			|| !ray.y.is_finite()
+			|| !ray.z.is_finite()
+		{
+			return 0.0;
+		}
+		let steps = math::ceil_int(farthest / Self::CELL_METRES).clamp(1, Self::MAX_RAY_STEPS);
 
 		for step in 1..=steps {
 			let metres = farthest * step as f64 / steps as f64;
@@ -463,8 +536,17 @@ impl RoomGrid {
 		if eye == Vec3::ZERO {
 			return self.hides(way);
 		}
+		if !eye.x.is_finite()
+			|| !eye.y.is_finite()
+			|| !eye.z.is_finite()
+			|| !way.x.is_finite()
+			|| !way.y.is_finite()
+			|| !way.z.is_finite()
+		{
+			return true;
+		}
 		let away = math::sqrt(way.x * way.x + way.z * way.z);
-		let steps = math::ceil_int(away / Self::CELL_METRES).max(1);
+		let steps = math::ceil_int(away / Self::CELL_METRES).clamp(1, Self::MAX_RAY_STEPS);
 		for step in 0..=steps {
 			let point = eye + way * (step as f64 / steps as f64);
 			if self.top_metres_at_world(point.x, point.z) > point.y + 1e-9 {
@@ -479,7 +561,18 @@ impl RoomGrid {
 		if eye == Vec3::ZERO {
 			return self.surface_along(ray, farthest);
 		}
-		let steps = math::ceil_int(farthest / Self::CELL_METRES).max(1);
+		if !farthest.is_finite()
+			|| farthest <= 0.0
+			|| !eye.x.is_finite()
+			|| !eye.y.is_finite()
+			|| !eye.z.is_finite()
+			|| !ray.x.is_finite()
+			|| !ray.y.is_finite()
+			|| !ray.z.is_finite()
+		{
+			return 0.0;
+		}
+		let steps = math::ceil_int(farthest / Self::CELL_METRES).clamp(1, Self::MAX_RAY_STEPS);
 		for step in 1..=steps {
 			let metres = farthest * step as f64 / steps as f64;
 			let point = eye + ray * metres;
@@ -502,10 +595,13 @@ impl RoomGrid {
 		if !(30..=300).contains(&self.eye_height_centimetres)
 			|| self.width == 0
 			|| self.depth == 0
+			|| self.width > Self::MAX_SIDE
+			|| self.depth > Self::MAX_SIDE
+			|| self.cells.len() != usize::from(self.width) * usize::from(self.depth)
 			|| i64::from(self.player_x) >= i64::from(self.width)
 			|| i64::from(self.player_z) >= i64::from(self.depth)
 			|| self.levels_centimetres.is_empty()
-			|| self.levels_centimetres.len() > usize::from(RoomCell::MAX_LEVEL)
+			|| self.levels_centimetres.len() > RoomCell::MAX_LEVELS
 			|| self.levels_centimetres.first() != Some(&0)
 		{
 			return false;
@@ -543,7 +639,7 @@ impl RoomGrid {
 	/// other helper, so the same bytes are made on the phone, on the
 	/// server and in a browser.
 	pub fn encode(&self) -> Vec<u8> {
-		let mut out = Vec::with_capacity(10 + self.levels_centimetres.len() + self.cells.len() * 3);
+		let mut out = Vec::with_capacity(256.max(10 + self.levels_centimetres.len()));
 
 		out.push(Self::VERSION);
 		out.extend_from_slice(&self.eye_height_centimetres.to_le_bytes());
@@ -594,7 +690,14 @@ impl RoomGrid {
 		let depth = bytes[6];
 		let level_count = usize::from(bytes[9]);
 
-		if level_count == 0 || level_count > usize::from(RoomCell::MAX_LEVEL) {
+		if width == 0 || depth == 0 || width > Self::MAX_SIDE || depth > Self::MAX_SIDE {
+			return Err(FormatError::with_input(
+				"a room grid has dimensions outside the 10 metre bound",
+				format!("{width}x{depth}"),
+			));
+		}
+
+		if level_count == 0 || level_count > RoomCell::MAX_LEVELS {
 			return Err(FormatError::with_input(
 				"a room grid carries this many levels",
 				bytes[9].to_string(),
