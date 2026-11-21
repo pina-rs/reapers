@@ -70,9 +70,12 @@ use crate::wallet;
 /// play of it. See `HuntStats::derive`.
 pub const REPLAY_LENIENCY: f64 = 1.03;
 
-/// How many times a transaction the keeper opens itself runs again when
-/// another gets in its way, as a mutation's does.
-const RETRIES: u32 = 5;
+/// Maximum base64 length accepted for a packed [`HuntLog`], bounding memory
+/// allocation before decoding (~384 KiB decoded).
+const MAX_ENCODED_LOG_BYTES: usize = 512 * 1024;
+
+/// Maximum concurrent CPU-intensive hunt replays on blocking threads.
+const MAX_CONCURRENT_REPLAYS: usize = 8;
 
 /// The keeper, with everything it reaches outside the database.
 pub struct Keeper {
@@ -81,6 +84,7 @@ pub struct Keeper {
 	gateway: Gateway,
 	signer: ReceiptSigner,
 	hall: RiftHall,
+	replay_permits: Arc<tokio::sync::Semaphore>,
 }
 
 impl std::fmt::Debug for Keeper {
@@ -129,12 +133,17 @@ impl Keeper {
 		signer: ReceiptSigner,
 		hall: RiftHall,
 	) -> Self {
+		let permits = std::thread::available_parallelism()
+			.map_or(MAX_CONCURRENT_REPLAYS, std::num::NonZeroUsize::get)
+			.clamp(4, MAX_CONCURRENT_REPLAYS * 2);
+
 		Self {
 			mode,
 			db: db.system("the keeper's own transactions"),
 			gateway,
 			signer,
 			hall,
+			replay_permits: Arc::new(tokio::sync::Semaphore::new(permits)),
 		}
 	}
 
@@ -151,6 +160,11 @@ impl Keeper {
 	/// The key receipts are signed with.
 	pub const fn signer(&self) -> &ReceiptSigner {
 		&self.signer
+	}
+
+	/// The rift hall, for draining on graceful shutdown.
+	pub const fn hall(&self) -> &RiftHall {
+		&self.hall
 	}
 
 	/// The database, bypassing policies: for the keeper's own transactions
@@ -185,23 +199,9 @@ impl Keeper {
 		account: Id<Account>,
 		mut rule: impl FnMut(PlayerState) -> rpc::Result<PlayerState>,
 	) -> rpc::Result<PlayerState> {
-		let mut attempt = 0;
-
-		loop {
-			let tx = self.db.begin_serializable().await?;
-			let result = match books::change(&tx, &self.gateway, account, None, &mut rule).await {
-				Ok(state) => tx.commit().await.map(|()| state).map_err(rpc::Error::from),
-				Err(error) => {
-					let _ = tx.rollback().await;
-					Err(error)
-				}
-			};
-
-			match result {
-				Err(error) if error.is_contended() && attempt < RETRIES => attempt += 1,
-				result => return result,
-			}
-		}
+		books::transact_serializable!(&self.db, |tx| {
+			books::change(tx, &self.gateway, account, None, &mut rule).await
+		})
 	}
 
 	async fn change(&self, cx: &rpc::MutationCx, change: Change) -> rpc::Result<PlayerState> {
@@ -293,7 +293,8 @@ impl Keeper {
 		let bound = match escrow {
 			Some(mint) => {
 				self.demo_husk(nft, &mint)?;
-				Some(self.escrowed(tx, account, &mint).await?)
+				let (wallet, mint, _escrow) = self.escrowed(tx, account, &mint).await?;
+				Some((wallet, mint))
 			}
 			None => None,
 		};
@@ -354,13 +355,14 @@ impl Keeper {
 	}
 
 	/// Checks `mint` is escrowed with the program by `account`'s proved
-	/// wallet, and returns the wallet and the mint.
+	/// wallet, and returns the wallet, the mint, and the decoded on-chain
+	/// [`Escrow`](crate::escrow::Escrow).
 	async fn escrowed(
 		&self,
 		tx: &impl leptoskit_db::Read,
 		account: Id<Account>,
 		mint: &str,
-	) -> rpc::Result<(String, Address)> {
+	) -> rpc::Result<(String, Address, crate::escrow::Escrow)> {
 		let Ok(address) = mint.parse::<Address>() else {
 			return Err(refused(Refusal::NotInVault));
 		};
@@ -371,12 +373,13 @@ impl Keeper {
 			return Err(refused(Refusal::WalletUnproven));
 		};
 
-		self.gateway
-			.escrowed(&wallet_address, &address)
+		let recorded = self
+			.gateway
+			.escrow_of(&wallet_address, &address)
 			.await
 			.map_err(refused)?;
 
-		Ok((wallet, address))
+		Ok((wallet, address, recorded))
 	}
 
 	async fn settle_hunt(
@@ -389,10 +392,15 @@ impl Keeper {
 
 		let account = me(cx.identity())?;
 		let tx = cx.tx();
-		let log = decode_log(log)?;
 		let now = now();
 		let feeding_seed = seed()?;
 		let judging = self.judging();
+
+		// Pre-check base64 size bound before allocating or decoding.
+		if log.len() > MAX_ENCODED_LOG_BYTES {
+			return Err(refused(Refusal::HuntUnproven));
+		}
+
 		let bound = HuskEscrow::query()
 			.filter(|escrow| escrow.account_id.eq(account) & escrow.sighting_id.eq(sighting))
 			.first(tx)
@@ -401,32 +409,44 @@ impl Keeper {
 
 		// A husk escrowed on-chain is hunted only while it is still in
 		// escrow, by the wallet that released it.
-		if let Some(bound) = &bound {
+		let verified_escrow = if let Some(bound) = &bound {
 			if wallet.as_deref() != Some(bound.wallet.as_str()) {
 				return Err(refused(Refusal::WalletUnproven));
 			}
 
-			self.escrowed(tx, account, &bound.mint).await?;
-		}
+			let (_, _, recorded) = self.escrowed(tx, account, &bound.mint).await?;
+			Some(recorded)
+		} else {
+			None
+		};
+
+		// Refresh and validate state (including sighting availability) once
+		// before running the CPU-heavy deterministic replay on a blocking thread.
+		let prepared = books::prepare(tx, &self.gateway, account, None).await?;
+		breach(prepared.state.huntable(sighting, now))?;
+
+		let replay_state = prepared.state.clone();
+		let encoded_log = log.to_owned();
+		let permit = self
+			.replay_permits
+			.clone()
+			.acquire_owned()
+			.await
+			.map_err(|_| rpc::Error::server("hunt replay pool closed"))?;
+		let judged = tokio::task::spawn_blocking(move || {
+			let _permit = permit;
+			let decoded = decode_log(&encoded_log)?;
+			breach(replay_state.judge_hunt(sighting, &decoded, now, feeding_seed, &judging))
+		})
+		.await
+		.map_err(|_| rpc::Error::server("hunt replay task aborted"))??;
 
 		let player = player_bytes(account, wallet.as_deref());
-		let mut settled = None;
+		let (settlement, receipt) = self.sign(&judged, player, bound.as_ref())?;
+		books::commit(tx, &self.gateway, &prepared, settlement.state.clone()).await?;
 
-		books::change(tx, &self.gateway, account, None, |state| {
-			let judged = breach(state.judge_hunt(sighting, &log, now, feeding_seed, &judging))?;
-			let signed = self.sign(&judged, player, bound.as_ref())?;
-			let next = signed.0.state.clone();
-
-			settled = Some(signed);
-			Ok(next)
-		})
-		.await?;
-
-		let Some((settlement, receipt)) = settled else {
-			return Err(rpc::Error::server("the hunt was not settled"));
-		};
-		let receipt = match (receipt, &bound) {
-			(Some(receipt), Some(bound)) => {
+		let receipt = match (receipt, &bound, verified_escrow.as_ref()) {
+			(Some(receipt), Some(bound), escrow) => {
 				// Kept with the binding, so the same receipt can be built
 				// again if the wallet's burn does not land.
 				HuskEscrow::update()
@@ -435,7 +455,7 @@ impl Keeper {
 					.set(|row| row.absorption, Some(Json(receipt.absorption.clone())))
 					.run(tx)
 					.await?;
-				Some(self.chain_receipt(receipt).await)
+				Some(self.chain_receipt(receipt, escrow).await)
 			}
 			_ => None,
 		};
@@ -512,8 +532,13 @@ impl Keeper {
 	) -> rpc::Result<ChainReceipt> {
 		self.simulation()?;
 
+		let Ok(parsed_nft) = Nft::parse(nft) else {
+			return Err(refused(Refusal::NotInVault));
+		};
+		let canonical_nft = parsed_nft.id();
+
 		let bound = HuskEscrow::query()
-			.filter(|escrow| escrow.account_id.eq(account) & escrow.nft.eq(nft))
+			.filter(|escrow| escrow.account_id.eq(account) & escrow.nft.eq(canonical_nft.clone()))
 			.order_by(|escrow| escrow.created_at.desc())
 			.first(&self.db)
 			.await?;
@@ -533,7 +558,7 @@ impl Keeper {
 			return Err(refused(Refusal::WalletUnproven));
 		}
 
-		let (wallet, mint) = self.escrowed(&self.db, account, &bound.mint).await?;
+		let (wallet, mint, recorded) = self.escrowed(&self.db, account, &bound.mint).await?;
 		let player = player_bytes(account, Some(&wallet));
 		let Some(receipt) = receipt::of(player, *mint.as_bytes(), &absorption) else {
 			return Err(rpc::Error::server("an absorption does not fit its receipt"));
@@ -547,11 +572,14 @@ impl Keeper {
 		}
 
 		let chain_receipt = self
-			.chain_receipt(SignedReceipt {
-				receipt,
-				signature,
-				absorption,
-			})
+			.chain_receipt(
+				SignedReceipt {
+					receipt,
+					signature,
+					absorption,
+				},
+				Some(&recorded),
+			)
 			.await;
 
 		if chain_receipt.transaction.is_none() {
@@ -564,15 +592,24 @@ impl Keeper {
 	/// The receipt as the wallet takes it to the chain, with the absorb
 	/// transaction when the chain says how to burn the husk and gives a
 	/// blockhash for it.
-	async fn chain_receipt(&self, signed: SignedReceipt) -> ChainReceipt {
+	async fn chain_receipt(
+		&self,
+		signed: SignedReceipt,
+		escrow: Option<&crate::escrow::Escrow>,
+	) -> ChainReceipt {
 		let message = signed.receipt.encode();
 		let wallet = Address::from_bytes(signed.receipt.player);
 		let mint = Address::from_bytes(signed.receipt.mint);
 		let keeper = self.signer.address();
-		let transaction = match (
-			self.gateway.absorb_target(&mint).await,
-			self.gateway.latest_blockhash().await,
-		) {
+		let burn_fut = async {
+			if let Some(recorded) = escrow {
+				self.gateway.absorb_target_for(&mint, recorded).await
+			} else {
+				self.gateway.absorb_target(&mint).await
+			}
+		};
+		let (burn_res, blockhash_res) = tokio::join!(burn_fut, self.gateway.latest_blockhash());
+		let transaction = match (burn_res, blockhash_res) {
 			(Ok(burn), Ok((blockhash, last_valid_block_height))) => {
 				absorb::transaction(
 					&keeper,
@@ -651,8 +688,9 @@ impl Keeper {
 		let account = me(cx.identity())?;
 		let tx = cx.tx();
 
-		// Opens the books, and checks the NFT reapers already in them.
-		books::change(tx, &self.gateway, account, None, Ok).await?;
+		// Issuing a sign-in challenge only needs local books; avoid blocking
+		// wallet authentication on external Solana RPC availability.
+		books::open(tx, account).await?;
 
 		let issued = chrono::Utc::now();
 		let expires = issued + wallet::LIFETIME;
@@ -672,7 +710,8 @@ impl Keeper {
 			consumed: false,
 		}
 		.insert(tx)
-		.await?;
+		.await
+		.map_err(books::conflict_as_contended)?;
 
 		Ok(Challenge {
 			challenge_id: nonce,
@@ -715,12 +754,36 @@ impl Keeper {
 		let Some((entrant, reaper)) = entering else {
 			return Err(rpc::Error::server("the reaper was not read"));
 		};
-		let chair = self.hall.join(account, site, entrant, demo, seed()?)?;
+		let settler_keeper = Arc::clone(&self);
+		let settler: crate::rift::RiftSettler =
+			Arc::new(move |seat_account, seat_reaper, reward| {
+				let keeper = Arc::clone(&settler_keeper);
+				Box::pin(async move {
+					keeper
+						.change_alone(seat_account, move |state| {
+							// Unverified rift rewards only settle on the oathbound
+							// starter (never tradable NFT reapers).
+							if let Some(id) = seat_reaper.as_deref()
+								&& state.reapers().iter().any(|r| r.id() == id && r.is_nft())
+							{
+								return Err(refused(Refusal::RiftUnproven));
+							}
+
+							breach(state.settle_rift(
+								reward.xp,
+								reward.anima,
+								seat_reaper.as_deref(),
+							))
+						})
+						.await
+						.map(drop)
+				})
+			});
+		let chair = self
+			.hall
+			.join(account, reaper, site, entrant, demo, seed()?, Some(settler))?;
 		let following = Following {
-			keeper: self,
 			chair,
-			account,
-			reaper,
 			step: Step::First,
 		};
 
@@ -784,6 +847,10 @@ fn parsed<T>(value: Option<T>, otherwise: Refusal) -> RuleResult<T> {
 
 /// The hunt log `encoded` packs, in standard base64.
 fn decode_log(encoded: &str) -> rpc::Result<HuntLog> {
+	if encoded.len() > MAX_ENCODED_LOG_BYTES {
+		return Err(refused(Refusal::HuntUnproven));
+	}
+
 	let bytes = STANDARD
 		.decode(encoded)
 		.map_err(|_| refused(Refusal::HuntUnproven))?;
@@ -824,13 +891,11 @@ enum Step {
 	Done,
 }
 
-/// One reaper following their rift: the frames they are sent, and their
-/// payment when it is sealed.
+/// One reaper following their rift: the frames they are sent. Rewards are
+/// settled directly by the rift's clock when it seals so a late disconnect
+/// never forfeits earned progress.
 struct Following {
-	keeper: Arc<Keeper>,
 	chair: Chair,
-	account: Id<Account>,
-	reaper: Option<String>,
 	step: Step,
 }
 
@@ -871,7 +936,7 @@ impl Following {
 				self.step = Step::Done;
 
 				if frame.phase == RiftPhase::Sealed
-					&& let Err(error) = self.settle().await
+					&& let Some(error) = self.chair.settlement_error()
 				{
 					return Some((Err(error), self));
 				}
@@ -885,21 +950,6 @@ impl Following {
 		self.chair
 			.frame()
 			.ok_or_else(|| rpc::Error::server("the reaper has no seat"))
-	}
-
-	/// Pays this reaper's own books from their own share of the ward. The
-	/// room reports a sealed rift once, so the books see exactly one
-	/// payment.
-	async fn settle(&self) -> rpc::Result<()> {
-		let reward = self.chair.reward();
-		let reaper = self.reaper.clone();
-
-		self.keeper
-			.change_alone(self.account, move |state| {
-				breach(state.settle_rift(reward.xp, reward.anima, reaper.as_deref()))
-			})
-			.await
-			.map(drop)
 	}
 }
 

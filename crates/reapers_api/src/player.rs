@@ -86,9 +86,9 @@ pub async fn release(
 /// it earned.
 ///
 /// `log` is the packed `HuntLog`, in standard base64: see [`encode_log`].
-/// Version 9 may carry the phone's recorded eye on each tick.
-/// A hunt played in a room the phone read cell by cell carries the room's
-/// grid in its plan, and the replay walks the husk through the same room.
+/// Current logs carry the phone's recorded eye on each tick and, when the
+/// phone scanned the room cell by cell, the room's grid in the plan so the
+/// replay walks the husk through the same room.
 /// The verdict is the replay's; nothing the game claims about how the hunt
 /// went is read.
 #[rpc::mutation]

@@ -30,11 +30,11 @@ use axum::routing::post;
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use leptoskit_auth::Account;
+use leptoskit_auth::Session;
 use leptoskit_auth::SessionLifetimes;
 use leptoskit_db::Connection;
 use leptoskit_db::Id;
 use leptoskit_db::Statement;
-use leptoskit_db::Tx;
 use leptoskit_db::Value;
 use leptoskit_rpc as rpc;
 use reapers_api::auth::SignInRefused;
@@ -54,10 +54,6 @@ use crate::wallet;
 
 /// What a session started here is listed as among the account's devices.
 const DEVICE: &str = "Reapers";
-
-/// How many times a sign-in runs again when another transaction gets in its
-/// way.
-const RETRIES: u32 = 5;
 
 /// `/auth/guest` and `/auth/wallet`, beside `leptoskit_auth`'s own routes.
 pub fn router(keeper: Arc<Keeper>) -> Router {
@@ -97,15 +93,15 @@ async fn guest(State(keeper): State<Arc<Keeper>>) -> Result<Json<SignedIn>, Refu
 
 /// Opens a new guest account, with its books, and starts its session.
 pub async fn sign_in_guest(keeper: &Keeper) -> rpc::Result<SignedIn> {
-	transact(keeper, |tx| {
-		Box::pin(async move {
+	books::transact_serializable!(keeper.db(), |tx| {
+		async {
 			let account = new_account(tx).await?;
 
 			books::open(tx, account).await?;
 			start_session(tx, account).await
-		})
+		}
+		.await
 	})
-	.await
 }
 
 async fn wallet_sign_in(
@@ -117,7 +113,9 @@ async fn wallet_sign_in(
 		return Err(Refused(rpc::Error::unauthorized("sign in first")));
 	};
 
-	Ok(Json(sign_in_wallet(&keeper, me.account, &proof).await?))
+	Ok(Json(
+		sign_in_wallet_with_session(&keeper, me.account, Some(me.session), &proof).await?,
+	))
 }
 
 /// Checks `proof` answers `account`'s open challenge, and starts a session.
@@ -132,12 +130,30 @@ pub async fn sign_in_wallet(
 	account: Id<Account>,
 	proof: &WalletSignIn,
 ) -> rpc::Result<SignedIn> {
-	transact(keeper, |tx| {
-		let proof = proof.clone();
+	sign_in_wallet_with_session(keeper, account, None, proof).await
+}
 
-		Box::pin(async move {
-			books::open(tx, account).await?;
+async fn sign_in_wallet_with_session(
+	keeper: &Keeper,
+	account: Id<Account>,
+	guest_session: Option<Id<Session>>,
+	proof: &WalletSignIn,
+) -> rpc::Result<SignedIn> {
+	if !keeper.gateway().config().wallets_enabled() {
+		return Err(refused(Refusal::ChainUnconfigured));
+	}
 
+	if proof.challenge_id.is_empty()
+		|| proof.challenge_id.len() > 64
+		|| proof.signature.is_empty()
+		|| proof.signature.len() > 88
+	{
+		return Err(refused(Refusal::WalletUnproven));
+	}
+
+	books::transact_serializable!(keeper.db(), |tx| {
+		async {
+			let now = leptoskit_db::now();
 			let challenge = WalletChallenge::query()
 				.filter(|challenge| {
 					challenge.challenge_id.eq(proof.challenge_id.clone())
@@ -147,7 +163,7 @@ pub async fn sign_in_wallet(
 				.await?;
 			let Some(challenge) = challenge.filter(|challenge| {
 				!challenge.consumed
-					&& challenge.expires_at > chrono::Utc::now()
+					&& challenge.expires_at > now
 					&& wallet::verify(&challenge.address, &challenge.message, &proof.signature)
 			}) else {
 				return Err(refused(Refusal::WalletUnproven));
@@ -168,19 +184,54 @@ pub async fn sign_in_wallet(
 					account_id: account,
 				}
 				.insert(tx)
-				.await?;
+				.await
+				.map_err(books::conflict_as_contended)?;
 				account
 			};
+
+			// Refuse signing into a disabled or locked account.
+			let Some(owner_account) = Account::find(tx, owner).await? else {
+				return Err(rpc::Error::unauthorized("account not found"));
+			};
+
+			if owner_account.disabled_at.is_some()
+				|| owner_account
+					.locked_until
+					.is_some_and(|locked_until| locked_until > now)
+			{
+				return Err(rpc::Error::forbidden("this account cannot sign in"));
+			}
+
+			books::open(tx, owner).await?;
 
 			WalletChallenge::update()
 				.filter(|row| row.id.eq(challenge.id))
 				.set(|row| row.consumed, true)
 				.run(tx)
 				.await?;
+
+			// When switching from a throwaway guest to an existing wallet
+			// account, revoke the old guest session so it cannot linger.
+			if owner != account
+				&& let Some(session_id) = guest_session
+			{
+				tx.execute(Statement {
+					sql: "UPDATE \"auth\".\"sessions\" SET \"revoked_at\" = $1 WHERE \"id\" = $2 \
+				      AND \"account_id\" = $3 AND \"revoked_at\" IS NULL"
+						.to_owned(),
+					args: vec![
+						Value::Timestamp(now),
+						Value::Uuid(session_id.uuid()),
+						Value::Uuid(account.uuid()),
+					],
+				})
+				.await?;
+			}
+
 			start_session(tx, owner).await
-		})
+		}
+		.await
 	})
-	.await
 }
 
 /// Starts a native app's session for `account`: an access token and a
@@ -255,29 +306,4 @@ fn token() -> rpc::Result<String> {
 /// What `leptoskit_auth` keeps of a token.
 fn hash(token: &str) -> Vec<u8> {
 	Sha256::digest(token.as_bytes()).to_vec()
-}
-
-/// Runs `work` in a serializable transaction of the keeper's own, again
-/// when another gets in its way.
-async fn transact<T>(
-	keeper: &Keeper,
-	work: impl for<'t> Fn(&'t Tx) -> futures::future::BoxFuture<'t, rpc::Result<T>>,
-) -> rpc::Result<T> {
-	let mut attempt = 0;
-
-	loop {
-		let tx = keeper.db().begin_serializable().await?;
-		let result = match work(&tx).await {
-			Ok(value) => tx.commit().await.map(|()| value).map_err(rpc::Error::from),
-			Err(error) => {
-				let _ = tx.rollback().await;
-				Err(error)
-			}
-		};
-
-		match result {
-			Err(error) if error.is_contended() && attempt < RETRIES => attempt += 1,
-			result => return result,
-		}
-	}
 }

@@ -36,6 +36,16 @@ pub fn target() -> Result<Schema, MigrationError> {
 		.map_err(|error| fail(format!("the tables don't make a schema: {error}")))
 }
 
+/// Reads `registry` if present, returning an empty string only when it does
+/// not exist yet.
+fn read_registry(registry: &Path) -> Result<String, MigrationError> {
+	match fs::read_to_string(registry) {
+		Ok(text) => Ok(text),
+		Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+		Err(error) => Err(fail(format!("{}: {error}", registry.display()))),
+	}
+}
+
 /// The migrations `directory` lists, in order.
 ///
 /// # Errors
@@ -43,7 +53,7 @@ pub fn target() -> Result<Schema, MigrationError> {
 /// When the registry cannot be read.
 pub fn names(directory: &Path) -> Result<Vec<String>, MigrationError> {
 	let registry = directory.join("registry.txt");
-	let text = fs::read_to_string(&registry).unwrap_or_default();
+	let text = read_registry(&registry)?;
 
 	Ok(text
 		.lines()
@@ -169,7 +179,7 @@ pub fn create(directory: &Path, name: &str, now: &str) -> Result<String, Migrati
 	write("schema.json", target.to_json())?;
 
 	let registry = directory.join("registry.txt");
-	let mut text = fs::read_to_string(&registry).unwrap_or_default();
+	let mut text = read_registry(&registry)?;
 
 	if !text.contains("# The migrations") {
 		text.insert_str(

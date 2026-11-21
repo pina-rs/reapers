@@ -171,6 +171,8 @@ impl HuskCollection {
 				.and_then(|text| text.parse::<Address>().ok())
 				.ok_or_else(|| invalid("an address that is not one"))
 		};
+		let mut seen_collections = std::collections::BTreeSet::new();
+		let mut seen_assets = std::collections::BTreeSet::new();
 
 		collections
 			.iter()
@@ -178,6 +180,11 @@ impl HuskCollection {
 				let slug = entry["slug"].as_str().unwrap_or_default();
 				let collection =
 					Self::collection_of(slug).ok_or_else(|| invalid("an unknown slug"))?;
+
+				if !seen_collections.insert(collection.name()) {
+					return Err(invalid("duplicate collection in manifest"));
+				}
+
 				let assets = entry["assets"]
 					.as_array()
 					.ok_or_else(|| invalid("a collection without assets"))?
@@ -187,6 +194,12 @@ impl HuskCollection {
 
 				if assets.len() != collection.rarities().len() {
 					return Err(invalid("a collection with the wrong number of assets"));
+				}
+
+				for asset in &assets {
+					if !seen_assets.insert(asset.to_string()) {
+						return Err(invalid("duplicate asset address in manifest"));
+					}
 				}
 
 				Ok(Self {
@@ -257,7 +270,12 @@ impl SolanaConfig {
 				.map(|value| {
 					Url::parse(value)
 						.ok()
-						.filter(|url| url.scheme() == "https")
+						.filter(|url| {
+							url.scheme() == "https"
+								&& url.host_str().is_some_and(|host| !host.is_empty())
+								&& url.username().is_empty()
+								&& url.password().is_none()
+						})
 						.ok_or_else(|| invalid(what))
 				})
 				.transpose()
@@ -347,13 +365,21 @@ impl SolanaConfig {
 
 	/// The settings `var` gives, as [`Self::from_env`] reads them.
 	///
+	/// Empty or whitespace-only values are treated as unset.
+	///
 	/// # Errors
 	///
 	/// As [`Self::from_env`].
 	pub fn from_vars(var: impl Fn(&str) -> Option<String>) -> Result<Self, ConfigError> {
-		let chain = var("REAPERS_SOLANA_CHAIN").unwrap_or_else(|| "solana:devnet".to_owned());
-		let collection = var("REAPERS_REAPER_COLLECTION");
-		let identity = var("REAPERS_WALLET_IDENTITY_URI");
+		let non_empty = |name: &str| {
+			var(name).and_then(|value| {
+				let trimmed = value.trim();
+				(!trimmed.is_empty()).then(|| trimmed.to_owned())
+			})
+		};
+		let chain = non_empty("REAPERS_SOLANA_CHAIN").unwrap_or_else(|| "solana:devnet".to_owned());
+		let collection = non_empty("REAPERS_REAPER_COLLECTION");
+		let identity = non_empty("REAPERS_WALLET_IDENTITY_URI");
 
 		if collection.is_some() && identity.is_none() {
 			return Err(ConfigError(
@@ -361,14 +387,14 @@ impl SolanaConfig {
 			));
 		}
 
-		let rpc_url = var("REAPERS_SOLANA_RPC_URL").unwrap_or_else(|| {
+		let rpc_url = non_empty("REAPERS_SOLANA_RPC_URL").unwrap_or_else(|| {
 			match chain.as_str() {
 				"solana:mainnet" => "https://api.mainnet-beta.solana.com".to_owned(),
 				LOCALNET => "http://127.0.0.1:8899".to_owned(),
 				_ => "https://api.devnet.solana.com".to_owned(),
 			}
 		});
-		let husks = match var("REAPERS_DEMO_HUSKS") {
+		let husks = match non_empty("REAPERS_DEMO_HUSKS") {
 			Some(path) => {
 				let text = std::fs::read_to_string(&path)
 					.map_err(|error| ConfigError(format!("REAPERS_DEMO_HUSKS: {path}: {error}")))?;
@@ -383,10 +409,34 @@ impl SolanaConfig {
 			rpc_url,
 			identity.as_deref().unwrap_or(Self::PLACEHOLDER_IDENTITY),
 			collection.as_deref(),
-			var("REAPERS_REAPER_MARKET_URL").as_deref(),
-			var("REAPERS_PROGRAM_ID").as_deref(),
+			non_empty("REAPERS_REAPER_MARKET_URL").as_deref(),
+			non_empty("REAPERS_PROGRAM_ID").as_deref(),
 		)
 		.map(|config| config.with_husks(husks))
+	}
+
+	/// Checks that these Solana settings are safe for `mode`: deployed keepers
+	/// never run against a localnet validator or with a demo husk manifest.
+	///
+	/// # Errors
+	///
+	/// When `mode` is staging or production and localnet or demo husks are set.
+	pub fn validate_for_mode(&self, mode: RunMode) -> Result<(), ConfigError> {
+		if !mode.simulates() {
+			if self.is_localnet() {
+				return Err(ConfigError(format!(
+					"REAPERS_SOLANA_CHAIN: a localnet is for development and test, not \"{mode}\""
+				)));
+			}
+
+			if !self.husks.is_empty() {
+				return Err(ConfigError(format!(
+					"REAPERS_DEMO_HUSKS: demo husk manifests are not permitted in \"{mode}\" mode"
+				)));
+			}
+		}
+
+		Ok(())
 	}
 
 	/// Whether wallets may be proved: false until a real identity origin is
@@ -402,6 +452,61 @@ impl SolanaConfig {
 	pub fn genesis_hash(&self) -> &'static str {
 		genesis_hash(&self.chain).unwrap_or_default()
 	}
+}
+
+/// Minimum length (in bytes) of the receipt signing secret in staging or
+/// production.
+pub const MIN_RECEIPT_SECRET_LEN: usize = 32;
+
+/// Validates `REAPERS_ORIGIN` for `mode`.
+///
+/// Any configured origin must be a bare `http://` or `https://` origin without
+/// userinfo, query, fragment, path, or wildcard. Deployed modes (`staging` and
+/// `production`) require a configured `https://` origin.
+///
+/// # Errors
+///
+/// When the origin is missing in deployed modes or malformed.
+pub fn validate_origin(origin: Option<&str>, mode: RunMode) -> Result<Option<String>, ConfigError> {
+	let trimmed = origin.map(str::trim).filter(|value| !value.is_empty());
+	let Some(raw) = trimmed else {
+		if !mode.simulates() {
+			return Err(ConfigError(format!(
+				"REAPERS_ORIGIN: required in \"{mode}\" mode"
+			)));
+		}
+		return Ok(None);
+	};
+
+	if raw == "*" {
+		return Err(ConfigError(
+			"REAPERS_ORIGIN: wildcard `*` is not permitted".to_owned(),
+		));
+	}
+
+	let parsed =
+		Url::parse(raw).map_err(|_| ConfigError(format!("REAPERS_ORIGIN: not a URL: {raw}")))?;
+	let allowed_scheme = if mode.simulates() {
+		matches!(parsed.scheme(), "http" | "https")
+	} else {
+		parsed.scheme() == "https"
+	};
+
+	if !allowed_scheme
+		|| parsed.host_str().is_none_or(str::is_empty)
+		|| !parsed.username().is_empty()
+		|| parsed.password().is_some()
+		|| parsed.query().is_some()
+		|| parsed.fragment().is_some()
+		|| !matches!(parsed.path(), "" | "/")
+	{
+		return Err(ConfigError(format!(
+			"REAPERS_ORIGIN: must be a bare {} origin: {raw}",
+			if mode.simulates() { "http(s)" } else { "https" }
+		)));
+	}
+
+	Ok(Some(raw.trim_end_matches('/').to_owned()))
 }
 
 /// Every secret a deployed keeper cannot run without: the database's URL
@@ -507,6 +612,39 @@ impl Secrets {
 			.into_iter()
 			.filter(|name| self.get(name).is_none())
 			.collect()
+	}
+
+	/// Checks that secrets configured for a deployed mode are not weak or
+	/// public development defaults.
+	///
+	/// # Errors
+	///
+	/// When `mode` is staging or production and `receiptSigningKey` is the
+	/// public development secret or shorter than [`MIN_RECEIPT_SECRET_LEN`].
+	pub fn validate_strength(&self, mode: RunMode) -> Result<(), ConfigError> {
+		if mode.simulates() {
+			return Ok(());
+		}
+
+		if let Some(secret) = self.get(ReceiptSigner::SECRET) {
+			if secret == ReceiptSigner::DEVELOPMENT_SECRET {
+				return Err(ConfigError(format!(
+					"{}{}: the public development receipt key is forbidden in \"{mode}\" mode",
+					Self::ENV_PREFIX,
+					ReceiptSigner::SECRET
+				)));
+			}
+
+			if secret.len() < MIN_RECEIPT_SECRET_LEN {
+				return Err(ConfigError(format!(
+					"{}{}: must be at least {MIN_RECEIPT_SECRET_LEN} bytes in \"{mode}\" mode",
+					Self::ENV_PREFIX,
+					ReceiptSigner::SECRET
+				)));
+			}
+		}
+
+		Ok(())
 	}
 }
 

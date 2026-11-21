@@ -10,7 +10,10 @@
 use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::PoisonError;
 use std::time::Duration;
+use std::time::Instant;
 
 use futures::future::BoxFuture;
 use reapers_rules::ReaperGenome;
@@ -81,10 +84,15 @@ impl Transport for SharedRpc {
 	}
 }
 
+/// How long a verified genesis hash stays trusted before `getGenesisHash` is
+/// re-checked. Failures and mismatches are never cached.
+const GENESIS_TTL: Duration = Duration::from_secs(300);
+
 /// The chain, as the keeper reads it.
 pub struct Gateway {
 	config: SolanaConfig,
 	client: Client<SharedRpc>,
+	genesis_verified_at: Mutex<Option<Instant>>,
 }
 
 impl std::fmt::Debug for Gateway {
@@ -101,6 +109,7 @@ impl Gateway {
 		Self {
 			config,
 			client: Client::new(SharedRpc(Arc::new(rpc)), Limits::default()),
+			genesis_verified_at: Mutex::new(None),
 		}
 	}
 
@@ -129,22 +138,43 @@ impl Gateway {
 		M: Method + Send,
 		M::Response: Send,
 	{
-		within(self.client.call(method)).await
+		within(std::any::type_name::<M>(), self.client.call(method)).await
 	}
 
-	/// Checks the RPC is the configured cluster, on every operation rather
-	/// than trusting a URL or a cached answer. A localnet has no genesis to
-	/// check: it is whatever validator the developer started on this machine.
+	/// Checks the RPC is the configured cluster, re-verifying after
+	/// [`GENESIS_TTL`] so steady-state reads do not spend an extra RPC round
+	/// trip on every call. Mismatches and transport failures are never cached.
+	/// A localnet has no genesis to check: it is whatever validator the
+	/// developer started on this machine.
 	async fn check_cluster(&self) -> Result<(), Refusal> {
 		if self.config.is_localnet() {
 			return Ok(());
 		}
 
+		{
+			let verified = self
+				.genesis_verified_at
+				.lock()
+				.unwrap_or_else(PoisonError::into_inner);
+
+			if verified.is_some_and(|at| at.elapsed() < GENESIS_TTL) {
+				return Ok(());
+			}
+		}
+
 		let genesis = self.call(GenesisHash).await?;
 
 		if genesis.to_string() == self.config.genesis_hash() {
+			*self
+				.genesis_verified_at
+				.lock()
+				.unwrap_or_else(PoisonError::into_inner) = Some(Instant::now());
 			Ok(())
 		} else {
+			*self
+				.genesis_verified_at
+				.lock()
+				.unwrap_or_else(PoisonError::into_inner) = None;
 			Err(Refusal::ChainUnconfigured)
 		}
 	}
@@ -190,6 +220,9 @@ impl Gateway {
 			return Ok(HashMap::new());
 		}
 
+		let wallet = wallet
+			.parse::<Address>()
+			.map_err(|_| Refusal::WalletUnproven)?;
 		let addresses = assets
 			.iter()
 			.map(|asset| asset.parse::<Address>())
@@ -220,7 +253,7 @@ impl Gateway {
 				continue;
 			};
 
-			if asset_v1.owner.to_string() != wallet
+			if asset_v1.owner != wallet
 				|| asset_v1.update_authority != UpdateAuthority::Collection(collection)
 			{
 				continue;
@@ -235,19 +268,28 @@ impl Gateway {
 	}
 
 	/// Checks, at a finalized slot, that `mint` is escrowed with the Reapers
+	/// program, released by `wallet`, and returns its decoded [`Escrow`].
+	///
+	/// Refused as `chainUnconfigured` when no program is configured, and as
+	/// `notInVault` when the escrow is not there or is someone else's.
+	pub async fn escrow_of(&self, wallet: &Address, mint: &Address) -> Result<Escrow, Refusal> {
+		let recorded = self.escrow(mint).await?;
+
+		if recorded.wallet == *wallet {
+			Ok(recorded)
+		} else {
+			Err(Refusal::NotInVault)
+		}
+	}
+
+	/// Checks, at a finalized slot, that `mint` is escrowed with the Reapers
 	/// program, released by `wallet`: its escrow account exists, the
 	/// program owns it, and it records this wallet and this mint.
 	///
 	/// Refused as `chainUnconfigured` when no program is configured, and as
 	/// `notInVault` when the escrow is not there or is someone else's.
 	pub async fn escrowed(&self, wallet: &Address, mint: &Address) -> Result<(), Refusal> {
-		self.escrow(mint).await.and_then(|recorded| {
-			if recorded.wallet == *wallet {
-				Ok(())
-			} else {
-				Err(Refusal::NotInVault)
-			}
-		})
+		self.escrow_of(wallet, mint).await.map(drop)
 	}
 
 	/// How the escrowed husk `mint` is burned: its kind, from its escrow,
@@ -255,11 +297,26 @@ impl Gateway {
 	/// finalized slot.
 	///
 	/// Refused as for [`Self::escrowed`], and as `notInVault` when a Core
-	/// husk's asset is no longer an asset.
+	/// husk's asset is no longer an asset owned by its escrow PDA.
 	pub async fn absorb_target(&self, mint: &Address) -> Result<Burn, Refusal> {
 		let recorded = self.escrow(mint).await?;
+
+		self.absorb_target_for(mint, &recorded).await
+	}
+
+	/// How the already-verified escrowed husk `mint` is burned, avoiding a
+	/// second escrow account RPC read.
+	pub async fn absorb_target_for(
+		&self,
+		mint: &Address,
+		recorded: &Escrow,
+	) -> Result<Burn, Refusal> {
 		let collection = match recorded.kind {
 			HuskKind::Core => {
+				let (escrow_pda, _) = escrow::address_of(mint);
+
+				self.check_cluster().await?;
+
 				let assets = self
 					.call(MultipleAccounts(
 						vec![*mint],
@@ -273,6 +330,10 @@ impl Gateway {
 				let Some(asset) = assets.value.into_iter().next().and_then(core_asset) else {
 					return Err(Refusal::NotInVault);
 				};
+
+				if asset.owner != escrow_pda {
+					return Err(Refusal::NotInVault);
+				}
 
 				match asset.update_authority {
 					UpdateAuthority::Collection(collection) => Some(collection),
@@ -368,10 +429,20 @@ fn core_asset(account: MaybeAccount<AccountData>) -> Option<AssetV1> {
 }
 
 /// `request`, failing as `chainUnavailable` when it fails or takes longer
-/// than [`TIMEOUT`].
-async fn within<T, E>(request: impl Future<Output = Result<T, E>>) -> Result<T, Refusal> {
+/// than [`TIMEOUT`]. Logs the method name without exposing any RPC URL.
+async fn within<T, E>(
+	method: &'static str,
+	request: impl Future<Output = Result<T, E>>,
+) -> Result<T, Refusal> {
 	match tokio::time::timeout(TIMEOUT, request).await {
 		Ok(Ok(value)) => Ok(value),
-		Ok(Err(_)) | Err(_) => Err(Refusal::ChainUnavailable),
+		Ok(Err(_)) => {
+			eprintln!("reapers_server: solana rpc {method} failed");
+			Err(Refusal::ChainUnavailable)
+		}
+		Err(_) => {
+			eprintln!("reapers_server: solana rpc {method} timed out after {TIMEOUT:?}");
+			Err(Refusal::ChainUnavailable)
+		}
 	}
 }

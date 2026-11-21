@@ -7,27 +7,58 @@
 //! | `GET /live`        | The live socket: the rift streams                                  |
 //! | `/auth/guest`      | A new guest account and its session                                |
 //! | `/auth/wallet`     | Wallet sign-in: link a guest, or restore the wallet's account      |
-//! | `/auth/…`          | `leptoskit_auth`'s own routes, such as `/auth/refresh`             |
+//! | `/auth/session`    | Current session inspection (`GET`)                                 |
+//! | `/auth/refresh`    | Native/web bearer token refresh (`POST`)                           |
+//! | `/auth/sign-out`   | End the current session (`POST`)                                   |
 //!
 //! With an origin, the routes also answer that origin's pages across
 //! origins (CORS), with the bearer token in a header and no cookie: the web
 //! game is served from its own host, and signs in as a native app does.
 
+use std::collections::HashMap;
+use std::net::IpAddr;
+use std::net::SocketAddr;
 use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::PoisonError;
+use std::time::Duration;
+use std::time::Instant;
 
+use axum::Extension;
+use axum::Json;
 use axum::Router;
+use axum::body::Body;
+use axum::extract::ConnectInfo;
+use axum::extract::State;
+use axum::http::HeaderMap;
 use axum::http::HeaderName;
 use axum::http::HeaderValue;
 use axum::http::Method;
+use axum::http::Request;
+use axum::http::StatusCode;
 use axum::http::header;
+use axum::middleware;
+use axum::middleware::Next;
+use axum::response::IntoResponse;
+use axum::response::Response;
+use axum::routing::get;
+use axum::routing::post;
 use futures::future::BoxFuture;
 use leptoskit_auth::Auth;
 use leptoskit_auth::AuthError;
+use leptoskit_auth::CurrentSession;
 use leptoskit_auth::Keys;
 use leptoskit_auth::Mail;
 use leptoskit_auth::MailError;
 use leptoskit_auth::MailFuture;
 use leptoskit_auth::Mailer;
+use leptoskit_auth::PublicSession;
+use leptoskit_auth::RefreshTokens;
+use leptoskit_auth::RequestInfo;
+use leptoskit_auth::Session;
+use leptoskit_auth::SessionResponse;
+use leptoskit_auth::SessionToken;
+use leptoskit_auth::Tokens;
 use leptoskit_db::Db;
 use leptoskit_rpc as rpc;
 use leptoskit_rpc::Identify;
@@ -108,13 +139,22 @@ pub fn start(db: &Db, keys: Keys, options: Options) -> Result<Reapers, AuthError
 		Some(origin) => rpc.live().origin(origin),
 		None => rpc.live(),
 	};
+	let limits = Arc::new(RateLimits::for_mode(options.mode));
 	let router = Router::new()
 		.merge(rpc.router())
 		.merge(sign_in::router(Arc::clone(&keeper)))
-		.merge(auth.router())
+		.merge(session_router(
+			auth.clone(),
+			db.system("auth: session inspection"),
+		))
 		.merge(live.router())
+		// Rate limiting runs after auth resolution so authenticated accounts
+		// get per-account buckets and unauthenticated sign-in endpoints are
+		// bounded per client IP.
+		.layer(middleware::from_fn_with_state(limits, rate_limit_layer))
 		// It finds each request's session.
-		.layer(auth.layer());
+		.layer(auth.layer())
+		.layer(middleware::from_fn(security_headers_layer));
 	// Outermost, so a preflight is answered before anything asks who it is.
 	let router = match options.origin.as_deref().map(cors).transpose()? {
 		Some(cors) => router.layer(cors),
@@ -127,6 +167,216 @@ pub fn start(db: &Db, keys: Keys, options: Options) -> Result<Reapers, AuthError
 		auth,
 		keeper,
 	})
+}
+
+/// Only the `leptoskit_auth` session-lifecycle endpoints Reapers actually uses:
+/// `GET /auth/session`, `POST /auth/refresh`, and `POST /auth/sign-out`.
+///
+/// Unused sign-in flows (email OTP, passwords, passkeys, TOTP, OAuth, account
+/// merging, and `leptoskit_auth`'s own wallet routes) are deliberately not
+/// mounted and answer `404 Not Found`.
+fn session_router(auth: Auth, db: Db) -> Router {
+	Router::new()
+		.route("/auth/session", get(auth_session))
+		.route(reapers_api::auth::REFRESH, post(auth_refresh))
+		.route("/auth/sign-out", post(auth_sign_out))
+		.with_state(SessionState { auth, db })
+}
+
+#[derive(Clone)]
+struct SessionState {
+	auth: Auth,
+	db: Db,
+}
+
+async fn auth_session(
+	State(state): State<SessionState>,
+	Extension(current): Extension<CurrentSession>,
+) -> Result<Json<SessionResponse>, AuthError> {
+	let session = match current.signed_in.or(current.enrolling) {
+		Some(me) => {
+			Session::find(&state.db, me.session)
+				.await?
+				.map(PublicSession::from)
+		}
+		None => None,
+	};
+
+	Ok(Json(SessionResponse { session }))
+}
+
+async fn auth_refresh(
+	State(state): State<SessionState>,
+	request: RequestInfo,
+	Json(body): Json<RefreshTokens>,
+) -> Result<Json<Tokens>, AuthError> {
+	let sign_in = state
+		.auth
+		.refresh(&SessionToken::new(body.refresh_token), &request)
+		.await?;
+
+	sign_in.tokens().map(Json).ok_or(AuthError::SignedOut)
+}
+
+async fn auth_sign_out(
+	State(state): State<SessionState>,
+	headers: HeaderMap,
+	request: RequestInfo,
+) -> Result<Response, AuthError> {
+	if let Some(token) = bearer_token(&headers) {
+		state.auth.sign_out(&token, &request).await?;
+	}
+
+	let mut response = StatusCode::NO_CONTENT.into_response();
+	response
+		.headers_mut()
+		.insert(header::SET_COOKIE, state.auth.cleared_cookie());
+	Ok(response)
+}
+
+fn bearer_token(headers: &HeaderMap) -> Option<SessionToken> {
+	let value = headers.get(header::AUTHORIZATION)?.to_str().ok()?;
+	let (scheme, token) = value.split_once(' ')?;
+
+	scheme
+		.eq_ignore_ascii_case("bearer")
+		.then(|| SessionToken::new(token.trim()))
+}
+
+/// Hardens every HTTP answer with non-cacheable API security headers.
+async fn security_headers_layer(request: Request<Body>, next: Next) -> Response {
+	let mut response = next.run(request).await;
+	let headers = response.headers_mut();
+
+	headers.insert(
+		header::CACHE_CONTROL,
+		HeaderValue::from_static("no-store, max-age=0"),
+	);
+	headers.insert(
+		header::X_CONTENT_TYPE_OPTIONS,
+		HeaderValue::from_static("nosniff"),
+	);
+	headers.insert(
+		header::REFERRER_POLICY,
+		HeaderValue::from_static("no-referrer"),
+	);
+	headers.insert(header::X_FRAME_OPTIONS, HeaderValue::from_static("DENY"));
+
+	response
+}
+
+type RateBuckets = HashMap<(String, &'static str), (Instant, u32)>;
+
+/// Fixed-window per-client/per-bucket rate limiter with bounded cardinality so
+/// unauthenticated endpoints (`/auth/guest`, `/auth/wallet`, `/auth/refresh`)
+/// and expensive RPCs cannot be flooded into DB/RPC exhaustion.
+struct RateLimits {
+	window: Duration,
+	auth_guest_limit: u32,
+	auth_wallet_limit: u32,
+	api_limit: u32,
+	buckets: Mutex<RateBuckets>,
+}
+
+impl RateLimits {
+	const MAX_BUCKETS: usize = 8192;
+
+	fn for_mode(mode: RunMode) -> Self {
+		// Tests run many `oneshot` calls from the same synthetic peer; give
+		// `Test` generous headroom while still exercising the limiter.
+		let (auth_guest_limit, auth_wallet_limit, api_limit) = if mode == RunMode::Test {
+			(1_000, 1_000, 5_000)
+		} else {
+			(30, 60, 600)
+		};
+
+		Self {
+			window: Duration::from_secs(60),
+			auth_guest_limit,
+			auth_wallet_limit,
+			api_limit,
+			buckets: Mutex::new(HashMap::new()),
+		}
+	}
+
+	fn allow(&self, actor: String, bucket: &'static str, limit: u32) -> Result<(), u64> {
+		let now = Instant::now();
+		let mut map = self.buckets.lock().unwrap_or_else(PoisonError::into_inner);
+
+		if map.len() >= Self::MAX_BUCKETS {
+			map.retain(|_, (started, _)| now.duration_since(*started) < self.window);
+			if map.len() >= Self::MAX_BUCKETS {
+				map.clear();
+			}
+		}
+
+		let entry = map.entry((actor, bucket)).or_insert((now, 0));
+		let elapsed = now.duration_since(entry.0);
+
+		if elapsed >= self.window {
+			*entry = (now, 1);
+			return Ok(());
+		}
+
+		if entry.1 >= limit {
+			let remaining = self.window.saturating_sub(elapsed).as_secs().max(1);
+			return Err(remaining);
+		}
+
+		entry.1 += 1;
+		Ok(())
+	}
+}
+
+async fn rate_limit_layer(
+	State(limits): State<Arc<RateLimits>>,
+	request: Request<Body>,
+	next: Next,
+) -> Response {
+	if *request.method() == Method::OPTIONS {
+		return next.run(request).await;
+	}
+
+	let path = request.uri().path();
+	let (bucket, limit) = match path {
+		reapers_api::auth::GUEST => ("auth_guest", limits.auth_guest_limit),
+		reapers_api::auth::WALLET | reapers_api::auth::REFRESH => {
+			("auth_wallet", limits.auth_wallet_limit)
+		}
+		p if p.starts_with("/api/") => ("api", limits.api_limit),
+		_ => return next.run(request).await,
+	};
+
+	let actor = request
+		.extensions()
+		.get::<CurrentSession>()
+		.and_then(|session| session.signed_in.as_ref().map(|me| me.account.to_string()))
+		.or_else(|| {
+			request
+				.extensions()
+				.get::<ConnectInfo<SocketAddr>>()
+				.map(|ConnectInfo(addr)| addr.ip().to_string())
+		})
+		.unwrap_or_else(|| IpAddr::from([127, 0, 0, 1]).to_string());
+
+	if let Err(retry_after) = limits.allow(actor, bucket, limit) {
+		let mut response = (
+			StatusCode::TOO_MANY_REQUESTS,
+			Json(serde_json::json!({
+				"error": "rate_limited",
+				"retry_after": retry_after,
+			})),
+		)
+			.into_response();
+
+		if let Ok(value) = HeaderValue::from_str(&retry_after.to_string()) {
+			response.headers_mut().insert(header::RETRY_AFTER, value);
+		}
+
+		return response;
+	}
+
+	next.run(request).await
 }
 
 /// Lets the pages of `origin` call the keeper: its operations and sign-in

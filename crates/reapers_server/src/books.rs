@@ -9,8 +9,11 @@
 //! from the ledger in the same transaction, so growth and books commit
 //! together or not at all.
 
+use std::time::Duration;
+
 use leptoskit_auth::Account;
 use leptoskit_db::Connection;
+use leptoskit_db::DbError;
 use leptoskit_db::Id;
 use leptoskit_db::Json;
 use leptoskit_rpc as rpc;
@@ -23,12 +26,74 @@ use reapers_rules::RuleResult;
 use reapers_rules::Timestamp;
 
 use crate::chain::Gateway;
+use crate::tables::HuskEscrow;
 use crate::tables::NewPlayerBooks;
 use crate::tables::NewReaperRecord;
 use crate::tables::PlayerBooks;
 use crate::tables::ReaperRecord;
 use crate::tables::WalletIdentity;
 use crate::wallet;
+
+/// How many times a serializable transaction the keeper opens itself retries
+/// when another transaction contends with it.
+pub const SERIALIZABLE_RETRIES: u32 = 5;
+
+/// Sleeps with bounded jittered exponential backoff before retrying a
+/// contended serializable transaction.
+pub async fn retry_backoff(attempt: u32) {
+	let base_ms = 8_u64.saturating_mul(1_u64 << attempt.min(5));
+	let jitter_ms = u64::from(getrandom::u32().unwrap_or(0) % 17);
+	tokio::time::sleep(Duration::from_millis(base_ms + jitter_ms)).await;
+}
+
+/// Runs `$work` (with `$tx: &Tx`) inside a `SERIALIZABLE` transaction on `$db`,
+/// retrying up to [`crate::books::SERIALIZABLE_RETRIES`] times with jittered
+/// exponential backoff whenever PostgreSQL reports contention.
+macro_rules! transact_serializable {
+	($db:expr, | $tx:ident | $work:expr) => {{
+		let mut attempt: u32 = 0;
+		loop {
+			let tx = $db.begin_serializable().await?;
+			let result = {
+				let $tx = &tx;
+				$work
+			};
+			let result = match result {
+				Ok(value) => {
+					tx.commit()
+						.await
+						.map(|()| value)
+						.map_err(leptoskit_rpc::Error::from)
+				}
+				Err(error) => {
+					let _ = tx.rollback().await;
+					Err(error)
+				}
+			};
+			match result {
+				Err(error)
+					if error.is_contended() && attempt < $crate::books::SERIALIZABLE_RETRIES =>
+				{
+					attempt += 1;
+					$crate::books::retry_backoff(attempt).await;
+				}
+				result => break result,
+			}
+		}
+	}};
+}
+
+pub(crate) use transact_serializable;
+
+/// Maps a PostgreSQL unique-constraint violation (`DbError::Conflict`) to
+/// [`rpc::Error::Contended`] so serializable retry loops cleanly retry races.
+pub fn conflict_as_contended(error: DbError) -> rpc::Error {
+	if matches!(error, DbError::Conflict { .. }) {
+		rpc::Error::Contended
+	} else {
+		rpc::Error::from(error)
+	}
+}
 
 /// The rules' refusal, as an operation fails with it.
 pub fn breach<T>(result: RuleResult<T>) -> rpc::Result<T> {
@@ -47,13 +112,85 @@ pub async fn open(tx: &impl Connection, account: Id<Account>) -> rpc::Result<Pla
 		return Ok(books);
 	}
 
-	Ok(NewPlayerBooks {
+	NewPlayerBooks {
 		account_id: account,
 		state: Json(PlayerState::initial()),
 		location: None,
 	}
 	.insert(tx)
-	.await?)
+	.await
+	.map_err(conflict_as_contended)
+}
+
+/// Opened and chain-verified player books ready for a rule transition.
+#[derive(Clone, Debug)]
+pub struct Prepared {
+	id: Id<PlayerBooks>,
+	stored: PlayerState,
+	/// The player state after chain verification and reconciliation.
+	pub state: PlayerState,
+}
+
+/// Opens `account`'s books, verifies any NFT reapers against the chain, and
+/// cleans up unabsorbed escrow rows for any unsettled sightings dropped during
+/// roster reconciliation.
+pub async fn prepare(
+	tx: &impl Connection,
+	gateway: &Gateway,
+	account: Id<Account>,
+	import: Option<&str>,
+) -> rpc::Result<Prepared> {
+	let books = open(tx, account).await?;
+	let verified = refresh(tx, gateway, account, &books.state.0, import).await?;
+
+	// If losing an active NFT reaper returned unsettled sightings back to the
+	// vault during reconciliation, remove their unabsorbed escrow bindings so
+	// the player's on-chain mint is not permanently locked with `AlreadyHeld`.
+	for before_sighting in books.state.0.sightings() {
+		if !verified
+			.sightings()
+			.iter()
+			.any(|after| after.id == before_sighting.id)
+		{
+			HuskEscrow::query()
+				.filter(|escrow| {
+					escrow.account_id.eq(account)
+						& escrow.sighting_id.eq(before_sighting.id)
+						& escrow.absorption.is_null()
+				})
+				.delete(tx)
+				.await?;
+		}
+	}
+
+	Ok(Prepared {
+		id: books.id,
+		stored: books.state.0,
+		state: verified,
+	})
+}
+
+/// Persists `next` after [`prepare`], updating only changed NFT reaper ledger
+/// records and `player_books` when the state actually changed.
+pub async fn commit(
+	tx: &impl Connection,
+	gateway: &Gateway,
+	prepared: &Prepared,
+	next: PlayerState,
+) -> rpc::Result<PlayerState> {
+	if next == prepared.stored {
+		return Ok(next);
+	}
+
+	save(tx, gateway, &prepared.state, &next).await?;
+	PlayerBooks::update()
+		.filter(|row| row.id.eq(prepared.id))
+		.set(|row| row.state, Json(next.clone()))
+		.set(|row| row.updated_at, leptoskit_db::now())
+		.run(tx)
+		.await?;
+
+	Ok(next)
 }
 
 /// Applies `rule` to `account`'s verified state and stores what it
@@ -69,23 +206,10 @@ pub async fn change(
 	import: Option<&str>,
 	rule: impl FnOnce(PlayerState) -> rpc::Result<PlayerState>,
 ) -> rpc::Result<PlayerState> {
-	let books = open(tx, account).await?;
-	let verified = refresh(tx, gateway, account, &books.state.0, import).await?;
-	let next = rule(verified)?;
+	let prepared = prepare(tx, gateway, account, import).await?;
+	let next = rule(prepared.state.clone())?;
 
-	if next == books.state.0 {
-		return Ok(next);
-	}
-
-	save(tx, gateway, &next).await?;
-	PlayerBooks::update()
-		.filter(|row| row.id.eq(books.id))
-		.set(|row| row.state, Json(next.clone()))
-		.set(|row| row.updated_at, leptoskit_db::now())
-		.run(tx)
-		.await?;
-
-	Ok(next)
+	commit(tx, gateway, &prepared, next).await
 }
 
 /// Keeps `fix` as `account`'s latest location, or clears it.
@@ -234,13 +358,20 @@ async fn refresh(
 				state: Json(reaper.clone()),
 			}
 			.insert(tx)
-			.await?;
+			.await
+			.map_err(conflict_as_contended)?;
 			roster.push(reaper);
 			continue;
 		};
 
 		if record.collection != collection || record.state.0.genome() != genome {
-			return Err(refused(Refusal::NotOwned));
+			// Fail explicitly when the player is importing this asset; for an
+			// existing roster entry whose metadata was mutated on-chain, drop
+			// only that asset instead of locking the player out of their books.
+			if import == Some(address.as_str()) {
+				return Err(refused(Refusal::NotOwned));
+			}
+			continue;
 		}
 
 		roster.push(record.state.0);
@@ -249,9 +380,24 @@ async fn refresh(
 	breach(state.reconcile_reapers(roster))
 }
 
-/// Writes `state`'s NFT reapers' growth back to the ledger.
-async fn save(tx: &impl Connection, gateway: &Gateway, state: &PlayerState) -> rpc::Result<()> {
-	for reaper in state.reapers().iter().filter(|reaper| reaper.is_nft()) {
+/// Writes NFT reapers whose growth or equipment changed in `next` (relative to
+/// `before`) back to the ledger.
+async fn save(
+	tx: &impl Connection,
+	gateway: &Gateway,
+	before: &PlayerState,
+	next: &PlayerState,
+) -> rpc::Result<()> {
+	for reaper in next.reapers().iter().filter(|reaper| reaper.is_nft()) {
+		let unchanged = before
+			.reapers()
+			.iter()
+			.any(|previous| previous.id() == reaper.id() && previous == reaper);
+
+		if unchanged {
+			continue;
+		}
+
 		let key = asset_key(gateway, reaper.id());
 		let updated = ReaperRecord::update()
 			.filter(|record| record.asset_key.eq(key))
