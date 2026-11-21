@@ -96,7 +96,7 @@ pub fn release_core(
 	let collection = collection.map_or(reapers_program_client::absorb::CORE_PROGRAM_ID, pubkey);
 	let data = ReleaseCoreInstructionData::new(|_| {})
 		.unwrap_or_else(|error| panic!("ReleaseCore encodes: {error}"));
-	let mut instruction = ReleaseCore::new(
+	let instruction = ReleaseCore::new(
 		pubkey(player),
 		reapers_program_client::absorb::escrow(&asset),
 		asset,
@@ -104,8 +104,14 @@ pub fn release_core(
 		reapers_program_client::absorb::CORE_PROGRAM_ID,
 	)
 	.instruction(data);
-	// The program reads the collection; Core writes it only on burn.
-	instruction.accounts[4].is_writable = false;
+	// Generated ReleaseCore already marks the collection readonly; Core writes
+	// it only on burn.
+	debug_assert!(
+		!instruction
+			.accounts
+			.iter()
+			.any(|meta| meta.pubkey == collection && meta.is_writable)
+	);
 
 	kit(instruction)
 }

@@ -45,18 +45,36 @@ struct Cluster {
 }
 
 impl Cluster {
-	fn chain(&self) -> Result<Chain, Error> {
-		let url = match self.url.as_str() {
+	fn chain(&self, write: bool) -> Result<Chain, Error> {
+		let lowered = self.url.to_ascii_lowercase();
+		let url = match lowered.as_str() {
 			"devnet" | "d" => "https://api.devnet.solana.com",
 			"localhost" | "l" => "http://127.0.0.1:8899",
 			"mainnet" | "mainnet-beta" | "m" => "https://api.mainnet-beta.solana.com",
-			other => other,
+			_ => self.url.as_str(),
 		};
-		if url.contains("mainnet") && !self.allow_mainnet {
+		if write && !self.allow_mainnet && url.to_ascii_lowercase().contains("mainnet") {
 			return Err("refusing to write to mainnet without --allow-mainnet".into());
 		}
 
 		Chain::new(url, self.priority_fee)
+	}
+
+	/// Connects to the cluster and, before any mutating command without
+	/// `--allow-mainnet`, verifies the RPC's genesis hash is not mainnet-beta.
+	async fn connect(&self, write: bool) -> Result<Chain, Error> {
+		let chain = self.chain(write)?;
+		if write && !self.allow_mainnet {
+			let genesis = chain.genesis_hash().await?;
+			if genesis == crate::chain::MAINNET_GENESIS {
+				return Err(format!(
+					"refusing to write to mainnet (genesis {genesis}) without --allow-mainnet"
+				)
+				.into());
+			}
+		}
+
+		Ok(chain)
 	}
 }
 
@@ -242,7 +260,7 @@ async fn main() {
 async fn run(cli: Cli) -> Result<(), Error> {
 	match cli.command {
 		Commands::Status { cluster } => {
-			let chain = cluster.chain()?;
+			let chain = cluster.connect(false).await?;
 			println!("program {}", program::program_id());
 			match chain.account(program::program_id()).await? {
 				Some(account) => println!("  deployed, executable: {}", account.executable),
@@ -264,7 +282,7 @@ async fn run(cli: Cli) -> Result<(), Error> {
 			authority,
 			keeper,
 		} => {
-			let chain = cluster.chain()?;
+			let chain = cluster.connect(true).await?;
 			let signer = read_keypair(&upgrade_authority)?;
 			let authority = authority.unwrap_or_else(|| signer.address());
 			let signature = chain
@@ -283,7 +301,7 @@ async fn run(cli: Cli) -> Result<(), Error> {
 			authority,
 			keeper,
 		} => {
-			let chain = cluster.chain()?;
+			let chain = cluster.connect(true).await?;
 			let signer = read_keypair(&authority)?;
 			let signature = chain
 				.send(
@@ -299,7 +317,7 @@ async fn run(cli: Cli) -> Result<(), Error> {
 			authority,
 			paused,
 		} => {
-			let chain = cluster.chain()?;
+			let chain = cluster.connect(true).await?;
 			let signer = read_keypair(&authority)?;
 			let signature = chain
 				.send(
@@ -315,7 +333,7 @@ async fn run(cli: Cli) -> Result<(), Error> {
 			authority,
 			new_authority,
 		} => {
-			let chain = cluster.chain()?;
+			let chain = cluster.connect(true).await?;
 			let signer = read_keypair(&authority)?;
 			let successor = read_keypair(&new_authority)?;
 			let signature = chain
@@ -341,12 +359,24 @@ async fn run(cli: Cli) -> Result<(), Error> {
 			uri_base,
 			out,
 		} => {
-			let chain = cluster.chain()?;
+			let chain = cluster.connect(true).await?;
 			let payer = read_keypair(&payer)?;
 			let owner = owner.unwrap_or_else(|| payer.address());
-			let minted = demo::mint_all(&chain, &payer, &owner, &uri_base, |line| {
-				println!("{line}");
-			})
+			let url = chain.url.clone();
+			let minted = demo::mint_all(
+				&chain,
+				&payer,
+				&owner,
+				&uri_base,
+				|line| println!("{line}"),
+				|partial| {
+					std::fs::write(
+						&out,
+						serde_json::to_string_pretty(&demo::manifest(&url, partial))?,
+					)?;
+					Ok(())
+				},
+			)
 			.await?;
 			std::fs::write(
 				&out,
@@ -361,7 +391,7 @@ async fn run(cli: Cli) -> Result<(), Error> {
 			collection,
 			env,
 		} => {
-			let chain = cluster.chain()?;
+			let chain = cluster.connect(true).await?;
 			let player = read_keypair(&player)?;
 			let secret = std::env::var(&env).map_err(|_| format!("{env} is not set"))?;
 			let keeper = keeper_from_secret(&secret);
@@ -446,18 +476,41 @@ mod tests {
 	}
 
 	#[test]
-	fn refuses_mainnet_without_the_flag() {
-		let cluster = Cluster {
-			url: "mainnet".into(),
+	fn refuses_mainnet_writes_without_the_flag_and_allows_reads() {
+		for url in ["mainnet", "MAINNET", "https://API.MAINNET-BETA.solana.com"] {
+			let cluster = Cluster {
+				url: url.into(),
+				priority_fee: 0,
+				allow_mainnet: false,
+			};
+			assert!(cluster.chain(true).is_err(), "{url} should refuse write");
+			assert!(cluster.chain(false).is_ok(), "{url} should allow read");
+		}
+		let allowed = Cluster {
+			url: "MAINNET".into(),
 			priority_fee: 0,
-			allow_mainnet: false,
+			allow_mainnet: true,
 		};
-		assert!(cluster.chain().is_err());
+		assert!(allowed.chain(true).is_ok());
 	}
 
 	#[test]
 	fn names_the_compute_budget_program() {
 		let instruction = program::set_paused(&Address::from_bytes([1; 32]), true);
 		assert_eq!(instruction.data, [3, 1]);
+	}
+
+	#[test]
+	fn release_core_marks_collection_readonly() {
+		let player = Address::from_bytes([1; 32]);
+		let asset = Address::from_bytes([2; 32]);
+		let collection = Address::from_bytes([3; 32]);
+		let instruction = program::release_core(&player, &asset, Some(&collection));
+		let meta = instruction
+			.accounts
+			.iter()
+			.find(|meta| meta.address == collection)
+			.expect("collection account present");
+		assert_eq!(meta.role, solana_kit_core::AccountRole::Readonly);
 	}
 }

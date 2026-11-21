@@ -60,7 +60,9 @@ pub fn vault(mint: &Pubkey, token_program: &Pubkey) -> Pubkey {
 }
 
 /// Absorbing a Core asset: the receipt's verification, then `AbsorbCore`.
-/// `collection` is the asset's collection, if it has one.
+/// `collection` is the asset's collection, if it has one. Passing
+/// `Some(CORE_PROGRAM_ID)` is treated as `None` so the Core program account is
+/// never marked writable.
 pub fn absorb_core(
 	keeper: &Pubkey,
 	signature: &[u8; 64],
@@ -69,11 +71,12 @@ pub fn absorb_core(
 ) -> [Instruction; 2] {
 	let player = Pubkey::new_from_array(receipt.player);
 	let asset = Pubkey::new_from_array(receipt.mint);
+	let real_collection = collection.filter(|address| *address != CORE_PROGRAM_ID);
 	let absorb = AbsorbCore::new(
 		player,
 		escrow(&asset),
 		asset,
-		collection.unwrap_or(CORE_PROGRAM_ID),
+		real_collection.unwrap_or(CORE_PROGRAM_ID),
 		CORE_PROGRAM_ID,
 		INSTRUCTIONS_SYSVAR_ID,
 	);
@@ -82,8 +85,15 @@ pub fn absorb_core(
 			.unwrap_or_else(|error| panic!("an empty instruction encodes: {error}")),
 	);
 	// A real collection is written: burning shrinks it.
-	if collection.is_some() {
-		instruction.accounts[4].is_writable = true;
+	if let Some(collection) = real_collection {
+		let slot = instruction
+			.accounts
+			.get_mut(4)
+			.expect("AbsorbCore includes a collection slot");
+		debug_assert_eq!(slot.pubkey, collection);
+		if slot.pubkey == collection {
+			slot.is_writable = true;
+		}
 	}
 
 	[verify_receipt(keeper, signature, receipt), instruction]
@@ -112,4 +122,64 @@ pub fn absorb_token(
 	);
 
 	[verify_receipt(keeper, signature, receipt), instruction]
+}
+
+#[cfg(test)]
+mod tests {
+	use reapers_receipt::Feeding;
+	use reapers_receipt::Grade;
+
+	use super::*;
+
+	fn sample_receipt() -> Receipt {
+		Receipt {
+			player: [1; 32],
+			mint: [2; 32],
+			grade: Grade::Great,
+			feeding: Feeding::Rich,
+			xp: 120,
+			anima: 40,
+			at: 1_793_836_800,
+			nonce: 42,
+		}
+	}
+
+	#[test]
+	fn absorb_core_marks_only_real_collections_writable() {
+		let keeper = Pubkey::new_from_array([9; 32]);
+		let signature = [7; 64];
+		let receipt = sample_receipt();
+
+		let [verify_none, absorb_none] = absorb_core(&keeper, &signature, &receipt, None);
+		assert_eq!(verify_none.program_id, ED25519_PROGRAM_ID);
+		assert_eq!(absorb_none.accounts[4].pubkey, CORE_PROGRAM_ID);
+		assert!(!absorb_none.accounts[4].is_writable);
+
+		let [_, absorb_sentinel] =
+			absorb_core(&keeper, &signature, &receipt, Some(CORE_PROGRAM_ID));
+		assert_eq!(absorb_sentinel.accounts[4].pubkey, CORE_PROGRAM_ID);
+		assert!(!absorb_sentinel.accounts[4].is_writable);
+
+		let collection = Pubkey::new_from_array([5; 32]);
+		let [_, absorb_real] = absorb_core(&keeper, &signature, &receipt, Some(collection));
+		assert_eq!(absorb_real.accounts[4].pubkey, collection);
+		assert!(absorb_real.accounts[4].is_writable);
+		assert_eq!(absorb_real.accounts[5].pubkey, CORE_PROGRAM_ID);
+		assert!(!absorb_real.accounts[5].is_writable);
+	}
+
+	#[test]
+	fn absorb_token_pairs_ed25519_verification_with_program_instruction() {
+		let keeper = Pubkey::new_from_array([9; 32]);
+		let signature = [7; 64];
+		let receipt = sample_receipt();
+		let token_program = Pubkey::new_from_array([6; 32]);
+
+		let [verify, absorb] = absorb_token(&keeper, &signature, &receipt, &token_program);
+		assert_eq!(verify.program_id, ED25519_PROGRAM_ID);
+		assert_eq!(verify.data.len(), reapers_receipt::ed25519::LEN);
+		assert_eq!(absorb.program_id, crate::REAPERS_PROGRAM_ID);
+		assert_eq!(absorb.accounts[0].pubkey, Pubkey::new_from_array([1; 32]));
+		assert!(absorb.accounts[0].is_signer);
+	}
 }

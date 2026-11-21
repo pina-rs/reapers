@@ -143,26 +143,39 @@ fn create_asset_instruction(
 	)?)
 }
 
+/// Joins `uri_base` with a relative path segment without dropping or doubling
+/// the separating slash.
+pub fn uri_for(uri_base: &str, relative: &str) -> String {
+	format!(
+		"{}/{}",
+		uri_base.trim_end_matches('/'),
+		relative.trim_start_matches('/')
+	)
+}
+
 /// Mints the five demo collections and their assets, all owned by `owner`.
+/// Calls `on_collection` after each collection finishes so callers can persist
+/// partial manifests incrementally.
 pub async fn mint_all(
 	chain: &Chain,
 	payer: &Keypair,
 	owner: &Address,
 	uri_base: &str,
 	mut progress: impl FnMut(&str),
+	mut on_collection: impl FnMut(&[MintedCollection]) -> Result<(), Error>,
 ) -> Result<Vec<MintedCollection>, Error> {
 	let mut minted = Vec::new();
 
 	for (name, slug) in COLLECTIONS {
 		let collection_name = format!("{name} (Reapers demo)");
-		let collection_uri = format!("{uri_base}{slug}/collection.json");
+		let collection_uri = uri_for(uri_base, &format!("{slug}/collection.json"));
 		let address = create_collection(chain, payer, &collection_name, &collection_uri).await?;
 		progress(&format!("collection {collection_name}: {address}"));
 
 		let mut assets = Vec::new();
 		for number in 1..=ASSETS_PER_COLLECTION {
 			let asset_name = format!("{name} husk #{number}");
-			let asset_uri = format!("{uri_base}{slug}/{number}.json");
+			let asset_uri = uri_for(uri_base, &format!("{slug}/{number}.json"));
 			let asset =
 				create_asset(chain, payer, &address, owner, &asset_name, &asset_uri).await?;
 			progress(&format!("  #{number} {asset}"));
@@ -175,6 +188,7 @@ pub async fn mint_all(
 			address,
 			assets,
 		});
+		on_collection(&minted)?;
 	}
 
 	Ok(minted)
@@ -233,6 +247,22 @@ mod tests {
 			assert!(asset.len() <= 32, "{asset} is short enough for a wallet");
 			assert!(!slug.contains(' '));
 		}
+	}
+
+	#[test]
+	fn normalizes_uri_base_with_or_without_trailing_slash() {
+		assert_eq!(
+			uri_for("https://reapers.invalid/husks", "thugbirdz/1.json"),
+			"https://reapers.invalid/husks/thugbirdz/1.json"
+		);
+		assert_eq!(
+			uri_for("https://reapers.invalid/husks/", "thugbirdz/1.json"),
+			"https://reapers.invalid/husks/thugbirdz/1.json"
+		);
+		assert_eq!(
+			uri_for("https://reapers.invalid/husks///", "/thugbirdz/1.json"),
+			"https://reapers.invalid/husks/thugbirdz/1.json"
+		);
 	}
 
 	#[test]

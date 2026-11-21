@@ -1,6 +1,7 @@
 //! Talking to a cluster: keypair files, sending a transaction and waiting for
 //! it, and reading accounts. Everything goes through Solana Kit.
 
+use std::io::Write as _;
 use std::path::Path;
 use std::time::Duration;
 
@@ -12,11 +13,14 @@ use solana_kit_client::methods::Commitment;
 use solana_kit_client::methods::LatestBlockhash;
 use solana_kit_client::methods::ReadConfig;
 use solana_kit_client::methods::history::ConfirmationStatus;
+use solana_kit_client::methods::node::BlockHeight;
+use solana_kit_client::methods::node::GenesisHash;
 use solana_kit_client::methods::submission::RequestAirdrop;
 use solana_kit_client::methods::submission::SendConfig;
 use solana_kit_client::methods::submission::SendTransaction;
 use solana_kit_client::methods::submission::SignatureStatuses;
 use solana_kit_client::methods::submission::SignedWire;
+use solana_kit_client::methods::submission::StatusesConfig;
 use solana_kit_client::methods::submission::WireEncoding;
 use solana_kit_core::AccountMeta;
 use solana_kit_core::AccountRole;
@@ -34,6 +38,10 @@ use solana_kit_native::NativeHttp;
 
 /// A failure, already worded for the operator.
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
+
+/// Solana mainnet-beta's genesis hash: checked before any write so even a
+/// custom RPC hostname cannot hit mainnet without `--allow-mainnet`.
+pub const MAINNET_GENESIS: &str = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d";
 
 /// The compute budget program.
 const COMPUTE_BUDGET: Address = Address::from_bytes([
@@ -63,6 +71,11 @@ impl Chain {
 			priority_fee,
 			url: url.to_owned(),
 		})
+	}
+
+	/// The cluster's genesis hash.
+	pub async fn genesis_hash(&self) -> Result<String, Error> {
+		Ok(self.client.call(GenesisHash).await?.to_string())
 	}
 
 	/// Sends `instructions` paid by the first signer, with a compute limit of
@@ -113,31 +126,67 @@ impl Chain {
 			.await
 			.map_err(explain)?;
 
-		self.confirm(signature).await?;
+		self.confirm(signature, Some(latest.last_valid_block_height))
+			.await?;
 
 		Ok(signature)
 	}
 
-	/// Waits up to a minute and a half for `signature` to be confirmed, and
-	/// fails if it executed with an error.
-	pub async fn confirm(&self, signature: Signature) -> Result<(), Error> {
-		for _ in 0..180 {
-			let statuses = self
-				.client
-				.call(SignatureStatuses(&[signature], None))
-				.await?
-				.value;
+	/// Checks a single signature status once, searching transaction history.
+	async fn signature_confirmed(&self, signature: Signature) -> Result<bool, Error> {
+		let statuses = self
+			.client
+			.call(SignatureStatuses(
+				&[signature],
+				Some(StatusesConfig {
+					search_transaction_history: Some(true),
+				}),
+			))
+			.await?
+			.value;
 
-			if let Some(Some(status)) = statuses.first() {
-				if let Some(error) = &status.err {
-					return Err(format!("transaction {signature} failed: {error:?}").into());
-				}
-				if matches!(
-					status.confirmation_status,
-					Some(ConfirmationStatus::Confirmed | ConfirmationStatus::Finalized)
-				) {
+		if let Some(Some(status)) = statuses.first() {
+			if let Some(error) = &status.err {
+				return Err(format!("transaction {signature} failed: {error:?}").into());
+			}
+			if matches!(
+				status.confirmation_status,
+				Some(ConfirmationStatus::Confirmed | ConfirmationStatus::Finalized)
+			) {
+				return Ok(true);
+			}
+		}
+
+		Ok(false)
+	}
+
+	/// Waits up to a minute and a half for `signature` to be confirmed, failing
+	/// early if it executed with an error or its blockhash expired.
+	pub async fn confirm(
+		&self,
+		signature: Signature,
+		last_valid_block_height: Option<u64>,
+	) -> Result<(), Error> {
+		for attempt in 0..180u32 {
+			if self.signature_confirmed(signature).await? {
+				return Ok(());
+			}
+
+			if let Some(max_height) = last_valid_block_height
+				&& attempt > 0
+				&& attempt % 4 == 0
+				&& let Ok(height) = self.client.call(BlockHeight(Some(confirmed()))).await
+				&& height > max_height
+			{
+				// Re-check status one final time in case confirmation landed
+				// right as the block height crossed `max_height`.
+				if self.signature_confirmed(signature).await? {
 					return Ok(());
 				}
+				return Err(format!(
+					"transaction {signature} expired at block height {height} (last valid {max_height})"
+				)
+				.into());
 			}
 
 			tokio::time::sleep(Duration::from_millis(500)).await;
@@ -178,7 +227,7 @@ impl Chain {
 			.call(RequestAirdrop(address, lamports, None))
 			.await?;
 
-		self.confirm(signature).await
+		self.confirm(signature, None).await
 	}
 }
 
@@ -279,11 +328,57 @@ pub fn random_keypair() -> Result<([u8; 32], Keypair), Error> {
 	Ok((seed, keypair))
 }
 
-/// Writes a keypair file in the Solana CLI's format.
+/// Writes a keypair file in the Solana CLI's format with owner-only
+/// permissions (`0600` on Unix) so secret key bytes are never world-readable.
 pub fn write_keypair(path: &Path, seed: &[u8; 32], keypair: &Keypair) -> Result<(), Error> {
+	if let Some(parent) = path.parent()
+		&& !parent.as_os_str().is_empty()
+	{
+		std::fs::create_dir_all(parent)?;
+	}
 	let mut bytes = seed.to_vec();
 	bytes.extend_from_slice(&keypair.address().to_bytes());
-	std::fs::write(path, serde_json::to_string(&bytes)?)?;
+	let serialized = serde_json::to_string(&bytes)?;
+
+	let mut options = std::fs::OpenOptions::new();
+	options.write(true).create(true).truncate(true);
+	#[cfg(unix)]
+	{
+		use std::os::unix::fs::OpenOptionsExt as _;
+		options.mode(0o600);
+	}
+	let mut file = options.open(path)?;
+	file.write_all(serialized.as_bytes())?;
+	#[cfg(unix)]
+	{
+		use std::os::unix::fs::PermissionsExt as _;
+		file.set_permissions(std::fs::Permissions::from_mode(0o600))?;
+	}
 
 	Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn keypair_round_trip_sets_owner_only_permissions() {
+		let dir = std::env::temp_dir().join(format!("reapers-ops-key-{}", std::process::id()));
+		let path = dir.join("deployer.json");
+		let (seed, keypair) = random_keypair().unwrap();
+
+		write_keypair(&path, &seed, &keypair).unwrap();
+		let loaded = read_keypair(&path).unwrap();
+		assert_eq!(loaded.address(), keypair.address());
+
+		#[cfg(unix)]
+		{
+			use std::os::unix::fs::PermissionsExt as _;
+			let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+			assert_eq!(mode, 0o600);
+		}
+
+		let _ = std::fs::remove_dir_all(&dir);
+	}
 }

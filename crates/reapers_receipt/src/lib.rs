@@ -286,6 +286,117 @@ pub fn ed25519_instruction_data(
 	data
 }
 
+/// The verified fields carried inside a self-contained Ed25519 receipt
+/// instruction.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Ed25519ReceiptInstruction {
+	/// The keeper public key that signed `receipt`.
+	pub keeper: [u8; 32],
+	/// The 64-byte Ed25519 signature.
+	pub signature: [u8; 64],
+	/// The decoded version 2 receipt.
+	pub receipt: Receipt,
+}
+
+/// Why an Ed25519 instruction's data does not carry a valid self-contained
+/// Reapers receipt.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Ed25519Error {
+	/// The instruction data is shorter than the Ed25519 header and offsets.
+	TooShort,
+	/// The instruction does not verify exactly one signature.
+	SignatureCount,
+	/// An offset references another instruction rather than this one.
+	ExternalInstruction,
+	/// A key, signature or message slice falls outside the instruction data.
+	OutOfBounds,
+	/// The signed message is not a valid version 2 receipt.
+	Receipt(ReceiptError),
+}
+
+impl core::fmt::Display for Ed25519Error {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		match self {
+			Self::TooShort => f.write_str("the Ed25519 instruction is shorter than its header"),
+			Self::SignatureCount => {
+				f.write_str("the Ed25519 instruction must verify exactly one signature")
+			}
+			Self::ExternalInstruction => {
+				f.write_str("the Ed25519 instruction must be self-contained")
+			}
+			Self::OutOfBounds => {
+				f.write_str("an Ed25519 instruction offset falls outside its data")
+			}
+			Self::Receipt(error) => error.fmt(f),
+		}
+	}
+}
+
+impl core::error::Error for Ed25519Error {}
+
+/// Parses a self-contained Ed25519 receipt instruction, matching the rules the
+/// on-chain program enforces.
+///
+/// When `instruction_index` is `Some(i)`, offsets that name instruction `i`
+/// explicitly are accepted alongside [`ed25519::THIS_INSTRUCTION`].
+pub fn parse_ed25519_instruction(
+	data: &[u8],
+	instruction_index: Option<u16>,
+) -> Result<Ed25519ReceiptInstruction, Ed25519Error> {
+	if data.len() < ed25519::HEADER + ed25519::OFFSETS {
+		return Err(Ed25519Error::TooShort);
+	}
+	if data[0] != 1 {
+		return Err(Ed25519Error::SignatureCount);
+	}
+
+	let read = |field: usize| {
+		let at = ed25519::HEADER + field * 2;
+		u16::from_le_bytes([data[at], data[at + 1]])
+	};
+	let signature_offset = usize::from(read(0));
+	let public_key_offset = usize::from(read(2));
+	let message_offset = usize::from(read(4));
+	let message_size = usize::from(read(5));
+
+	for index in [read(1), read(3), read(6)] {
+		let self_index =
+			index == ed25519::THIS_INSTRUCTION || instruction_index.is_some_and(|i| index == i);
+		if !self_index {
+			return Err(Ed25519Error::ExternalInstruction);
+		}
+	}
+
+	let signature_end = signature_offset
+		.checked_add(64)
+		.ok_or(Ed25519Error::OutOfBounds)?;
+	let public_key_end = public_key_offset
+		.checked_add(32)
+		.ok_or(Ed25519Error::OutOfBounds)?;
+	let message_end = message_offset
+		.checked_add(message_size)
+		.ok_or(Ed25519Error::OutOfBounds)?;
+
+	let signature = data
+		.get(signature_offset..signature_end)
+		.and_then(|slice| <[u8; 64]>::try_from(slice).ok())
+		.ok_or(Ed25519Error::OutOfBounds)?;
+	let keeper = data
+		.get(public_key_offset..public_key_end)
+		.and_then(|slice| <[u8; 32]>::try_from(slice).ok())
+		.ok_or(Ed25519Error::OutOfBounds)?;
+	let message = data
+		.get(message_offset..message_end)
+		.ok_or(Ed25519Error::OutOfBounds)?;
+	let receipt = Receipt::decode(message).map_err(Ed25519Error::Receipt)?;
+
+	Ok(Ed25519ReceiptInstruction {
+		keeper,
+		signature,
+		receipt,
+	})
+}
+
 #[cfg(test)]
 mod tests {
 	extern crate std;
@@ -463,5 +574,76 @@ mod tests {
 			.into_vec()
 			.unwrap();
 		assert_eq!(decoded, ED25519_PROGRAM_ID);
+	}
+
+	#[test]
+	fn parses_a_self_contained_ed25519_instruction() {
+		let keeper = [7; 32];
+		let signature = [9; 64];
+		let receipt = sample();
+		let data = ed25519_instruction_data(&keeper, &signature, &receipt.encode());
+
+		assert_eq!(
+			parse_ed25519_instruction(&data, None),
+			Ok(Ed25519ReceiptInstruction {
+				keeper,
+				signature,
+				receipt,
+			})
+		);
+
+		let mut indexed = data;
+		indexed[4..6].copy_from_slice(&2u16.to_le_bytes());
+		indexed[8..10].copy_from_slice(&2u16.to_le_bytes());
+		indexed[14..16].copy_from_slice(&2u16.to_le_bytes());
+		assert_eq!(
+			parse_ed25519_instruction(&indexed, Some(2)),
+			Ok(Ed25519ReceiptInstruction {
+				keeper,
+				signature,
+				receipt,
+			})
+		);
+		assert_eq!(
+			parse_ed25519_instruction(&indexed, Some(1)),
+			Err(Ed25519Error::ExternalInstruction)
+		);
+		assert_eq!(
+			parse_ed25519_instruction(&indexed, None),
+			Err(Ed25519Error::ExternalInstruction)
+		);
+	}
+
+	#[test]
+	fn refuses_malformed_ed25519_instructions() {
+		let keeper = [7; 32];
+		let signature = [9; 64];
+		let data = ed25519_instruction_data(&keeper, &signature, &sample().encode());
+
+		assert_eq!(
+			parse_ed25519_instruction(&data[..15], None),
+			Err(Ed25519Error::TooShort)
+		);
+
+		let mut two_sigs = data;
+		two_sigs[0] = 2;
+		assert_eq!(
+			parse_ed25519_instruction(&two_sigs, None),
+			Err(Ed25519Error::SignatureCount)
+		);
+
+		let mut out_of_bounds = data;
+		out_of_bounds[10..12].copy_from_slice(&200u16.to_le_bytes());
+		assert_eq!(
+			parse_ed25519_instruction(&out_of_bounds, None),
+			Err(Ed25519Error::OutOfBounds)
+		);
+
+		let mut bad_receipt = data;
+		bad_receipt[ed25519::MESSAGE..ed25519::MESSAGE + 8].copy_from_slice(&TAG_V1);
+		assert_eq!(
+			parse_ed25519_instruction(&bad_receipt, None),
+			Err(Ed25519Error::Receipt(ReceiptError::Version1))
+		);
 	}
 }

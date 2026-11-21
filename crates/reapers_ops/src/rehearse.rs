@@ -97,22 +97,29 @@ pub async fn bring_up(options: &Options) -> Result<Localnet, Error> {
 		}
 	}
 	std::fs::create_dir_all(&options.work_dir)?;
+	let ws_port = options
+		.port
+		.checked_add(1)
+		.ok_or("port 65535 leaves no room for Surfpool's WebSocket port")?;
 	let url = format!("http://127.0.0.1:{}", options.port);
+	let log_path = options.work_dir.join("surfpool.log");
+	let log_file = std::fs::File::create(&log_path)?;
+	let log_err = log_file.try_clone()?;
 
 	step(&format!("start Surfpool at {url}, offline"));
-	let validator = Validator(
+	let mut validator = Validator(
 		Command::new("surfpool")
 			.args(["start", "--offline", "--no-deploy", "--ci", "--yes"])
 			.args(["--port", &options.port.to_string()])
-			.args(["--ws-port", &(options.port + 1).to_string()])
+			.args(["--ws-port", &ws_port.to_string()])
 			.current_dir(&options.work_dir)
-			.stdout(Stdio::null())
-			.stderr(Stdio::null())
+			.stdout(Stdio::from(log_file))
+			.stderr(Stdio::from(log_err))
 			.spawn()
 			.map_err(|error| format!("cannot start surfpool: {error}"))?,
 	);
 	let chain = Chain::new(&url, 1)?;
-	wait_until_up(&chain).await?;
+	wait_until_up(&chain, &mut validator, &log_path).await?;
 
 	step("load Metaplex Core into the validator (a Surfpool cheatcode; devnet has it already)");
 	let core = std::fs::read(&options.core_so)?;
@@ -130,7 +137,7 @@ pub async fn bring_up(options: &Options) -> Result<Localnet, Error> {
 	println!("    deployer {}", deployer.address());
 
 	step("deploy with the Solana CLI, as docs/deploy.md does");
-	deploy(&url, &deployer_path, options)?;
+	deploy(&url, &deployer_path, options).await?;
 	let program_account = chain
 		.account(program::program_id())
 		.await?
@@ -147,7 +154,7 @@ pub async fn bring_up(options: &Options) -> Result<Localnet, Error> {
 	let keeper_address = keeper.address().to_string();
 
 	step("reapers_ops status, before initializing");
-	ops(&["status", "--url", &url], &[])?;
+	ops(&["status", "--url", &url], &[]).await?;
 
 	step("reapers_ops initialize, with the development keeper");
 	ops(
@@ -163,7 +170,8 @@ pub async fn bring_up(options: &Options) -> Result<Localnet, Error> {
 			&keeper_address,
 		],
 		&[],
-	)?;
+	)
+	.await?;
 	let config = program::configuration(&chain)
 		.await?
 		.ok_or("the config does not exist after initializing")?;
@@ -193,7 +201,8 @@ pub async fn bring_up(options: &Options) -> Result<Localnet, Error> {
 			&manifest_path.display().to_string(),
 		],
 		&[],
-	)?;
+	)
+	.await?;
 
 	Ok(Localnet {
 		_validator: validator,
@@ -298,7 +307,8 @@ pub async fn rehearse(options: Options) -> Result<(), Error> {
 			&collection.to_string(),
 		],
 		&[("REAPERS_SECRET_receiptSigningKey", secret)],
-	)?;
+	)
+	.await?;
 	let instructions = absorb(
 		&keeper,
 		&receipt_for(&player.address(), &asset)?,
@@ -344,22 +354,27 @@ pub async fn rehearse(options: Options) -> Result<(), Error> {
 
 	step("reapers_ops set-paused: releasing stops while paused");
 	let pause = |paused: &'static str| {
-		ops(
-			&[
-				"set-paused",
-				"--url",
-				&url,
-				"--priority-fee",
-				"1",
-				"--authority",
-				&deployer_file,
-				"--paused",
-				paused,
-			],
-			&[],
-		)
+		let url = url.clone();
+		let deployer_file = deployer_file.clone();
+		async move {
+			ops(
+				&[
+					"set-paused",
+					"--url",
+					&url,
+					"--priority-fee",
+					"1",
+					"--authority",
+					&deployer_file,
+					"--paused",
+					paused,
+				],
+				&[],
+			)
+			.await
+		}
 	};
-	pause("true")?;
+	pause("true").await?;
 	let third = assets[2];
 	match chain
 		.send(
@@ -381,10 +396,10 @@ pub async fn rehearse(options: Options) -> Result<(), Error> {
 			);
 		}
 	}
-	pause("false")?;
+	pause("false").await?;
 
 	step("reapers_ops status, at the end");
-	ops(&["status", "--url", &url], &[])?;
+	ops(&["status", "--url", &url], &[]).await?;
 
 	step("rehearsal passed");
 	Ok(())
@@ -461,6 +476,13 @@ pub async fn release_and_absorb(
 		.account(*asset)
 		.await?
 		.ok_or("the asset account vanished entirely")?;
+	if tombstone.owner != demo::CORE {
+		return Err(format!(
+			"the asset account is owned by {}, not Metaplex Core",
+			tombstone.owner
+		)
+		.into());
+	}
 	if tombstone.data != [0] {
 		return Err(format!(
 			"the asset was not burned: {} bytes left",
@@ -483,11 +505,12 @@ pub async fn release_and_absorb(
 
 /// Runs this tool's own subcommand, as the runbook would, and indents what it
 /// prints.
-fn ops(args: &[&str], env: &[(&str, &str)]) -> Result<(), Error> {
-	let output = Command::new(std::env::current_exe()?)
+async fn ops(args: &[&str], env: &[(&str, &str)]) -> Result<(), Error> {
+	let output = tokio::process::Command::new(std::env::current_exe()?)
 		.args(args)
 		.envs(env.iter().copied())
-		.output()?;
+		.output()
+		.await?;
 
 	for line in String::from_utf8_lossy(&output.stdout).lines() {
 		println!("    {line}");
@@ -508,19 +531,44 @@ fn last_line(text: &str) -> &str {
 	text.lines().last().unwrap_or(text)
 }
 
-async fn wait_until_up(chain: &Chain) -> Result<(), Error> {
+async fn wait_until_up(
+	chain: &Chain,
+	validator: &mut Validator,
+	log_path: &Path,
+) -> Result<(), Error> {
 	for _ in 0..120 {
+		if let Some(status) = validator.0.try_wait()? {
+			let log = std::fs::read_to_string(log_path).unwrap_or_default();
+			let tail = log
+				.lines()
+				.rev()
+				.take(20)
+				.collect::<Vec<_>>()
+				.into_iter()
+				.rev()
+				.collect::<Vec<_>>()
+				.join("\n");
+			return Err(format!(
+				"Surfpool exited early ({status}); see {}:\n{tail}",
+				log_path.display()
+			)
+			.into());
+		}
 		if chain.balance(Address::from_bytes([0; 32])).await.is_ok() {
 			return Ok(());
 		}
 		tokio::time::sleep(Duration::from_millis(500)).await;
 	}
 
-	Err("Surfpool did not answer within a minute".into())
+	Err(format!(
+		"Surfpool did not answer within a minute; see {}",
+		log_path.display()
+	)
+	.into())
 }
 
-fn deploy(url: &str, deployer: &Path, options: &Options) -> Result<(), Error> {
-	let output = Command::new("solana")
+async fn deploy(url: &str, deployer: &Path, options: &Options) -> Result<(), Error> {
+	let output = tokio::process::Command::new("solana")
 		.args(["program", "deploy", "--url", url])
 		.arg("--keypair")
 		.arg(deployer)
@@ -537,6 +585,7 @@ fn deploy(url: &str, deployer: &Path, options: &Options) -> Result<(), Error> {
 		])
 		.arg(&options.program_so)
 		.output()
+		.await
 		.map_err(|error| format!("cannot run the solana CLI: {error}"))?;
 
 	for line in String::from_utf8_lossy(&output.stdout).lines() {
@@ -575,5 +624,6 @@ async fn asset_owner(chain: &Chain, asset: &Address) -> Result<Option<(u8, Addre
 	Ok(chain
 		.account(*asset)
 		.await?
+		.filter(|account| account.owner == demo::CORE)
 		.and_then(|account| demo::asset_owner(&account.data)))
 }
