@@ -106,6 +106,35 @@ fn the_way_into_the_game_goes_to_the_game() {
 		.find(&Finder::aria_role(Role::Button, En.header_play()))
 		.expect("the banner's way in");
 	assert_eq!(play.props.href(), Some(app_url()));
+	assert_eq!(
+		play.props.link_target(),
+		leptoskit::native::LinkTarget::NewTab
+	);
+	assert!(
+		play.frame.width >= 48.0,
+		"banner play target: {:?}",
+		play.frame
+	);
+
+	let how = tester
+		.find(&Finder::aria_role(Role::Button, En.hero_how()))
+		.expect("in-page hunt anchor");
+	assert_eq!(how.props.href(), Some("#hunt"));
+	assert_eq!(
+		how.props.link_target(),
+		leptoskit::native::LinkTarget::SameTab
+	);
+}
+
+#[test]
+fn the_page_builds_on_a_compact_mobile_viewport() {
+	let owner = Owner::new();
+	owner.with(|| L10n::new(&[]).provide());
+	let navigation = Navigation::new(Route::Index);
+	let tester = WidgetTester::new(move || owner.with(|| navigation.render()), 360.0, 640.0)
+		.expect("compact viewport mounts");
+	let title = format!("heading(1) {:?}", En.hero_title());
+	assert!(reads(&tester, &title), "{}", tester.semantics());
 }
 
 #[test]
@@ -129,5 +158,15 @@ fn the_shell_says_what_the_page_says() {
 		"<meta name=\"description\" content=\"{}\" />",
 		En.meta_description()
 	)));
+	assert!(SHELL.contains(&format!(
+		"<meta property=\"og:title\" content=\"{}\" />",
+		En.brand_name()
+	)));
+	assert!(SHELL.contains(&format!(
+		"<meta property=\"og:description\" content=\"{}\" />",
+		En.meta_description()
+	)));
+	assert!(SHELL.contains("assets/fonts/Fraunces.ttf"));
+	assert!(SHELL.contains("assets/fonts/DMSans.ttf"));
 	assert!(SHELL.contains(&format!("<p>{}</p>", En.no_script())));
 }

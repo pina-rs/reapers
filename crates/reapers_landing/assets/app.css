@@ -171,6 +171,7 @@ a[class~="border"]:active * {
       height: 100vh;
       height: 100svh;
       min-height: 0;
+      overflow: clip;
     }
   }
 }

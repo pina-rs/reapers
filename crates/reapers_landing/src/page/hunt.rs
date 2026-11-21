@@ -48,7 +48,7 @@ fn fighting() -> Element {
 		.children((0..6).map(|_| View().class(format!("w-[6px] h-[10px] bg-[{BONE}cc]"))));
 	plate()
 		.child(Image(QUARRY).class("w-[54%] h-[72%]"))
-		.child(art::crosshair(BONE).class("absolute left-[30%] top-[18%] w-[40%] h-[64%]"))
+		.child(art::crosshair(BONE).class("absolute left-[26%] top-[18%] w-[48%] h-[64%]"))
 		.child(rounds)
 }
 

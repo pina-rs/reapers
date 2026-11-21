@@ -40,8 +40,8 @@ fn scrolled(poses: impl IntoIterator<Item = (f32, Pose)>) -> Motion {
 fn orb() -> Element {
 	let swell = Pose::new().scale(1.2);
 	let mut poses = vec![
-		(0.0, Pose::new().scale(0.3).opacity(0.0)),
-		(0.14, Pose::REST),
+		(0.0, Pose::new().scale(0.82).opacity(0.45)),
+		(0.08, Pose::REST),
 	];
 	for pulse in PULSES {
 		poses.extend([
@@ -86,7 +86,7 @@ fn ripple(index: usize, pulse: f32) -> Element {
 fn word(text: &str, at: f32, colour: &str) -> Element {
 	let ghost = Pose::new().opacity(0.14);
 	Text(text)
-		.class(format!("text-[44px] md:text-[76px] text-[{colour}]"))
+		.class(format!("text-[40px] md:text-[76px] text-[{colour}]"))
 		.motion(scrolled([
 			(0.0, ghost),
 			(at - 0.02, ghost),
@@ -101,13 +101,13 @@ pub fn capture() -> Element {
 	let count = View()
 		.id("capture-words")
 		.role(Role::Paragraph)
-		.class("flex-row flex-wrap justify-center gap-x-5 md:gap-x-8")
+		.class("flex-row flex-wrap justify-center gap-x-4 md:gap-x-8")
 		.child(word(words.orb_one(), PULSES[0], BONE))
 		.child(word(words.orb_two(), PULSES[1], BONE))
 		.child(word(words.orb_three(), PULSES[2], BONE))
 		.child(word(words.orb_sealed(), SEALED, SOUL));
 	let mut stage = View()
-		.class("relative w-[200px] h-[200px] md:w-[260px] md:h-[260px]")
+		.class("relative w-[176px] h-[176px] md:w-[260px] md:h-[260px]")
 		.child(orb());
 	for (index, pulse) in PULSES.iter().enumerate() {
 		stage = stage.child(ripple(index, *pulse));
@@ -126,10 +126,15 @@ pub fn capture() -> Element {
 			View()
 				.id("capture-pin")
 				.class(format!(
-					"{COLUMN} min-h-screen py-24 items-center justify-center gap-14"
+					"{COLUMN} min-h-screen py-12 md:py-24 items-center justify-center gap-8 md:gap-14"
 				))
 				.child(label(words.orb_label(), ASH))
 				.child(stage)
-				.child(View().class("items-center gap-6").child(count).child(note)),
+				.child(
+					View()
+						.class("items-center gap-4 md:gap-6")
+						.child(count)
+						.child(note),
+				),
 		)
 }

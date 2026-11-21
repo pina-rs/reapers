@@ -117,7 +117,7 @@ pub trait Messages: Send + Sync {
 	fn hunt_draw_text(&self) -> &'static str;
 	/// `Draw it out`
 	fn hunt_draw_title(&self) -> &'static str;
-	/// `Centre it in the crosshair and fire the grave pistol: six rounds, then reload. Dive in close with the bone knife, or swing the weapon your reaper was born with.`
+	/// `Centre it in the crosshair and aim for its open seals with the grave pistol: six rounds, then reload. Step in close with the bone knife, swing the weapon your reaper was born with, or cast an art learned from the dead.`
 	fn hunt_fight_text(&self) -> &'static str;
 	/// `Fight it`
 	fn hunt_fight_title(&self) -> &'static str;
@@ -135,8 +135,6 @@ pub trait Messages: Send + Sync {
 	fn hunt_ring_text(&self) -> &'static str;
 	/// `Read the ring`
 	fn hunt_ring_title(&self) -> &'static str;
-	/// `6 / 6`
-	fn hunt_rounds(&self) -> &'static str;
 	/// `How a hunt plays`
 	fn hunt_title(&self) -> &'static str;
 	/// `The ape`
@@ -386,7 +384,7 @@ impl Messages for En {
 	}
 
 	fn hunt_fight_text(&self) -> &'static str {
-		"Centre it in the crosshair and fire the grave pistol: six rounds, then reload. Dive in close with the bone knife, or swing the weapon your reaper was born with."
+		"Centre it in the crosshair and aim for its open seals with the grave pistol: six rounds, then reload. Step in close with the bone knife, swing the weapon your reaper was born with, or cast an art learned from the dead."
 	}
 
 	fn hunt_fight_title(&self) -> &'static str {
@@ -419,10 +417,6 @@ impl Messages for En {
 
 	fn hunt_ring_title(&self) -> &'static str {
 		"Read the ring"
-	}
-
-	fn hunt_rounds(&self) -> &'static str {
-		"6 / 6"
 	}
 
 	fn hunt_title(&self) -> &'static str {

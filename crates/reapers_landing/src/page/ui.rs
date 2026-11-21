@@ -82,8 +82,8 @@ pub enum Weight {
 	Quiet,
 }
 
-/// A link: to the game, or to a place on this page. It is an ordinary
-/// `<a href>`, so it opens in a new tab and works with the keyboard as any
+/// A link: to the game, or to a place on this page. External links open in a
+/// new tab; in-page anchors stay on the page and work with the keyboard as any
 /// link does.
 pub fn link(text: &str, href: &str, weight: Weight) -> Element {
 	let frame = match weight {
@@ -93,12 +93,18 @@ pub fn link(text: &str, href: &str, weight: Weight) -> Element {
 				 text-[{BONE}]"
 			)
 		}
-		Weight::Quiet => format!("min-h-[56px] justify-center items-center text-[{ASH}]"),
+		Weight::Quiet => {
+			format!("min-h-[56px] min-w-[48px] px-3 justify-center items-center text-[{ASH}]")
+		}
 	};
-	Pressable(text)
+	let mut element = Pressable(text)
 		.href(href)
 		.class(frame)
-		.child(Text(text).class("text-[16px] font-medium"))
+		.child(Text(text).class("text-[16px] font-medium"));
+	if !href.starts_with('#') {
+		element = element.target(leptoskit::native::LinkTarget::NewTab);
+	}
+	element
 }
 
 /// A thin rule across the column.

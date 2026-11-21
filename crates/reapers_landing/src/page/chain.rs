@@ -44,7 +44,7 @@ fn entry(step: &str, detail: &str) -> Element {
 				.class(format!("w-2 h-2 rotate-45 bg-[{SOUL}]")),
 		)
 		.child(Heading(3, step).class(format!(
-			"w-[150px] text-[26px] md:text-[30px] font-normal text-[{BONE}]"
+			"min-w-[130px] md:w-[150px] text-[26px] md:text-[30px] font-normal text-[{BONE}]"
 		)))
 		.child(leader())
 		.child(Text(detail).class(format!(
