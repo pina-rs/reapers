@@ -15,17 +15,14 @@
 //! encoded pieces are, so nobody needs to run this to build the game. Run it
 //! to change a piece or how it is encoded. It needs `curl` and `ffmpeg`.
 
-use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
-
-use sha2::Digest;
-use sha2::Sha256;
 
 use crate::run;
 use crate::run::Failure;
 use crate::run::Outcome;
 use crate::run::UNAVAILABLE;
+use crate::run::sha256;
 
 /// One piece of music: where the original is, and what it becomes.
 struct Piece {
@@ -94,19 +91,30 @@ pub fn main(root: &Path) -> Outcome {
 
 	for piece in &PIECES {
 		let original = Path::new(ORIGINALS).join(piece.original);
+		let full = root.join(&original);
 
-		if !root.join(&original).is_file() {
+		if full.is_file() {
+			let checksum = sha256(&fs::read(&full)?);
+			if checksum != piece.sha256 {
+				return Err(Failure::new(format!(
+					"{} is not the recording this piece was chosen as: its checksum is {checksum}. Delete it to fetch it again.",
+					original.display()
+				)));
+			}
+		} else {
 			println!("fetching {}", piece.original);
-			run::require("curl", fetch_arguments(piece, &original), root)?;
-		}
-
-		let checksum = sha256(&fs::read(root.join(&original))?);
-
-		if checksum != piece.sha256 {
-			return Err(Failure::new(format!(
-				"{} is not the recording this piece was chosen as: its checksum is {checksum}. Delete it to fetch it again.",
-				original.display()
-			)));
+			let part = Path::new(ORIGINALS).join(format!("{}.part", piece.original));
+			let full_part = root.join(&part);
+			run::require("curl", fetch_arguments(piece, &part), root)?;
+			let checksum = sha256(&fs::read(&full_part)?);
+			if checksum != piece.sha256 {
+				let _ = fs::remove_file(&full_part);
+				return Err(Failure::new(format!(
+					"{} is not the recording this piece was chosen as: its checksum is {checksum}.",
+					original.display()
+				)));
+			}
+			fs::rename(&full_part, &full)?;
 		}
 
 		let encoded = Path::new(ENCODED).join(format!("{}.ogg", piece.name));
@@ -166,15 +174,6 @@ fn encode_arguments(piece: &Piece, original: &Path, encoded: &Path) -> Vec<Strin
 	]
 	.map(ToOwned::to_owned)
 	.to_vec()
-}
-
-fn sha256(bytes: &[u8]) -> String {
-	Sha256::digest(bytes)
-		.iter()
-		.fold(String::with_capacity(64), |mut hex, byte| {
-			let _ = write!(hex, "{byte:02x}");
-			hex
-		})
 }
 
 #[cfg(test)]

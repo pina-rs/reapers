@@ -38,7 +38,7 @@ The versions are pinned in `crates/xtask/src/art.rs` (`BLENDER_RELEASE`, `GLTFPA
 | `lib/cloth.py` | `robe`, `sleeve` and `drape`: cloth that is drawn, not simulated. |
 | `lib/anatomy.py` | Skeletal hands and forearms. |
 | `lib/figure.py` | What every reaper shares: landmarks, the hidden face, both arms. |
-| `lib/motion.py` | The 30 shared performances, class adaptations and NLA baking. |
+| `lib/motion.py` | The 32 shared performances, class adaptations and NLA baking. |
 | `review_motions.py` | Renders poses from the exported clips for visual review. |
 | `lib/armoury.py` | Parts every weapon is assembled from. |
 | `lib/preview.py` | Review sheets: front, three-quarter, back and silhouette. |
@@ -105,7 +105,7 @@ Inside a head, name the parts that should disappear when an outfit hollows the r
 
 ## The layout of a weapon
 
-A weapon's root is an empty named `weapon_<kind>`, with `<kind>` spelled as the game's `WeaponKind` enum spells it: `scythe`, `lanternPole`, `balanceFlail`, `spear`, `chainWhip`, `bell`. The grip is at the origin and the haft runs up +Z. +X points across the reaper's body, which is where a blade or a hanging lantern should lean.
+A weapon's root is an empty named `weapon_<kind>`, with `<kind>` spelled as the game's `WeaponKind` enum spells it: `scythe`, `lanternPole`, `balanceFlail`, `spear`, `chainWhip`, `bell`, `greatsword`, `axe`. The grip is at the origin and the haft runs up +Z. +X points across the reaper's body, which is where a blade or a hanging lantern should lean.
 
 A weapon's temper is not a second model. The shader chars and hollows the same mesh.
 

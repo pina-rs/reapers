@@ -17,13 +17,11 @@
 use std::fs;
 use std::path::Path;
 
-use sha2::Digest;
-use sha2::Sha256;
-
 use crate::run;
 use crate::run::Failure;
 use crate::run::Outcome;
 use crate::run::UNAVAILABLE;
+use crate::run::sha256;
 
 /// One file of the release.
 struct File {
@@ -58,24 +56,28 @@ pub fn main(root: &Path) -> Outcome {
 
 	for file in &FILES {
 		let path = Path::new(DIRECTORY).join(file.name);
+		let full = root.join(&path);
 
-		if root.join(&path).is_file() && sha256(&fs::read(root.join(&path))?) == file.sha256 {
+		if full.is_file() && sha256(&fs::read(&full)?) == file.sha256 {
 			println!("have   {}", path.display());
 			continue;
 		}
 
 		println!("fetching {}", file.name);
-		run::require("curl", fetch_arguments(file, &path), root)?;
-		let checksum = sha256(&fs::read(root.join(&path))?);
+		let part = Path::new(DIRECTORY).join(format!("{}.part", file.name));
+		let full_part = root.join(&part);
+		run::require("curl", fetch_arguments(file, &part), root)?;
+		let checksum = sha256(&fs::read(&full_part)?);
 
 		if checksum != file.sha256 {
-			fs::remove_file(root.join(&path))?;
+			let _ = fs::remove_file(&full_part);
 			return Err(Failure::new(format!(
 				"{} is not the file the game pins: its checksum is {checksum}. It has been deleted.",
 				path.display()
 			)));
 		}
 
+		fs::rename(&full_part, &full)?;
 		println!("wrote  {}", path.display());
 	}
 
@@ -94,17 +96,6 @@ fn fetch_arguments(file: &File, path: &Path) -> Vec<String> {
 		path.display().to_string(),
 		format!("{RELEASE}/{}", file.name),
 	]
-}
-
-fn sha256(bytes: &[u8]) -> String {
-	use std::fmt::Write as _;
-
-	Sha256::digest(bytes)
-		.iter()
-		.fold(String::with_capacity(64), |mut hex, byte| {
-			let _ = write!(hex, "{byte:02x}");
-			hex
-		})
 }
 
 #[cfg(test)]

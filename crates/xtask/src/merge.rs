@@ -130,6 +130,16 @@ impl Target {
 			)));
 		}
 
+		// If origin/main is known locally and ahead of main, fail before
+		// running the full suite so the final push cannot be rejected.
+		if git.succeeds(&["rev-parse", "--verify", "refs/remotes/origin/main"])
+			&& !git.succeeds(&["merge-base", "--is-ancestor", "origin/main", &base])
+		{
+			return Err(Failure::new(
+				"origin/main has commits that local main lacks. Update main and rebase before merging.",
+			));
+		}
+
 		Ok(Some(Self {
 			branch,
 			commit,
@@ -225,7 +235,10 @@ fn fast_forward_main(git: &Git, branch: &str) -> Outcome {
 	// moves.
 	let output = match git.worktree_on("main")? {
 		None => git.output(&["fetch", "--quiet", ".", &format!("{branch}:main")])?,
-		Some(checkout) => Git::at(&checkout).output(&["merge", "--ff-only", "--quiet", branch])?,
+		Some(checkout) => {
+			git.in_directory(&checkout)
+				.output(&["merge", "--ff-only", "--quiet", branch])?
+		}
 	};
 
 	if output.status.success() {

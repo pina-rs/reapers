@@ -203,7 +203,7 @@ pub fn install(git: &Git) -> Outcome<PathBuf> {
 		.to_str()
 		.ok_or_else(|| Failure::new("The git directory's path is not UTF-8."))?;
 
-	git.read(&["config", "core.hooksPath", path])?;
+	git.read(&["config", "--local", "core.hooksPath", path])?;
 
 	Ok(directory)
 }
@@ -227,29 +227,52 @@ fn make_executable(_: &Path) -> Outcome {
 	))
 }
 
+#[cfg(unix)]
+fn is_executable(file: &Path) -> bool {
+	use std::os::unix::fs::PermissionsExt;
+
+	fs::metadata(file).is_ok_and(|meta| meta.is_file() && meta.permissions().mode() & 0o111 != 0)
+}
+
+#[cfg(not(unix))]
+fn is_executable(file: &Path) -> bool {
+	file.is_file()
+}
+
 pub fn uninstall(git: &Git) -> Outcome {
 	let Some(configured) = hooks_path(git) else {
-		println!("No core.hooksPath is set; nothing to remove.");
+		println!("No local core.hooksPath is set; nothing to remove.");
 
 		return Ok(());
 	};
 
-	git.read(&["config", "--unset", "core.hooksPath"])?;
+	let managed = git.common_directory()?.join("local-ci/hooks");
+	let same_dir = configured == managed
+		|| fs::canonicalize(&configured)
+			.ok()
+			.zip(fs::canonicalize(&managed).ok())
+			.is_some_and(|(a, b)| a == b);
 
-	if configured.is_dir() {
+	git.read(&["config", "--local", "--unset", "core.hooksPath"])?;
+
+	if same_dir && configured.is_dir() {
 		fs::remove_dir_all(&configured)?;
+		println!(
+			"Removed core.hooksPath and {}. main is unguarded.",
+			configured.display()
+		);
+	} else {
+		println!(
+			"Removed local core.hooksPath (left non-managed {} untouched). main is unguarded.",
+			configured.display()
+		);
 	}
-
-	println!(
-		"Removed core.hooksPath and {}. main is unguarded.",
-		configured.display()
-	);
 
 	Ok(())
 }
 
 /// Prints whether `main` is guarded and returns whether it is: every hook
-/// where git looks for it, exactly as this tool writes it.
+/// where git looks for it, executable, and exactly as this tool writes it.
 pub fn status(git: &Git) -> bool {
 	let Some(configured) = hooks_path(git) else {
 		println!("main is NOT guarded. Install the hooks with:\n    cargo xtask hooks install");
@@ -262,9 +285,11 @@ pub fn status(git: &Git) -> bool {
 	println!("core.hooksPath: {}", configured.display());
 
 	for (name, script) in HOOKS {
-		let state = match fs::read_to_string(configured.join(name)) {
+		let file = configured.join(name);
+		let state = match fs::read_to_string(&file) {
 			Err(_) => "missing",
 			Ok(installed) if installed != script => "stale, re-run install",
+			Ok(_) if !is_executable(&file) => "not executable, re-run install",
 			Ok(_) => "installed",
 		};
 
@@ -276,7 +301,9 @@ pub fn status(git: &Git) -> bool {
 }
 
 fn hooks_path(git: &Git) -> Option<PathBuf> {
-	let configured = git.read(&["config", "--get", "core.hooksPath"]).ok()?;
+	let configured = git
+		.read(&["config", "--local", "--get", "core.hooksPath"])
+		.ok()?;
 
 	(!configured.is_empty()).then(|| PathBuf::from(configured))
 }
@@ -493,5 +520,44 @@ pub mod tests {
 
 		assert!(output.status.success(), "{}", stderr(&output));
 		assert_eq!(scratch.head_of("main"), feature);
+	}
+
+	#[test]
+	fn uninstall_does_not_delete_a_non_managed_hooks_directory() {
+		let scratch = Scratch::new();
+		let custom = scratch.path().join("custom-hooks");
+		fs::create_dir_all(&custom).unwrap();
+		fs::write(custom.join("keep.txt"), "user data").unwrap();
+
+		scratch
+			.git
+			.read(&[
+				"config",
+				"--local",
+				"core.hooksPath",
+				custom.to_str().unwrap(),
+			])
+			.unwrap();
+
+		uninstall(&scratch.git).unwrap();
+		assert!(custom.join("keep.txt").is_file());
+		assert_eq!(hooks_path(&scratch.git), None);
+	}
+
+	#[cfg(unix)]
+	#[test]
+	fn status_flags_non_executable_hooks() {
+		use std::os::unix::fs::PermissionsExt;
+
+		let scratch = Scratch::new();
+		let directory = install(&scratch.git).unwrap();
+		assert!(status(&scratch.git));
+
+		fs::set_permissions(
+			directory.join("pre-commit"),
+			fs::Permissions::from_mode(0o644),
+		)
+		.unwrap();
+		assert!(!status(&scratch.git));
 	}
 }

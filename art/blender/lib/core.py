@@ -26,8 +26,6 @@ import bpy
 from mathutils import Vector, noise
 
 COLOR_ATTRIBUTE = "Color"
-REST_XY = "rest_xy"
-REST_Z = "rest_z"
 
 
 def reset_scene():

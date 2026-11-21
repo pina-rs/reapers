@@ -13,7 +13,7 @@ publish.workspace = true
 # Every sine, arc tangent and square root, computed the same way on every
 # target, as the rules do: the room becomes a hunt's plan, and the game
 # runs as Wasm.
-libm = "0.2.16"
+libm = { workspace = true }
 reapers_rules = { workspace = true }
 
 [lints]

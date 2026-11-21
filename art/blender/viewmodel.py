@@ -101,10 +101,10 @@ def _build_viewmodel(options):
         if shown > TRIANGLE_BUDGET:
             raise SystemExit(f"A {moment} shows {shown} triangles; the budget is {TRIANGLE_BUDGET}")
 
+    _export(options, root, "viewmodel.glb")
+
     if options.preview:
         _sheet(options, "viewmodel", root)
-
-    _export(options, root, "viewmodel.glb")
 
 
 def _build_orb(options):
@@ -116,10 +116,10 @@ def _build_orb(options):
     if triangles > ORB_TRIANGLE_BUDGET:
         raise SystemExit(f"The orb has {triangles} triangles; the budget is {ORB_TRIANGLE_BUDGET}")
 
+    _export(options, root, "viewmodel_orb.glb")
+
     if options.preview:
         _sheet(options, "viewmodel_orb", root)
-
-    _export(options, root, "viewmodel_orb.glb")
 
 
 def _build_fx(options):

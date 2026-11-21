@@ -36,8 +36,9 @@ const CORE_FIXTURE: &str = "target/fixtures/mpl_core.so";
 
 /// The crates the game builds for the browser and the native apps' Wasm
 /// guest, which must build there on their own.
-const WASM_CRATES: [&str; 4] = [
+const WASM_CRATES: [&str; 5] = [
 	"reapers_rules",
+	"reapers_world",
 	"reapers_receipt",
 	"reapers_api",
 	"reapers_program_client",
@@ -346,9 +347,17 @@ fn plan(root: &Path, fast: bool) -> Outcome<Plan> {
 		));
 	}
 
+	let leptoskit = run::on_path("leptoskit");
+	if !leptoskit && std::env::var_os("CI").is_some_and(|value| !value.is_empty()) {
+		return Err(Failure::with_code(
+			"CI requires the leptoskit CLI on PATH so the workspace check and web builds are never silently skipped.",
+			UNAVAILABLE,
+		));
+	}
+
 	Ok(Plan {
 		fast,
-		leptoskit: run::on_path("leptoskit"),
+		leptoskit,
 		fetch_core,
 		packages: default_members(root)?,
 	})
@@ -358,12 +367,12 @@ fn postgres_available() -> bool {
 	let tools = ["initdb", "pg_ctl", "createdb"];
 
 	match std::env::var_os("REAPERS_PG_BIN") {
-		Some(directory) => {
+		Some(directory) if !directory.is_empty() => {
 			tools
 				.iter()
 				.all(|tool| Path::new(&directory).join(tool).is_file())
 		}
-		None => tools.iter().all(|tool| run::on_path(tool)),
+		_ => tools.iter().all(|tool| run::on_path(tool)),
 	}
 }
 

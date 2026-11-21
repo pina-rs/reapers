@@ -6,6 +6,7 @@
 reapers/
 ├── crates/
 │   ├── reapers_rules/           Every rule, catalogue and number.
+│   ├── reapers_world/           Spatial math: phone pose, room survey and rift sites.
 │   ├── reapers_receipt/         The absorption receipt, signed by the keeper and checked on-chain.
 │   ├── reapers_program/         The on-chain program, on pina.
 │   ├── reapers_program_client/  Its generated client.
@@ -120,7 +121,7 @@ There are no hand-made model files. Every reaper, weapon and husk is built by a 
 
 `cargo xtask` (`crates/xtask`, aliased in `.cargo/config.toml`) is every tool the repository has:
 
-- `check` runs, in order and stopping at the first failure: `cargo fmt --check`; clippy over every target, denying warnings; the Wasm builds of `reapers_rules`, `reapers_receipt`, `reapers_api` and `reapers_program_client`; the app's Wasm guest checked for both the `native` and the `web` feature (its camera code is compiled only there, and the leptoskit web build that also covers it is optional); `pina build` and a 56 KiB ceiling on the program; Metaplex Core fetched once for the program's tests; every test of the workspace's default members (`--fast` leaves out `reapers_server`, whose tests start PostgreSQL); and, when the leptoskit CLI is installed, `leptoskit workspace check` and `leptoskit build --platform web` for the app and for the landing page. Before it starts, it fails with the fix when a tool it needs is missing.
+- `check` runs, in order and stopping at the first failure: `cargo fmt --check`; clippy over every target, denying warnings; the Wasm builds of `reapers_rules`, `reapers_world`, `reapers_receipt`, `reapers_api` and `reapers_program_client`; the app's Wasm guest checked for both the `native` and the `web` feature (its camera code is compiled only there, and the leptoskit web build that also covers it is optional); `pina build` and a 56 KiB ceiling on the program; Metaplex Core fetched once for the program's tests; every test of the workspace's default members (`--fast` leaves out `reapers_server`, whose tests start PostgreSQL); and, when the leptoskit CLI is installed, `leptoskit workspace check` and `leptoskit build --platform web` for the app and for the landing page. Before it starts, it fails with the fix when a tool it needs is missing.
 - `hooks install` writes the `reference-transaction` and `pre-commit` hooks that let `main` move only to a commit with a verification record.
 - `merge` refuses on `main`, with uncommitted work, without the hooks or when `main` has moved on; pushes the branch and opens a pull request into `main`, or reuses the open one; runs every check; refuses if the checks changed the tree; writes the record, fast-forwards `main` and deletes the record whether or not that worked; then pushes `main`, which is what merges the pull request, comments the check report on it, confirms GitHub marked it merged and deletes the branch on origin. It needs the GitHub CLI signed in, and says so before the checks start.
 - `build-art`, `build-music` and `build-sfx` build the assets.
@@ -159,7 +160,7 @@ A development build may set `REAPERS_DEMO_RIFT=true` with `REAPERS_SERVER_URL`. 
 ## Known limits of this design
 
 - **Native AR still needs device validation.** The hosts composite the camera and depth through `leptoskit_xr`'s `Scene3d` feed, but camera alignment, the HUD over the picture and session teardown still need checking on phones. See [environment.md](environment.md) for the device checklist.
-- **`leptoskit_3d` draws only its own materials.** No custom shaders (the Flutter char, hollowing and sketched outline are gone), no clip seeking, and husks move as one piece. A husk behind real furniture fades as a whole rather than being cut pixel by pixel.
+- **`leptoskit_3d` draws only its own materials.** No custom shaders (the Flutter char, hollowing and sketched outline are gone), no clip seeking, and husks have no authored skeletal clips (they animate via rigid part pivots in `render/gait.rs`). A husk behind real furniture fades as a whole rather than being cut pixel by pixel.
 - **The room is read once, from where you stand.** A plan describes the floor and what stands on it around the player before the hunt. It does not follow you walking or notice anything moved. See [environment.md](environment.md).
 - **The plan is the device's word.** The server checks a plan is wide enough to be fair and has room for the husk, not that the room is really that shape. A made-up room cannot win a hunt, but it can bring the husk closer, where its seals are easier to hit.
 - **Rifts trust the client.** A hunt is replayed; a rift is not. NFT reapers cannot enter until rift input replay is implemented, so trusted reports cannot mint tradable growth. The starter can still play. Making it verified means sending each seat's input log and replaying it against the shared ward's history.

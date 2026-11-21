@@ -15,7 +15,7 @@ crate-type = ["staticlib"]
 depth-estimation = ["leptoskit_xr/depth-estimation"]
 
 [target.'cfg(target_os = "ios")'.dependencies]
-leptoskit_bridge_ffi = { version = "=0.3.0", default-features = false, features = ["app"] }
+leptoskit_bridge_ffi = { workspace = true, features = ["app"] }
 # The music: decoding, the mixer and the device's output.
 leptoskit_plugin_audio = { workspace = true, features = ["host"] }
 leptoskit_plugin_crypto = { workspace = true }
@@ -23,13 +23,13 @@ leptoskit_plugin_haptics = { workspace = true }
 leptoskit_plugin_http = { workspace = true, features = ["browser"] }
 leptoskit_plugin_linking = { workspace = true }
 # The camera's permission, asked for before the phone's AR starts.
-leptoskit_plugin_permissions = { version = "=0.3.0" }
+leptoskit_plugin_permissions = { workspace = true }
 leptoskit_plugin_secure_store = { workspace = true }
 leptoskit_plugin_store = { workspace = true }
 # The rifts' live socket.
 leptoskit_plugin_websocket = { workspace = true, features = ["async-host"] }
 # The room around the player: the platform's AR, or its rotation sensor.
-leptoskit_xr = { version = "=0.3.0", features = ["scene3d"] }
+leptoskit_xr = { workspace = true, features = ["scene3d"] }
 # The `solana-wallet` service, which every host must list. Mobile Wallet
 # Adapter is Android-only, so on iOS the wallet panel says it is unavailable.
 solana_kit_leptoskit = { workspace = true, features = ["wallet-host"] }

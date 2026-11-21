@@ -76,7 +76,7 @@ const MOTIONS: &str = "art/build/motions.json";
 
 #[derive(clap::Args)]
 pub struct Options {
-	/// Build only these scripts: reapers, weapons, husks.
+	/// Build only these scripts: reapers, weapons, husks, viewmodel.
 	scripts: Vec<String>,
 	/// Also render review sheets into art/build/previews.
 	#[arg(long)]
@@ -101,6 +101,12 @@ pub fn main(root: &Path, options: &Options) -> Outcome {
 
 	require_blender()?;
 	require_gltfpack()?;
+	if scripts.iter().any(|(script, _)| *script == "husks") && !run::on_path("magick") {
+		return Err(Failure::with_code(
+			"The portraits are converted to WebP by ImageMagick 7 (`magick`), which is not on the PATH.",
+			UNAVAILABLE,
+		));
+	}
 
 	for (script, prefix) in scripts {
 		let source = root.join("art/blender").join(format!("{script}.py"));
@@ -328,7 +334,9 @@ fn is_gltfpack(banner: &str, version: &str) -> bool {
 		.is_some_and(|rest| rest.split_whitespace().next() == Some(version))
 }
 
-/// Runs Blender, showing only the lines worth reading.
+/// Runs Blender, showing only the lines worth reading while it runs, and
+/// dumping all of stderr if it exits with a failure so no Python traceback is
+/// ever swallowed.
 fn run_blender(root: &Path, arguments: &[String]) -> Outcome {
 	let mut child = Command::new("blender")
 		.args(arguments)
@@ -338,11 +346,14 @@ fn run_blender(root: &Path, arguments: &[String]) -> Outcome {
 		.spawn()?;
 	let stderr = child.stderr.take().expect("piped");
 	let relay = std::thread::spawn(move || {
+		let mut all = Vec::new();
 		for line in BufReader::new(stderr).lines().map_while(Result::ok) {
 			if worth_showing(&line) {
 				eprintln!("{line}");
 			}
+			all.push(line);
 		}
+		all
 	});
 
 	for line in BufReader::new(child.stdout.take().expect("piped"))
@@ -353,12 +364,17 @@ fn run_blender(root: &Path, arguments: &[String]) -> Outcome {
 			println!("{line}");
 		}
 	}
-	let _ = relay.join();
+	let captured_stderr = relay.join().unwrap_or_default();
 
 	match child.wait()?.code() {
 		Some(0) => Ok(()),
 		code => {
 			let code = code.unwrap_or(1);
+			for line in &captured_stderr {
+				if !worth_showing(line) {
+					eprintln!("{line}");
+				}
+			}
 
 			Err(Failure::with_code(
 				format!("Blender failed on {} (exit {code}).", arguments[4]),

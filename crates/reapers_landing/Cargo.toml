@@ -33,13 +33,13 @@ devtools = ["leptoskit/devtools"]
 leptoskit = { workspace = true }
 leptoskit_l10n = { workspace = true }
 leptoskit_router = { workspace = true }
-reactive_graph = "0.3.0-rc0"
+reactive_graph = { workspace = true }
 
 # The browser renderer and its glue.
-leptos = { version = "0.9.0-rc0", default-features = false, optional = true }
-console_error_panic_hook = { version = "0.1", optional = true }
-# The embedded wasm-bindgen CLI accepts exactly its matching library version.
-wasm-bindgen = { version = "=0.2.129", optional = true }
+leptos = { workspace = true, optional = true }
+console_error_panic_hook = { workspace = true, optional = true }
+# Pinned in the workspace manifest to match the leptoskit CLI's embedded bindgen.
+wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
 leptoskit_testing = { workspace = true }

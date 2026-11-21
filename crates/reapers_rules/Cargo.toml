@@ -12,7 +12,7 @@ publish.workspace = true
 [dependencies]
 # Every sine, arc tangent and square root the rules take, computed the same
 # way on every target: the server natively and the game as Wasm must agree.
-libm = "0.2.16"
+libm = { workspace = true }
 serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
 thiserror = { version = "2", default-features = false }
 

@@ -117,6 +117,21 @@ pub fn exit_code(code: i32) -> u8 {
 		.unwrap_or(1)
 }
 
+/// Lowercase hex SHA-256 of `bytes`.
+pub fn sha256(bytes: &[u8]) -> String {
+	use std::fmt::Write as _;
+
+	use sha2::Digest as _;
+	use sha2::Sha256;
+
+	Sha256::digest(bytes)
+		.iter()
+		.fold(String::with_capacity(64), |mut hex, byte| {
+			let _ = write!(hex, "{byte:02x}");
+			hex
+		})
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;

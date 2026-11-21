@@ -21,21 +21,24 @@
 //! white: the game's material tint supplies the whole colour, as Flutter's
 //! replacement shader did. Husks keep their authored materials.
 
+use std::collections::HashSet;
+use std::error::Error;
+use std::ffi::OsString;
 use std::fs;
 use std::path::Path;
 
-/// Each mirror: where it comes from, relative to this crate, and where it
-/// goes under `assets/`.
-const MIRRORS: [(&str, &str); 7] = [
-	("../../assets/nfts", "nfts"),
-	("../../assets/music", "music"),
-	("../../assets/sfx", "sfx"),
-	("../../assets/models", "models"),
-	("../../assets/fonts", "fonts"),
-	("../../assets/branding", "branding"),
+/// Each mirror: where it comes from relative to this crate, where it goes under
+/// `assets/`, and whether missing or unreadable sources should fail the build.
+const MIRRORS: [(&str, &str, bool); 7] = [
+	("../../assets/nfts", "nfts", true),
+	("../../assets/music", "music", true),
+	("../../assets/sfx", "sfx", true),
+	("../../assets/models", "models", true),
+	("../../assets/fonts", "fonts", true),
+	("../../assets/branding", "branding", true),
 	// Fetched by `cargo xtask fetch-depth-model`, not committed: the xr
 	// plugin reads rooms with it on phones without platform depth.
-	("../../assets/depth", "depth"),
+	("../../assets/depth", "depth", false),
 ];
 
 /// Adapts material metadata to the renderer, preserving every binary byte.
@@ -114,14 +117,21 @@ fn reaper_surface(name: &str) -> (f64, f64) {
 }
 
 fn mirror(from: &Path, to: &Path) -> std::io::Result<()> {
+	println!("cargo::rerun-if-changed={}", from.display());
 	fs::create_dir_all(to)?;
+
+	let mut expected: HashSet<OsString> = HashSet::new();
 	for entry in fs::read_dir(from)? {
 		let entry = entry?;
+		let file_name = entry.file_name();
 		let source = entry.path();
-		let target = to.join(entry.file_name());
+		let target = to.join(&file_name);
+		expected.insert(file_name);
+
 		if entry.file_type()?.is_dir() {
 			mirror(&source, &target)?;
 		} else {
+			println!("cargo::rerun-if-changed={}", source.display());
 			let mut bytes = fs::read(&source)?;
 			if source
 				.extension()
@@ -133,26 +143,56 @@ fn mirror(from: &Path, to: &Path) -> std::io::Result<()> {
 					.unwrap_or_default();
 				bytes = for_renderer(bytes, name.starts_with("reaper_") || name == "weapons.glb");
 			}
-			if fs::read(&target).ok() != Some(bytes.clone()) {
+			if fs::read(&target).ok().as_deref() != Some(bytes.as_slice()) {
 				fs::write(&target, bytes)?;
 			}
 		}
 	}
+
+	// Prune mirrored files or directories that were removed from the source.
+	for entry in fs::read_dir(to)? {
+		let entry = entry?;
+		if !expected.contains(&entry.file_name()) {
+			let stale = entry.path();
+			if entry.file_type()?.is_dir() {
+				fs::remove_dir_all(&stale)?;
+			} else {
+				fs::remove_file(&stale)?;
+			}
+		}
+	}
+
 	Ok(())
 }
 
-fn main() -> Result<(), leptoskit_build::Error> {
-	for (from, to) in MIRRORS {
-		println!("cargo::rerun-if-changed={from}");
+fn main() -> Result<(), Box<dyn Error>> {
+	for (from, to, required) in MIRRORS {
 		let from = Path::new(from);
-		if from.is_dir()
-			&& let Err(error) = mirror(from, &Path::new("assets").join(to))
-		{
+		let target = Path::new("assets").join(to);
+		println!("cargo::rerun-if-changed={}", from.display());
+
+		if !from.is_dir() {
+			if required {
+				return Err(
+					format!("required asset directory {} is missing", from.display()).into(),
+				);
+			}
+			if target.is_dir() {
+				let _ = fs::remove_dir_all(&target);
+			}
+			continue;
+		}
+
+		if let Err(error) = mirror(from, &target) {
+			if required {
+				return Err(format!("could not mirror {}: {error}", from.display()).into());
+			}
 			println!(
 				"cargo::warning=could not mirror {}: {error}",
 				from.display()
 			);
 		}
 	}
-	leptoskit_build::platforms()
+	leptoskit_build::platforms()?;
+	Ok(())
 }

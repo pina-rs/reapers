@@ -24,6 +24,14 @@ impl Git {
 		}
 	}
 
+	/// Runs git in another checkout while preserving this handle's environment.
+	pub fn in_directory(&self, directory: &Path) -> Self {
+		Self {
+			directory: directory.to_path_buf(),
+			environment: self.environment.clone(),
+		}
+	}
+
 	/// A git that reads no global or system configuration, for tests in a
 	/// repository of their own.
 	#[cfg(test)]

@@ -81,12 +81,16 @@ def _style_materials(silhouette, look=None):
     for mat in bpy.data.materials:
         mat.use_nodes = True
         tree = mat.node_tree
-        authored_metallic = 0.0
-        authored_roughness = 0.86
-        prev_bsdf = tree.nodes.get("Principled BSDF")
-        if prev_bsdf is not None:
-            authored_metallic = prev_bsdf.inputs["Metallic"].default_value
-            authored_roughness = prev_bsdf.inputs["Roughness"].default_value
+        if "_pina_authored_metallic" not in mat:
+            prev_bsdf = tree.nodes.get("Principled BSDF")
+            if prev_bsdf is not None:
+                mat["_pina_authored_metallic"] = float(prev_bsdf.inputs["Metallic"].default_value)
+                mat["_pina_authored_roughness"] = float(prev_bsdf.inputs["Roughness"].default_value)
+            else:
+                mat["_pina_authored_metallic"] = 0.0
+                mat["_pina_authored_roughness"] = 0.86
+        authored_metallic = float(mat["_pina_authored_metallic"])
+        authored_roughness = float(mat["_pina_authored_roughness"])
         tree.nodes.clear()
 
         output = tree.nodes.new("ShaderNodeOutputMaterial")
@@ -261,6 +265,9 @@ def render_sheet(path, centre=(0, 0, 1.4), distance=7.4, width=560, height=840, 
         bpy.data.objects.remove(camera, do_unlink=True)
 
     _stitch(tiles, path, width, height)
+
+    for light in lights:
+        bpy.data.objects.remove(light, do_unlink=True)
 
 
 def frame(skip=("shadow",), margin=1.12, lens=70):

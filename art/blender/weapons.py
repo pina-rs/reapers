@@ -53,10 +53,14 @@ def main():
         weapon.parent = root
         built.append(weapon)
 
+    path = os.path.join(options.out, f"weapon_{options.only}.glb" if options.only else "weapons.glb")
+    core.export_glb(path, root)
+    print(f"BUILT {path} triangles={core.triangle_count(root)}")
+
     if options.preview:
         os.makedirs(options.preview, exist_ok=True)
 
-        # Spread out for the review sheet only; the offsets are cleared below.
+        # Spread out for the review sheet only; export already happened at the origin.
         for index, weapon in enumerate(built):
             weapon.location = ((index - (len(built) - 1) / 2) * 1.5, 0, 1.05)
 
@@ -69,12 +73,8 @@ def main():
             views=("front", "silhouette"),
         )
 
-    for weapon in built:
-        weapon.location = (0, 0, 0)
-
-    path = os.path.join(options.out, f"weapon_{options.only}.glb" if options.only else "weapons.glb")
-    core.export_glb(path, root)
-    print(f"BUILT {path} triangles={core.triangle_count(root)}")
+        for weapon in built:
+            weapon.location = (0, 0, 0)
 
 
 if __name__ == "__main__":

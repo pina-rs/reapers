@@ -45,8 +45,12 @@ const CI: &str = ".github/workflows/ci.yml";
 const DOCUMENTS: [&str; 3] = ["README.md", "AGENTS.md", "crates/reapers_app/README.md"];
 /// The documentation, which may name the revision too.
 const DOCS: &str = "docs";
-/// The app's manifest: it pins `wasm-bindgen` to the version the CLI embeds.
-const APP_MANIFEST: &str = "crates/reapers_app/Cargo.toml";
+/// The manifests that may pin `wasm-bindgen` to the version the CLI embeds.
+const WASM_BINDGEN_MANIFESTS: [&str; 3] = [
+	MANIFEST,
+	"crates/reapers_app/Cargo.toml",
+	"crates/reapers_landing/Cargo.toml",
+];
 
 #[derive(clap::Args)]
 pub struct Options {
@@ -85,7 +89,9 @@ pub fn main(root: &Path, options: &Options) -> Outcome {
 	};
 
 	let files = pinned_files(root)?;
-	require_clean(&git, &files)?;
+	let mut clean_paths = files.clone();
+	clean_paths.push(PathBuf::from(LOCK));
+	require_clean(&git, &clean_paths)?;
 
 	for path in &files {
 		let text = fs::read_to_string(root.join(path))?;
@@ -311,20 +317,29 @@ fn locked_packages(lock: &str) -> Vec<String> {
 	packages
 }
 
-/// Compares the app's `wasm-bindgen` pin with the version the leptoskit CLI
-/// at `revision` embeds; they have to be the same, and the CLI's is
-/// leptoskit's own `Cargo.lock` that cargo checks out for the build.
+/// Compares the workspace's `wasm-bindgen` pin(s) with the version the
+/// leptoskit CLI at `revision` embeds; they have to be the same, and the CLI's
+/// is leptoskit's own `Cargo.lock` that cargo checks out for the build.
 fn check_wasm_bindgen(root: &Path, revision: &str) -> Outcome {
-	let manifest = fs::read_to_string(root.join(APP_MANIFEST))?;
-	let Some(pinned) = wasm_bindgen_pin(&manifest) else {
-		println!("check  {APP_MANIFEST} pins no wasm-bindgen version");
+	let mut pins: Vec<(&str, String)> = Vec::new();
+	for path in WASM_BINDGEN_MANIFESTS {
+		let manifest = fs::read_to_string(root.join(path))?;
+		if let Some(pinned) = wasm_bindgen_pin(&manifest) {
+			pins.push((path, pinned));
+		}
+	}
 
+	if pins.is_empty() {
+		println!("check  no manifest pins a wasm-bindgen version");
 		return Ok(());
-	};
+	}
+
 	let Some(embedded) = embedded_wasm_bindgen(revision) else {
-		println!(
-			"check  install the CLI, then compare the wasm-bindgen it embeds with ={pinned} in {APP_MANIFEST}"
-		);
+		for (path, pinned) in &pins {
+			println!(
+				"check  install the CLI, then compare the wasm-bindgen it embeds with ={pinned} in {path}"
+			);
+		}
 		println!(
 			"       (leptoskit's Cargo.lock at {revision} is not in cargo's git checkouts yet)"
 		);
@@ -332,12 +347,14 @@ fn check_wasm_bindgen(root: &Path, revision: &str) -> Outcome {
 		return Ok(());
 	};
 
-	if embedded == pinned {
-		println!("have   wasm-bindgen {pinned}, the version the CLI embeds");
-	} else {
-		println!(
-			"warn   the CLI at {revision} embeds wasm-bindgen {embedded}, but {APP_MANIFEST} pins ={pinned}. Change that pin to ={embedded}, or the web build will not link."
-		);
+	for (path, pinned) in &pins {
+		if embedded == *pinned {
+			println!("have   wasm-bindgen {pinned} in {path}, the version the CLI embeds");
+		} else {
+			println!(
+				"warn   the CLI at {revision} embeds wasm-bindgen {embedded}, but {path} pins ={pinned}. Change that pin to ={embedded}, or the web build will not link."
+			);
+		}
 	}
 
 	Ok(())
@@ -349,7 +366,10 @@ fn wasm_bindgen_pin(manifest: &str) -> Option<String> {
 	let line = manifest
 		.lines()
 		.find(|line| line.trim_start().starts_with("wasm-bindgen ="))?;
-	let rest = line.split_once("version = \"=")?.1;
+	let rest = line
+		.split_once("version = \"=")
+		.or_else(|| line.split_once("= \"="))?
+		.1;
 	let version = rest.split('"').next()?;
 
 	Some(version.to_owned())
@@ -518,6 +538,7 @@ mod tests {
 			wasm-bindgen = { version = \"=0.2.129\", optional = true }\n\
 			wasm-bindgen-futures = { version = \"0.4\", optional = true }\n\
 		";
+		let shorthand = "wasm-bindgen = \"=0.2.129\"\n";
 		let lock = "\
 			[[package]]\n\
 			name = \"wasm-bindgen\"\n\
@@ -530,6 +551,7 @@ mod tests {
 		";
 
 		assert_eq!(wasm_bindgen_pin(manifest), Some("0.2.129".to_owned()));
+		assert_eq!(wasm_bindgen_pin(shorthand), Some("0.2.129".to_owned()));
 		assert_eq!(wasm_bindgen_pin("[dependencies]\n"), None);
 		assert_eq!(
 			locked_version(lock, "wasm-bindgen"),
@@ -592,6 +614,14 @@ mod tests {
 			}
 		}
 
+		let ci = fs::read_to_string(root.join(CI)).unwrap();
+		let ci_revs = ci_revisions(&ci);
+		assert_eq!(
+			ci_revs,
+			vec![pinned.clone()],
+			"{CI} LEPTOSKIT_REV does not match {MANIFEST}"
+		);
+
 		let lock = fs::read_to_string(root.join(LOCK)).unwrap();
 
 		for revision in locked_sources(&lock) {
@@ -601,6 +631,14 @@ mod tests {
 			!locked_packages(&lock).is_empty(),
 			"{LOCK} names no leptoskit package"
 		);
+	}
+
+	/// Every `LEPTOSKIT_REV:` environment entry in CI.
+	fn ci_revisions(text: &str) -> Vec<String> {
+		text.lines()
+			.filter_map(|line| line.trim().strip_prefix("LEPTOSKIT_REV:"))
+			.filter_map(|rest| rest.split_whitespace().next().and_then(canonical))
+			.collect()
 	}
 
 	/// Every revision a document tells a person to install the CLI at.

@@ -18,7 +18,7 @@ leptoskit build --platform android       # the Android app (SDK, NDK, CMake)
 leptoskit build --platform quest         # the Meta Quest app, as a panel (the Android SDK)
 ```
 
-`build.rs` mirrors the repository's `assets/{nfts,music,models,fonts,branding}` into `assets/` before leptoskit bundles it; those mirrors are git-ignored. The models' copies leave out the vertex colours: the art build paints mask channels into them for a custom shader, and `leptoskit_3d` would draw them as colours. leptoskit serves `assets/` to the browser at `/assets/` and bundles it into the native apps.
+`build.rs` mirrors the repository's `assets/{nfts,music,sfx,models,fonts,branding}` (and `assets/depth`, when fetched) into `assets/` before leptoskit bundles it; those mirrors are git-ignored. The models' copies leave out the vertex colours: the art build paints mask channels into them for a custom shader, and `leptoskit_3d` would draw them as colours. leptoskit serves `assets/` to the browser at `/assets/` and bundles it into the native apps.
 
 `leptoskit dev --platform ios` runs the app in every booted iOS Simulator, and `--platform android` on every attached Android phone or emulator, swapping each rebuilt guest in without reinstalling.
 
@@ -149,4 +149,4 @@ The second builds the server and `reapers_ops`, starts PostgreSQL, a localnet an
 - Images: `asset://` names a file under the project's `assets/` on every platform; `build.rs` mirrors the repository's `assets/` there.
 - Meta Quest: `leptoskit build --platform quest` packages the Android app for Horizon OS as a panel (`[native.quest] immersive = false`): the screens are ordinary views. A hunt or a rift starts the `xr` plugin's `ImmersiveAr` session and presents its `Scene3d`, so the headset opens an immersive activity over the panel and draws the husk over passthrough; the fight's 2D marks stay on the panel. The session's end returns to the panel.
 - The iOS app's `Info.plist` is app-owned (`ios/Info.plist`): ARKit needs its camera usage text.
-- No gradients, no fixed positioning: scrims fall in steps, and the frame is the screen's height with the route scrolling inside it, so overlays cover the screen.
+- No gradients, no fixed positioning: scrims fall in steps, and the frame fills the screen's height while each route manages its own scroll container so pinned headers, 3D stages and full-screen overlays never fight nested scrolling.

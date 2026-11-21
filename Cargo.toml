@@ -65,25 +65,30 @@ leptoskit_db = { version = "0.3.0", default-features = false }
 leptoskit_db_schema = { version = "0.3.0", default-features = false }
 leptoskit_rpc = { version = "0.3.0", default-features = false }
 
-# Solana Kit. Its crates.io releases are still empty name reservations
-# (0.0.0), so the SDK comes from git, pinned.
-
 axum = "0.8"
 base64 = { version = "0.22", default-features = false }
 chrono = { version = "0.4", default-features = false }
+console_error_panic_hook = "0.1"
 futures = { version = "0.3", default-features = false }
 http = "1"
+leptos = { version = "0.9.0-rc0", default-features = false }
+libm = "0.2.16"
+reactive_graph = "0.3.0-rc0"
 schemars = "1.2"
 serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
 toml = "0.9"
 tower = "0.5"
 url = "2"
+# The embedded wasm-bindgen CLI accepts exactly its matching library version.
+wasm-bindgen = { version = "=0.2.129" }
 
 # leptoskit comes from git at one revision, and every crate of it is patched
 # in by name below, so the app and `solana_kit_leptoskit` (which asks for the
 # published `=0.3.0`) resolve to the very same crates.
 leptoskit = { version = "=0.3.0", default-features = false }
+leptoskit_3d = { version = "=0.3.0" }
 leptoskit_bridge = { version = "=0.3.0" }
+leptoskit_bridge_ffi = { version = "=0.3.0", default-features = false }
 leptoskit_build = { version = "=0.3.0", default-features = false }
 leptoskit_l10n = { version = "=0.3.0" }
 # The engine for native hosts and Web Audio for the browser are each turned
@@ -97,11 +102,13 @@ leptoskit_plugin_haptics = { version = "=0.3.0" }
 # workspace left on.
 leptoskit_plugin_http = { version = "=0.3.0", default-features = false }
 leptoskit_plugin_linking = { version = "=0.3.0" }
+leptoskit_plugin_permissions = { version = "=0.3.0", default-features = false }
 leptoskit_plugin_secure_store = { version = "=0.3.0" }
 leptoskit_plugin_websocket = { version = "=0.3.0", default-features = false }
 leptoskit_plugin_store = { version = "=0.3.0" }
 leptoskit_router = { version = "=0.3.0" }
 leptoskit_testing = { version = "=0.3.0" }
+leptoskit_xr = { version = "=0.3.0" }
 
 # Solana Kit, at the revision that depends on leptoskit 0.3.0.
 solana_kit_leptoskit = { git = "https://github.com/pina-rs/solana_kit", rev = "17912ee644d2898c9de3ecded026274ada8761e7" }
