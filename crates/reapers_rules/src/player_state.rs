@@ -251,10 +251,22 @@ fn serialize_grade<S: Serializer>(grade: &CaptureGrade, serializer: S) -> Result
 fn deserialize_grade<'de, D: serde::Deserializer<'de>>(
 	deserializer: D,
 ) -> Result<CaptureGrade, D::Error> {
-	let name = String::deserialize(deserializer)?;
+	struct Visitor;
 
-	CaptureGrade::from_saved(&name)
-		.ok_or_else(|| serde::de::Error::unknown_variant(&name, &["plain", "great", "excellent"]))
+	impl serde::de::Visitor<'_> for Visitor {
+		type Value = CaptureGrade;
+
+		fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+			formatter.write_str("a capture grade")
+		}
+
+		fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Self::Value, E> {
+			CaptureGrade::from_saved(value)
+				.ok_or_else(|| E::unknown_variant(value, &["plain", "great", "excellent"]))
+		}
+	}
+
+	deserializer.deserialize_str(Visitor)
 }
 
 /// What a judged hunt came to: the verdict, what it paid, and the player
@@ -1165,7 +1177,11 @@ impl PlayerState {
 		Self {
 			reapers: roster,
 			active_reaper_id: selected,
-			..self.clone()
+			anima: self.anima,
+			lamports: self.lamports,
+			vault: self.vault.clone(),
+			sightings: self.sightings.clone(),
+			next_sighting_id: self.next_sighting_id,
 		}
 	}
 }

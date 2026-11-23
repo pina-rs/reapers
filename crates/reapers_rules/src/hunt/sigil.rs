@@ -156,26 +156,31 @@ impl Sigil {
 		// crosses itself as often as its shape asks. A straight row is taken
 		// at once.
 		let mut attempt = 0;
+		let mut scratch: Vec<SigilLight> = Vec::with_capacity(shape.lights);
+		let mut dirs: Vec<Vec3> = Vec::with_capacity(shape.lights);
 
 		while attempt < Self::ATTEMPTS && nearest_miss > 0 {
 			attempt += 1;
 
-			let lights = Self::attempt(shape, band, &mut random);
+			Self::attempt_into(shape, band, &mut random, &mut scratch);
 
-			if Self::passes_over(&lights, clearance) {
+			if Self::passes_over_with_dirs(&scratch, clearance, &mut dirs) {
 				continue;
 			}
 
-			let miss = Self::count_crossings(&lights).abs_diff(shape.crossings);
+			let miss = Self::count_crossings(&scratch).abs_diff(shape.crossings);
 
 			if miss < nearest_miss {
-				nearest = Some(lights);
+				nearest = Some(scratch.clone());
 				nearest_miss = miss;
 			}
 		}
 
 		Self {
-			lights: nearest.unwrap_or_else(|| Self::row(shape, band, &mut random)),
+			lights: nearest.unwrap_or_else(|| {
+				Self::row_into(shape, band, &mut random, &mut scratch);
+				scratch
+			}),
 			radius: radians(shape.radius_degrees) * difficulty.reach(),
 			hold_seconds: shape.hold_seconds,
 			fray_seconds: shape.fray_seconds.map(|fray| fray * difficulty.patience()),
@@ -201,91 +206,102 @@ impl Sigil {
 	/// One try at a sigil with `shape` whose lights hang within `band`: the
 	/// heights drawn afresh, and the order too unless the sigil is a
 	/// straight row.
-	fn attempt(shape: &SigilShape, band: (f64, f64), random: &mut SeededRandom) -> Vec<SigilLight> {
+	fn attempt_into(
+		shape: &SigilShape,
+		band: (f64, f64),
+		random: &mut SeededRandom,
+		out: &mut Vec<SigilLight>,
+	) {
 		if shape.crossings == 0 {
-			return Self::row(shape, band, random);
+			Self::row_into(shape, band, random, out);
+			return;
 		}
 
-		let mut places = Self::places(shape, band, random);
+		Self::places_into(shape, band, random, out);
 
-		for index in (1..places.len()).rev() {
+		for index in (1..out.len()).rev() {
 			let other = random.next_index(index + 1);
 
-			places.swap(index, other);
+			out.swap(index, other);
 		}
-
-		places
 	}
 
 	/// A sigil that runs straight along its row, from one end or the other.
-	fn row(shape: &SigilShape, band: (f64, f64), random: &mut SeededRandom) -> Vec<SigilLight> {
-		let mut places = Self::places(shape, band, random);
+	fn row_into(
+		shape: &SigilShape,
+		band: (f64, f64),
+		random: &mut SeededRandom,
+		out: &mut Vec<SigilLight>,
+	) {
+		Self::places_into(shape, band, random, out);
 
 		if !random.next_chance(0.5) {
-			places.reverse();
+			out.reverse();
 		}
-
-		places
 	}
 
 	/// The lights of a sigil with `shape`, from left to right: evenly spaced
 	/// across its span, each at one of three heights within `band` and never
 	/// at the height of the one beside it.
-	fn places(shape: &SigilShape, band: (f64, f64), random: &mut SeededRandom) -> Vec<SigilLight> {
+	fn places_into(
+		shape: &SigilShape,
+		band: (f64, f64),
+		random: &mut SeededRandom,
+		out: &mut Vec<SigilLight>,
+	) {
 		let (low, high) = band;
 		let span = radians(shape.span_degrees);
 		let count = shape.lights;
-		let mut heights = vec![random.next_int(3)];
+		out.clear();
 
-		while heights.len() < count {
-			let last = heights[heights.len() - 1];
-
-			heights.push((last + 1 + random.next_int(2)) % 3);
+		let mut height = random.next_int(3);
+		for column in 0..count {
+			if column > 0 {
+				height = (height + 1 + random.next_int(2)) % 3;
+			}
+			let yaw = if count > 1 {
+				-span / 2.0 + span * column as f64 / (count as f64 - 1.0)
+			} else {
+				0.0
+			};
+			out.push(SigilLight {
+				yaw,
+				pitch: low + (high - low) * height as f64 / 2.0,
+			});
 		}
-
-		(0..count)
-			.map(|column| {
-				let yaw = if count > 1 {
-					-span / 2.0 + span * column as f64 / (count as f64 - 1.0)
-				} else {
-					0.0
-				};
-				SigilLight {
-					yaw,
-					pitch: low + (high - low) * heights[column] as f64 / 2.0,
-				}
-			})
-			.collect()
 	}
 
 	/// Whether any stretch of the trace through `lights` passes within
 	/// `clearance` of a light that is not one of its ends.
-	fn passes_over(lights: &[SigilLight], clearance: f64) -> bool {
-		lights.windows(2).enumerate().any(|(step, pair)| {
-			lights.iter().enumerate().any(|(index, light)| {
-				index != step
-					&& index != step + 1
-					&& Self::distance_to_stretch(light, &pair[0], &pair[1]) < clearance
-			})
-		})
-	}
-
-	/// How far `light` is, in radians, from the stretch of the trace between
-	/// `from` and `to`: the shortest way round from one to the other, which
-	/// is the straight line between them that the view draws.
-	fn distance_to_stretch(light: &SigilLight, from: &SigilLight, to: &SigilLight) -> f64 {
-		let (point, start, end) = (light.direction(), from.direction(), to.direction());
-		// The pole of the great circle through both ends.
-		let pole = start.cross(end).normalized();
-		let off = point.dot(pole);
-		let foot = (point - pole * off).normalized();
-		let within = start.angle_to(foot) + foot.angle_to(end) <= start.angle_to(end) + 1e-9;
-
-		if within {
-			return math::asin(math::clamp(off.abs(), 0.0, 1.0));
+	fn passes_over_with_dirs(lights: &[SigilLight], clearance: f64, dirs: &mut Vec<Vec3>) -> bool {
+		dirs.clear();
+		for light in lights {
+			dirs.push(light.direction());
 		}
+		let count = dirs.len();
+		for step in 0..count.saturating_sub(1) {
+			let start = dirs[step];
+			let end = dirs[step + 1];
+			let pole = start.cross(end).normalized();
+			let stretch_angle = start.angle_to(end) + 1e-9;
 
-		math::min(point.angle_to(start), point.angle_to(end))
+			for (index, &point) in dirs.iter().enumerate() {
+				if index == step || index == step + 1 {
+					continue;
+				}
+				let off = point.dot(pole);
+				let foot = (point - pole * off).normalized();
+				let dist = if start.angle_to(foot) + foot.angle_to(end) <= stretch_angle {
+					math::asin(math::clamp(off.abs(), 0.0, 1.0))
+				} else {
+					math::min(point.angle_to(start), point.angle_to(end))
+				};
+				if dist < clearance {
+					return true;
+				}
+			}
+		}
+		false
 	}
 
 	/// How many pairs of stretches of the trace through `lights` cross.

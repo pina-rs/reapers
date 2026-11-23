@@ -259,12 +259,19 @@ impl HuntPlan {
 	/// reaches it, and is round the front of it by the time it gets there.
 	pub fn reach(&self, yaw: f64) -> f64 {
 		let mut least = f64::INFINITY;
+		let half_slice = Self::SLICE_WIDTH / 2.0;
 
 		for (slice, &reach) in self.reach_decimetres.iter().enumerate() {
-			let away = math::max(
-				0.0,
-				wrap_angle(yaw - Self::bearing_of(slice)).abs() - Self::SLICE_WIDTH / 2.0,
-			);
+			// Bearing of slice in (-PI, PI); avoid fmod in `bearing_of`.
+			let bearing = -math::PI + (slice as f64 + 0.5) * Self::SLICE_WIDTH;
+			let mut diff = yaw - bearing;
+			while diff > math::PI {
+				diff -= 2.0 * math::PI;
+			}
+			while diff <= -math::PI {
+				diff += 2.0 * math::PI;
+			}
+			let away = math::max(0.0, diff.abs() - half_slice);
 
 			least = math::min(
 				least,
@@ -300,7 +307,10 @@ impl HuntPlan {
 		}
 
 		let slice = Self::slice_of(point.yaw());
-		let cover = self.cover_at(point.yaw());
+		let cover = self
+			.cover_centimetres
+			.get(slice)
+			.map_or(0.0, |&cover| f64::from(cover) / 100.0);
 
 		if cover == 0.0 {
 			return false;
@@ -334,23 +344,32 @@ impl HuntPlan {
 			return None;
 		}
 		let steps = math::ceil_int(ray.length() * farthest / 0.1).max(1);
+		let eye_height = self.eye_height();
 		let mut previous = eye;
+		let mut prev_radius = math::sqrt(previous.x * previous.x + previous.z * previous.z);
 		for step in 1..=steps {
 			let distance = farthest * step as f64 / steps as f64;
 			let point = eye + ray * distance;
+			let next_radius = math::sqrt(point.x * point.x + point.z * point.z);
 			let slice = Self::slice_of(point.yaw());
-			let cover = self.cover_at(point.yaw());
-			let front = self.front_at(slice);
-			let before = math::sqrt(previous.x * previous.x + previous.z * previous.z) - front;
-			let after = math::sqrt(point.x * point.x + point.z * point.z) - front;
-			if cover > 0.0 && ((before < 0.0 && after >= 0.0) || (before > 0.0 && after <= 0.0)) {
-				let fraction = before / (before - after);
-				let height = previous.y + (point.y - previous.y) * fraction;
-				if height < cover - self.eye_height() {
-					return Some(farthest * (step as f64 - 1.0 + fraction) / steps as f64);
+			let cover = self
+				.cover_centimetres
+				.get(slice)
+				.map_or(0.0, |&cover| f64::from(cover) / 100.0);
+			if cover > 0.0 {
+				let front = self.front_at(slice);
+				let before = prev_radius - front;
+				let after = next_radius - front;
+				if (before < 0.0 && after >= 0.0) || (before > 0.0 && after <= 0.0) {
+					let fraction = before / (before - after);
+					let height = previous.y + (point.y - previous.y) * fraction;
+					if height < cover - eye_height {
+						return Some(farthest * (step as f64 - 1.0 + fraction) / steps as f64);
+					}
 				}
 			}
 			previous = point;
+			prev_radius = next_radius;
 		}
 		None
 	}

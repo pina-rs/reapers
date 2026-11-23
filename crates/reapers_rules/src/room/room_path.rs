@@ -1,6 +1,6 @@
 //! Choosing a route: leaps between regions, walking inside one.
 
-use std::cmp::Reverse;
+use std::cell::RefCell;
 use std::collections::BinaryHeap;
 
 use crate::hunt::hunt_stats::HuntRules;
@@ -11,12 +11,46 @@ use crate::room::room_nav::RoomPath;
 use crate::room::room_nav::RoomStep;
 use crate::vec3::Vec3;
 
-/// A cell on the way to a goal, ordered by its estimate and then by its
-/// index, so ties break the same way every time.
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
-struct Node {
-	estimate: i64,
-	cell: usize,
+/// Reusable scratch tables for A* and link Dijkstra, avoiding ~170 KB of
+/// heap allocation and zeroing per path query.
+#[derive(Default)]
+struct PathScratch {
+	stamp: u32,
+	seen: Vec<u32>,
+	closed: Vec<u32>,
+	distance: Vec<u32>,
+	previous: Vec<u16>,
+	/// Packed min-heap entries: `u64::MAX - ((estimate << 16) | cell)` so a
+	/// standard max-heap pops smallest `(estimate, cell)` in a single register.
+	open: BinaryHeap<u64>,
+	route_distance: Vec<i64>,
+	route_previous: Vec<usize>,
+	route_visited: Vec<bool>,
+}
+
+impl PathScratch {
+	const NONE: u16 = u16::MAX;
+
+	fn prepare_astar(&mut self, cell_count: usize) -> u32 {
+		if self.seen.len() < cell_count {
+			self.seen.resize(cell_count, 0);
+			self.closed.resize(cell_count, 0);
+			self.distance.resize(cell_count, 0);
+			self.previous.resize(cell_count, Self::NONE);
+		}
+		self.stamp = self.stamp.wrapping_add(1);
+		if self.stamp == 0 {
+			self.seen.fill(0);
+			self.closed.fill(0);
+			self.stamp = 1;
+		}
+		self.open.clear();
+		self.stamp
+	}
+}
+
+thread_local! {
+	static PATH_SCRATCH: RefCell<PathScratch> = RefCell::new(PathScratch::default());
 }
 
 impl RoomNav {
@@ -46,6 +80,13 @@ impl RoomNav {
 			});
 		}
 
+		if !self
+			.reachable_slice(from_region as usize)
+			.is_some_and(|row| row[to_region as usize])
+		{
+			return None;
+		}
+
 		let route = self.route(from_cell, to_cell, from_region, to_region)?;
 		let mut steps: Vec<RoomStep> = Vec::new();
 		let mut current = from_cell;
@@ -72,6 +113,27 @@ impl RoomNav {
 		Self::add_steps(&mut steps, self.steps_of(self.pull(walking)));
 
 		Some(RoomPath { steps })
+	}
+
+	/// Whether a route exists from `from` to `to`, without running A* or
+	/// Dijkstra. Regions are connected components of standable cells, so
+	/// reachability in the region link graph is exact.
+	pub(crate) fn has_path(&self, from: Vec3, to: Vec3) -> bool {
+		let Some(from_cell) = self.start_cell(from) else {
+			return false;
+		};
+		let Some(to_cell) = self.standable_cell_near(to, 20) else {
+			return false;
+		};
+		let from_region = self.region[from_cell];
+		let to_region = self.region[to_cell];
+		if from_region < 0 || to_region < 0 {
+			return false;
+		}
+		from_region == to_region
+			|| self
+				.reachable_slice(from_region as usize)
+				.is_some_and(|row| row[to_region as usize])
 	}
 
 	/// The standable cell a route from a body at `from` starts on: the
@@ -104,84 +166,99 @@ impl RoomNav {
 			return None;
 		}
 
-		let unreached = 1_i64 << 40;
-		let mut distance = vec![unreached; count];
-		let mut previous = vec![usize::MAX; count];
-		let mut visited = vec![false; count];
-
-		for (index, link) in self.links.iter().enumerate() {
-			if link.from_region as i64 == from_region {
-				distance[index] =
-					self.walk_ticks(from_cell, link.from_cell) + Self::link_cost(link);
-			}
-		}
-
-		loop {
-			let mut best = usize::MAX;
-
-			for index in 0..count {
-				if visited[index] || distance[index] >= unreached {
-					continue;
-				}
-
-				if best == usize::MAX || distance[index] < distance[best] {
-					best = index;
-				}
-			}
-
-			if best == usize::MAX {
-				break;
-			}
-
-			visited[best] = true;
-			let chosen = &self.links[best];
-
-			for index in 0..count {
-				if visited[index] || self.links[index].from_region != chosen.to_region {
-					continue;
-				}
-
-				let step = distance[best]
-					+ self.walk_ticks(chosen.to_cell, self.links[index].from_cell)
-					+ Self::link_cost(&self.links[index]);
-
-				if step < distance[index] {
-					distance[index] = step;
-					previous[index] = best;
-				}
-			}
-		}
-
-		let mut end = usize::MAX;
-		let mut end_cost = unreached;
-
-		for index in 0..count {
-			if self.links[index].to_region as i64 != to_region || distance[index] >= unreached {
-				continue;
-			}
-
-			let cost = distance[index] + self.walk_ticks(self.links[index].to_cell, to_cell);
-
-			if cost < end_cost {
-				end_cost = cost;
-				end = index;
-			}
-		}
-
-		if end == usize::MAX {
+		let from_reg = usize::try_from(from_region).ok()?;
+		if self.links_by_region.get(from_reg).is_none_or(Vec::is_empty) {
 			return None;
 		}
 
-		let mut route: Vec<&JumpLink> = Vec::new();
-		let mut at = Some(end);
+		PATH_SCRATCH.with_borrow_mut(|scratch| {
+			let unreached = 1_i64 << 40;
+			scratch.route_distance.clear();
+			scratch.route_distance.resize(count, unreached);
+			scratch.route_previous.clear();
+			scratch.route_previous.resize(count, usize::MAX);
+			scratch.route_visited.clear();
+			scratch.route_visited.resize(count, false);
 
-		while let Some(index) = at {
-			route.push(&self.links[index]);
-			at = (previous[index] != usize::MAX).then_some(previous[index]);
-		}
+			let distance = &mut scratch.route_distance;
+			let previous = &mut scratch.route_previous;
+			let visited = &mut scratch.route_visited;
 
-		route.reverse();
-		Some(route)
+			for &index in &self.links_by_region[from_reg] {
+				let link = &self.links[index];
+				distance[index] =
+					self.walk_ticks(from_cell, link.from_cell) + Self::link_cost(link);
+			}
+
+			loop {
+				let mut best = usize::MAX;
+
+				for index in 0..count {
+					if visited[index] || distance[index] >= unreached {
+						continue;
+					}
+
+					if best == usize::MAX || distance[index] < distance[best] {
+						best = index;
+					}
+				}
+
+				if best == usize::MAX {
+					break;
+				}
+
+				visited[best] = true;
+				let chosen = &self.links[best];
+				let base = distance[best];
+
+				for &index in &self.links_by_region[chosen.to_region] {
+					if visited[index] {
+						continue;
+					}
+
+					let next_link = &self.links[index];
+					let step = base
+						+ self.walk_ticks(chosen.to_cell, next_link.from_cell)
+						+ Self::link_cost(next_link);
+
+					if step < distance[index] {
+						distance[index] = step;
+						previous[index] = best;
+					}
+				}
+			}
+
+			let mut end = usize::MAX;
+			let mut end_cost = unreached;
+
+			for index in 0..count {
+				if self.links[index].to_region as i64 != to_region || distance[index] >= unreached {
+					continue;
+				}
+
+				let cost = distance[index] + self.walk_ticks(self.links[index].to_cell, to_cell);
+
+				if cost < end_cost {
+					end_cost = cost;
+					end = index;
+				}
+			}
+
+			if end == usize::MAX {
+				return None;
+			}
+
+			let mut route: Vec<&JumpLink> = Vec::new();
+			let mut at = Some(end);
+
+			while let Some(index) = at {
+				route.push(&self.links[index]);
+				at = (previous[index] != usize::MAX).then_some(previous[index]);
+			}
+
+			route.reverse();
+			Some(route)
+		})
 	}
 
 	/// A link's cost in ticks: its flight plus the penalty for leaving
@@ -197,8 +274,9 @@ impl RoomNav {
 			return 0;
 		}
 
-		let dx = (self.grid.x_of(from_cell) - self.grid.x_of(to_cell)).abs();
-		let dz = (self.grid.z_of(from_cell) - self.grid.z_of(to_cell)).abs();
+		let width = usize::from(self.grid.width);
+		let dx = (from_cell % width).abs_diff(to_cell % width) as i64;
+		let dz = (from_cell / width).abs_diff(to_cell / width) as i64;
 		let octile = 10 * dx.max(dz) + 4 * dx.min(dz);
 		let speed = math::max(self.profile.walk_speed, 0.1);
 
@@ -213,99 +291,101 @@ impl RoomNav {
 			return Some(vec![start]);
 		}
 
-		let unreached = 1_i64 << 40;
-		let mut distance = vec![unreached; self.grid.cell_count()];
-		let mut previous = vec![usize::MAX; self.grid.cell_count()];
-		let mut closed = vec![false; self.grid.cell_count()];
-		let mut open: BinaryHeap<Reverse<Node>> = BinaryHeap::new();
+		let cell_count = self.grid.cell_count();
+		let width = usize::from(self.grid.width);
+		let depth = usize::from(self.grid.depth);
+		let goal_x = goal % width;
+		let goal_z = goal / width;
+		let target_reg = i16::try_from(region).ok()?;
+		let sr = self.standable_region.as_slice();
 
-		distance[start] = 0;
-		open.push(Reverse(Node {
-			cell: start,
-			estimate: self.heuristic(start, goal),
-		}));
+		let heuristic_at = |x: usize, z: usize| -> u32 {
+			let dx = x.abs_diff(goal_x) as u32;
+			let dz = z.abs_diff(goal_z) as u32;
+			10 * dx.max(dz) + 4 * dx.min(dz)
+		};
+		let pack = |estimate: u32, cell: usize| -> u64 {
+			u64::MAX - ((u64::from(estimate) << 16) | (cell as u64))
+		};
 
-		while let Some(Reverse(node)) = open.pop() {
-			let cell = node.cell;
+		PATH_SCRATCH.with_borrow_mut(|scratch| {
+			let stamp = scratch.prepare_astar(cell_count);
+			let start_x = start % width;
+			let start_z = start / width;
 
-			if closed[cell] {
-				continue;
-			}
+			scratch.seen[start] = stamp;
+			scratch.distance[start] = 0;
+			scratch.previous[start] = PathScratch::NONE;
+			scratch
+				.open
+				.push(pack(heuristic_at(start_x, start_z), start));
 
-			if distance[cell] + self.heuristic(cell, goal) != node.estimate {
-				continue;
-			}
+			while let Some(packed) = scratch.open.pop() {
+				let raw = u64::MAX - packed;
+				let cell = (raw & 0xFFFF) as usize;
 
-			if cell == goal {
-				return Some(Self::reconstruct(&previous, cell));
-			}
-
-			closed[cell] = true;
-			let (x, z) = (self.grid.x_of(cell), self.grid.z_of(cell));
-
-			for (dx, dz) in crate::room::room_nav::NEIGHBOURS {
-				let nx = x + dx;
-				let nz = z + dz;
-
-				if !self.grid.contains(nx, nz) {
+				if scratch.closed[cell] == stamp {
 					continue;
 				}
 
-				let next = self.grid.index_of(nx, nz);
-
-				if !self.standable[next] || self.region[next] != region {
-					continue;
+				if cell == goal {
+					return Some(Self::reconstruct(&scratch.previous, cell));
 				}
 
-				// A diagonal step cuts a corner unless both sides of the
-				// corner are open too.
-				if dx != 0 && dz != 0 {
-					let side_x = self.grid.index_of(x + dx, z);
-					let side_z = self.grid.index_of(x, z + dz);
+				scratch.closed[cell] = stamp;
+				let cell_dist = scratch.distance[cell];
+				let x = cell % width;
+				let z = cell / width;
 
-					if !self.standable[side_x]
-						|| self.region[side_x] != region
-						|| !self.standable[side_z]
-						|| self.region[side_z] != region
+				for (dx, dz) in crate::room::room_nav::NEIGHBOURS {
+					let nx = x as isize + dx as isize;
+					let nz = z as isize + dz as isize;
+
+					if nx < 0 || nx >= width as isize || nz < 0 || nz >= depth as isize {
+						continue;
+					}
+
+					let nxu = nx as usize;
+					let nzu = nz as usize;
+					let next = nzu * width + nxu;
+
+					if sr[next] != target_reg {
+						continue;
+					}
+
+					// A diagonal step cuts a corner unless both sides of the
+					// corner are open too.
+					if dx != 0
+						&& dz != 0
+						&& (sr[z * width + nxu] != target_reg || sr[nzu * width + x] != target_reg)
 					{
 						continue;
 					}
+
+					let step = cell_dist + if dx != 0 && dz != 0 { 14 } else { 10 };
+
+					if scratch.seen[next] == stamp && step >= scratch.distance[next] {
+						continue;
+					}
+
+					scratch.seen[next] = stamp;
+					scratch.distance[next] = step;
+					scratch.previous[next] = cell as u16;
+					scratch.open.push(pack(step + heuristic_at(nxu, nzu), next));
 				}
-
-				let step = distance[cell] + if dx != 0 && dz != 0 { 14 } else { 10 };
-
-				if step >= distance[next] {
-					continue;
-				}
-
-				distance[next] = step;
-				previous[next] = cell;
-				open.push(Reverse(Node {
-					cell: next,
-					estimate: step + self.heuristic(next, goal),
-				}));
 			}
-		}
 
-		None
-	}
-
-	/// The octile distance between two cells, in the A* cost's units.
-	fn heuristic(&self, from: usize, to: usize) -> i64 {
-		let width = usize::from(self.grid.width);
-		let dx = (from % width).abs_diff(to % width) as i64;
-		let dz = (from / width).abs_diff(to / width) as i64;
-
-		10 * dx.max(dz) + 4 * dx.min(dz)
+			None
+		})
 	}
 
 	/// The way back from the A* search, start first.
-	fn reconstruct(previous: &[usize], goal: usize) -> Vec<usize> {
+	fn reconstruct(previous: &[u16], goal: usize) -> Vec<usize> {
 		let mut path = vec![goal];
 		let mut at = goal;
 
-		while previous[at] != usize::MAX {
-			at = previous[at];
+		while previous[at] != PathScratch::NONE {
+			at = usize::from(previous[at]);
 			path.push(at);
 		}
 
@@ -340,20 +420,26 @@ impl RoomNav {
 	/// Whether every cell the grid walk between two cells crosses stays
 	/// standable inside one region, corners included.
 	fn line_of_sight(&self, from: usize, to: usize) -> bool {
-		let mut x = self.grid.x_of(from);
-		let mut z = self.grid.z_of(from);
-		let (target_x, target_z) = (self.grid.x_of(to), self.grid.z_of(to));
+		let width = usize::from(self.grid.width);
+		let mut x = (from % width) as i64;
+		let mut z = (from / width) as i64;
+		let target_x = (to % width) as i64;
+		let target_z = (to / width) as i64;
 		let dx = (target_x - x).abs();
 		let dz = (target_z - z).abs();
 		let step_x = if x < target_x { 1 } else { -1 };
 		let step_z = if z < target_z { 1 } else { -1 };
 		let mut error = dx - dz;
-		let region = self.region[from];
+		let sr = self.standable_region.as_slice();
+		let target_reg = sr[from];
+		if target_reg < 0 {
+			return false;
+		}
 
 		loop {
-			let here = self.grid.index_of(x, z);
+			let here = (z as usize) * width + (x as usize);
 
-			if !self.standable[here] || self.region[here] != region {
+			if sr[here] != target_reg {
 				return false;
 			}
 
@@ -379,10 +465,8 @@ impl RoomNav {
 
 			if moved_x
 				&& moved_z
-				&& (!self.is_standable_at(x - step_x, z)
-					|| !self.is_standable_at(x, z - step_z)
-					|| self.region[self.grid.index_of(x - step_x, z)] != region
-					|| self.region[self.grid.index_of(x, z - step_z)] != region)
+				&& (sr[(z as usize) * width + ((x - step_x) as usize)] != target_reg
+					|| sr[((z - step_z) as usize) * width + (x as usize)] != target_reg)
 			{
 				return false;
 			}

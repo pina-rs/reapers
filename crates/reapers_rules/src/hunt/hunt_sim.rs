@@ -427,6 +427,35 @@ impl HuntSim {
 			return Err(IllFormedPlan);
 		}
 
+		Ok(Self::build_validated(
+			seed,
+			vessel,
+			rarity_odds,
+			ward,
+			stats,
+			plan,
+			difficulty,
+			in_rift,
+			sighting,
+		))
+	}
+
+	#[allow(
+		clippy::too_many_arguments,
+		reason = "every one is a field of the hunt, taken once to build it"
+	)]
+	#[allow(clippy::too_many_lines)]
+	fn build_validated(
+		seed: i64,
+		vessel: Vessel,
+		rarity_odds: f64,
+		ward: f64,
+		stats: HuntStats,
+		plan: HuntPlan,
+		difficulty: Difficulty,
+		in_rift: bool,
+		sighting: Option<RiftSighting>,
+	) -> Self {
 		let ward_max = if ward.is_finite() && ward >= 1.0 {
 			ward
 		} else {
@@ -573,7 +602,7 @@ impl HuntSim {
 			sim.phase = HuntPhase::Fight;
 			sim.schedule_shriek();
 
-			return Ok(sim);
+			return sim;
 		}
 
 		// With the whole circle to hide in, a husk starts somewhere the
@@ -593,7 +622,7 @@ impl HuntSim {
 		sim.heading = sim.path.next_range(-PI, PI);
 		sim.set_walker_down();
 
-		Ok(sim)
+		sim
 	}
 
 	/// Replays `log` from the start and returns how the hunt ended, or
@@ -616,19 +645,22 @@ impl HuntSim {
 			return None;
 		}
 
-		let mut sim = Self::new(
+		let mut sim = Self::build_validated(
 			seed,
 			vessel,
-			rarity,
-			ward,
-			stats,
+			CaptureRules::rarity_factor(rarity),
+			(ward.max(1) as f64) * log.difficulty.ward(),
+			stats.at(log.difficulty),
 			log.plan.clone(),
 			log.difficulty,
-		)
-		.ok()?;
+			false,
+			None,
+		);
 
+		let mut events = Vec::new();
 		for input in &log.inputs {
-			sim.step(input);
+			events.clear();
+			sim.step_into(input, &mut events);
 
 			if sim.is_over() {
 				break;
@@ -1282,49 +1314,95 @@ impl HuntSim {
 		self.vessel.seals().len()
 	}
 
+	pub(crate) fn opened_order_of(&self, index: usize) -> i64 {
+		self.opened_order[index]
+	}
+
+	/// Computes `seal_open` for all seals in a single pass with one `pose()`
+	/// and one heading trig computation.
+	pub(crate) fn open_seals_mask(&self) -> u8 {
+		if !self.fighting() {
+			return 0;
+		}
+		let count = self.seal_count();
+		let mut maybe_open = 0_u8;
+		for index in 0..count {
+			if self.tick < self.open_until[index] {
+				maybe_open |= 1 << index;
+			}
+		}
+		if maybe_open == 0 {
+			return 0;
+		}
+		let current = self.pose();
+		let eye = self.eye.point();
+		let forward = current.forward();
+		let left = current.left();
+		let neg_dir = -current.direction_from(eye);
+		let mut mask = 0_u8;
+		for index in 0..count {
+			if (maybe_open & (1 << index)) == 0 {
+				continue;
+			}
+			let offset = current.seal_offset_with(index, forward, left);
+			if HuskPose::seal_offset_faces(offset, neg_dir)
+				&& !self.room_hides(current.position + offset - eye)
+			{
+				mask |= 1 << index;
+			}
+		}
+		mask
+	}
+
 	/// The order seal `index` opened in among the seals open now, starting
 	/// at 0 for the oldest, or `None` when it is shut.
 	///
 	/// Only a reaper with the measure perk is shown this.
 	pub fn seal_rank(&self, index: usize) -> Option<usize> {
-		if !self.seal_open(index) {
+		let mask = self.open_seals_mask();
+		if index >= self.seal_count() || (mask & (1 << index)) == 0 {
 			return None;
 		}
 
-		Some(
-			(0..self.seal_count())
-				.filter(|&other| {
-					self.seal_open(other) && self.opened_order[other] < self.opened_order[index]
-				})
-				.count(),
-		)
+		let order = self.opened_order[index];
+		let mut rank = 0;
+		for (other, &other_order) in self.opened_order.iter().enumerate().take(self.seal_count()) {
+			if (mask & (1 << other)) != 0 && other_order < order {
+				rank += 1;
+			}
+		}
+		Some(rank)
 	}
 
 	/// Advances the hunt by one tick and returns what happened in it.
 	pub fn step(&mut self, input: &HuntInput) -> Vec<HuntEvent> {
+		let mut events = Vec::new();
+		self.step_into(input, &mut events);
+		events
+	}
+
+	/// Advances the hunt by one tick, pushing any emitted events into `events`.
+	pub fn step_into(&mut self, input: &HuntInput, events: &mut Vec<HuntEvent>) {
 		if self.is_over() {
-			return Vec::new();
+			return;
 		}
 
 		self.eye = input.eye;
-		let mut events = Vec::new();
 		let thrown = self.let_go(input);
 
-		self.step_missed_orb(&mut events);
+		self.step_missed_orb(events);
 
 		match self.phase {
-			HuntPhase::Stalk => self.step_stalk(input, &mut events),
+			HuntPhase::Stalk => self.step_stalk(input, events),
 			HuntPhase::Fight | HuntPhase::Windup | HuntPhase::Shriek | HuntPhase::Charge => {
-				self.step_fight(input, thrown, &mut events);
+				self.step_fight(input, thrown, events);
 			}
-			HuntPhase::Broken => self.step_broken(input, thrown, &mut events),
-			HuntPhase::Capture => self.step_capture(input, &mut events),
+			HuntPhase::Broken => self.step_broken(input, thrown, events),
+			HuntPhase::Capture => self.step_capture(input, events),
 			HuntPhase::Absorbed | HuntPhase::Escaped => {}
 		}
 
 		self.tick += 1;
-
-		events
 	}
 
 	/// Follows ORB, and returns how long it was held when it is let go this
@@ -1870,32 +1948,55 @@ impl HuntSim {
 	}
 
 	fn step_seals(&mut self, events: &mut Vec<HuntEvent>) {
+		let count = self.seal_count();
+		let target_open = HuntRules::OPEN_SEALS.min(count);
 		let current = self.pose();
-		let mut open = (0..self.seal_count())
-			.filter(|&index| self.seal_open(index))
-			.count();
+		let eye = self.eye.point();
+		let forward = current.forward();
+		let left = current.left();
+		let neg_dir = -current.direction_from(eye);
+		let fighting = self.fighting();
 
-		while open < HuntRules::OPEN_SEALS.min(self.seal_count()) {
-			// A seal only opens where the reaper can see it, so a turning
-			// body lights its seals as they come round.
-			let ready: Vec<usize> = (0..self.seal_count())
-				.filter(|&index| {
-					self.tick >= self.open_until[index]
-						&& self.tick >= self.shut_until[index]
-						&& current.seal_faces(self.eye.point(), index)
-						&& !self.behind_cover(&current, index)
-				})
-				.collect();
+		// Compute visibility for every seal that is either currently timed open
+		// or eligible to open, at most once per seal.
+		let mut open = 0usize;
+		let mut ready = [0usize; 8];
+		let mut ready_len = 0usize;
 
-			if ready.is_empty() {
-				return;
+		for index in 0..count {
+			let timed_open = self.tick < self.open_until[index];
+			let eligible = !timed_open && self.tick >= self.shut_until[index];
+			if !timed_open && !eligible {
+				continue;
 			}
+			let offset = current.seal_offset_with(index, forward, left);
+			let visible = HuskPose::seal_offset_faces(offset, neg_dir)
+				&& !self.room_hides(current.position + offset - eye);
+			if !visible {
+				continue;
+			}
+			if timed_open {
+				if fighting {
+					open += 1;
+				}
+			} else if eligible {
+				ready[ready_len] = index;
+				ready_len += 1;
+			}
+		}
 
-			let seal = self.schedule.pick(&ready);
+		while open < target_open && ready_len > 0 {
+			let seal = self.schedule.pick(&ready[..ready_len]);
 			let ticks = 150 + self.schedule.next_int(110);
 
 			self.open_seal(seal, ticks, events);
 			open += 1;
+
+			// Remove the opened seal while preserving exact index order for `pick`.
+			if let Some(pos) = ready[..ready_len].iter().position(|&s| s == seal) {
+				ready.copy_within(pos + 1..ready_len, pos);
+				ready_len -= 1;
+			}
 		}
 	}
 
