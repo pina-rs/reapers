@@ -147,7 +147,7 @@ impl DepthFrame {
 			return frame;
 		}
 
-		let samples = RaySamples::of(grid, hits);
+		let samples = RaySamples::of(grid, hits, has_normals);
 		let col_scale = grid.columns as f64 / width as f64;
 		let row_scale = grid.rows as f64 / height as f64;
 
@@ -222,6 +222,8 @@ impl DepthFrame {
 		let width = frame.width;
 		let height = frame.height;
 		let pose = grid.pose;
+		let inv_w = 2.0 / width as f64;
+		let inv_h = 2.0 / height as f64;
 
 		for r in 0..grid.rows {
 			let y0 = math::ceil((r as f64) / row_scale - 0.5).max(0);
@@ -263,12 +265,16 @@ impl DepthFrame {
 
 				for row in y0..=y_end {
 					let row_base = row * width;
+					let up = (1.0 - (row as f64 + 0.5) * inv_h) * frame.tan_half_height;
+					let base_y = pose.forward.y + pose.up.y * up;
+					let up_sq_plus_one = 1.0 + up * up;
+
 					for column in x0..=x_end {
 						if frame.depths[row_base + column].is_finite() {
 							continue;
 						}
-						let (across, up) = frame.tangents(column, row);
-						let dir_y = pose.forward.y + pose.right.y * across + pose.up.y * up;
+						let across = ((column as f64 + 0.5) * inv_w - 1.0) * frame.tan_half_width;
+						let dir_y = base_y + pose.right.y * across;
 						if dir_y.abs() < 1e-4 {
 							continue;
 						}
@@ -276,7 +282,7 @@ impl DepthFrame {
 						if !z_depth.is_finite() || z_depth <= 0.0 {
 							continue;
 						}
-						let stretch = math::sqrt(1.0 + across * across + up * up);
+						let stretch = math::sqrt(up_sq_plus_one + across * across);
 						let ray_dist = z_depth * stretch;
 						if ray_dist >= min_d && ray_dist <= max_d {
 							frame.depths[row_base + column] = z_depth as f32;
@@ -394,38 +400,42 @@ impl RaySamples {
 	/// Maximum plane distance error (metres) for normal-verified 2×2 cells.
 	const PLANE_TOLERANCE: f64 = 0.03;
 
-	fn of(grid: &RayGrid, hits: &[Option<RayHit>]) -> Self {
+	fn of(grid: &RayGrid, hits: &[Option<RayHit>], has_normals: bool) -> Self {
 		let count = grid.columns * grid.rows;
 		let mut reciprocals = Vec::with_capacity(count);
-		let mut distances = Vec::with_capacity(count);
-		let mut points = Vec::with_capacity(count);
-		let mut normals = Vec::with_capacity(count);
+		let mut distances = Vec::with_capacity(if has_normals { count } else { 0 });
+		let mut points = Vec::with_capacity(if has_normals { count } else { 0 });
+		let mut normals = Vec::with_capacity(if has_normals { count } else { 0 });
 		let pose = grid.pose;
 
 		for (index, hit) in hits.iter().take(count).enumerate() {
 			let row = index / grid.columns;
 			let column = index % grid.columns;
 			let (across, up) = grid.tangents(column, row);
-			let direction = pose.forward + pose.right * across + pose.up * up;
 			let stretch = math::sqrt(1.0 + across * across + up * up);
 
 			match hit {
 				Some(hit) if hit.distance > 0.0 && hit.distance.is_finite() => {
 					let z_depth = hit.distance / stretch;
 					reciprocals.push(1.0 / z_depth);
-					distances.push(hit.distance);
-					points.push(Some(direction * z_depth));
-					let unit_normal = hit.normal.and_then(|n| {
-						let len = n.length();
-						(len.is_finite() && len > 1e-6).then(|| n / len)
-					});
-					normals.push(unit_normal);
+					if has_normals {
+						let direction = pose.forward + pose.right * across + pose.up * up;
+						distances.push(hit.distance);
+						points.push(Some(direction * z_depth));
+						let unit_normal = hit.normal.and_then(|n| {
+							let len = n.length();
+							(len.is_finite() && len > 1e-6).then(|| n / len)
+						});
+						normals.push(unit_normal);
+					}
 				}
 				_ => {
 					reciprocals.push(f64::NAN);
-					distances.push(f64::NAN);
-					points.push(None);
-					normals.push(None);
+					if has_normals {
+						distances.push(f64::NAN);
+						points.push(None);
+						normals.push(None);
+					}
 				}
 			}
 		}
@@ -453,11 +463,17 @@ impl RaySamples {
 	}
 
 	fn point(&self, column: usize, row: usize) -> Option<Vec3> {
-		self.points[row * self.columns + column]
+		self.points
+			.get(row * self.columns + column)
+			.copied()
+			.flatten()
 	}
 
 	fn normal(&self, column: usize, row: usize) -> Option<Vec3> {
-		self.normals[row * self.columns + column]
+		self.normals
+			.get(row * self.columns + column)
+			.copied()
+			.flatten()
 	}
 
 	/// Whether the cell from `column` and `row` to the next of each lies on

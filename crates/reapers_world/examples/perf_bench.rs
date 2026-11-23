@@ -20,6 +20,7 @@ fn median_ms(samples: &mut [f64]) -> f64 {
 	samples[samples.len() / 2]
 }
 
+#[allow(clippy::too_many_lines)]
 fn main() {
 	let room = DrawnRoom {
 		eye_height: 1.45,
@@ -81,8 +82,7 @@ fn main() {
 		let mut grid = RoomGridBuilder::new();
 		let t0 = Instant::now();
 		for frame in &frames {
-			let _ = survey.add(frame);
-			grid.add_frame(frame);
+			let _ = survey.add_with_grid(frame, Some(&mut grid));
 		}
 		black_box((&survey, &grid));
 		m9_samples.push(t0.elapsed().as_secs_f64() * 1e3 / frames.len() as f64);
