@@ -22,6 +22,9 @@ use reapers_rules::WeaponKind;
 
 use super::appearance::ReaperAppearance;
 use super::appearance::dressing;
+use super::cloth::cloth_fit_weights;
+use super::cloth::cloth_sway_weights;
+#[cfg(test)]
 use super::cloth::cloth_weights;
 use super::look::ReaperLook;
 use super::parts::parts;
@@ -77,6 +80,10 @@ pub struct ReaperRig {
 	outfit: Outfit,
 	appearance: ReaperAppearance,
 	motion: ReaperMotion,
+	/// Preformatted robe mesh name (`robe_<index>`).
+	robe_part: String,
+	/// Last quantized sway weights sent to the host, so still frames send none.
+	last_sway: Option<[i32; 3]>,
 }
 
 impl ReaperRig {
@@ -97,6 +104,7 @@ impl ReaperRig {
 		let weapons = scene.spawn_in(Some(weapons_model), None);
 		scene.attach(weapons, body, "socket_weapon");
 		scene.set_transform(body, Transform::IDENTITY.with_scale(stature(&genome)));
+		let robe_part = format!("robe_{}", genome.robe);
 		let mut rig = Self {
 			root,
 			body,
@@ -107,6 +115,8 @@ impl ReaperRig {
 			outfit,
 			appearance,
 			motion: ReaperMotion::Idle,
+			robe_part,
+			last_sway: None,
 		};
 		// Wearing the outfit dresses the reaper, which puts the weapon in its
 		// hand.
@@ -141,6 +151,15 @@ impl ReaperRig {
 		for (part, shown) in dressing(&self.genome, self.outfit, &appearance) {
 			scene.set_part_visible(self.body, part, shown);
 		}
+		for (target, weight) in cloth_fit_weights(&self.genome, &self.appearance) {
+			scene.push(Op::SetMorphWeight {
+				node: self.body,
+				part: Some(self.robe_part.clone()),
+				target: target.to_owned(),
+				weight: weight as f32,
+			});
+		}
+		self.last_sway = None;
 		self.stir(scene, 0.0);
 		self.show_weapon(scene);
 	}
@@ -199,22 +218,30 @@ impl ReaperRig {
 		}
 	}
 
-	/// Sets the robe's morphs for `seconds` into the motion: its fit, the
-	/// genome's gauntness and tatter, and the sway of the cloth. Only the
-	/// robe the genome wears takes them: the spirit's body under it carries
-	/// targets of the same names, and shrinking it with the robe would push
-	/// it out through the cloth.
-	pub fn stir(&self, scene: &Scene, seconds: f64) {
-		let robe = format!("robe_{}", self.genome.robe);
-		for (target, weight) in cloth_weights(&self.genome, &self.appearance, self.motion, seconds)
-		{
+	/// Sets the robe's sway morphs for `seconds` into the motion, sending only
+	/// targets whose quantized weight changed. Only the robe the genome wears
+	/// takes them: the spirit's body under it carries targets of the same
+	/// names, and shrinking it with the robe would push it out through the
+	/// cloth.
+	pub fn stir(&mut self, scene: &Scene, seconds: f64) {
+		let sway = cloth_sway_weights(&self.appearance, self.motion, seconds);
+		let quantized = sway.map(|(_, weight)| (weight * 500.0).round() as i32);
+		let previous = self.last_sway;
+		if previous == Some(quantized) {
+			return;
+		}
+		for (index, (target, weight)) in sway.into_iter().enumerate() {
+			if previous.is_some_and(|prev| prev[index] == quantized[index]) {
+				continue;
+			}
 			scene.push(Op::SetMorphWeight {
 				node: self.body,
-				part: Some(robe.clone()),
+				part: Some(self.robe_part.clone()),
 				target: target.to_owned(),
 				weight: weight as f32,
 			});
 		}
+		self.last_sway = Some(quantized);
 	}
 
 	/// Holds the face in `expression` (a morph target name and weight), or

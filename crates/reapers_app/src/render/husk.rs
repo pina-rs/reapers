@@ -99,6 +99,7 @@ pub struct HuskRig {
 	/// cannot tip or squash it. Every part but its own patch is hidden.
 	shadow: NodeId,
 	pub vessel: Vessel,
+	parts: super::parts::Parts,
 	look: NftLook,
 	/// The colour this husk glows: the light in its eyes.
 	pub light: [f32; 3],
@@ -152,7 +153,9 @@ impl HuskRig {
 	/// lit in its first relic's light.
 	pub fn spawn(scene: &Scene, vessel: Vessel, nft: &Nft) -> Self {
 		let look = NftLook::of(nft);
-		let model = scene.load(husk_model(vessel));
+		let model_path = husk_model(vessel);
+		let model_parts = parts(&model_path);
+		let model = scene.load(model_path);
 		let root = scene.group();
 		let lift = scene.spawn_in(None, Some(root));
 		let body = scene.spawn_in(Some(model), Some(lift));
@@ -171,8 +174,10 @@ impl HuskRig {
 			cast: false,
 		});
 		scene.set_part_visible(body, "shadow", false);
-		for (material, nodes) in parts(&husk_model(vessel)) {
+		let mut has_shadow = false;
+		for (material, nodes) in model_parts {
 			if *material == "shadow" {
+				has_shadow = true;
 				continue;
 			}
 			for node in *nodes {
@@ -189,6 +194,7 @@ impl HuskRig {
 			body,
 			shadow,
 			vessel,
+			parts: model_parts,
 			look,
 			light,
 			reaction: HuskReaction::default(),
@@ -209,9 +215,7 @@ impl HuskRig {
 			pose: None,
 			gait: Footwork::new(vessel),
 			carriage: Carriage::REST,
-			has_shadow: parts(&husk_model(vessel))
-				.iter()
-				.any(|(material, _)| *material == "shadow"),
+			has_shadow,
 			shadow_placed: Transform::IDENTITY,
 			posed: Posed::default(),
 			frozen: false,
@@ -324,7 +328,7 @@ impl HuskRig {
 	}
 
 	fn style(&self, scene: &Scene, eye_glow: f32) {
-		for (material, nodes) in parts(&husk_model(self.vessel)) {
+		for (material, nodes) in self.parts {
 			let change = self.surface(material, eye_glow);
 			for node in *nodes {
 				// The body's own patch is hidden: the shadow is its own

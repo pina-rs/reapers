@@ -71,7 +71,7 @@ use crate::ui::margin;
 /// it standing still, to fall into step with the circle.
 const MAX_CATCH_UP_TICKS: i64 = 2 * HuntRules::TICK_RATE;
 /// Ticks between one report of this reaper's standing and the next.
-const REPORT_EVERY_TICKS: i64 = 6;
+const REPORT_EVERY_TICKS: i64 = 15;
 /// How long a banner stays.
 const BANNER_SECONDS: f64 = 1.3;
 
@@ -100,6 +100,7 @@ pub struct RiftState {
 	rested: bool,
 	following: bool,
 	last_report_tick: i64,
+	last_report: Option<RiftReport>,
 	reported_end: bool,
 	banner: Option<(Banner, f64)>,
 	seconds: f64,
@@ -186,6 +187,7 @@ impl RiftState {
 			rested: false,
 			following: false,
 			last_report_tick: -REPORT_EVERY_TICKS,
+			last_report: None,
 			reported_end: false,
 			banner: None,
 			seconds: 0.0,
@@ -296,6 +298,9 @@ impl RiftState {
 				controller.hold_orb(holding);
 			}
 			let events = self.arena.advance(delta, live_pose, None);
+			if let Some(arms) = self.arena.viewmodel() {
+				crate::seams::viewmodel_show(&arms);
+			}
 			if let (Some(game), Some(controller)) = (self.audio, self.arena.controller.as_ref()) {
 				game.shape(crate::sound::hunt_mix(controller.sim()));
 			}
@@ -336,29 +341,60 @@ impl RiftState {
 		if !due || self.reported_end {
 			return;
 		}
+		let report = seat.report();
+		if !over && self.last_report.as_ref() == Some(&report) {
+			self.last_report_tick = seat.sim.tick();
+			return;
+		}
 		self.last_report_tick = seat.sim.tick();
 		self.reported_end = over;
-		(self.report)(seat.report());
+		self.last_report = Some(report.clone());
+		(self.report)(report);
 	}
 
 	fn fingerprint(&self) -> u64 {
 		use std::hash::Hash;
 		use std::hash::Hasher;
 		let mut hasher = std::collections::hash_map::DefaultHasher::new();
-		let pose = self.lens().pose;
+		let lens = self.lens();
+		let pose = lens.pose;
 		let quantum = |value: f64| (value * 500.0).round() as i64;
+		let pct = |value: f64| (value * 200.0).round() as i32;
 		(
 			quantum(pose.forward.x),
 			quantum(pose.forward.y),
 			quantum(pose.forward.z),
+			quantum(lens.fov),
 		)
 			.hash(&mut hasher);
+		pct(self.arena.wound).hash(&mut hasher);
 		if let Some(controller) = &self.arena.controller {
-			controller.ticks().hash(&mut hasher);
+			let sim = controller.sim();
+			let husk = sim.pose().position;
+			std::mem::discriminant(&sim.phase()).hash(&mut hasher);
+			controller.slot().hash(&mut hasher);
+			sim.resolve().hash(&mut hasher);
+			sim.rounds().hash(&mut hasher);
+			sim.reloading().hash(&mut hasher);
+			sim.staggered().hash(&mut hasher);
+			sim.outcome().is_some().hash(&mut hasher);
+			(sim.ward().round() as i64).hash(&mut hasher);
+			(sim.soul().floor() as i64).hash(&mut hasher);
+			sim.art_charges().hash(&mut hasher);
+			sim.dive_charges().hash(&mut hasher);
+			if sim.reloading() {
+				pct(sim.reload_progress()).hash(&mut hasher);
+			}
+			if sim.phase() == reapers_rules::HuntPhase::Windup
+				|| sim.phase() == reapers_rules::HuntPhase::Shriek
+			{
+				pct(sim.shriek_progress()).hash(&mut hasher);
+			}
+			(quantum(husk.x), quantum(husk.y), quantum(husk.z)).hash(&mut hasher);
 		}
 		self.banner
 			.as_ref()
-			.map(|(banner, _)| banner.text.clone())
+			.map(|(banner, _)| banner.text.as_str())
 			.hash(&mut hasher);
 		hasher.finish()
 	}

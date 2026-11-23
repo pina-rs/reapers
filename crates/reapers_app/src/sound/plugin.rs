@@ -75,6 +75,10 @@ struct Inner<D> {
 	/// How the music was last asked to be heard, so a change asked for while
 	/// a piece is still coming in is not lost.
 	wanted: Cell<Mix>,
+	/// Last mix sent to a live voice, to avoid redundant filter/volume RPCs.
+	shaped: Cell<Option<(Voice, Mix)>>,
+	/// Index of the first `ASSET_ROOTS` entry that successfully loaded an asset.
+	root_index: Cell<Option<usize>>,
 	asked: Cell<u64>,
 	samples: RefCell<HashMap<Effect, Sound>>,
 	effects: RefCell<VecDeque<Voice>>,
@@ -83,6 +87,22 @@ struct Inner<D> {
 	effect_epoch: Cell<u64>,
 }
 
+/// Core combat cues shared across every hunt; vessel-specific cries load on demand.
+const SHARED_EFFECTS: [Effect; 12] = [
+	Effect::PistolA,
+	Effect::PistolB,
+	Effect::PistolC,
+	Effect::Reload,
+	Effect::Loaded,
+	Effect::Blade,
+	Effect::Heavy,
+	Effect::Impact,
+	Effect::Parry,
+	Effect::Shriek,
+	Effect::Hurt,
+	Effect::Catch,
+];
+
 impl<D: Device> PluginEngine<D> {
 	pub fn new(device: D) -> Self {
 		Self(Rc::new(Inner {
@@ -90,6 +110,8 @@ impl<D: Device> PluginEngine<D> {
 			sounds: RefCell::default(),
 			playing: Cell::new(None),
 			wanted: Cell::new(Mix::OPEN),
+			shaped: Cell::new(None),
+			root_index: Cell::new(None),
 			asked: Cell::new(0),
 			samples: RefCell::default(),
 			effects: RefCell::default(),
@@ -105,9 +127,8 @@ impl<D: Device> ScoreEngine for PluginEngine<D> {
 		let inner = self.0.clone();
 		platform::spawn(async move {
 			inner.device.ready().await;
-			for effect in Effect::ALL {
-				let _ = inner.sample(effect).await;
-			}
+			let loads = SHARED_EFFECTS.iter().map(|&effect| inner.sample(effect));
+			futures::future::join_all(loads).await;
 		});
 	}
 
@@ -187,12 +208,19 @@ impl<D: Device> ScoreEngine for PluginEngine<D> {
 		self.0.wanted.set(mix);
 
 		if let Some(voice) = self.0.playing.get() {
+			if self.0.shaped.get().is_some_and(|(last_voice, last_mix)| {
+				last_voice == voice && !mix.differs_from(last_mix)
+			}) {
+				return;
+			}
+			self.0.shaped.set(Some((voice, mix)));
 			platform::spawn(self.0.clone().shape(voice, mix));
 		}
 	}
 
 	fn silence(&self, fade: Duration) {
 		self.0.asked.set(self.0.asked.get() + 1);
+		self.0.shaped.set(None);
 
 		if let Some(voice) = self.0.playing.take() {
 			let inner = self.0.clone();
@@ -264,6 +292,7 @@ impl<D: Device> Inner<D> {
 		if let Some(displaced) = self.playing.replace(Some(voice)) {
 			self.device.stop(Target::Voice(displaced), fade).await;
 		}
+		self.shaped.set(Some((voice, mix)));
 
 		// A line for whoever is wondering why there is no sound. Never in a
 		// release build.
@@ -274,6 +303,7 @@ impl<D: Device> Inner<D> {
 		let wanted = self.wanted.get();
 
 		if wanted.differs_from(mix) {
+			self.shaped.set(Some((voice, wanted)));
 			self.shape(voice, wanted).await;
 		}
 	}
@@ -296,12 +326,24 @@ impl<D: Device> Inner<D> {
 		if let Some(&sound) = self.samples.borrow().get(&effect) {
 			return Some(sound);
 		}
-		for root in D::ASSET_ROOTS {
-			if let Ok(loaded) = self
-				.device
-				.sample(&format!("{root}{}", effect.asset()))
-				.await
-			{
+		let asset = effect.asset();
+		let preferred = self.root_index.get();
+		if let Some(index) = preferred
+			&& let Some(root) = D::ASSET_ROOTS.get(index)
+			&& let Ok(loaded) = self.device.sample(&format!("{root}{asset}")).await
+		{
+			let kept = *self.samples.borrow_mut().entry(effect).or_insert(loaded);
+			if kept != loaded {
+				self.device.unload(loaded).await;
+			}
+			return Some(kept);
+		}
+		for (index, root) in D::ASSET_ROOTS.iter().enumerate() {
+			if preferred == Some(index) {
+				continue;
+			}
+			if let Ok(loaded) = self.device.sample(&format!("{root}{asset}")).await {
+				self.root_index.set(Some(index));
 				let kept = *self.samples.borrow_mut().entry(effect).or_insert(loaded);
 				if kept != loaded {
 					self.device.unload(loaded).await;
@@ -318,16 +360,25 @@ impl<D: Device> Inner<D> {
 			return Some(sound);
 		}
 
+		let asset = piece.asset();
+		let preferred = self.root_index.get();
 		let mut loaded = None;
-
-		for root in D::ASSET_ROOTS {
-			if let Ok(sound) = self
-				.device
-				.stream(&format!("{root}{}", piece.asset()))
-				.await
-			{
-				loaded = Some(sound);
-				break;
+		if let Some(index) = preferred
+			&& let Some(root) = D::ASSET_ROOTS.get(index)
+			&& let Ok(sound) = self.device.stream(&format!("{root}{asset}")).await
+		{
+			loaded = Some(sound);
+		}
+		if loaded.is_none() {
+			for (index, root) in D::ASSET_ROOTS.iter().enumerate() {
+				if preferred == Some(index) {
+					continue;
+				}
+				if let Ok(sound) = self.device.stream(&format!("{root}{asset}")).await {
+					self.root_index.set(Some(index));
+					loaded = Some(sound);
+					break;
+				}
 			}
 		}
 

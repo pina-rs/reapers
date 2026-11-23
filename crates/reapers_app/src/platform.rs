@@ -344,7 +344,7 @@ mod web {
 		web_sys::console::warn_1(&message.into());
 	}
 
-	pub fn viewport() -> (f64, f64) {
+	fn read_viewport() -> (f64, f64) {
 		let size =
 			|value: Result<wasm_bindgen::JsValue, _>| value.ok().and_then(|value| value.as_f64());
 		web_sys::window()
@@ -353,15 +353,57 @@ mod web {
 			.unwrap_or(super::PHONE)
 	}
 
+	pub fn viewport() -> (f64, f64) {
+		use std::cell::Cell;
+
+		thread_local! {
+			static CACHED: Cell<Option<(f64, f64)>> = const { Cell::new(None) };
+		}
+		if let Some(size) = CACHED.with(Cell::get) {
+			return size;
+		}
+		let size = read_viewport();
+		CACHED.with(|cached| cached.set(Some(size)));
+		if let Some(window) = web_sys::window() {
+			let on_resize = Closure::<dyn FnMut()>::new(|| {
+				CACHED.with(|cached| cached.set(Some(read_viewport())));
+			});
+			let _ = window
+				.add_event_listener_with_callback("resize", on_resize.as_ref().unchecked_ref());
+			on_resize.forget();
+		}
+		size
+	}
+
 	pub fn reduced_motion() -> bool {
-		web_sys::window()
-			.and_then(|window| {
-				window
-					.match_media("(prefers-reduced-motion: reduce)")
-					.ok()
-					.flatten()
-			})
-			.is_some_and(|query| query.matches())
+		use std::cell::Cell;
+
+		thread_local! {
+			static CACHED: Cell<Option<bool>> = const { Cell::new(None) };
+			static QUERY: RefCell<Option<web_sys::MediaQueryList>> = const { RefCell::new(None) };
+		}
+		if let Some(reduced) = CACHED.with(Cell::get) {
+			return reduced;
+		}
+		let query = web_sys::window().and_then(|window| {
+			window
+				.match_media("(prefers-reduced-motion: reduce)")
+				.ok()
+				.flatten()
+		});
+		let reduced = query.as_ref().is_some_and(web_sys::MediaQueryList::matches);
+		CACHED.with(|cached| cached.set(Some(reduced)));
+		if let Some(mql) = query {
+			let mql_for_cb = mql.clone();
+			let on_change = Closure::<dyn FnMut()>::new(move || {
+				CACHED.with(|cached| cached.set(Some(mql_for_cb.matches())));
+			});
+			let _ =
+				mql.add_event_listener_with_callback("change", on_change.as_ref().unchecked_ref());
+			on_change.forget();
+			QUERY.with_borrow_mut(|slot| *slot = Some(mql));
+		}
+		reduced
 	}
 
 	pub async fn post(
@@ -539,6 +581,26 @@ mod guest {
 			})
 	}
 
+	fn http_client() -> Result<std::rc::Rc<leptoskit_plugin_http::guest::HttpClient>, PlatformError>
+	{
+		use std::cell::RefCell;
+		use std::rc::Rc;
+
+		thread_local! {
+			static CLIENT: RefCell<Option<Rc<leptoskit_plugin_http::guest::HttpClient>>> =
+				const { RefCell::new(None) };
+		}
+		CLIENT.with_borrow_mut(|slot| {
+			if let Some(client) = slot {
+				return Ok(client.clone());
+			}
+			let client =
+				Rc::new(leptoskit_plugin_http::guest::HttpClient::connect().map_err(failed)?);
+			*slot = Some(client.clone());
+			Ok(client)
+		})
+	}
+
 	pub async fn post(
 		url: &str,
 		headers: Vec<super::Header>,
@@ -548,9 +610,8 @@ mod guest {
 		use leptoskit_plugin_http::Header;
 		use leptoskit_plugin_http::Method;
 		use leptoskit_plugin_http::Request;
-		use leptoskit_plugin_http::guest::HttpClient;
 
-		let client = HttpClient::connect().map_err(failed)?;
+		let client = http_client()?;
 		let reply = client
 			.execute(Request {
 				method: Method::Post,
@@ -574,8 +635,24 @@ mod guest {
 		})
 	}
 
-	fn secure_store() -> Result<leptoskit_plugin_secure_store::guest::SecureStore, PlatformError> {
-		leptoskit_plugin_secure_store::guest::SecureStore::new().map_err(failed)
+	fn secure_store()
+	-> Result<std::rc::Rc<leptoskit_plugin_secure_store::guest::SecureStore>, PlatformError> {
+		use std::cell::RefCell;
+		use std::rc::Rc;
+
+		thread_local! {
+			static SECURE: RefCell<Option<Rc<leptoskit_plugin_secure_store::guest::SecureStore>>> =
+				const { RefCell::new(None) };
+		}
+		SECURE.with_borrow_mut(|slot| {
+			if let Some(store) = slot {
+				return Ok(store.clone());
+			}
+			let store =
+				Rc::new(leptoskit_plugin_secure_store::guest::SecureStore::new().map_err(failed)?);
+			*slot = Some(store.clone());
+			Ok(store)
+		})
 	}
 
 	fn secret_key(key: &str) -> Result<leptoskit_plugin_secure_store::Key<'_>, PlatformError> {
@@ -605,8 +682,22 @@ mod guest {
 		}
 	}
 
-	fn store() -> Result<leptoskit_plugin_store::guest::Store, PlatformError> {
-		leptoskit_plugin_store::guest::Store::new().map_err(failed)
+	fn store() -> Result<std::rc::Rc<leptoskit_plugin_store::guest::Store>, PlatformError> {
+		use std::cell::RefCell;
+		use std::rc::Rc;
+
+		thread_local! {
+			static STORE: RefCell<Option<Rc<leptoskit_plugin_store::guest::Store>>> =
+				const { RefCell::new(None) };
+		}
+		STORE.with_borrow_mut(|slot| {
+			if let Some(store) = slot {
+				return Ok(store.clone());
+			}
+			let store = Rc::new(leptoskit_plugin_store::guest::Store::new().map_err(failed)?);
+			*slot = Some(store.clone());
+			Ok(store)
+		})
 	}
 
 	pub async fn store_get(key: &str) -> Result<Option<Value>, PlatformError> {

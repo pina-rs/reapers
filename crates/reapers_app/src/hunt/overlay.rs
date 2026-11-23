@@ -11,9 +11,10 @@
 use std::f64::consts::FRAC_PI_2;
 use std::f64::consts::PI;
 use std::f64::consts::TAU;
-use std::fmt::Write as _;
 use std::sync::LazyLock;
 
+use leptoskit::native::vector::PathCommand;
+use leptoskit::native::vector::Point;
 use leptoskit::prelude::*;
 use reapers_rules::HuntPhase;
 use reapers_rules::HuntRules;
@@ -91,15 +92,16 @@ pub(crate) fn colour(rgb: Rgb, alpha: f64) -> Color {
 	)
 }
 
-fn unit(value: f64) -> f64 {
-	value.round()
+#[inline]
+fn unit(value: f64) -> f32 {
+	value.round() as f32
 }
 
+/// Exact 4-segment cubic Bézier factor for a circle: `4/3 * tan(pi/8)`.
+const CIRCLE_KAPPA: f32 = 0.552_284_8;
+
 impl Sketch {
-	fn add(&mut self, data: &str, fill: Option<Color>, stroke: Option<(Color, f64)>) {
-		let Ok(data) = PathData::parse(data) else {
-			return;
-		};
+	fn push_path(&mut self, data: PathData, fill: Option<Color>, stroke: Option<(Color, f64)>) {
 		let mut path = VectorPath::new(data);
 		if let Some(fill) = fill {
 			path = path.fill(fill);
@@ -112,19 +114,54 @@ impl Sketch {
 		self.paths.push(path);
 	}
 
-	fn circle_data(x: f64, y: f64, radius: f64) -> String {
-		let (x, y, radius) = (unit(x), unit(y), radius.max(0.5));
-		format!(
-			"M{} {} a{radius} {radius} 0 1 0 {} 0 a{radius} {radius} 0 1 0 {} 0 ",
-			x - radius,
-			y,
-			2.0 * radius,
-			-2.0 * radius
-		)
+	fn push_commands(
+		&mut self,
+		commands: Vec<PathCommand>,
+		fill: Option<Color>,
+		stroke: Option<(Color, f64)>,
+	) {
+		if commands.is_empty() {
+			return;
+		}
+		if let Ok(data) = PathData::from_commands(commands) {
+			self.push_path(data, fill, stroke);
+		}
+	}
+
+	#[inline]
+	fn append_circle(commands: &mut Vec<PathCommand>, x: f64, y: f64, radius: f64) {
+		let cx = unit(x);
+		let cy = unit(y);
+		let r = radius.max(0.5) as f32;
+		let k = r * CIRCLE_KAPPA;
+		commands.push(PathCommand::MoveTo(Point::new(cx - r, cy)));
+		commands.push(PathCommand::CubicTo {
+			control1: Point::new(cx - r, cy - k),
+			control2: Point::new(cx - k, cy - r),
+			to: Point::new(cx, cy - r),
+		});
+		commands.push(PathCommand::CubicTo {
+			control1: Point::new(cx + k, cy - r),
+			control2: Point::new(cx + r, cy - k),
+			to: Point::new(cx + r, cy),
+		});
+		commands.push(PathCommand::CubicTo {
+			control1: Point::new(cx + r, cy + k),
+			control2: Point::new(cx + k, cy + r),
+			to: Point::new(cx, cy + r),
+		});
+		commands.push(PathCommand::CubicTo {
+			control1: Point::new(cx - k, cy + r),
+			control2: Point::new(cx - r, cy + k),
+			to: Point::new(cx - r, cy),
+		});
+		commands.push(PathCommand::Close);
 	}
 
 	pub(crate) fn dot(&mut self, at: (f64, f64), radius: f64, paint: Color) {
-		self.add(&Self::circle_data(at.0, at.1, radius), Some(paint), None);
+		let mut commands = Vec::with_capacity(6);
+		Self::append_circle(&mut commands, at.0, at.1, radius);
+		self.push_commands(commands, Some(paint), None);
 	}
 
 	/// A dot at each of `centres`, all drawn as one path.
@@ -134,21 +171,19 @@ impl Sketch {
 		radius: f64,
 		paint: Color,
 	) {
-		let data: String = centres
-			.into_iter()
-			.map(|at| Self::circle_data(at.0, at.1, radius))
-			.collect();
-		if !data.is_empty() {
-			self.add(&data, Some(paint), None);
+		let iter = centres.into_iter();
+		let (lower, _) = iter.size_hint();
+		let mut commands = Vec::with_capacity(lower * 6);
+		for at in iter {
+			Self::append_circle(&mut commands, at.0, at.1, radius);
 		}
+		self.push_commands(commands, Some(paint), None);
 	}
 
 	pub(crate) fn ring(&mut self, at: (f64, f64), radius: f64, paint: Color, width: f64) {
-		self.add(
-			&Self::circle_data(at.0, at.1, radius),
-			None,
-			Some((paint, width)),
-		);
+		let mut commands = Vec::with_capacity(6);
+		Self::append_circle(&mut commands, at.0, at.1, radius);
+		self.push_commands(commands, None, Some((paint, width)));
 	}
 
 	/// An arc of `sweep` radians from `start`, clockwise on the screen, with
@@ -169,80 +204,87 @@ impl Sketch {
 			self.ring(at, radius, paint, width);
 			return;
 		}
-		let end = start + sweep;
-		let point = |angle: f64| {
-			(
-				unit(at.0 + radius * angle.cos()),
-				unit(at.1 + radius * angle.sin()),
-			)
-		};
-		let (from, to) = (point(start), point(end));
-		let large = i32::from(sweep.abs() > PI);
-		let clockwise = i32::from(sweep > 0.0);
-		self.add(
-			&format!(
-				"M{} {} A{radius} {radius} 0 {large} {clockwise} {} {}",
-				from.0, from.1, to.0, to.1
-			),
-			None,
-			Some((paint, width)),
-		);
+		// Split into <= 90-degree cubic Bézier segments (max 4 segments),
+		// avoiding string formatting and SVG path parsing altogether.
+		let segments = ((sweep.abs() / FRAC_PI_2).ceil() as usize).clamp(1, 4);
+		let step = sweep / segments as f64;
+		let alpha = (4.0 / 3.0) * (step / 4.0).tan();
+		let mut commands = Vec::with_capacity(1 + segments);
+		let mut angle = start;
+		let (mut sy, mut cx) = angle.sin_cos();
+		commands.push(PathCommand::MoveTo(Point::new(
+			(at.0 + radius * cx) as f32,
+			(at.1 + radius * sy) as f32,
+		)));
+		for _ in 0..segments {
+			let next = angle + step;
+			let (nsy, ncx) = next.sin_cos();
+			let p0x = at.0 + radius * cx;
+			let p0y = at.1 + radius * sy;
+			let p3x = at.0 + radius * ncx;
+			let p3y = at.1 + radius * nsy;
+			let c1x = p0x - alpha * radius * sy;
+			let c1y = p0y + alpha * radius * cx;
+			let c2x = p3x + alpha * radius * nsy;
+			let c2y = p3y - alpha * radius * ncx;
+			commands.push(PathCommand::CubicTo {
+				control1: Point::new(c1x as f32, c1y as f32),
+				control2: Point::new(c2x as f32, c2y as f32),
+				to: Point::new(p3x as f32, p3y as f32),
+			});
+			angle = next;
+			cx = ncx;
+			sy = nsy;
+		}
+		self.push_commands(commands, None, Some((paint, width)));
 	}
 
 	pub(crate) fn line(&mut self, from: (f64, f64), to: (f64, f64), paint: Color, width: f64) {
-		self.add(
-			&format!(
-				"M{} {} L{} {}",
-				unit(from.0),
-				unit(from.1),
-				unit(to.0),
-				unit(to.1)
-			),
-			None,
-			Some((paint, width)),
-		);
+		if let Ok(data) = PathData::line(
+			Point::new(unit(from.0), unit(from.1)),
+			Point::new(unit(to.0), unit(to.1)),
+		) {
+			self.push_path(data, None, Some((paint, width)));
+		}
 	}
 
 	/// A small surface patch, already projected from its world-space corners.
 	pub(crate) fn patch(&mut self, points: &[(f64, f64)], paint: Color) {
-		let mut path = String::new();
+		if points.len() < 3 {
+			return;
+		}
+		let mut commands = Vec::with_capacity(points.len() + 1);
 		for (index, &(x, y)) in points.iter().enumerate() {
-			let _ = write!(
-				path,
-				"{}{} {} ",
-				if index == 0 { "M" } else { "L" },
-				unit(x),
-				unit(y)
-			);
+			let pt = Point::new(unit(x), unit(y));
+			commands.push(if index == 0 {
+				PathCommand::MoveTo(pt)
+			} else {
+				PathCommand::LineTo(pt)
+			});
 		}
-		if points.len() >= 3 {
-			path.push('Z');
-			self.add(&path, Some(paint), None);
-		}
+		commands.push(PathCommand::Close);
+		self.push_commands(commands, Some(paint), None);
 	}
 
 	/// A line through `points`, broken wherever one is behind the player.
 	fn polyline(&mut self, points: &[Option<(f64, f64)>], paint: Color, width: f64) {
-		let mut data = String::new();
+		let mut commands = Vec::with_capacity(points.len());
 		let mut drawing = false;
 		for point in points {
 			match point {
 				Some((x, y)) => {
-					let _ = write!(
-						data,
-						"{}{} {} ",
-						if drawing { "L" } else { "M" },
-						unit(*x),
-						unit(*y)
-					);
+					let pt = Point::new(unit(*x), unit(*y));
+					commands.push(if drawing {
+						PathCommand::LineTo(pt)
+					} else {
+						PathCommand::MoveTo(pt)
+					});
 					drawing = true;
 				}
 				None => drawing = false,
 			}
 		}
-		if !data.is_empty() {
-			self.add(&data, None, Some((paint, width)));
-		}
+		self.push_commands(commands, None, Some((paint, width)));
 	}
 
 	/// A line through `points` in `tint` at `alpha`, broken wherever one is
@@ -274,21 +316,34 @@ impl Sketch {
 	}
 }
 
-/// The veil's motes: directions scattered once over the whole sphere, with
-/// how large and how bright each is.
-static MOTES: LazyLock<Vec<(Vec3, f64, f64)>> = LazyLock::new(|| {
+/// The veil's motes pre-bucketed into three brightness bands so `veil()`
+/// scans each mote once instead of three times.
+type MoteBands = ([Vec<(Vec3, f64)>; 3], [f64; 3]);
+
+static MOTES: LazyLock<MoteBands> = LazyLock::new(|| {
 	let mut random = SeededRandom::new(0x7E11);
-	(0..140)
-		.map(|_| {
-			let yaw = random.next_range(-PI, PI);
-			let pitch = random.next_range(-0.85, 0.95).asin();
-			(
-				Vec3::from_angles(yaw, pitch),
-				random.next_range(0.6, 2.4),
-				random.next_range(0.15, 0.8),
-			)
-		})
-		.collect()
+	let mut bands: [Vec<(Vec3, f64)>; 3] = [Vec::new(), Vec::new(), Vec::new()];
+	for _ in 0..140 {
+		let yaw = random.next_range(-PI, PI);
+		let pitch = random.next_range(-0.85, 0.95).asin();
+		let dir = Vec3::from_angles(yaw, pitch);
+		let size = random.next_range(0.6, 2.4);
+		let glow = random.next_range(0.15, 0.8);
+		let band = if glow < 0.35 {
+			0
+		} else if glow < 0.6 {
+			1
+		} else {
+			2
+		};
+		bands[band].push((dir, size));
+	}
+	let alphas = [
+		f64::midpoint(0.0, 0.35) * 0.5,
+		f64::midpoint(0.35, 0.6) * 0.5,
+		f64::midpoint(0.6, 1.0) * 0.5,
+	];
+	(bands, alphas)
 });
 
 /// The frame a hunt or a rift is drawn in: the veil's ink under it, unless
@@ -308,36 +363,30 @@ pub fn frame_class(camera: bool) -> &'static str {
 /// turns: that is what tells the player they are turning at all.
 pub fn veil(sketch: &mut Sketch, lens: &Lens) {
 	// A band of cold light where the ground would meet the sky.
-	let level: Vec<_> = (0..=24)
-		.map(|step| {
-			let yaw = lens.pose.forward.yaw() + (f64::from(step) / 24.0 - 0.5) * PI;
-			lens.place(Vec3::from_angles(yaw, 0.0))
-		})
-		.collect();
+	let base_yaw = lens.pose.forward.yaw();
+	let mut level = [None; 25];
+	for (step, slot) in level.iter_mut().enumerate() {
+		let yaw = base_yaw + (step as f64 / 24.0 - 0.5) * PI;
+		*slot = lens.place(Vec3::from_angles(yaw, 0.0));
+	}
 	sketch.polyline(&level, colour(Rgb(0x6C, 0x84, 0xA0), 0.16), 26.0);
 	sketch.polyline(&level, colour(Rgb(0x9F, 0xB8, 0xD0), 0.22), 1.0);
-	// Motes in three brightnesses, each drawn as one path.
-	for (low, high) in [(0.0, 0.35), (0.35, 0.6), (0.6, 1.0)] {
-		let mut data = String::new();
-		for (direction, size, glow) in MOTES.iter() {
-			if *glow < low || *glow >= high {
-				continue;
-			}
-			let Some((x, y)) = lens.place(*direction) else {
+	// Motes in three pre-bucketed brightness bands, each drawn as one path.
+	let (bands, alphas) = &*MOTES;
+	let max_x = lens.width + 10.0;
+	let max_y = lens.height + 10.0;
+	for (band, &alpha) in bands.iter().zip(alphas) {
+		let mut commands = Vec::with_capacity(band.len() * 6);
+		for &(direction, size) in band {
+			let Some((x, y)) = lens.place(direction) else {
 				continue;
 			};
-			if x < -10.0 || y < -10.0 || x > lens.width + 10.0 || y > lens.height + 10.0 {
+			if x < -10.0 || y < -10.0 || x > max_x || y > max_y {
 				continue;
 			}
-			data.push_str(&Sketch::circle_data(x, y, *size));
+			Sketch::append_circle(&mut commands, x, y, size);
 		}
-		if !data.is_empty() {
-			sketch.add(
-				&data,
-				Some(colour(BONE, f64::midpoint(low, high) * 0.5)),
-				None,
-			);
-		}
+		sketch.push_commands(commands, Some(colour(BONE, alpha)), None);
 	}
 }
 
@@ -691,16 +740,24 @@ fn shriek_ring(sketch: &mut Sketch, lens: &Lens, sim: &HuntSim, light: Rgb) {
 
 /// A frame of `width` units round the screen.
 fn edge(sketch: &mut Sketch, lens: &Lens, tint: Rgb, alpha: f64, width: f64) {
-	let (w, h) = (lens.width, lens.height);
-	sketch.add(
-		&format!(
-			"M0 0 H{w} V{h} H0 Z M{width} {width} V{} H{} V{width} Z",
-			unit(h - width),
-			unit(w - width)
-		),
-		Some(colour(tint, alpha)),
-		None,
-	);
+	let w = lens.width as f32;
+	let h = lens.height as f32;
+	let iw = width as f32;
+	let right = unit(lens.width - width);
+	let bottom = unit(lens.height - width);
+	let commands = vec![
+		PathCommand::MoveTo(Point::new(0.0, 0.0)),
+		PathCommand::LineTo(Point::new(w, 0.0)),
+		PathCommand::LineTo(Point::new(w, h)),
+		PathCommand::LineTo(Point::new(0.0, h)),
+		PathCommand::Close,
+		PathCommand::MoveTo(Point::new(iw, iw)),
+		PathCommand::LineTo(Point::new(iw, bottom)),
+		PathCommand::LineTo(Point::new(right, bottom)),
+		PathCommand::LineTo(Point::new(right, iw)),
+		PathCommand::Close,
+	];
+	sketch.push_commands(commands, Some(colour(tint, alpha)), None);
 }
 
 fn seals(

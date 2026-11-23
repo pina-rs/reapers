@@ -550,7 +550,15 @@ pub fn viewmodel_view(props: &ViewmodelProps) -> Element {
 	let numbers = seam.borrow().numbers;
 	let id = scene(VIEWMODEL).id();
 	if let Some(world) = props.world {
-		crate::render::pointer::forward(id, scene(world.scene).id());
+		let target = scene(world.scene).id();
+		thread_local! {
+			static LAST_FORWARD: std::cell::Cell<Option<(SceneId, SceneId)>> =
+				const { std::cell::Cell::new(None) };
+		}
+		if LAST_FORWARD.with(|last| last.get() != Some((id, target))) {
+			crate::render::pointer::forward(id, target);
+			LAST_FORWARD.with(|last| last.set(Some((id, target))));
+		}
 	}
 	View()
 		.class("absolute inset-0 overflow-hidden")

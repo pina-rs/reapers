@@ -53,10 +53,18 @@ pub fn foot_scrim(height: u32, alpha: u8) -> leptoskit::prelude::Element {
 /// The light the interface is lit with: the bound reaper's, or the pale
 /// light of one nobody has bound yet.
 pub fn light() -> Rgb {
-	reactive_graph::owner::use_context::<Game>()
-		.and_then(|game| game.player())
-		.filter(reapers_rules::PlayerState::oath_taken)
-		.map_or(UNBOUND, |player| reaper_light(&player.genome()))
+	use reactive_graph::traits::With as _;
+
+	reactive_graph::owner::use_context::<Game>().map_or(UNBOUND, |game| {
+		game.books.with(|books| {
+			match books {
+				crate::state::Books::Open(player) if player.oath_taken() => {
+					reaper_light(&player.genome())
+				}
+				_ => UNBOUND,
+			}
+		})
+	})
 }
 
 thread_local! {

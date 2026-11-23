@@ -31,33 +31,55 @@ pub fn cloth_at(motion: ReaperMotion, seconds: f64) -> ClothStir {
 	}
 }
 
-/// The robe's morph weights, by morph target name.
-///
-/// Garment targets are mutually exclusive: fitted tunics already include
-/// shortening, so adding the spirit's short-robe target would shorten twice.
-pub fn cloth_weights(
-	genome: &ReaperGenome,
+/// The three animated sway morphs sampled from the clip clock.
+pub fn cloth_sway_weights(
 	appearance: &ReaperAppearance,
 	motion: ReaperMotion,
 	seconds: f64,
-) -> [(&'static str, f64); 8] {
+) -> [(&'static str, f64); 3] {
 	let cloth = cloth_at(motion, seconds);
 	let humanoid = appearance.form == ReaperForm::Humanoid;
-	let tunic = appearance.clothing == ReaperClothing::Tunic;
 	// A grounded garment cannot drift sideways through the hips like an
 	// empty spirit robe. Keep the secondary sway inside its fitted allowance.
 	let drift = if humanoid { 0.35 } else { 1.0 };
-	let on = |yes: bool| if yes { 1.0 } else { 0.0 };
 	[
 		("sway_x", cloth.sway_x * drift),
 		("sway_y", cloth.sway_y * drift),
 		("billow", cloth.billow),
+	]
+}
+
+/// The five static garment fit morphs that only change when dressing changes.
+pub fn cloth_fit_weights(
+	genome: &ReaperGenome,
+	appearance: &ReaperAppearance,
+) -> [(&'static str, f64); 5] {
+	let humanoid = appearance.form == ReaperForm::Humanoid;
+	let tunic = appearance.clothing == ReaperClothing::Tunic;
+	let on = |yes: bool| if yes { 1.0 } else { 0.0 };
+	[
 		("gaunt", ReaperGenome::fraction(genome.gauntness)),
 		("long_hem", ReaperGenome::fraction(genome.tatter)),
 		("short_robe", on(!humanoid && tunic)),
 		("humanoid_robe", on(humanoid && !tunic)),
 		("humanoid_tunic", on(humanoid && tunic)),
 	]
+}
+
+/// The robe's morph weights, by morph target name.
+///
+/// Garment targets are mutually exclusive: fitted tunics already include
+/// shortening, so adding the spirit's short-robe target would shorten twice.
+#[cfg_attr(not(test), allow(dead_code))]
+pub fn cloth_weights(
+	genome: &ReaperGenome,
+	appearance: &ReaperAppearance,
+	motion: ReaperMotion,
+	seconds: f64,
+) -> [(&'static str, f64); 8] {
+	let [s0, s1, s2] = cloth_sway_weights(appearance, motion, seconds);
+	let [f0, f1, f2, f3, f4] = cloth_fit_weights(genome, appearance);
+	[s0, s1, s2, f0, f1, f2, f3, f4]
 }
 
 #[cfg(test)]

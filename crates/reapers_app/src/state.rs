@@ -407,19 +407,24 @@ impl Game {
 	/// that was seen waiting first, so reopening the game does not announce
 	/// husks the player already knows about.
 	fn watch_surfacing(self, now: Timestamp) {
-		let Books::Open(player) = self.books.get_untracked() else {
-			return;
-		};
-		let mut announced = None;
-		self.waiting.update_value(|waiting| {
-			let waiting = waiting.get_mut();
-			for sighting in player.sightings() {
-				if !sighting.has_surfaced(now) {
-					waiting.insert(sighting.id);
-				} else if waiting.remove(&sighting.id) {
-					announced = Some(*sighting);
+		use reactive_graph::traits::WithUntracked as _;
+
+		let announced = self.books.with_untracked(|books| {
+			let Books::Open(player) = books else {
+				return None;
+			};
+			let mut announced = None;
+			self.waiting.update_value(|waiting| {
+				let waiting = waiting.get_mut();
+				for sighting in player.sightings() {
+					if !sighting.has_surfaced(now) {
+						waiting.insert(sighting.id);
+					} else if waiting.remove(&sighting.id) {
+						announced = Some(*sighting);
+					}
 				}
-			}
+			});
+			announced
 		});
 		if let Some(sighting) = announced {
 			platform::thud();
@@ -522,6 +527,49 @@ impl Game {
 			let done = player.is_some();
 			if let Some(player) = player {
 				self.books.set(Books::Open(player));
+			}
+			then(done);
+		});
+	}
+
+	/// Applies a deterministic local-rules `preview` immediately for instant UI
+	/// feedback, reconciles with the keeper's authoritative `PlayerState`, and
+	/// rolls back to the snapshot if the keeper refuses or is unreachable.
+	pub fn change_optimistic<P, F, Fut>(
+		self,
+		preview: P,
+		request: F,
+		then: impl FnOnce(bool) + 'static,
+	) where
+		P: FnOnce(&PlayerState) -> reapers_rules::RuleResult<PlayerState>,
+		F: FnOnce(Rc<dyn GameBackend>) -> Fut + 'static,
+		Fut: Future<Output = KeeperResult<PlayerState>> + 'static,
+	{
+		use reactive_graph::traits::WithUntracked as _;
+
+		let rollback = self.books.with_untracked(|books| {
+			let Books::Open(current) = books else {
+				return None;
+			};
+			preview(current)
+				.ok()
+				.map(|predicted| (current.clone(), predicted))
+		});
+		let previous = rollback.map(|(previous, predicted)| {
+			self.books.set(Books::Open(predicted.clone()));
+			(previous, predicted)
+		});
+		self.attempt(request, move |player| {
+			let done = player.is_some();
+			if let Some(player) = player {
+				self.books.set(Books::Open(player));
+			} else if let Some((previous, predicted)) = previous {
+				let unchanged = self
+					.books
+					.with_untracked(|books| matches!(books, Books::Open(cur) if *cur == predicted));
+				if unchanged {
+					self.books.set(Books::Open(previous));
+				}
 			}
 			then(done);
 		});
@@ -634,19 +682,31 @@ impl Game {
 	}
 
 	async fn restore_settings(self, prefs: &dyn Prefs) {
-		if let Ok(Some(Value::Bool(on))) = prefs.get(Self::EFFECTS_KEY).await {
+		let testing = self.flags.testing_difficulty();
+		let (effects_val, music_val, diff_val) = futures::join!(
+			prefs.get(Self::EFFECTS_KEY),
+			prefs.get(Self::MUSIC_KEY),
+			async {
+				if testing {
+					prefs.get(Self::DIFFICULTY_KEY).await
+				} else {
+					Ok(None)
+				}
+			}
+		);
+		if let Ok(Some(Value::Bool(on))) = effects_val {
 			self.effects.set(on);
 		}
 		self.soundtrack
 			.with_value(|sound| sound.set_effects_enabled(self.effects.get_untracked()));
-		if let Ok(Some(Value::Bool(on))) = prefs.get(Self::MUSIC_KEY).await {
+		if let Ok(Some(Value::Bool(on))) = music_val {
 			self.music.set(on);
 		}
 		let on = self.music.get_untracked();
 		self.soundtrack
 			.with_value(|soundtrack| soundtrack.set_enabled(on));
-		if self.flags.testing_difficulty()
-			&& let Ok(Some(Value::String(name))) = prefs.get(Self::DIFFICULTY_KEY).await
+		if testing
+			&& let Ok(Some(Value::String(name))) = diff_val
 			&& let Some(difficulty) = Difficulty::from_name(&name)
 		{
 			self.difficulty.set(difficulty);

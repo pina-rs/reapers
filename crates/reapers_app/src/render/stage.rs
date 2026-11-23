@@ -232,8 +232,10 @@ impl Stage {
 			self.aim();
 		}
 		self.ticks = self.ticks.wrapping_add(1);
-		if self.ticks.is_multiple_of(STIR_EVERY)
-			&& let Some(rig) = &self.rig
+		if !still
+			&& self.playback.playing()
+			&& self.ticks.is_multiple_of(STIR_EVERY)
+			&& let Some(rig) = self.rig.as_mut()
 		{
 			rig.stir(self.scene.ops(), self.playback.seconds());
 		}

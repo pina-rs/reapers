@@ -162,6 +162,9 @@ pub struct RemoteBackend<A> {
 	/// Whether this install has signed in. A failed sign-in is tried again
 	/// on the next request.
 	signed_in: RefCell<bool>,
+	/// Cached chain configuration & linked wallet; invalidated on login or
+	/// session reset.
+	cached_status: RefCell<Option<ChainStatus>>,
 	/// The cluster real husks live on, and the wallet that moves them, on
 	/// a cluster build.
 	cluster: Option<(Rc<Cluster>, Rc<dyn WalletProver>)>,
@@ -172,6 +175,7 @@ impl<A: ReapersApi + 'static> RemoteBackend<A> {
 		Self {
 			api: Rc::new(api),
 			signed_in: RefCell::new(false),
+			cached_status: RefCell::new(None),
 			cluster: None,
 		}
 	}
@@ -195,10 +199,20 @@ impl<A: ReapersApi + 'static> RemoteBackend<A> {
 				// A session the server no longer knows is restored, or a new
 				// guest opened, before the next request.
 				*self.signed_in.borrow_mut() = false;
+				*self.cached_status.borrow_mut() = None;
 				Err(answer(error))
 			}
 			Err(error) => Err(answer(error)),
 		}
+	}
+
+	async fn status_cached(&self) -> KeeperResult<ChainStatus> {
+		if let Some(status) = self.cached_status.borrow().clone() {
+			return Ok(status);
+		}
+		let status = self.ask(async |api| api.chain_status().await).await?;
+		*self.cached_status.borrow_mut() = Some(status.clone());
+		Ok(status)
 	}
 }
 
@@ -266,15 +280,14 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 				.ask(async |api| api.release(&nft.id(), None).await)
 				.await;
 		};
-		let status = self.ask(async |api| api.chain_status().await).await?;
+		let status = self.status_cached().await?;
 		let held = match status.wallet.as_deref() {
 			Some(_) => {
 				let address = linked(&status)?;
 				cluster
-					.wallet_husks(&status.husks, &address)
+					.wallet_husk(&status.husks, &address, nft)
 					.await?
-					.into_iter()
-					.find(|husk| husk.nft == nft && husk.place != HuskPlace::Burned)
+					.filter(|husk| husk.place != HuskPlace::Burned)
 					.map(|husk| (address, husk))
 			}
 			None => None,
@@ -304,7 +317,7 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 	/// burn that fails is put in front of the player, and the husk stays in
 	/// escrow.
 	async fn settle_hunt(&self, sighting_id: i64, log: &HuntLog) -> KeeperResult<HuntSettlement> {
-		let bytes = log.encode();
+		let bytes = log.encode_compact();
 		let settled = self
 			.ask(async |api| api.settle_hunt(sighting_id, bytes).await)
 			.await?;
@@ -358,9 +371,9 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 	}
 
 	async fn chain_status(&self) -> KeeperResult<Option<ChainStatus>> {
-		self.ask(async |api| api.chain_status().await)
-			.await
-			.map(Some)
+		let status = self.ask(async |api| api.chain_status().await).await?;
+		*self.cached_status.borrow_mut() = Some(status.clone());
+		Ok(Some(status))
 	}
 
 	async fn connect_wallet(
@@ -376,7 +389,9 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 			})
 			.await?;
 		self.ask(async |api| api.login(&proof.challenge_id, &proof.signature).await)
-			.await
+			.await?;
+		*self.cached_status.borrow_mut() = None;
+		Ok(())
 	}
 
 	async fn import_reaper(&self, asset: &str) -> KeeperResult<PlayerState> {
@@ -400,7 +415,7 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 		let Some((cluster, _)) = &self.cluster else {
 			return Ok(Vec::new());
 		};
-		let status = self.ask(async |api| api.chain_status().await).await?;
+		let status = self.status_cached().await?;
 		if status.wallet.is_none() {
 			return Ok(Vec::new());
 		}
@@ -425,7 +440,7 @@ impl<A: ReapersApi + 'static> RemoteBackend<A> {
 		let Some(transaction) = &receipt.transaction else {
 			return Err(ChainFailure::Rejected("the server built no burn".into()).into());
 		};
-		let status = self.ask(async |api| api.chain_status().await).await?;
+		let status = self.status_cached().await?;
 		let address = linked(&status)?;
 		if receipt.wallet != address.to_string() {
 			return Err(ChainFailure::WrongWallet.into());

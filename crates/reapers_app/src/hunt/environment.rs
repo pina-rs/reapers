@@ -88,6 +88,8 @@ pub struct Surface {
 struct Mark {
 	request: Request,
 	surface: Surface,
+	across: Vec3,
+	up: Vec3,
 	since: f64,
 }
 
@@ -190,9 +192,19 @@ impl Environment {
 		if self.marks.len() == MAX_MARKS {
 			self.marks.pop_front();
 		}
+		let normal = surface.normal.normalized();
+		let axis = if normal.y.abs() < 0.9 {
+			Vec3::UP
+		} else {
+			Vec3::new(1.0, 0.0, 0.0)
+		};
+		let across = normal.cross(axis).normalized();
+		let up = normal.cross(across).normalized();
 		self.marks.push_back(Mark {
 			request,
 			surface,
+			across,
+			up,
 			since: self.seconds,
 		});
 	}
@@ -207,20 +219,8 @@ impl Environment {
 }
 
 impl Mark {
-	fn basis(self) -> (Vec3, Vec3) {
-		let normal = self.surface.normal.normalized();
-		let axis = if normal.y.abs() < 0.9 {
-			Vec3::UP
-		} else {
-			Vec3::new(1.0, 0.0, 0.0)
-		};
-		let across = normal.cross(axis).normalized();
-		(across, normal.cross(across).normalized())
-	}
-
 	fn point(self, lens: &Lens, eye: Vec3, x: f64, y: f64) -> Option<(f64, f64)> {
-		let (across, up) = self.basis();
-		lens.place(self.surface.at + across * x + up * y - eye)
+		lens.place(self.surface.at + self.across * x + self.up * y - eye)
 	}
 
 	#[allow(
@@ -396,7 +396,7 @@ impl Mark {
 			return;
 		}
 		let normal = self.surface.normal.normalized();
-		let (across, up) = self.basis();
+		let (across, up) = (self.across, self.up);
 		let reach = self.request.kind.radius().max(0.08);
 		for i in 0..7 {
 			let angle = f64::from(i) * 2.4;
