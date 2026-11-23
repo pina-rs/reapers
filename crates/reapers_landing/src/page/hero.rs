@@ -27,15 +27,15 @@ use crate::l10n::use_l10n;
 const HUSK: &str = "asset://nfts/degenApes_1.webp";
 
 /// How long a sigil's light waits after the one before it.
-const CATCH: u64 = 420;
+const CATCH: u64 = 110;
 /// When the first light catches.
-const FIRST: u64 = 350;
+const FIRST: u64 = 0;
 
 fn at(milliseconds: u64) -> Duration {
 	Duration::from_millis(milliseconds)
 }
 
-/// When the last light has caught and the husk may appear.
+/// When the last light has caught and the sights lock in.
 fn drawn_out() -> u64 {
 	FIRST + CATCH * (art::SIGIL.len() as u64)
 }
@@ -66,9 +66,9 @@ fn drawing_out() -> Element {
 				.delay(at(FIRST))
 				.easing(Easing::Linear),
 		);
-	let gather = Motion::enter(Pose::new().blur(18.0).opacity(0.0).scale(0.9))
-		.duration(at(900))
-		.delay(at(drawn_out()));
+	// Paint the hero husk immediately at full opacity so LCP is never delayed
+	// behind an entrance timer, settling gently in place as the sigil draws.
+	let gather = Motion::enter(Pose::new().scale(0.96)).duration(at(320));
 	let plate = View()
 		.class(format!(
 			"absolute left-[33%] top-[36%] w-[34%] aspect-square -rotate-3 border \
@@ -83,9 +83,9 @@ fn drawing_out() -> Element {
 	])
 	.easing(Easing::In)
 	.in_view(ViewRange::exit());
-	let sights = Motion::enter(Pose::new().scale(1.6).opacity(0.0))
+	let sights = Motion::enter(Pose::new().scale(1.3).opacity(0.0))
 		.spring(Spring::SNAPPY)
-		.delay(at(drawn_out() + 450));
+		.delay(at(drawn_out()));
 	let crosshair = View()
 		.class("absolute left-[27%] top-[28%] w-[46%] aspect-square")
 		.motion(sights)
@@ -106,28 +106,24 @@ fn drawing_out() -> Element {
 pub fn hero() -> Element {
 	let words = use_l10n();
 	let rise = |step: u64| {
-		Motion::enter(Pose::new().y(18.0).opacity(0.0))
-			.duration(at(700))
-			.delay(at(120 * step))
+		Motion::enter(Pose::new().y(12.0).opacity(0.0))
+			.duration(at(320))
+			.delay(at(60 * step))
 	};
 	let actions = View()
 		.class("flex-row flex-wrap gap-x-4 gap-y-2 items-center")
-		.motion(rise(3))
+		.motion(rise(2))
 		.child(link(words.hero_play(), app_url(), Weight::Primary))
 		.child(link(words.hero_how(), "#hunt", Weight::Quiet));
 	let text = View()
 		.class("w-full gap-6 md:flex-1")
-		.child(label(words.hero_kicker(), ASH).motion(rise(0)))
-		.child(
-			Heading(1, words.hero_title())
-				.class(format!(
-					"text-[52px] md:text-[88px] font-normal text-[{BONE}]"
-				))
-				.motion(rise(1)),
-		)
-		.child(paragraph(words.hero_lead(), 19, BONE).motion(rise(2)))
+		.child(label(words.hero_kicker(), ASH))
+		.child(Heading(1, words.hero_title()).class(format!(
+			"text-[52px] md:text-[88px] font-normal text-[{BONE}]"
+		)))
+		.child(paragraph(words.hero_lead(), 19, BONE).motion(rise(1)))
 		.child(actions)
-		.child(paragraph(words.hero_status(), 14, ASH).motion(rise(4)));
+		.child(paragraph(words.hero_status(), 14, ASH).motion(rise(3)));
 	section("top", words.hero_title()).child(
 		View()
 			.class(format!(

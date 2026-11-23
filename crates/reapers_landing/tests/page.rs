@@ -166,7 +166,7 @@ fn the_shell_says_what_the_page_says() {
 		"<meta property=\"og:description\" content=\"{}\" />",
 		En.meta_description()
 	)));
-	assert!(SHELL.contains("assets/fonts/Fraunces.ttf"));
-	assert!(SHELL.contains("assets/fonts/DMSans.ttf"));
+	assert!(SHELL.contains("assets/fonts/Fraunces.woff2"));
+	assert!(SHELL.contains("assets/fonts/DMSans.woff2"));
 	assert!(SHELL.contains(&format!("<p>{}</p>", En.no_script())));
 }

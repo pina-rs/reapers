@@ -41,9 +41,9 @@ address = "127.0.0.1"
 port = 3010
 
 [bundle]
-optimize = "fast"
+optimize = "smallest"
 wasm_opt = true
-precompress = false
+precompress = true
 
 [native]
 # XR frames now identify measured and inferred depth. The native host and
