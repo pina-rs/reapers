@@ -20,16 +20,16 @@ use crate::keeper::Change;
 use crate::keeper::keeper;
 
 /// The player as they stand now, with their books opened on first use.
-#[rpc::mutation]
-pub async fn load(cx: &rpc::MutationCx) -> rpc::Result<PlayerState> {
-	keeper(cx.identity())?.change(cx, Change::Load).await
+#[rpc::action]
+pub async fn load(cx: &rpc::ActionCx) -> rpc::Result<PlayerState> {
+	keeper(cx.identity())?.load(cx).await
 }
 
 /// Shares only this player's latest foreground location, or clears it with
 /// `None`. A reading older than the one kept is ignored; a coarse, stale or
 /// future-dated one is refused as `locationUnusable`.
-#[rpc::mutation]
-pub async fn update_location(cx: &rpc::MutationCx, fix: Option<Shared<GeoFix>>) -> rpc::Result<()> {
+#[rpc::action]
+pub async fn update_location(cx: &rpc::ActionCx, fix: Option<Shared<GeoFix>>) -> rpc::Result<()> {
 	keeper(cx.identity())?
 		.update_location(cx, fix.map(|fix| fix.0))
 		.await
@@ -49,10 +49,10 @@ pub async fn take_oath(cx: &rpc::MutationCx) -> rpc::Result<PlayerState> {
 
 /// Makes the reaper `id` names the active one: the oathbound starter, or an
 /// NFT reaper by its asset address.
-#[rpc::mutation]
-pub async fn select_reaper(cx: &rpc::MutationCx, id: String) -> rpc::Result<PlayerState> {
+#[rpc::action]
+pub async fn select_reaper(cx: &rpc::ActionCx, id: String) -> rpc::Result<PlayerState> {
 	keeper(cx.identity())?
-		.change(cx, Change::SelectReaper(id))
+		.apply_action(cx, Change::SelectReaper(id))
 		.await
 }
 
@@ -91,9 +91,9 @@ pub async fn release(
 /// replay walks the husk through the same room.
 /// The verdict is the replay's; nothing the game claims about how the hunt
 /// went is read.
-#[rpc::mutation]
+#[rpc::action]
 pub async fn settle_hunt(
-	cx: &rpc::MutationCx,
+	cx: &rpc::ActionCx,
 	sighting: i64,
 	log: String,
 ) -> rpc::Result<SettledHunt> {
@@ -130,10 +130,10 @@ pub async fn buy_weapon(cx: &rpc::MutationCx, weapon: String) -> rpc::Result<Pla
 }
 
 /// Takes the bought weapon `weapon` names in hand.
-#[rpc::mutation]
-pub async fn wield(cx: &rpc::MutationCx, weapon: String) -> rpc::Result<PlayerState> {
+#[rpc::action]
+pub async fn wield(cx: &rpc::ActionCx, weapon: String) -> rpc::Result<PlayerState> {
 	keeper(cx.identity())?
-		.change(cx, Change::Wield(weapon))
+		.apply_action(cx, Change::Wield(weapon))
 		.await
 }
 
@@ -146,18 +146,20 @@ pub async fn buy_outfit(cx: &rpc::MutationCx, outfit: String) -> rpc::Result<Pla
 }
 
 /// Puts on the bought outfit `outfit` names.
-#[rpc::mutation]
-pub async fn wear(cx: &rpc::MutationCx, outfit: String) -> rpc::Result<PlayerState> {
+#[rpc::action]
+pub async fn wear(cx: &rpc::ActionCx, outfit: String) -> rpc::Result<PlayerState> {
 	keeper(cx.identity())?
-		.change(cx, Change::Wear(outfit))
+		.apply_action(cx, Change::Wear(outfit))
 		.await
 }
 
 /// Makes the art `art` names the one the reaper throws. Only an art the
 /// reaper has learned can be.
-#[rpc::mutation]
-pub async fn attune(cx: &rpc::MutationCx, art: String) -> rpc::Result<PlayerState> {
-	keeper(cx.identity())?.change(cx, Change::Attune(art)).await
+#[rpc::action]
+pub async fn attune(cx: &rpc::ActionCx, art: String) -> rpc::Result<PlayerState> {
+	keeper(cx.identity())?
+		.apply_action(cx, Change::Attune(art))
+		.await
 }
 
 /// What a judged hunt came to, and, for a husk escrowed on-chain, the

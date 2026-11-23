@@ -244,16 +244,24 @@ impl RiftHall {
 	/// Not found when the account is in no rift, or a refusal when the report
 	/// violates rift bounds.
 	pub fn report(&self, account: Id<Account>, report: &RiftReport) -> rpc::Result<()> {
-		let seats = locked(&self.seats);
-		let Some(seat) = seats.get(&account) else {
-			return Err(rpc::Error::not_found("this reaper is in no rift"));
+		let (rift, index, failure) = {
+			let seats = locked(&self.seats);
+			let Some(seat) = seats.get(&account) else {
+				return Err(rpc::Error::not_found("this reaper is in no rift"));
+			};
+
+			(
+				Arc::clone(&seat.rift),
+				seat.index,
+				Arc::clone(&seat.failure),
+			)
 		};
 
-		if let Some(existing) = locked(&seat.failure).clone() {
+		if let Some(existing) = locked(&failure).clone() {
 			return Err(existing);
 		}
 
-		let mut room = locked(&seat.rift.room);
+		let mut room = locked(&rift.room);
 
 		if !report.dealt.is_finite() || report.dealt < 0.0 {
 			return Err(refused(Refusal::RiftUnproven));
@@ -269,14 +277,14 @@ impl RiftHall {
 			}
 
 			if phase != RiftPhase::Gathering {
-				let limit = room.max_plausible_dealt(seat.index);
+				let limit = room.max_plausible_dealt(index);
 				if report.dealt > limit + 1e-6 {
 					return Err(refused(Refusal::RiftUnproven));
 				}
 			}
 		}
 
-		room.report(seat.index, report);
+		room.report(index, report);
 
 		Ok(())
 	}

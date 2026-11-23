@@ -204,6 +204,64 @@ impl Keeper {
 		})
 	}
 
+	async fn load(&self, account: Id<Account>) -> rpc::Result<PlayerState> {
+		if let Some(state) = books::load_fast(&self.db, account).await? {
+			return Ok(state);
+		}
+
+		self.change_alone(account, Ok).await
+	}
+
+	async fn fast_action(
+		&self,
+		account: Id<Account>,
+		mut rule: impl FnMut(PlayerState) -> rpc::Result<PlayerState>,
+	) -> rpc::Result<PlayerState> {
+		if let Some(fast) = books::load_fast_raw(&self.db, account).await? {
+			let next = rule(fast.state.clone())?;
+			if next == fast.state {
+				return Ok(next);
+			}
+			if books::compare_and_swap_state(&self.db, &fast.id, &fast.raw_state, &next).await? {
+				return Ok(next);
+			}
+		}
+
+		self.change_alone(account, rule).await
+	}
+
+	async fn apply_action(&self, account: Id<Account>, change: Change) -> rpc::Result<PlayerState> {
+		match change {
+			Change::SelectReaper(id) => {
+				self.fast_action(account, move |state| breach(state.select_reaper(&id)))
+					.await
+			}
+			Change::Wield(id) => {
+				let weapon = parsed(Weapon::parse(&id).ok(), Refusal::NotOwned)
+					.map_err(|b| refused(b.refusal))?;
+				self.fast_action(account, move |state| breach(state.wield(weapon)))
+					.await
+			}
+			Change::Wear(name) => {
+				let outfit = parsed(Outfit::from_name(&name), Refusal::NotOwned)
+					.map_err(|b| refused(b.refusal))?;
+				self.fast_action(account, move |state| breach(state.wear(outfit)))
+					.await
+			}
+			Change::Attune(name) => {
+				let art = parsed(Art::from_name(&name), Refusal::NotOwned)
+					.map_err(|b| refused(b.refusal))?;
+				self.fast_action(account, move |state| breach(state.attune(art)))
+					.await
+			}
+			other => {
+				Err(rpc::Error::server(format!(
+					"change {other:?} requires a mutation transaction"
+				)))
+			}
+		}
+	}
+
 	async fn change(&self, cx: &rpc::MutationCx, change: Change) -> rpc::Result<PlayerState> {
 		let account = me(cx.identity())?;
 		let tx = cx.tx();
@@ -354,20 +412,15 @@ impl Keeper {
 		}
 	}
 
-	/// Checks `mint` is escrowed with the program by `account`'s proved
-	/// wallet, and returns the wallet, the mint, and the decoded on-chain
-	/// [`Escrow`](crate::escrow::Escrow).
-	async fn escrowed(
+	/// Checks `mint` is escrowed with the program by `wallet`, returning the
+	/// parsed mint address and decoded on-chain [`Escrow`](crate::escrow::Escrow).
+	async fn escrowed_with_wallet(
 		&self,
-		tx: &impl leptoskit_db::Read,
-		account: Id<Account>,
+		wallet: &str,
 		mint: &str,
-	) -> rpc::Result<(String, Address, crate::escrow::Escrow)> {
+	) -> rpc::Result<(Address, crate::escrow::Escrow)> {
 		let Ok(address) = mint.parse::<Address>() else {
 			return Err(refused(Refusal::NotInVault));
-		};
-		let Some(wallet) = books::wallet_of(tx, account).await? else {
-			return Err(refused(Refusal::WalletUnproven));
 		};
 		let Ok(wallet_address) = wallet.parse::<Address>() else {
 			return Err(refused(Refusal::WalletUnproven));
@@ -379,53 +432,90 @@ impl Keeper {
 			.await
 			.map_err(refused)?;
 
+		Ok((address, recorded))
+	}
+
+	/// Checks `mint` is escrowed with the program by `account`'s proved
+	/// wallet, and returns the wallet, the mint, and the decoded on-chain
+	/// [`Escrow`](crate::escrow::Escrow).
+	async fn escrowed(
+		&self,
+		tx: &impl leptoskit_db::Read,
+		account: Id<Account>,
+		mint: &str,
+	) -> rpc::Result<(String, Address, crate::escrow::Escrow)> {
+		let Some(wallet) = books::wallet_of(tx, account).await? else {
+			return Err(refused(Refusal::WalletUnproven));
+		};
+		let (address, recorded) = self.escrowed_with_wallet(&wallet, mint).await?;
+
 		Ok((wallet, address, recorded))
 	}
 
 	async fn settle_hunt(
 		&self,
-		cx: &rpc::MutationCx,
+		account: Id<Account>,
 		sighting: i64,
 		log: &str,
 	) -> rpc::Result<SettledHunt> {
 		self.simulation()?;
 
-		let account = me(cx.identity())?;
-		let tx = cx.tx();
-		let now = now();
-		let feeding_seed = seed()?;
-		let judging = self.judging();
-
-		// Pre-check base64 size bound before allocating or decoding.
+		// Pre-check base64 size bound before allocating, reading DB, or decoding.
 		if log.len() > MAX_ENCODED_LOG_BYTES {
 			return Err(refused(Refusal::HuntUnproven));
 		}
 
-		let bound = HuskEscrow::query()
-			.filter(|escrow| escrow.account_id.eq(account) & escrow.sighting_id.eq(sighting))
-			.first(tx)
-			.await?;
-		let wallet = books::wallet_of(tx, account).await?;
+		let now = now();
+		let feeding_seed = seed()?;
+		let judging = self.judging();
 
-		// A husk escrowed on-chain is hunted only while it is still in
-		// escrow, by the wallet that released it.
+		// Fetch player_books, linked wallet, and matching husk_escrows row in
+		// one SQL round-trip outside any transaction.
+		let prefetch = books::prefetch_hunt(&self.db, account, sighting).await?;
+		let (fast_snapshot, wallet, bound, initial_state) = match prefetch {
+			Some(prefetch) => {
+				let has_nft = prefetch
+					.state
+					.reapers()
+					.iter()
+					.any(reapers_rules::ReaperState::is_nft);
+				let fast_snapshot = (!has_nft).then_some((prefetch.book_id, prefetch.raw_state));
+				(
+					fast_snapshot,
+					prefetch.wallet,
+					prefetch.bound,
+					Some(prefetch.state),
+				)
+			}
+			None => (None, None, None, None),
+		};
+
+		// Verify on-chain escrow outside any DB transaction using the
+		// already-fetched wallet (eliminating duplicate wallet_of queries).
 		let verified_escrow = if let Some(bound) = &bound {
 			if wallet.as_deref() != Some(bound.wallet.as_str()) {
 				return Err(refused(Refusal::WalletUnproven));
 			}
 
-			let (_, _, recorded) = self.escrowed(tx, account, &bound.mint).await?;
+			let (_, recorded) = self
+				.escrowed_with_wallet(&bound.wallet, &bound.mint)
+				.await?;
 			Some(recorded)
 		} else {
 			None
 		};
 
-		// Refresh and validate state (including sighting availability) once
-		// before running the CPU-heavy deterministic replay on a blocking thread.
-		let prepared = books::prepare(tx, &self.gateway, account, None).await?;
-		breach(prepared.state.huntable(sighting, now))?;
+		let initial_state = match (fast_snapshot.as_ref(), initial_state) {
+			(Some(_), Some(state)) => state,
+			_ => self.change_alone(account, Ok).await?,
+		};
 
-		let replay_state = prepared.state.clone();
+		breach(initial_state.huntable(sighting, now))?;
+
+		// Run base64 decoding + deterministic replay off the Tokio worker pool
+		// and completely outside any PostgreSQL transaction.
+		let replay_state = initial_state.clone();
+		let replay_judging = judging.clone();
 		let encoded_log = log.to_owned();
 		let permit = self
 			.replay_permits
@@ -433,36 +523,134 @@ impl Keeper {
 			.acquire_owned()
 			.await
 			.map_err(|_| rpc::Error::server("hunt replay pool closed"))?;
-		let judged = tokio::task::spawn_blocking(move || {
+		let (decoded, judged) = tokio::task::spawn_blocking(move || {
 			let _permit = permit;
 			let decoded = decode_log(&encoded_log)?;
-			breach(replay_state.judge_hunt(sighting, &decoded, now, feeding_seed, &judging))
+			let judged = breach(replay_state.judge_hunt(
+				sighting,
+				&decoded,
+				now,
+				feeding_seed,
+				&replay_judging,
+			))?;
+			Ok::<_, rpc::Error>((decoded, judged))
 		})
 		.await
 		.map_err(|_| rpc::Error::server("hunt replay task aborted"))??;
 
 		let player = player_bytes(account, wallet.as_deref());
-		let (settlement, receipt) = self.sign(&judged, player, bound.as_ref())?;
-		books::commit(tx, &self.gateway, &prepared, settlement.state.clone()).await?;
+		let (pre_settlement, pre_receipt) = self.sign(&judged, player, bound.as_ref())?;
 
+		let (settlement, receipt) = self
+			.commit_hunt_settlement(
+				account,
+				sighting,
+				fast_snapshot.as_ref(),
+				&initial_state,
+				&decoded,
+				now,
+				feeding_seed,
+				&judging,
+				player,
+				bound.as_ref(),
+				&pre_settlement,
+				pre_receipt.as_ref(),
+			)
+			.await?;
+
+		// Build the on-chain burn transaction outside any DB transaction.
 		let receipt = match (receipt, &bound, verified_escrow.as_ref()) {
-			(Some(receipt), Some(bound), escrow) => {
-				// Kept with the binding, so the same receipt can be built
-				// again if the wallet's burn does not land.
-				HuskEscrow::update()
-					.filter(|row| row.id.eq(bound.id))
-					.set(|row| row.nft, Some(receipt.absorption.nft.id()))
-					.set(|row| row.absorption, Some(Json(receipt.absorption.clone())))
-					.run(tx)
-					.await?;
-				Some(self.chain_receipt(receipt, escrow).await)
-			}
+			(Some(receipt), Some(_), escrow) => Some(self.chain_receipt(receipt, escrow).await),
 			_ => None,
 		};
 
 		Ok(SettledHunt {
 			settlement,
 			receipt,
+		})
+	}
+
+	/// Persists a settled hunt. On the common uncontended non-NFT fast path,
+	/// commits with a single atomic compare-and-swap `UPDATE` (plus escrow
+	/// update if escrowed), falling back to a DB-only `SERIALIZABLE`
+	/// transaction with re-judging if a concurrent mutation modified the row
+	/// or if NFT reaper ledger records must be reconciled.
+	#[expect(clippy::too_many_arguments, reason = "internal commit helper")]
+	async fn commit_hunt_settlement(
+		&self,
+		account: Id<Account>,
+		sighting: i64,
+		fast_snapshot: Option<&(leptoskit_db::Value, serde_json::Value)>,
+		initial_state: &PlayerState,
+		decoded: &HuntLog,
+		now: Timestamp,
+		feeding_seed: i64,
+		judging: &Judging,
+		player: [u8; 32],
+		bound: Option<&books::BoundEscrow>,
+		pre_settlement: &HuntSettlement,
+		pre_receipt: Option<&SignedReceipt>,
+	) -> rpc::Result<(HuntSettlement, Option<SignedReceipt>)> {
+		// Uncontended non-NFT fast path: 1 atomic CAS UPDATE (0 BEGIN/COMMIT
+		// when no escrow row needs updating; short READ COMMITTED tx if escrowed).
+		if let Some((book_id, expected_json)) = fast_snapshot {
+			let needs_escrow_write = pre_receipt.is_some() && bound.is_some();
+			if !needs_escrow_write {
+				if books::compare_and_swap_state(
+					&self.db,
+					book_id,
+					expected_json,
+					&pre_settlement.state,
+				)
+				.await?
+				{
+					return Ok((pre_settlement.clone(), pre_receipt.cloned()));
+				}
+			} else if let (Some(signed_receipt), Some(bound)) = (pre_receipt, bound) {
+				let tx = self.db.begin().await?;
+				let swapped = books::compare_and_swap_state(
+					&tx,
+					book_id,
+					expected_json,
+					&pre_settlement.state,
+				)
+				.await?;
+				if swapped {
+					books::record_escrow_absorption(&tx, &bound.id, &signed_receipt.absorption)
+						.await?;
+					tx.commit().await?;
+					return Ok((pre_settlement.clone(), Some(signed_receipt.clone())));
+				}
+				let _ = tx.rollback().await;
+			}
+		}
+
+		// Contended or NFT-reaper fallback: full SERIALIZABLE reconcile + commit.
+		books::transact_serializable!(&self.db, |tx| {
+			async {
+				let prepared = books::prepare(tx, &self.gateway, account, None).await?;
+				let (settlement, receipt) = if &prepared.state == initial_state {
+					(pre_settlement.clone(), pre_receipt.cloned())
+				} else {
+					let rejudged = breach(prepared.state.judge_hunt(
+						sighting,
+						decoded,
+						now,
+						feeding_seed,
+						judging,
+					))?;
+					self.sign(&rejudged, player, bound)?
+				};
+				books::commit(tx, &self.gateway, &prepared, settlement.state.clone()).await?;
+
+				if let (Some(signed_receipt), Some(bound)) = (&receipt, bound) {
+					books::record_escrow_absorption(tx, &bound.id, &signed_receipt.absorption)
+						.await?;
+				}
+
+				Ok::<_, rpc::Error>((settlement, receipt))
+			}
+			.await
 		})
 	}
 
@@ -478,7 +666,7 @@ impl Keeper {
 		&self,
 		judged: &HuntSettlement,
 		player: [u8; 32],
-		bound: Option<&HuskEscrow>,
+		bound: Option<&books::BoundEscrow>,
 	) -> rpc::Result<(HuntSettlement, Option<SignedReceipt>)> {
 		if !judged.outcome.absorbed() {
 			return Ok((judged.clone(), None));
@@ -537,11 +725,17 @@ impl Keeper {
 		};
 		let canonical_nft = parsed_nft.id();
 
-		let bound = HuskEscrow::query()
-			.filter(|escrow| escrow.account_id.eq(account) & escrow.nft.eq(canonical_nft.clone()))
-			.order_by(|escrow| escrow.created_at.desc())
-			.first(&self.db)
-			.await?;
+		let bound_fut = async {
+			HuskEscrow::query()
+				.filter(|escrow| {
+					escrow.account_id.eq(account) & escrow.nft.eq(canonical_nft.clone())
+				})
+				.order_by(|escrow| escrow.created_at.desc())
+				.first(&self.db)
+				.await
+				.map_err(rpc::Error::from)
+		};
+		let (bound, wallet) = tokio::try_join!(bound_fut, books::wallet_of(&self.db, account))?;
 		let Some((bound, Json(absorption))) = bound.and_then(|bound| {
 			bound
 				.absorption
@@ -550,7 +744,6 @@ impl Keeper {
 		}) else {
 			return Err(refused(Refusal::NotInVault));
 		};
-		let wallet = books::wallet_of(&self.db, account).await?;
 
 		// Burned only by the wallet that released it, while the escrow it
 		// was released into still holds it.
@@ -558,8 +751,10 @@ impl Keeper {
 			return Err(refused(Refusal::WalletUnproven));
 		}
 
-		let (wallet, mint, recorded) = self.escrowed(&self.db, account, &bound.mint).await?;
-		let player = player_bytes(account, Some(&wallet));
+		let (mint, recorded) = self
+			.escrowed_with_wallet(&bound.wallet, &bound.mint)
+			.await?;
+		let player = player_bytes(account, Some(&bound.wallet));
 		let Some(receipt) = receipt::of(player, *mint.as_bytes(), &absorption) else {
 			return Err(rpc::Error::server("an absorption does not fit its receipt"));
 		};
@@ -688,9 +883,11 @@ impl Keeper {
 		let account = me(cx.identity())?;
 		let tx = cx.tx();
 
-		// Issuing a sign-in challenge only needs local books; avoid blocking
-		// wallet authentication on external Solana RPC availability.
-		books::open(tx, account).await?;
+		// Issuing a sign-in challenge only needs local books; check existence
+		// without fetching or parsing the large `state` JSONB on existing accounts.
+		if !books::exists(tx, account).await? {
+			books::open(tx, account).await?;
+		}
 
 		let issued = chrono::Utc::now();
 		let expires = issued + wallet::LIFETIME;
@@ -737,23 +934,31 @@ impl Keeper {
 		let Some(site) = RiftSite::from_name(site) else {
 			return Err(refused(Refusal::NotAttuned));
 		};
-		let mut entering = None;
-
-		self.change_alone(account, |state| {
+		let (entrant, reaper) = if let Some(state) = books::load_fast(&self.db, account).await? {
 			let entrant = breach(if demo {
 				demo_entrant(&state)
 			} else {
 				state.entrant_for(site)
 			})?;
+			(entrant, state.active_reaper_id().map(str::to_owned))
+		} else {
+			let mut entering = None;
 
-			entering = Some((entrant, state.active_reaper_id().map(str::to_owned)));
-			Ok(state)
-		})
-		.await?;
+			self.change_alone(account, |state| {
+				let entrant = breach(if demo {
+					demo_entrant(&state)
+				} else {
+					state.entrant_for(site)
+				})?;
 
-		let Some((entrant, reaper)) = entering else {
-			return Err(rpc::Error::server("the reaper was not read"));
+				entering = Some((entrant, state.active_reaper_id().map(str::to_owned)));
+				Ok(state)
+			})
+			.await?;
+
+			entering.ok_or_else(|| rpc::Error::server("the reaper was not read"))?
 		};
+
 		let settler_keeper = Arc::clone(&self);
 		let settler: crate::rift::RiftSettler =
 			Arc::new(move |seat_account, seat_reaper, reward| {
@@ -785,6 +990,7 @@ impl Keeper {
 		let following = Following {
 			chair,
 			step: Step::First,
+			last_lobby_frame: None,
 		};
 
 		Ok(Box::pin(futures::stream::unfold(
@@ -812,6 +1018,7 @@ impl Keeper {
 
 /// What a signed absorption carries to the chain, and the codex entry it
 /// was signed for.
+#[derive(Clone)]
 struct SignedReceipt {
 	receipt: Receipt,
 	signature: solana_kit_core::Signature,
@@ -897,6 +1104,7 @@ enum Step {
 struct Following {
 	chair: Chair,
 	step: Step,
+	last_lobby_frame: Option<RiftFrame>,
 }
 
 impl Following {
@@ -907,41 +1115,60 @@ impl Following {
 				self.step = Step::Following;
 
 				let frame = self.frame();
+				if let Ok(ref f) = frame
+					&& f.phase == RiftPhase::Gathering
+					&& !f.counting_down
+				{
+					self.last_lobby_frame = Some(f.clone());
+				}
 
 				Some((frame, self))
 			}
 			Step::Following => {
-				// A report that ended the rift is told before the next beat.
-				if let Some(failure) = self.chair.failure() {
-					self.step = Step::Done;
-					return Some((Err(failure), self));
-				}
-
-				if !self.chair.beat().await {
-					return None;
-				}
-
-				let frame = match self.chair.failure().map_or_else(|| self.frame(), Err) {
-					Ok(frame) => frame,
-					Err(error) => {
+				loop {
+					// A report that ended the rift is told before the next beat.
+					if let Some(failure) = self.chair.failure() {
 						self.step = Step::Done;
+						return Some((Err(failure), self));
+					}
+
+					if !self.chair.beat().await {
+						return None;
+					}
+
+					let frame = match self.chair.failure().map_or_else(|| self.frame(), Err) {
+						Ok(frame) => frame,
+						Err(error) => {
+							self.step = Step::Done;
+							return Some((Err(error), self));
+						}
+					};
+
+					// Suppress redundant 10 Hz frames while sitting idle in an
+					// unchanging Gathering lobby before countdown starts.
+					if frame.phase == RiftPhase::Gathering && !frame.counting_down {
+						if self.last_lobby_frame.as_ref() == Some(&frame) {
+							continue;
+						}
+						self.last_lobby_frame = Some(frame.clone());
+					} else {
+						self.last_lobby_frame = None;
+					}
+
+					if !frame.phase.is_over() {
+						return Some((Ok(frame), self));
+					}
+
+					self.step = Step::Done;
+
+					if frame.phase == RiftPhase::Sealed
+						&& let Some(error) = self.chair.settlement_error()
+					{
 						return Some((Err(error), self));
 					}
-				};
 
-				if !frame.phase.is_over() {
 					return Some((Ok(frame), self));
 				}
-
-				self.step = Step::Done;
-
-				if frame.phase == RiftPhase::Sealed
-					&& let Some(error) = self.chair.settlement_error()
-				{
-					return Some((Err(error), self));
-				}
-
-				Some((Ok(frame), self))
 			}
 		}
 	}
@@ -958,6 +1185,10 @@ impl Following {
 pub struct Shared(pub Arc<Keeper>);
 
 impl reapers_api::keeper::Keeper for Shared {
+	fn load<'a>(&'a self, cx: &'a rpc::ActionCx) -> BoxFuture<'a, rpc::Result<PlayerState>> {
+		Box::pin(async move { self.0.load(me(cx.identity())?).await })
+	}
+
 	fn change<'a>(
 		&'a self,
 		cx: &'a rpc::MutationCx,
@@ -966,13 +1197,21 @@ impl reapers_api::keeper::Keeper for Shared {
 		Box::pin(self.0.change(cx, change))
 	}
 
+	fn apply_action<'a>(
+		&'a self,
+		cx: &'a rpc::ActionCx,
+		change: Change,
+	) -> BoxFuture<'a, rpc::Result<PlayerState>> {
+		Box::pin(async move { self.0.apply_action(me(cx.identity())?, change).await })
+	}
+
 	fn settle_hunt<'a>(
 		&'a self,
-		cx: &'a rpc::MutationCx,
+		cx: &'a rpc::ActionCx,
 		sighting: i64,
 		log: String,
 	) -> BoxFuture<'a, rpc::Result<SettledHunt>> {
-		Box::pin(async move { self.0.settle_hunt(cx, sighting, &log).await })
+		Box::pin(async move { self.0.settle_hunt(me(cx.identity())?, sighting, &log).await })
 	}
 
 	fn absorb_transaction<'a>(
@@ -985,14 +1224,14 @@ impl reapers_api::keeper::Keeper for Shared {
 
 	fn update_location<'a>(
 		&'a self,
-		cx: &'a rpc::MutationCx,
+		cx: &'a rpc::ActionCx,
 		fix: Option<GeoFix>,
 	) -> BoxFuture<'a, rpc::Result<()>> {
-		Box::pin(async move { books::locate(cx.tx(), me(cx.identity())?, fix, now()).await })
+		Box::pin(async move { books::locate(&self.0.db, me(cx.identity())?, fix, now()).await })
 	}
 
 	fn location<'a>(&'a self, cx: &'a rpc::QueryCx) -> BoxFuture<'a, rpc::Result<Option<GeoFix>>> {
-		Box::pin(async move { books::location(cx.db(), me(cx.identity())?, now()).await })
+		Box::pin(async move { books::location(&self.0.db, me(cx.identity())?, now()).await })
 	}
 
 	fn receipt_key(&self) -> KeeperKey {

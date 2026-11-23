@@ -44,6 +44,7 @@ use axum::response::Response;
 use axum::routing::get;
 use axum::routing::post;
 use futures::future::BoxFuture;
+use leptoskit_auth::Account;
 use leptoskit_auth::Auth;
 use leptoskit_auth::AuthError;
 use leptoskit_auth::CurrentSession;
@@ -60,13 +61,17 @@ use leptoskit_auth::SessionResponse;
 use leptoskit_auth::SessionToken;
 use leptoskit_auth::Tokens;
 use leptoskit_db::Db;
+use leptoskit_db::Id;
 use leptoskit_rpc as rpc;
 use leptoskit_rpc::Identify;
 use leptoskit_rpc::Identity;
 use leptoskit_rpc::server::IdentityLease;
 use leptoskit_rpc::server::Live;
 use reapers_api::keeper::KeeperHandle;
+use tower_http::CompressionLevel;
+use tower_http::compression::CompressionLayer;
 use tower_http::cors::CorsLayer;
+use tower_http::decompression::DecompressionLayer;
 
 use crate::chain::Gateway;
 use crate::config::RunMode;
@@ -140,13 +145,19 @@ pub fn start(db: &Db, keys: Keys, options: Options) -> Result<Reapers, AuthError
 		None => rpc.live(),
 	};
 	let limits = Arc::new(RateLimits::for_mode(options.mode));
-	let router = Router::new()
+	// Compress HTTP API/auth/session answers (Brotli level 4 keeps latency
+	// sub-millisecond while cutting ~10 KiB JSON answers to ~1.5 KiB) and
+	// accept gzip-compressed request bodies, leaving the WebSocket route alone.
+	let http_routes = Router::new()
 		.merge(rpc.router())
 		.merge(sign_in::router(Arc::clone(&keeper)))
 		.merge(session_router(
 			auth.clone(),
 			db.system("auth: session inspection"),
 		))
+		.layer(DecompressionLayer::new())
+		.layer(CompressionLayer::new().quality(CompressionLevel::Precise(4)));
+	let router = http_routes
 		.merge(live.router())
 		// Rate limiting runs after auth resolution so authenticated accounts
 		// get per-account buckets and unauthenticated sign-in endpoints are
@@ -243,15 +254,18 @@ fn bearer_token(headers: &HeaderMap) -> Option<SessionToken> {
 		.then(|| SessionToken::new(token.trim()))
 }
 
-/// Hardens every HTTP answer with non-cacheable API security headers.
+/// Hardens every HTTP answer with API security headers. Public static keys
+/// (`/api/receipt_key`) may be cached briefly; everything else is `no-store`.
 async fn security_headers_layer(request: Request<Body>, next: Next) -> Response {
+	let cache_control = if request.uri().path() == "/api/receipt_key" {
+		HeaderValue::from_static("public, max-age=300")
+	} else {
+		HeaderValue::from_static("no-store, max-age=0")
+	};
 	let mut response = next.run(request).await;
 	let headers = response.headers_mut();
 
-	headers.insert(
-		header::CACHE_CONTROL,
-		HeaderValue::from_static("no-store, max-age=0"),
-	);
+	headers.insert(header::CACHE_CONTROL, cache_control);
 	headers.insert(
 		header::X_CONTENT_TYPE_OPTIONS,
 		HeaderValue::from_static("nosniff"),
@@ -265,7 +279,14 @@ async fn security_headers_layer(request: Request<Body>, next: Next) -> Response 
 	response
 }
 
-type RateBuckets = HashMap<(String, &'static str), (Instant, u32)>;
+/// Zero-allocation actor key for per-account / per-IP rate limiting.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+enum ActorKey {
+	Account(Id<Account>),
+	Ip(IpAddr),
+}
+
+type RateBuckets = HashMap<(ActorKey, &'static str), (Instant, u32)>;
 
 /// Fixed-window per-client/per-bucket rate limiter with bounded cardinality so
 /// unauthenticated endpoints (`/auth/guest`, `/auth/wallet`, `/auth/refresh`)
@@ -299,7 +320,7 @@ impl RateLimits {
 		}
 	}
 
-	fn allow(&self, actor: String, bucket: &'static str, limit: u32) -> Result<(), u64> {
+	fn allow(&self, actor: ActorKey, bucket: &'static str, limit: u32) -> Result<(), u64> {
 		let now = Instant::now();
 		let mut map = self.buckets.lock().unwrap_or_else(PoisonError::into_inner);
 
@@ -350,14 +371,19 @@ async fn rate_limit_layer(
 	let actor = request
 		.extensions()
 		.get::<CurrentSession>()
-		.and_then(|session| session.signed_in.as_ref().map(|me| me.account.to_string()))
+		.and_then(|session| {
+			session
+				.signed_in
+				.as_ref()
+				.map(|me| ActorKey::Account(me.account))
+		})
 		.or_else(|| {
 			request
 				.extensions()
 				.get::<ConnectInfo<SocketAddr>>()
-				.map(|ConnectInfo(addr)| addr.ip().to_string())
+				.map(|ConnectInfo(addr)| ActorKey::Ip(addr.ip()))
 		})
-		.unwrap_or_else(|| IpAddr::from([127, 0, 0, 1]).to_string());
+		.unwrap_or_else(|| ActorKey::Ip(IpAddr::from([127, 0, 0, 1])));
 
 	if let Err(retry_after) = limits.allow(actor, bucket, limit) {
 		let mut response = (

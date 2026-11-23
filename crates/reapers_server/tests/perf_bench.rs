@@ -81,6 +81,7 @@ async fn post_json(
 
 #[tokio::test]
 #[ignore = "performance benchmark, run explicitly in --release"]
+#[expect(clippy::too_many_lines, reason = "end-to-end benchmark harness")]
 async fn server_http_end_to_end_benchmark() {
 	let db = database().await;
 	let reapers = reapers_server::server::start(
@@ -173,9 +174,9 @@ async fn server_http_end_to_end_benchmark() {
 	let sighting = player.sightings()[0];
 	let weapon_id = player.weapons()[0].id();
 
-	// Build a valid hunt log for this sighting
+	// Build a valid compact hunt log for this sighting (matching RemoteBackend)
 	let hunt_log = play(&player, &sighting);
-	let encoded_log = reapers_api::player::encode_log(&hunt_log.encode());
+	let encoded_log = reapers_api::player::encode_log(&hunt_log.encode_compact());
 	let settle_req_body = serde_json::to_vec(&json!({
 		"sighting": sighting.id,
 		"log": encoded_log,

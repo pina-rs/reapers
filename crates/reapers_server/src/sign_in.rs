@@ -93,15 +93,28 @@ async fn guest(State(keeper): State<Arc<Keeper>>) -> Result<Json<SignedIn>, Refu
 
 /// Opens a new guest account, with its books, and starts its session.
 pub async fn sign_in_guest(keeper: &Keeper) -> rpc::Result<SignedIn> {
-	books::transact_serializable!(keeper.db(), |tx| {
-		async {
-			let account = new_account(tx).await?;
+	// A brand-new random UUID cannot collide with any existing account, so a
+	// normal READ COMMITTED transaction and direct insert avoid both
+	// SERIALIZABLE overhead and a guaranteed-miss SELECT.
+	let tx = keeper.db().begin().await?;
+	let result = async {
+		let account = new_account(&tx).await?;
 
-			books::open(tx, account).await?;
-			start_session(tx, account).await
+		books::create_initial(&tx, account).await?;
+		start_session(&tx, account).await
+	}
+	.await;
+
+	match result {
+		Ok(signed_in) => {
+			tx.commit().await?;
+			Ok(signed_in)
 		}
-		.await
-	})
+		Err(error) => {
+			let _ = tx.rollback().await;
+			Err(error)
+		}
+	}
 }
 
 async fn wallet_sign_in(
