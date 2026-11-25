@@ -1,10 +1,13 @@
 """The spear: the chooser's weapon.
 
 A long leaf of bone on a haft of wood taller than its bearer, made for one
-strike (art bible 6.4). The leaf swells early and runs a long way to its
-point, its faces ground in clean planes to a rib; a seam of light runs down
-the rib on both faces, the fuller, the one light on it. A band of the
-owner's gold rings the haft where the hand meets it.
+strike (art bible 6.4). The leaf is big, half again a spearhead's length,
+swelling early and running a long way to its point, its faces ground in
+clean planes to a rib, with a barb hooked back either side of its foot so
+the tip has a second note. A broad stripe of light runs down the rib on both
+faces, the fuller and the one light on it, still found as `spear_edge`. A
+proud band of the owner's gold rings the haft where the hand meets it, and
+two broad streamers and a feather hang under the leaf.
 """
 
 import math
@@ -15,7 +18,7 @@ from lib import core
 from lib.armoury import band, binding, finish, haft
 
 BLADE_FOOT = 0.9
-BLADE_TIP = 1.45
+BLADE_TIP = 1.62
 BUTT = -0.97
 
 # Which way loose things hang. The chooser carries the spear leaning, so they
@@ -32,32 +35,51 @@ def build():
 
     haft("spear_haft", root, bottom=BUTT, top=0.86, radius=0.021, bow=0.012)
     binding("spear_grip", root, -0.1, 0.14, radius=0.0275)
-    band("spear_band", root, 0.145, 0.18, radius=0.0265)
+    band("spear_band", root, 0.145, 0.195, radius=0.036)
 
-    blade = _blade("spear_blade", bone, root)
+    blade = core.join([_blade("spear_leaf", bone, None), *_barbs(bone)], "spear_blade")
+    blade.parent = root
 
     for polygon in blade.data.polygons:
         polygon.use_smooth = False
 
     finish(blade, wear_boost=2.0)
 
-    # The fuller: a seam of light down the rib of each face, from the foot
-    # of the leaf most of the way to its point.
+    # The fuller: a broad stripe of light lying over the rib of each face,
+    # from the foot of the leaf most of the way to its point.
     seams = []
 
     for face in (-1, 1):
-        seams.append(
-            core.tube(
-                f"spear_fuller_{face}",
-                [(0, face * (_rib(t) + 0.0004), _blade_height(t)) for t in _steps(0.06, 0.8, 12)],
-                lambda t: 0.0042 * (1 - 0.6 * t),
-                core.material("accent"),
-                sides=5,
-                flatten=0.45,
-            )
-        )
+        rings = []
 
-    core.join(seams, "spear_fuller").parent = root
+        for t in _steps(0.05, 0.8, 12):
+            width = _blade_width(t)
+            rib = _rib(t)
+            height = _blade_height(t)
+            # Widest a third of the way up, and never wider than a third of
+            # the leaf.
+            half = min(0.016 * math.sin(math.pi * min(1.0, (t - 0.02) / 0.82)) ** 0.5 + 0.003, width * 0.36)
+            # The face falls from the rib to the edge in a straight line.
+            fall = rib * (1 - half / width)
+            proud = 0.0012
+            rings.append(
+                [
+                    (-half, face * (fall + proud), height),
+                    (0.0, face * (rib + proud), height),
+                    (half, face * (fall + proud), height),
+                    (half * 0.8, face * (fall - 0.0015), height),
+                    (0.0, face * (rib - 0.002), height),
+                    (-half * 0.8, face * (fall - 0.0015), height),
+                ]
+            )
+
+        seams.append(core.loft(f"spear_edge_{face}", rings, core.material("accent"), cap_start=True, cap_end=True))
+
+    edge = core.join(seams, "spear_edge")
+    edge.parent = root
+
+    for polygon in edge.data.polygons:
+        polygon.use_smooth = False
 
     # The socket the blade grows out of, flared where it grips the haft.
     finish(
@@ -105,13 +127,13 @@ def _blade_width(t):
     """Half the blade's width, `t` of the way from its foot to its point: a
     leaf that swells early and then runs a long way to nothing."""
 
-    return 0.014 * (1 - t) + 0.058 * math.sin(math.pi * t**0.72) ** 1.1
+    return 0.018 * (1 - t) + 0.076 * math.sin(math.pi * t**0.72) ** 1.1
 
 
 def _rib(t):
     """How far the rib stands out of the blade's middle, `t` of the way up."""
 
-    return 0.0115 * (1 - t) ** 0.7 + 0.0012
+    return 0.0145 * (1 - t) ** 0.7 + 0.0014
 
 
 def _blade(name, mat, parent):
@@ -130,43 +152,80 @@ def _blade(name, mat, parent):
     return core.loft(name, rings, mat, parent, cap_start=True, cap_end=True)
 
 
+def _barbs(mat):
+    """A barb either side of the leaf's foot, swept out and hooked back
+    down toward the hand: a winged spear's lugs, cut in planes."""
+
+    barbs = []
+
+    for side in (-1, 1):
+        spine = [(side * 0.016, BLADE_FOOT + 0.07), (side * 0.07, BLADE_FOOT + 0.045), (side * 0.112, BLADE_FOOT - 0.005), (side * 0.118, BLADE_FOOT - 0.06)]
+        edge = [(side * 0.016, BLADE_FOOT + 0.012), (side * 0.056, BLADE_FOOT + 0.002), (side * 0.088, BLADE_FOOT - 0.02), (side * 0.118, BLADE_FOOT - 0.06)]
+        barbs.append(core.blade(f"spear_barb_{side}", spine, edge, 0.02, mat))
+
+    return barbs
+
+
 def _tokens(root):
-    """What the chooser ties below the blade: red thread, and a feather for
-    each side of the choice."""
+    """What the chooser ties below the blade: two broad streamers of red
+    cloth, swallow-tailed, and one big feather."""
 
-    threads = []
+    streamers = []
 
-    for index, (turn, drop) in enumerate(((0.4, 0.34), (2.2, 0.25), (3.5, 0.42), (4.6, 0.2), (5.5, 0.3))):
-        start = Vector((math.cos(turn) * 0.031, math.sin(turn) * 0.031, 0.71 + 0.01 * index))
-        out = Vector((math.cos(turn), math.sin(turn), 0)) * 0.035
-        fall = HANG * drop
+    for index, (turn, length, width, twist) in enumerate(((0.6, 0.36, 0.036, 1.4), (2.9, 0.27, 0.03, -1.1))):
+        start = Vector((math.cos(turn) * 0.03, math.sin(turn) * 0.03, 0.74 - 0.02 * index))
+        out = Vector((math.cos(turn), math.sin(turn), 0))
+        path = core.bezier([start, start + out * 0.05 + HANG * length * 0.35, start + out * 0.07 + HANG * length * 0.7, start + out * 0.06 + HANG * length], samples=3)
+        streamers.append(_streamer(f"spear_thread_{index}", path, out, width, twist))
 
-        threads.append(
-            core.tube(
-                f"spear_thread_{index}",
-                core.bezier([start, start + out + fall * 0.3, start + out * 1.3 + fall * 0.68, start + out + fall], samples=5),
-                # Each thread ends in a knot.
-                lambda t: 0.0032 + 0.0045 * max(0.0, 1 - abs(t - 0.95) / 0.05) ** 2,
-                core.material("cloth_alt"),
-                sides=5,
-            )
-        )
-
-    tied = core.join(threads, "spear_threads")
+    tied = core.join(streamers, "spear_threads")
     tied.parent = root
+
+    for polygon in tied.data.polygons:
+        polygon.use_smooth = False
+
     finish(tied)
 
-    feathers = []
-
-    for index, (turn, length, width) in enumerate(((3.3, 0.34, 0.034), (4.5, 0.26, 0.028))):
-        start = Vector((math.cos(turn) * 0.033, math.sin(turn) * 0.033, 0.69))
-        out = Vector((math.cos(turn), math.sin(turn), 0))
-
-        feathers.append(_feather(f"spear_feather_{index}", start, start + out * 0.07 + HANG * length, out, width))
-
-    plume = core.join(feathers, "spear_feathers")
+    start = Vector((math.cos(4.2) * 0.033, math.sin(4.2) * 0.033, 0.7))
+    out = Vector((math.cos(4.2), math.sin(4.2), 0))
+    plume = _feather("spear_feathers", start, start + out * 0.08 + HANG * 0.36, out, 0.05)
     plume.parent = root
     finish(core.shade_smooth(plume, angle=50), wear_boost=1.4)
+
+
+def _streamer(name, path, facing, width, twist):
+    """A strip of cloth `width` wide hanging down `path`, turning `twist`
+    radians about itself as it falls, its end cut into a swallow's tail."""
+
+    points = [Vector(point) for point in path]
+    rings = []
+    count = len(points)
+
+    for index, centre in enumerate(points):
+        share = index / (count - 1)
+        ahead = points[min(index + 1, count - 1)]
+        behind = points[max(index - 1, 0)]
+        tangent = (ahead - behind).normalized()
+        side = tangent.cross(facing).normalized()
+        normal = side.cross(tangent)
+        angle = twist * share
+        side, normal = side * math.cos(angle) + normal * math.sin(angle), normal * math.cos(angle) - side * math.sin(angle)
+        half = width / 2 * (0.7 + 0.3 * share)
+        thick = 0.0022
+        # The last ring's middle is drawn back up the strip: the tail's cut.
+        middle = centre - tangent * (0.06 * width / 0.036 if index == count - 1 else 0.0)
+        rings.append(
+            [
+                centre - side * half - normal * thick,
+                middle - normal * thick,
+                centre + side * half - normal * thick,
+                centre + side * half + normal * thick,
+                middle + normal * thick,
+                centre - side * half + normal * thick,
+            ]
+        )
+
+    return core.loft(name, rings, core.material("cloth_alt"), cap_start=True, cap_end=True)
 
 
 def _feather(name, base, tip, facing, width):

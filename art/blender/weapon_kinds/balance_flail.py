@@ -1,12 +1,14 @@
 """The balance-flail: the weigher's weapon.
 
 A scale on a staff: an iron beam across the top of a haft like a tall "T",
-with a shallow pan of the owner's gold hanging on three chains from each end
-(art bible 6.4). The chains' links are cast twice the size a chain would
-be, so they read as links and not as a line. The beam has already tipped,
-so one pan hangs lower than the other. It turns on a stone set through the
-fulcrum, the one light on it, and a band of gold rings the staff at the
-grip.
+with a deep pan of the owner's gold hanging on three chains from each end
+(art bible 6.4), and the scale's needle standing up out of the fulcrum, so
+the head reads as a balance and not as a cross at any distance. The chains'
+links are cast twice the size a chain would be, so they read as links and
+not as a line. The beam has already tipped, so one pan hangs lower than the
+other. It turns on a faceted stone set through the fulcrum, as deep as the
+beam and standing proud of both its faces: the one light on it, still found
+as `flail_pin`. A proud band of gold rings the staff at the grip.
 """
 
 import math
@@ -19,7 +21,7 @@ from lib.armoury import band, binding, finish, haft
 BEAM_HEIGHT = 0.59
 BEAM_REACH = 0.6
 TILT = math.radians(6)
-PAN_RADIUS = 0.135
+PAN_RADIUS = 0.145
 CHAIN_DROP = 0.25
 
 
@@ -33,7 +35,7 @@ def build():
 
     haft("flail_haft", root, bottom=-0.88, top=BEAM_HEIGHT, bow=0.01)
     binding("flail_grip", root, -0.09, 0.12, turns=5)
-    band("flail_band", root, -0.13, -0.096, radius=0.026)
+    band("flail_band", root, -0.15, -0.1, radius=0.036)
 
     # A shod foot, so the staff can be set down like a gavel.
     finish(
@@ -76,28 +78,41 @@ def build():
 
     pivot = _on_beam(0.0, 0.02)
 
-    finish(
-        core.tube(
-            "flail_pivot",
-            [pivot + Vector((0, depth, 0)) for depth in (-0.03, -0.024, 0.024, 0.03)],
-            lambda t: 0.034 + 0.01 * (1 - abs(2 * t - 1)) ** 0.25,
-            metal,
-            root,
-            sides=14,
-        ),
-        wear_boost=1.8,
+    boss = core.tube(
+        "flail_pivot",
+        [pivot + Vector((0, depth, 0)) for depth in (-0.034, -0.028, 0.028, 0.034)],
+        lambda t: 0.04 + 0.01 * (1 - abs(2 * t - 1)) ** 0.25,
+        metal,
+        sides=8,
     )
+    # The needle: a tapering blade standing square to the beam out of the
+    # fulcrum, which leans as the beam tips.
+    needle = core.tube(
+        "flail_needle",
+        [_on_beam(0.0, 0.02 + height) for height in (0.03, 0.09, 0.16, 0.23)],
+        lambda t: 0.017 * (1 - 0.94 * t),
+        metal,
+        sides=4,
+        flatten=0.45,
+    )
+    pivot_part = core.join([boss, needle], "flail_pivot")
+    pivot_part.parent = root
+
+    for polygon in pivot_part.data.polygons:
+        polygon.use_smooth = False
+
+    finish(pivot_part, wear_boost=1.8)
 
     # The beam turns on a stone set through the fulcrum, cut in facets and
     # standing proud of both faces: the one light.
     stone = core.revolve(
-        "flail_stone",
-        [(0.0, -0.048), (0.017, -0.036), (0.022, -0.012), (0.022, 0.012), (0.017, 0.036), (0.0, 0.048)],
+        "flail_pin",
+        [(0.0, -0.078), (0.026, -0.06), (0.04, -0.036), (0.04, 0.036), (0.026, 0.06), (0.0, 0.078)],
         core.material("accent"),
         root,
         segments=6,
     )
-    stone.data.transform(Matrix.Translation(pivot) @ Matrix.Rotation(math.pi / 2, 4, "X"))
+    stone.data.transform(Matrix.Translation(pivot) @ Matrix.Rotation(math.pi / 2, 4, "X") @ Matrix.Rotation(math.pi / 6, 4, "Z"))
 
     for polygon in stone.data.polygons:
         polygon.use_smooth = False
@@ -141,19 +156,24 @@ def _on_beam(along, above):
     )
 
 
-def _pan(name, rim, mat, parent, segments=32):
-    """A shallow dish hanging level, with the centre of its rim at `rim`."""
+def _pan(name, rim, mat, parent, segments=20):
+    """A deep pan hanging level, with the centre of its rim at `rim`."""
 
+    # Half again as deep as a dish, with a rolled lip: the lip turns, so the
+    # gold takes a lit band over a shade band rather than one flat strip.
     profile = (
-        (0.0, -0.056),
-        (0.06, -0.049),
-        (0.108, -0.028),
-        (PAN_RADIUS - 0.004, -0.006),
-        (PAN_RADIUS, 0.003),
-        (PAN_RADIUS - 0.009, 0.003),
-        (0.1, -0.02),
-        (0.055, -0.039),
-        (0.0, -0.046),
+        (0.0, -0.086),
+        (0.06, -0.077),
+        (0.108, -0.048),
+        (PAN_RADIUS - 0.006, -0.014),
+        (PAN_RADIUS + 0.004, -0.004),
+        (PAN_RADIUS + 0.009, 0.005),
+        (PAN_RADIUS + 0.004, 0.013),
+        (PAN_RADIUS - 0.006, 0.01),
+        (PAN_RADIUS - 0.012, -0.004),
+        (0.1, -0.036),
+        (0.055, -0.062),
+        (0.0, -0.072),
     )
     rings = []
 
@@ -170,7 +190,7 @@ def _pan(name, rim, mat, parent, segments=32):
     return core.loft(name, rings, mat, parent)
 
 
-def _link(name, centre, along, across, length, width, wire=0.0085, steps=6, sides=4):
+def _link(name, centre, along, across, length, width, wire=0.011, steps=6, sides=4):
     """One chain link: a closed oval of wire, long in the `along` direction."""
 
     out = along.cross(across)
@@ -203,6 +223,6 @@ def _chain(name, start, end, pitch=0.086):
     step = (end - start).length / count
 
     return [
-        _link(f"{name}_{index}", start.lerp(end, (index + 0.5) / count), along, flat if index % 2 else edge, step + 0.026, 0.044)
+        _link(f"{name}_{index}", start.lerp(end, (index + 0.5) / count), along, flat if index % 2 else edge, step + 0.03, 0.05)
         for index in range(count)
     ]
