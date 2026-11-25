@@ -428,11 +428,16 @@ impl SimnetChain {
 			receipt_signature: post.receipt_signature,
 			wire,
 		};
-		self.state
-			.borrow_mut()
-			.transactions
-			.push(transaction.clone());
-		self.save().await?;
+		// The ledger keeps only what it has written: a transaction a failed
+		// write left in memory never happened.
+		let next = {
+			let state = self.state.borrow();
+			let mut next = state.clone();
+			next.transactions.push(transaction.clone());
+			next
+		};
+		self.write(&next).await?;
+		*self.state.borrow_mut() = next;
 		for listener in self.listeners.borrow().iter() {
 			listener(&transaction);
 		}
@@ -502,17 +507,25 @@ impl SimnetChain {
 	/// next table.
 	pub async fn reset(&self) -> KeeperResult<()> {
 		let secret = platform::random_bytes().await?;
-		*self.state.borrow_mut() = Genesis {
+		let next = Genesis {
 			secret,
 			genesis: (self.clock)(),
 			transactions: Vec::new(),
 		};
-		self.save().await
+		self.write(&next).await?;
+		*self.state.borrow_mut() = next;
+		Ok(())
 	}
 
 	async fn save(&self) -> KeeperResult<()> {
-		let value =
-			serde_json::to_value(&*self.state.borrow()).map_err(KeeperError::unavailable)?;
+		let state = self.state.borrow().clone();
+		self.write(&state).await
+	}
+
+	/// Writes `state` to the device, which is the only place a transaction
+	/// counts until the ledger takes it in memory.
+	async fn write(&self, state: &Genesis) -> KeeperResult<()> {
+		let value = serde_json::to_value(state).map_err(KeeperError::unavailable)?;
 		Ok(self.prefs.set(Self::STORAGE_KEY, value).await?)
 	}
 

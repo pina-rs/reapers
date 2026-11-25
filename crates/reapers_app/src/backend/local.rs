@@ -155,6 +155,14 @@ impl LocalBackend {
 		Ok(self.prefs.set(self.storage_key, value).await?)
 	}
 
+	/// Puts the player back as it was. A keeper that posts to a chain after
+	/// the rules have run undoes a change the chain refused with this, so the
+	/// books and the chain tell the same story.
+	pub async fn restore(&self, state: PlayerState) -> KeeperResult<()> {
+		let _guard = self.lock.lock().await;
+		self.save(&state).await
+	}
+
 	async fn change(
 		&self,
 		apply: impl FnOnce(&PlayerState) -> RuleResult<PlayerState>,
