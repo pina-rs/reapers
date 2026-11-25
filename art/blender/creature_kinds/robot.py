@@ -23,6 +23,8 @@ from lib import core, creature
 # Edges sharper than this stay crisp; anything gentler (a bevel, the side of
 # a can) is shaded round.
 SHARP = 50
+# How far each seal's port stands out of the plate it is set in.
+SEAT_RISE = 0.012
 
 
 def build(spec):
@@ -41,6 +43,20 @@ def build(spec):
     _piston_leg(root, hips, floor)
     _drum_leg(root, hips, floor)
 
+    # Each seal on a port of its own: a square hatch on the face, the chest
+    # and the back, and a cog on each shoulder joint, which turns about the
+    # seal as the arm swings.
+    _, _, detail, _, _ = _palette()
+    part = {node.name: node for node in root.children_recursive}
+
+    creature.seat("seat_0", spec, 0, detail, part["head"], [part["skull_body"]], radius=0.05, rise=SEAT_RISE, lobes=0, power=4.0)
+
+    for index in (1, 4):
+        creature.seat(f"seat_{index}", spec, index, detail, root, [part["torso_body"]], radius=0.062, rise=SEAT_RISE, lobes=0, power=4.0)
+
+    creature.seat("seat_2", spec, 2, detail, part["arm_l"], [part["claw_arm_trim"]], radius=0.044, rise=SEAT_RISE, lobes=10, scallop=0.12)
+    creature.seat("seat_3", spec, 3, detail, part["arm_r"], [part["clamp_arm_trim"]], radius=0.05, rise=SEAT_RISE, lobes=10, scallop=0.12)
+
     creature.studs(root, spec)
     creature.shadow(root, spec)
 
@@ -53,9 +69,9 @@ def _torso(root, chest, back, shoulders):
 
     body, trim, detail, dark, _ = _palette()
 
-    # An oil drum, exactly as round as the chest and back seals are far
-    # apart, with its two hoops kept clear of both studs.
-    radius = (back.y - chest.y) / 2
+    # An oil drum, as round as the chest and back seals are far apart less
+    # the ports they sit on, with its two hoops kept clear of both.
+    radius = (back.y - chest.y) / 2 - SEAT_RISE
     middle = (back.y + chest.y) / 2
     belt = (chest.z + back.z) / 2
     rim, bottom = belt + 0.086, belt - 0.28
@@ -97,17 +113,15 @@ def _torso(root, chest, back, shoulders):
         # A bellows of a neck: the gap between drum and head is the first
         # exposed joint anyone sees.
         _lathe(
-            [(0.07, lid - 0.004), (0.054, lid + 0.008), (0.07, lid + 0.02), (0.054, lid + 0.032), (0.07, lid + 0.044)],
+            [(0.092, lid - 0.004), (0.074, lid + 0.008), (0.092, lid + 0.02), (0.074, lid + 0.032), (0.088, lid + 0.044)],
             (0, middle + 0.035, 0),
             trim,
             sides=16,
             caps=False,
         ),
-        # A patch riveted over a hole on its right breast.
-        _place(_band(radius, 203, 250, belt - 0.085, belt + 0.035, 0.008, detail), (0, middle, 0)),
-        # A pressure gauge on its left breast.
-        _bezel(on(306, belt - 0.02), _outward(306), 0.045, 0.032, 0.022, trim),
-        _drum(on(306, belt - 0.02), 0.034, 0.012, dark, toward=_outward(306)),
+        # A patch riveted over a hole on its right breast, the one thing on
+        # the front of the drum besides the chest seal's hatch.
+        _place(_band(radius, 192, 236, belt - 0.085, belt + 0.035, 0.008, detail), (0, middle, 0)),
         # A cable looping out of the top of its back and in again by the hip.
         core.tube(
             "part",
@@ -140,15 +154,9 @@ def _torso(root, chest, back, shoulders):
     for along in (-0.05, 0.05):
         parts.append(_bolt(plate + Vector((0, along, 0.017)), (0, 0, 1), detail, 0.009))
 
-    for degrees in (207, 246):
+    for degrees in (196, 232):
         for height in (belt - 0.07, belt + 0.02):
             parts.append(_bolt(on(degrees, height, 0.008), _outward(degrees), detail, 0.009))
-
-    # Vent slots low on the front, off to its left.
-    for row in range(2):
-        height = hoops[1] - 0.05 - row * 0.027
-
-        parts.append(_place(_band(radius, 286, 326, height - 0.007, height + 0.007, 0.003, dark), (0, middle, 0)))
 
     # An exhaust stack up the right of its back that leans out over the
     # shoulder, so even the shoulder line is lopsided. It leans far enough
@@ -181,8 +189,8 @@ def _head(root, neck, face, top):
     body, trim, detail, dark, accent = _palette()
     head = creature.pivot("head", root, neck)
 
-    # A box, with its front plate exactly where the face seal is.
-    front, rear = face.y + 0.005, 0.15
+    # A box, with its front plate just behind the face seal's hatch.
+    front, rear = face.y + SEAT_RISE, 0.15
     crown, chin = top - 0.01, neck.z + 0.085
     skull = Vector((0, (front + rear) / 2, (crown + chin) / 2))
     eye_l = Vector((0.094, front, face.z + 0.03))
@@ -198,8 +206,8 @@ def _head(root, neck, face, top):
         # The head sits on a ball, in a collar under the skull, so it can
         # turn and tip without anything opening up. The collar is short, to
         # leave room for the back of the jaw to swing under it.
-        _ball(neck, 0.05, trim),
-        _drum((neck.x, neck.y, chin - 0.02), 0.062, 0.05, trim),
+        _ball(neck, 0.066, trim),
+        _drum((neck.x, neck.y, chin - 0.02), 0.074, 0.05, trim),
         # Its left eye is a big round lens.
         _bezel(eye_l, forward, 0.06, 0.045, 0.042, detail),
         _drum(eye_l, 0.047, 0.012, dark, toward=forward),
@@ -339,8 +347,8 @@ def _claw_arm(root, shoulder):
     body, trim, detail, _, _ = _palette()
 
     # Its left arm: a ball joint, a thin piston, a gauntlet off something
-    # bigger and a three-fingered claw. The ball is as wide as the shoulder
-    # seal is far out, and a ball looks the same however the arm swings.
+    # bigger and a three-fingered claw. The ball reaches out to just under
+    # the shoulder seal's flange, and looks the same however the arm swings.
     joint = Vector((shoulder.x - 0.05, shoulder.y, shoulder.z))
     elbow = joint + Vector((0.035, 0.0, -0.18))
     wrist = elbow + Vector((0.008, -0.035, -0.17))
@@ -348,7 +356,7 @@ def _claw_arm(root, shoulder):
     arm = creature.pivot("arm_l", root, joint)
 
     parts = [
-        _ball(joint, 0.05, trim),
+        _ball(joint, 0.05 - SEAT_RISE, trim),
         _rod(joint, elbow, 0.02, trim),
         _drum(joint.lerp(elbow, 0.48), 0.033, 0.08, trim, toward=elbow - joint, sides=12),
         _ball(elbow, 0.04, trim),
@@ -379,14 +387,14 @@ def _clamp_arm(root, shoulder):
 
     # Its right arm: a drum of a shoulder, a box of an upper arm, a hinge,
     # two bare rods and a clamp. The drum lies along the axis the arm swings
-    # about, so its end stays under the shoulder seal.
+    # about, so its end stays under the shoulder seal's flange.
     joint = Vector((shoulder.x + 0.05, shoulder.y, shoulder.z))
     elbow = joint + Vector((-0.025, 0, -0.195))
     wrist = elbow + Vector((0, -0.03, -0.165))
     arm = creature.pivot("arm_r", root, joint)
 
     parts = [
-        _drum(joint, 0.054, 0.1, trim, toward=(1, 0, 0)),
+        _drum(joint, 0.054, 0.1 - 2 * SEAT_RISE, trim, toward=(1, 0, 0)),
         _box(elbow + Vector((0, 0, 0.1)), (0.043, 0.05, 0.07), body, bevel=0.012, cuts=1),
         _drum(elbow, 0.042, 0.112, trim, toward=(1, 0, 0), sides=16),
         _bolt(elbow + Vector((-0.056, 0, 0)), (-1, 0, 0), detail, 0.016),
