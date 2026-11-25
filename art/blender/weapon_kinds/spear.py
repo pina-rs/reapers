@@ -1,7 +1,10 @@
 """The spear: the chooser's weapon.
 
-A long leaf of a blade on a haft taller than its bearer, made for one strike.
-The blade's edges, up to the point, are the one light on it.
+A long leaf of bone on a haft of wood taller than its bearer, made for one
+strike (art bible 6.4). The leaf swells early and runs a long way to its
+point, its faces ground in clean planes to a rib; a seam of light runs down
+the rib on both faces, the fuller, the one light on it. A band of the
+owner's gold rings the haft where the hand meets it.
 """
 
 import math
@@ -9,7 +12,7 @@ import math
 from mathutils import Vector
 
 from lib import core
-from lib.armoury import binding, finish, haft
+from lib.armoury import band, binding, finish, haft
 
 BLADE_FOOT = 0.9
 BLADE_TIP = 1.45
@@ -25,22 +28,36 @@ def build():
 
     root = core.empty("weapon_spear")
     metal = core.material("metal")
+    bone = core.material("bone")
 
     haft("spear_haft", root, bottom=BUTT, top=0.86, radius=0.021, bow=0.012)
     binding("spear_grip", root, -0.1, 0.14, radius=0.0275)
+    band("spear_band", root, 0.145, 0.18, radius=0.0265)
 
-    finish(core.shade_smooth(_blade("spear_blade", metal, root), angle=28), wear_boost=2.0)
+    blade = _blade("spear_blade", bone, root)
 
-    # The edges are the chooser's one light, brightest where they meet.
-    core.tube(
-        "spear_edge",
-        [(-_blade_width(t), 0, _blade_height(t)) for t in _steps(0.42, 1.0, 14)]
-        + [(_blade_width(t), 0, _blade_height(t)) for t in _steps(0.96, 0.42, 13)],
-        lambda t: 0.0022 + 0.0034 * (1 - abs(2 * t - 1)) ** 1.5,
-        core.material("accent"),
-        root,
-        sides=6,
-    )
+    for polygon in blade.data.polygons:
+        polygon.use_smooth = False
+
+    finish(blade, wear_boost=2.0)
+
+    # The fuller: a seam of light down the rib of each face, from the foot
+    # of the leaf most of the way to its point.
+    seams = []
+
+    for face in (-1, 1):
+        seams.append(
+            core.tube(
+                f"spear_fuller_{face}",
+                [(0, face * (_rib(t) + 0.0004), _blade_height(t)) for t in _steps(0.06, 0.8, 12)],
+                lambda t: 0.0042 * (1 - 0.6 * t),
+                core.material("accent"),
+                sides=5,
+                flatten=0.45,
+            )
+        )
+
+    core.join(seams, "spear_fuller").parent = root
 
     # The socket the blade grows out of, flared where it grips the haft.
     finish(
@@ -88,31 +105,27 @@ def _blade_width(t):
     """Half the blade's width, `t` of the way from its foot to its point: a
     leaf that swells early and then runs a long way to nothing."""
 
-    return 0.012 * (1 - t) + 0.047 * math.sin(math.pi * t**0.72) ** 1.1
+    return 0.014 * (1 - t) + 0.058 * math.sin(math.pi * t**0.72) ** 1.1
+
+
+def _rib(t):
+    """How far the rib stands out of the blade's middle, `t` of the way up."""
+
+    return 0.0115 * (1 - t) ** 0.7 + 0.0012
 
 
 def _blade(name, mat, parent):
-    """A leaf blade lying in the XZ plane, with a rib down its middle."""
+    """A leaf blade lying in the XZ plane, each face two planes meeting at
+    a rib down its middle: a flattened diamond."""
 
     rings = []
 
-    for t in _steps(0.0, 1.0, 23):
+    for t in _steps(0.0, 1.0, 16):
         width = max(_blade_width(t), 0.0008)
-        rib = 0.0105 * (1 - t) ** 0.7 + 0.0012
+        rib = _rib(t)
         height = _blade_height(t)
 
-        rings.append(
-            [
-                (-width, 0, height),
-                (-width * 0.2, -rib * 0.4, height),
-                (0, -rib, height),
-                (width * 0.2, -rib * 0.4, height),
-                (width, 0, height),
-                (width * 0.2, rib * 0.4, height),
-                (0, rib, height),
-                (-width * 0.2, rib * 0.4, height),
-            ]
-        )
+        rings.append([(-width, 0, height), (0, -rib, height), (width, 0, height), (0, rib, height)])
 
     return core.loft(name, rings, mat, parent, cap_start=True, cap_end=True)
 

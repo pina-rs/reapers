@@ -1,13 +1,17 @@
 """The lantern pole: the ferryman's weapon.
 
-A boat pole taller than its bearer, shod in iron, with a crook at its top and
-a caged lantern hanging from the crook. The flame is the one light on it.
+A boat pole of wood taller than its bearer, shod in iron, with an iron crook
+and boat hook at its top and a cage of the owner's gold hanging from the
+crook (art bible 6.4). The flame is the one light on it, and it is too big
+for its cage: it fills it bar to bar and licks out of the roof, so the
+ferryman reads as a light carried through the dark from across a room. A
+band of gold rings the pole under the hand.
 """
 
 import math
 
 from lib import core
-from lib.armoury import binding, finish, haft
+from lib.armoury import band, binding, finish, haft
 
 # How far the haft bows. Whatever is fitted to it away from the grip follows.
 BOW = 0.022
@@ -16,6 +20,9 @@ BOW = 0.022
 # tip that it hangs from.
 HANG = 0.3
 TIP = 1.425
+
+# How much bigger than a candle's the flame is.
+FLAME = 2.6
 
 
 def build():
@@ -26,6 +33,7 @@ def build():
 
     haft("lantern_pole_haft", root, bottom=-1.03, top=1.46, radius=0.027, bow=BOW)
     binding("lantern_pole_grip", root, -0.1, 0.13, radius=0.031)
+    band("lantern_pole_band", root, -0.145, -0.108, radius=0.034)
 
     # The haft bows, so the lashing sits a little off the grip's axis.
     binding("lantern_pole_lashing", root, 1.19, 1.31, radius=0.036, turns=6).location = (0.4 * BOW, 0, 0)
@@ -91,13 +99,14 @@ def build():
         wear_boost=1.8,
     )
 
-    _lantern(root, metal)
+    _lantern(root, core.material("gold"))
 
     return root
 
 
 def _lantern(root, metal):
-    """A storm lantern: a roof, a floor and a cage of bars around one flame."""
+    """A storm lantern: a roof, a floor and a cage of bars around one flame,
+    all of it in `metal` (the owner's gold)."""
 
     roof = TIP - 0.05
     eave = roof - 0.1
@@ -132,7 +141,7 @@ def _lantern(root, metal):
                 (0.04, eave + 0.03),
             ],
             metal,
-            segments=20,
+            segments=16,
         )
     )
     parts.append(
@@ -140,7 +149,7 @@ def _lantern(root, metal):
             "lantern_floor",
             [(0.088, floor + 0.016), (0.1, floor + 0.012), (0.102, floor), (0.07, floor - 0.02), (0.03, floor - 0.026), (0.0, floor - 0.04)],
             metal,
-            segments=20,
+            segments=16,
         )
     )
 
@@ -160,7 +169,7 @@ def _lantern(root, metal):
 
     for hoop, share in enumerate((0.3, 0.7)):
         height = floor + 0.012 + (eave - floor - 0.016) * share
-        path = [(math.cos(math.tau * step / 24) * bulge(share), math.sin(math.tau * step / 24) * bulge(share), height) for step in range(25)]
+        path = [(math.cos(math.tau * step / 16) * bulge(share), math.sin(math.tau * step / 16) * bulge(share), height) for step in range(17)]
 
         parts.append(core.tube(f"lantern_hoop_{hoop}", path, 0.0045, metal, sides=5, cap=False))
 
@@ -179,13 +188,14 @@ def _lantern(root, metal):
     lantern.parent = root
     finish(core.shade_smooth(lantern, angle=50), wear_boost=1.8)
 
-    # The flame is the ferryman's one light: a teardrop, leaning as it would
-    # in a draught.
+    # The flame is the ferryman's one light: a teardrop FLAME times a
+    # candle's, leaning as it would in a draught, its body filling the cage
+    # and its tongue out through the roof.
     base = floor + 0.05
     flame = core.tube(
         "lantern_pole_flame",
-        [(0.012 * (step / 9) ** 2, 0, base + 0.125 * step / 9) for step in range(10)],
-        lambda t: 0.003 + 0.031 * math.sin(min(t * 1.6, 1.0) * math.pi * 0.5) * (1 - t) ** 0.8,
+        [(FLAME * 0.012 * (step / 11) ** 2, 0, base + FLAME * 0.125 * step / 11) for step in range(12)],
+        lambda t: FLAME * (0.003 + 0.031 * math.sin(min(t * 1.6, 1.0) * math.pi * 0.5) * (1 - t) ** 0.8),
         core.material("accent"),
         root,
         sides=10,
