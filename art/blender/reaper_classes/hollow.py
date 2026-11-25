@@ -1,28 +1,32 @@
 """The hollow: the rider with no head.
 
-Silhouette: two great pauldrons with nothing between them, a riding coat
-pinched at the waist and flaring into split skirts, and the missing head
-carried low at the off hand as a lantern. Each pauldron's crown sweeps up
-beside the cut neck, so the outline's top is a notch: the void between the
-pauldrons, where a head should be, is the read (docs/art-bible.md 6.2).
+Silhouette: two great pauldrons whose cops rise into points above the
+shoulders, with nothing between them but an open collar; a riding coat
+split at the front; and the missing head carried low at the off hand as a
+lantern. The pauldrons' inner edges climb from the collar to their points,
+so the outline's top is a deep V with a hole at the bottom of it: the void
+where a head should be is the read (docs/art-bible.md 6.2).
 
 Three families show: the coat and its collar (`cloth`), the iron (`metal`)
 and the skull and hands (`bone`). The skull is the one bone mass, larger
-than life, and the light is in its eyes. The lantern is the figure's one
-asymmetry: the shoulders, collars and mantles are square and alike.
+than life and cut into planes, and the light is in its eyes. The lantern is
+the figure's one asymmetry: the shoulders, collars and mantles are square
+and alike.
 """
 
 import math
 
 import bmesh
-from mathutils import Matrix, Vector, noise
+import bpy
+from mathutils import Matrix, Quaternion, Vector, noise
 
-from lib import anatomy, cloth, core
+from lib import anatomy, cloth, core, motion
 from lib.figure import NECK_HEIGHT, SHOULDER_HEIGHT, finish
 
 # The coat's (depth, half-width, half-depth) stops: broad and square at the
-# shoulder, pinched hard at the waist, then flaring into wide skirts.
-COAT = ((0.0, 0.125, 0.1), (0.04, 0.29, 0.15), (0.15, 0.255, 0.16), (0.37, 0.14, 0.115), (0.56, 0.21, 0.165), (1.0, 0.45, 0.34))
+# shoulder, drawn in at the waist without pinching it, then falling straight
+# to skirts that part at the front rather than flare.
+COAT = ((0.0, 0.125, 0.1), (0.04, 0.29, 0.15), (0.15, 0.26, 0.16), (0.37, 0.18, 0.13), (0.56, 0.225, 0.165), (1.0, 0.34, 0.27))
 COAT_TOP = SHOULDER_HEIGHT + 0.06
 COAT_HEM = 0.16
 WAIST_HEIGHT = 1.12
@@ -35,11 +39,14 @@ HAND_SCALE = 1.45
 # its sockets in that frame, so it grows by its node's scale alone.
 SKULL_SCALE = 1.75
 
-# The off arm in the idle pose's first key (lib/motion.py, at the hollow's
-# amplitude of 1.12 there): swung out from the body, the forearm raised.
-# The lantern is turned back by both, so that at rest it hangs plumb.
-IDLE_SHOULDER_L = math.radians(-8 * 1.12)
-IDLE_ELBOW_L = math.radians(-16 * 1.12)
+# Where the eyes burn in the skull's own frame. lib/face.py centres each
+# eye 0.041 either side of the middle at this height and samples how deep to
+# seat it at 0.036, so the sockets are cut round both.
+EYE_X = 0.041
+EYE_Z = -0.010
+
+# The neck, cut: the collar stands round a hole this far across.
+NECK = (0.165, 0.138)
 
 
 def build():
@@ -50,10 +57,10 @@ def build():
 
     # The skirts trail behind the rider, so every hem leans back.
     hems = [
-        dict(tatter=0.26, tears=5, slits=6, fold_depth=0.13, seed=31, lean=0.14),
-        dict(tatter=0.4, tears=8, slits=10, fold_depth=0.16, seed=32, lean=0.2),
-        dict(tatter=0.18, tears=4, slits=3, fold_depth=0.11, seed=33, lean=0.1),
-        dict(tatter=0.34, tears=5, slits=8, fold_depth=0.17, seed=34, lean=0.3),
+        dict(tatter=0.26, tears=5, slits=6, fold_depth=0.12, seed=31, lean=0.14),
+        dict(tatter=0.4, tears=8, slits=10, fold_depth=0.14, seed=32, lean=0.2),
+        dict(tatter=0.18, tears=4, slits=3, fold_depth=0.1, seed=33, lean=0.1),
+        dict(tatter=0.34, tears=5, slits=8, fold_depth=0.15, seed=34, lean=0.3),
     ]
 
     for index, hem in enumerate(hems):
@@ -64,9 +71,9 @@ def build():
             top=COAT_TOP,
             hem=COAT_HEM,
             profile=COAT,
-            folds=(4, 6, 11),
-            rings=44,
-            segments=112,
+            folds=(3, 5, 11),
+            rings=40,
+            segments=104,
             **hem,
         )
         finish(_open_front(coat, hem["lean"]), hollow=_chest_first, seed=index)
@@ -82,7 +89,8 @@ def build():
 
 def _open_front(coat, lean):
     """Cuts the coat open down the front from the waist and draws the two
-    edges apart, as a riding coat is cut to sit astride.
+    edges well apart, as a riding coat is cut to sit astride: the skirts
+    part rather than flare.
 
     `cloth.robe` only slits a hem at random, so the cut is made here, and
     every shape key is moved along with the cloth it belongs to. `lean` is
@@ -96,7 +104,7 @@ def _open_front(coat, lean):
 
     for vertex in mesh.verts:
         below = (WAIST_HEIGHT - vertex.co.z) / (WAIST_HEIGHT - COAT_HEM)
-        near = 1 - abs(vertex.co.x) / 0.17
+        near = 1 - abs(vertex.co.x) / 0.2
         middle = lean * ((COAT_TOP - vertex.co.z) / (COAT_TOP - COAT_HEM)) ** 2
 
         if below <= 0 or near <= 0 or vertex.co.y > middle:
@@ -106,7 +114,10 @@ def _open_front(coat, lean):
             seam.append(vertex)
             continue
 
-        shift = Vector((math.copysign(0.11, vertex.co.x), 0.05, 0)) * below * near
+        # The edges part fast below the waist and hang straight below the
+        # knee, each turned back on itself like a lapel.
+        part = min(1.0, below / 0.45) ** 0.8
+        shift = Vector((math.copysign(0.15, vertex.co.x), 0.07, 0)) * part * near**0.7
         vertex.co += shift
 
         for shape in shapes:
@@ -157,139 +168,98 @@ def _coat_point(angle, height, lift=0.0):
     return Vector((math.cos(angle) * (width + lift), math.sin(angle) * (thickness + lift), height))
 
 
-def _crisp(obj, degrees):
-    """Shades `obj` smooth but keeps every edge sharper than `degrees` hard.
+# Planes ------------------------------------------------------------------
 
-    `core.shade_smooth` does this with a modifier, which stays on the object
-    and never reaches the exported model, so the hard edges are marked on
-    the mesh itself here.
-    """
+
+def _outward(obj):
+    """Turns every face of a closed mesh to face out."""
 
     mesh = bmesh.new()
     mesh.from_mesh(obj.data)
-
-    for edge in mesh.edges:
-        edge.smooth = edge.calc_face_angle(math.pi) < math.radians(degrees)
-
+    bmesh.ops.recalc_face_normals(mesh, faces=mesh.faces)
     mesh.to_mesh(obj.data)
     mesh.free()
 
-    return core.shade_smooth(obj)
+    return obj
 
 
-def _shell(name, mat, point, columns, rows, thickness, parent=None, closed=False):
-    """A sheet with real thickness: a collar, or a plate of armour.
+def _solid(name, rings, mat, parent=None):
+    """A closed solid skinned over `rings`, equal-length loops from top to
+    bottom, capped at both ends: a carved block with flat faces."""
 
-    `point(u, v)` maps the unit square onto the sheet's outer face. A
-    `closed` sheet wraps round on itself at u = 1, with no seam.
-    """
+    mesh = bmesh.new()
+    rows = [[mesh.verts.new(point) for point in ring] for ring in rings]
+    count = len(rows[0])
 
-    span = columns if closed else columns + 1
-    rings = [[point(column / columns, row / rows) for column in range(span)] for row in range(rows + 1)]
-    sheet = core.loft(name, rings, mat, parent, closed=closed)
+    for upper, lower in zip(rows, rows[1:]):
+        for index in range(count):
+            follow = (index + 1) % count
+            mesh.faces.new((upper[index], lower[index], lower[follow], upper[follow]))
 
-    return core.apply_modifier(sheet, "SOLIDIFY", thickness=thickness, offset=-1.0)
+    mesh.faces.new(rows[0])
+    mesh.faces.new(list(reversed(rows[-1])))
 
-
-def _lames(name, axis, plates, sweep, squeeze=0.0, rake=0.0):
-    """Overlapping plates wrapped over a shoulder.
-
-    `axis` is the line the shoulder and upper arm follow, in the XZ plane.
-    Each plate is a (start, end, radius) span along it. A plate is keeled
-    along its crown, runs a little further there, and lifts into a lip at
-    its trailing edge, so the layers read as separate pieces of forged iron
-    rather than as a bent pipe. `squeeze` draws the plates in from front to
-    back toward the start of the axis, and `rake` sweeps whatever stands
-    higher than the shoulder back, so that seen from the side the inner end
-    stands as a swept fin rather than a dome the size of a head.
-    """
-
-    metal = core.material("metal")
-    line = core.bezier(axis, samples=12)
-    parts = []
-
-    def station(share):
-        position = share * (len(line) - 1)
-        index = min(int(position), len(line) - 2)
-        tangent = (line[index + 1] - line[index]).normalized()
-        up = Vector((-tangent.z, 0, tangent.x))
-
-        return line[index].lerp(line[index + 1], position - index), up if up.z > 0 else -up
-
-    for index, (start, end, radius) in enumerate(plates):
-
-        def point(u, v, start=start, end=end, radius=radius):
-            turn = (u - 0.5) * sweep
-            crown = max(0.0, math.cos(turn))
-            share = start + (end - start) * v * (0.84 + 0.16 * crown**3)
-            centre, up = station(share)
-            reach = radius * (1 - 0.06 * v + 0.06 * crown**8) + 0.012 * v**4 * crown
-            depth = 1 - squeeze * (1 - share) ** 2
-            position = centre + up * reach * math.cos(turn) + Vector((0, reach * math.sin(turn) * depth, 0))
-            position.y += rake * max(0.0, position.z - 0.05)
-
-            return position
-
-        parts.append(_shell(f"{name}_{index}", metal, point, 24, 5, 0.008))
-
-    return _crisp(core.join(parts, name), 50)
+    return core.object_from_bmesh(name, mesh, mat, parent, smooth=False)
 
 
-def _ring(name, centre, along, across, wire, square=1.0):
-    """A loop of iron wire around `centre`. `along` and `across` are its two
-    half-axes, and a `square` below 1 pulls the oval toward a rectangle."""
+def _prism(name, outline, near, far):
+    """A cutter: `outline`, (x, z) pairs, pushed straight back from y `near`
+    to y `far`."""
 
-    steps = 10 if square == 1.0 else 20
-    path = []
-
-    for step in range(steps + 1):
-        turn = math.tau * step / steps
-        reach = math.copysign(abs(math.cos(turn)) ** square, math.cos(turn))
-        spread = math.copysign(abs(math.sin(turn)) ** square, math.sin(turn))
-        path.append(centre + along * reach + across * spread)
-
-    return core.tube(name, path, wire, core.material("metal"), sides=6, cap=False)
+    return _solid(name, [[(x, near, z) for x, z in outline], [(x, far, z) for x, z in outline]], core.material("bone"))
 
 
-def _chain(name, points, pitch, wire):
-    """Oval links threaded along `points`, each turned a quarter from the
-    last, so a drawn line becomes a chain that could bear weight."""
+def _boolean(target, tools, operation):
+    """Unions `tools` into `target`, or cuts them out of it, and removes
+    them. The parts are small closed blocks, so the exact solver is sure."""
 
-    links = []
-    travelled = pitch
+    for tool in tools:
+        modifier = target.modifiers.new("Boolean", "BOOLEAN")
+        modifier.operation = operation
+        modifier.object = tool
+        modifier.solver = "EXACT"
+        modifier.use_hole_tolerant = True
+        core.activate(target)
+        bpy.ops.object.modifier_apply(modifier=modifier.name)
+        mesh = tool.data
+        bpy.data.objects.remove(tool, do_unlink=True)
+        bpy.data.meshes.remove(mesh)
 
-    for near, far in zip(points, points[1:]):
-        travelled += (far - near).length
-
-        if travelled < pitch:
-            continue
-
-        travelled = 0.0
-        tangent = (far - near).normalized()
-        outward = Vector((far.x, far.y, 0)) if abs(tangent.z) < 0.99 else Vector((0, -1, 0))
-        outward = (outward - tangent * outward.dot(tangent)).normalized()
-        across = outward if len(links) % 2 else tangent.cross(outward)
-
-        links.append(_ring(f"{name}_{len(links)}", far, tangent * pitch * 0.8, across * pitch * 0.38, wire))
-
-    return core.shade_smooth(core.join(links, name))
+    return target
 
 
-def _dent(obj, x, z, width, height, depth):
-    """Presses a pit into the front of a sculpted form.
+def _plate(name, sections, thickness, mat):
+    """Forged sheet over `sections`, open polylines of equal length laid
+    side by side, given thickness and turned to face out. Each section's
+    middle point is the plate's keel: a hard ridge the light breaks on."""
 
-    Sockets are pushed in rather than cut out: a boolean between two
-    remeshed forms fails or succeeds on the smallest change to either.
-    """
+    rows = [[Vector(point) for point in section] for section in sections]
+    sheet = core.loft(name, rows, mat, closed=False)
+    core.apply_modifier(sheet, "SOLIDIFY", thickness=thickness, offset=-1.0, use_even_offset=True)
 
-    origin = Vector(obj.location)
+    return _outward(sheet)
 
-    for vertex in obj.data.vertices:
-        co = vertex.co + origin
-        distance = ((co.x - x) / width) ** 2 + ((co.z - z) / height) ** 2
 
-        if co.y < 0 and distance < 1:
-            vertex.co.y += depth * (1 - distance) ** 0.5
+def _strap(name, points, centre, width, thickness, mat):
+    """A flat iron strap laid along `points`, its broad side turned away
+    from `centre`."""
+
+    points = [Vector(point) for point in points]
+    rings = []
+
+    for index, point in enumerate(points):
+        ahead = points[min(index + 1, len(points) - 1)]
+        behind = points[max(index - 1, 0)]
+        tangent = (ahead - behind).normalized()
+        out = point - centre
+        out = (out - tangent * out.dot(tangent)).normalized()
+        side = tangent.cross(out).normalized()
+        rings.append([point + side * width + out * thickness, point - side * width + out * thickness, point - side * width, point + side * width])
+
+    return _solid(name, rings, mat)
+
+
+# Arms --------------------------------------------------------------------
 
 
 def _arms(root):
@@ -355,7 +325,7 @@ def _arms(root):
                 lambda t: 0.1 - 0.014 * t,
                 core.material("cloth"),
                 elbow,
-                sides=20,
+                sides=12,
                 cap=False,
             ),
             hollow=_whole,
@@ -380,32 +350,101 @@ def _arms(root):
 
 def _pauldron(name, side):
     """A great pauldron, built in its shoulder pivot's frame (`side` is +1
-    for the left): a high cop over two lames stepping down the arm, each
-    narrower than the one above. Its inner end is swept up beside the cut
-    neck, so that the two pauldrons stand higher than the collar between
-    them and frame the void where a head should be.
+    for the left): a cop and two lames stepping down the arm.
 
-    Three plates, not more: each lip is a step in the outline, and at hunt
-    scale more steps read as a fringe."""
+    The cop is keeled along its top, and the keel climbs in one straight
+    line from the collar out over the shoulder to a point a hand's breadth
+    above the collar, then falls away again down the outside of the arm, so
+    that the two cops frame a wide V with the open neck at the bottom of it
+    and each is a peak on the line of the shoulders rather than an ear at
+    the end of it. Inboard of the shoulder the keel stays under the head's
+    height, and the point is thin from front to back, so from the side the
+    shoulders stay a line with a blade on it rather than a hood. Every plate
+    is a few flat facets with one hard keel."""
 
-    return _lames(
-        name,
-        [(side * -0.12, 0, 0.11), (side * -0.03, 0, 0.09), (side * 0.07, 0, 0.04), (side * 0.14, 0, -0.07), (side * 0.16, 0, -0.2)],
-        [(0.0, 0.5, 0.152), (0.38, 0.77, 0.128), (0.64, 1.0, 0.106)],
-        sweep=math.radians(200),
-        squeeze=0.42,
-        rake=0.45,
-    )
+    metal = core.material("metal")
+
+    # The cop, as sections across the keel from the collar outward:
+    # (out, keel height, flank height, half-depth). The two middle points of
+    # each section turn the flanks once, so each side is two flat facets.
+    cop = []
+
+    for out, keel, flank, half in (
+        (-0.15, 0.045, 0.02, 0.09),
+        (-0.06, 0.09, -0.01, 0.15),
+        (0.03, 0.135, -0.045, 0.16),
+        (0.1, 0.17, -0.07, 0.09),
+        (0.14, 0.205, -0.09, 0.025),
+        (0.2, 0.12, -0.12, 0.07),
+        (0.245, 0.035, -0.14, 0.1),
+    ):
+        x = side * out
+        shoulder = keel - 0.38 * (keel - flank)
+        cop.append(
+            [
+                (x, -half, flank),
+                (x, -half * 0.58, shoulder),
+                (x, 0.0, keel),
+                (x, half * 0.58, shoulder),
+                (x, half, flank),
+            ]
+        )
+
+    parts = [_plate(f"{name}_cop", cop, 0.009, metal)]
+
+    # Two lames round the upper arm, below the cop, each narrower than the
+    # one above and keeled on its outer side.
+    along = Vector((side * 0.33, 0.0, -0.94)).normalized()
+    out = Vector((side * 0.94, 0.0, 0.33)).normalized()
+    across = Vector((0.0, 1.0, 0.0))
+
+    for index, (start, end, radius) in enumerate(((0.1, 0.19, 0.118), (0.17, 0.26, 0.104))):
+        sections = []
+
+        for share, flare in ((0.0, 1.0), (1.0, 1.1)):
+            centre = along * (start + (end - start) * share)
+            section = []
+
+            for turn in (-105, -52, 0, 52, 105):
+                angle = math.radians(turn)
+                reach = radius * flare * (1 + 0.16 * (1 - abs(turn) / 105))
+                section.append(centre + (out * math.cos(angle) + across * math.sin(angle)) * reach)
+
+            sections.append(section)
+
+        parts.append(_plate(f"{name}_lame_{index}", sections, 0.008, metal))
+
+    plates = core.join(parts, name)
+
+    return core.crisp(plates, 0.003, angle=20, segments=1)
+
+
+def _idle_turn(chain, calling="hollow"):
+    """How far the idle pose's first key turns the end of `chain`, the
+    joints from the waist out to a hand, read from lib/motion.py itself so
+    that nothing here repeats its numbers."""
+
+    _, rotations = motion.performance("idle", 0.0, False, calling)
+    turn = Quaternion()
+
+    for joint in chain:
+        turn = turn @ rotations[joint]
+
+    return turn
 
 
 def _lantern(wrist):
-    """The hollow's own head, carried as a lantern: a skull twice the size of
-    life in an iron harness, hung on two links from a stirrup."""
+    """The hollow's own head, carried as a lantern: a skull nearly twice the
+    size of life on an iron bail, hung on two big links from a stirrup."""
 
     metal = core.material("metal")
     lantern = core.empty("lantern", wrist)
-    lantern.rotation_mode = "XYZ"
-    lantern.rotation_euler = (Matrix.Rotation(-IDLE_ELBOW_L, 3, "X") @ Matrix.Rotation(-IDLE_SHOULDER_L, 3, "Y")).to_euler()
+
+    # A lantern hangs plumb. It is turned back by however far the idle pose
+    # carries the off hand, so that it hangs straight down in the stance
+    # every screen shows, and swings with the hand from there.
+    lantern.rotation_mode = "QUATERNION"
+    lantern.rotation_quaternion = _idle_turn(("motion", "spine", "arm_l", "elbow_l", "wrist_l")).inverted()
 
     # A stirrup for a handle: the hollow was a rider.
     finish(
@@ -427,136 +466,254 @@ def _lantern(wrist):
         wear_boost=1.6,
     )
 
-    chain = _chain("lantern_chain", [Vector((0, 0, -0.07 - 0.004 * step)) for step in range(16)], 0.05, 0.009)
+    chain = _chain("lantern_chain", [Vector((0, 0, -0.07 - 0.006 * step)) for step in range(16)], 0.075, 0.011)
     chain.parent = lantern
     finish(chain, hollow=_whole, wear_boost=1.6)
 
     # Hung by the eye on its crown from the lower link, and turned a little
     # out from the body, so that both sockets face the viewer from the front.
-    carried = core.empty("lantern_head", lantern, location=(0, 0, -0.16 - 0.162 * SKULL_SCALE))
+    carried = core.empty("lantern_head", lantern, location=(0, 0, -0.17 - 0.16 * SKULL_SCALE))
     carried.rotation_euler = (0, 0, math.radians(10))
     carried.scale = (SKULL_SCALE, SKULL_SCALE, SKULL_SCALE)
 
-    # A gothic cranium: the dome, a heavy brow, the cheekbones, the arch of
-    # the teeth and a narrow jaw.
-    blobs = [
-        ("sphere", (0, 0.022, 0.034), (0.086, 0.104, 0.088)),
-        ("sphere", (0, -0.048, 0.028), (0.074, 0.046, 0.042)),
-        ("sphere", (-0.034, -0.078, 0.016), (0.036, 0.024, 0.017), (0, math.radians(10), 0)),
-        ("sphere", (0.034, -0.078, 0.016), (0.036, 0.024, 0.017), (0, math.radians(-10), 0)),
-        ("sphere", (0, -0.088, -0.012), (0.014, 0.018, 0.024)),
-        ("sphere", (-0.056, -0.058, -0.03), (0.028, 0.038, 0.022), (0, 0, math.radians(-16))),
-        ("sphere", (0.056, -0.058, -0.03), (0.028, 0.038, 0.022), (0, 0, math.radians(16))),
-        ("sphere", (0, -0.068, -0.058), (0.048, 0.044, 0.034)),
-        ("sphere", (0, -0.078, -0.082), (0.038, 0.034, 0.02)),
-        ("sphere", (0, -0.068, -0.104), (0.032, 0.03, 0.022)),
-    ]
-
-    # Five big teeth along the arch: at hunt scale more would be a grey band.
-    for tooth in (-2, -1, 0, 1, 2):
-        angle = tooth * 0.26
-        blobs.append(("cube", (math.sin(angle) * 0.036, -0.072 - math.cos(angle) * 0.028, -0.088), (0.0062, 0.006, 0.012), (0, 0, angle)))
-
-    skull = core.sculpt("lantern_skull", blobs, core.material("bone"), voxel=0.0055, smooth=2)
-
-    # Deep orbits where the light burns, a pear-shaped nose and hollow
-    # cheeks. lib/face.py seats the eyes at x ±0.036, z -0.010.
-    for x, z, width, height, depth in (
-        (-0.036, -0.01, 0.03, 0.026, 0.046),
-        (0.036, -0.01, 0.03, 0.026, 0.046),
-        (0.0, -0.048, 0.015, 0.022, 0.034),
-        (-0.056, -0.066, 0.022, 0.024, 0.022),
-        (0.056, -0.066, 0.022, 0.024, 0.022),
-    ):
-        _dent(skull, x, z, width, height, depth)
-
-    # Cut into planes, so that it prints as a carved mass in a few hard
-    # bands rather than a speckle of small ones.
-    core.planes(skull, 1500, flat=7.0, crease=36.0)
+    skull = _skull("lantern_skull")
 
     # The light burns at the back of both sockets. lib/face.py replaces it
     # with the eyes, so it is here for the authoring scene alone.
     flame = core.sculpt(
         "lantern_flame",
-        [("sphere", (side * 0.036, -0.056, -0.012), (0.018, 0.018, 0.016)) for side in (-1, 1)],
+        [("sphere", (side * EYE_X, -0.05, EYE_Z), (0.016, 0.01, 0.012)) for side in (-1, 1)],
         core.material("accent"),
         voxel=0.005,
     )
 
-    # Iron round the skull: a band at the brow and two straps over the
-    # crown, meeting at the eye the chain hangs from.
-    bands = [
-        core.tube(
-            "lantern_brow",
-            [(math.cos(math.tau * step / 32) * 0.094, 0.018 + math.sin(math.tau * step / 32) * 0.112, 0.04) for step in range(33)],
-            0.011,
-            metal,
-            sides=8,
-            cap=False,
-            flatten=0.4,
-        )
-    ]
+    # Iron round the skull: a bail of two thin straps, one up each temple,
+    # meeting at the eye on its crown that the chain hangs from. No band
+    # rings the skull, so it never reads as a banded ball.
+    centre = Vector((0, CRANIUM[0][1], CRANIUM[0][2]))
+    straps = []
 
-    for band, turn in enumerate((0.0, math.pi / 2)):
+    for side in (-1, 1):
         path = []
 
-        for step in range(17):
-            arc = math.pi * step / 16
-            reach = math.cos(arc)
-            path.append((math.cos(turn) * reach * 0.094, 0.018 + math.sin(turn) * reach * 0.112, 0.04 + math.sin(arc) * 0.088))
+        for step in range(9):
+            # From behind the orbit, at the temple, up over the crown.
+            rise = math.radians(-12 + 102 * step / 8)
+            path.append(
+                (
+                    side * (CRANIUM[1][0] + 0.007) * math.cos(rise),
+                    centre.y + 0.004,
+                    centre.z + (CRANIUM[1][2] + 0.007) * math.sin(rise),
+                )
+            )
 
-        bands.append(core.tube(f"lantern_crown_{band}", path, 0.0095, metal, sides=8, cap=False, flatten=0.45))
+        straps.append(_strap(f"lantern_strap_{side}", path, centre, 0.009, 0.006, metal))
 
-    bands.append(
-        core.revolve(
-            "lantern_eye",
-            [(0.0, 0.162), (0.014, 0.156), (0.018, 0.14), (0.026, 0.128), (0.0, 0.124)],
-            metal,
-            segments=12,
-        )
+    eye = core.revolve(
+        "lantern_eye",
+        [(0.0, 0.17), (0.013, 0.165), (0.017, 0.152), (0.024, 0.138), (0.0, 0.132)],
+        metal,
+        segments=10,
     )
-    bands[-1].location = (0, 0.018, 0)
-    harness = _crisp(core.join(bands, "lantern_harness"), 50)
+    eye.location = (0, centre.y + 0.004, 0)
+    core.activate(eye)
+    bpy.ops.object.transform_apply(location=True, rotation=False, scale=False)
+    straps.append(eye)
+    harness = core.crisp(core.join(straps, "lantern_harness"), 0.002, angle=40, segments=1)
 
     for part in (skull, flame, harness):
         part.parent = carried
-
-    # A sculpted form keeps the texture coordinates of the spheres it was
-    # made from, which would push the rest position out of the two channels
-    # the game reads it from.
-    while skull.data.uv_layers:
-        skull.data.uv_layers.remove(skull.data.uv_layers[0])
 
     finish(skull, wear_boost=1.4)
     finish(harness, hollow=_whole, wear_boost=1.6)
 
 
+# The cranium: (centre, half-axes) of the faceted dome a skull is built on.
+CRANIUM = ((0.0, 0.03, 0.038), (0.1, 0.118, 0.104))
+
+
+def _skull(name):
+    """A skull carved in planes rather than modelled in clay: a faceted
+    cranium, a face block with a flat front and square cheekbones, and a jaw
+    block, fused, with two great orbits, a nose and a row of four teeth cut
+    into them. About 1,000 triangles, every one of them on a plane a band
+    edge can run along."""
+
+    bone = core.material("bone")
+    (cx, cy, cz), (rx, ry, rz) = CRANIUM
+
+    # The cranium: twelve facets round, six courses from the crown down to
+    # the occiput.
+    rings = []
+
+    for latitude in (78, 56, 32, 8, -18, -42):
+        lift = math.radians(latitude)
+        ring = []
+
+        for step in range(12):
+            turn = math.tau * (step + 0.5) / 12
+            ring.append((cx + math.cos(turn) * rx * math.cos(lift), cy + math.sin(turn) * ry * math.cos(lift), cz + rz * math.sin(lift)))
+
+        rings.append(ring)
+
+    skull = _solid(name, rings, bone)
+
+    def block(courses):
+        """A block from (height, front, half-width, back) courses, its front
+        a flat plane turned at the corners."""
+
+        rings = []
+
+        for height, front, half, back in courses:
+            rings.append(
+                [
+                    (0.0, front, height),
+                    (half * 0.6, front + 0.004, height),
+                    (half, front + 0.034, height),
+                    (half * 0.92, back, height),
+                    (0.0, back + 0.01, height),
+                    (-half * 0.92, back, height),
+                    (-half, front + 0.034, height),
+                    (-half * 0.6, front + 0.004, height),
+                ]
+            )
+
+        return _solid(f"{name}_block", rings, bone)
+
+    # The face: a heavy brow over the orbits, the cheekbones the widest
+    # part of the face, and the upper jaw narrowing under them.
+    face = block(
+        (
+            (0.055, -0.07, 0.07, 0.0),
+            (0.016, -0.106, 0.09, 0.0),
+            (-0.034, -0.096, 0.1, 0.0),
+            (-0.07, -0.09, 0.06, 0.0),
+        )
+    )
+
+    # The jaw: a square block, narrower at the chin.
+    jaw = block(
+        (
+            (-0.06, -0.088, 0.054, -0.005),
+            (-0.122, -0.08, 0.036, -0.03),
+        )
+    )
+
+    _boolean(skull, [face, jaw], "UNION")
+
+    cutters = []
+
+    for side in (-1, 1):
+        # A great orbit, higher at its outer corner than its inner, so the
+        # brow comes down over the nose in a scowl.
+        outline = [(-0.026, -0.006), (-0.017, 0.019), (0.017, 0.027), (0.031, 0.008), (0.023, -0.024), (-0.012, -0.027)]
+        cutters.append(_prism(f"{name}_orbit_{side}", [(side * (EYE_X + u), EYE_Z + z) for u, z in outline], -0.2, -0.044))
+
+    # The nose: a pear turned upside down.
+    cutters.append(_prism(f"{name}_nose", [(0.0, -0.02), (0.015, -0.042), (0.009, -0.052), (-0.009, -0.052), (-0.015, -0.042)], -0.2, -0.066))
+
+    # The line of the mouth, with the gaps that make four big teeth of the
+    # bone above it and four below, cut as one comb.
+    lower, upper = [(-0.052, -0.072)], [(0.048, -0.065)]
+
+    for gap in (-0.026, 0.0, 0.026):
+        lower += [(gap - 0.003, -0.072), (gap - 0.003, -0.094), (gap + 0.003, -0.094), (gap + 0.003, -0.072)]
+
+    for gap in (0.026, 0.0, -0.026):
+        upper += [(gap + 0.003, -0.065), (gap + 0.003, -0.055), (gap - 0.003, -0.055), (gap - 0.003, -0.065)]
+
+    cutters.append(_prism(f"{name}_mouth", lower + [(0.052, -0.072)] + upper + [(-0.048, -0.065)], -0.2, -0.074))
+
+    _boolean(skull, cutters, "DIFFERENCE")
+    skull.data.validate()
+
+    # A solver that loses its way leaves a few stray faces rather than
+    # failing; a skull with its face cut in has well over a hundred.
+    if len(skull.data.polygons) < 100:
+        raise RuntimeError(f"{name}: carving the skull left {len(skull.data.polygons)} faces")
+
+    return core.crisp(skull, 0.0025, angle=26, segments=1)
+
+
+def _ring(name, centre, along, across, wire, square=1.0):
+    """A loop of iron wire around `centre`. `along` and `across` are its two
+    half-axes, and a `square` below 1 pulls the oval toward a rectangle."""
+
+    steps = 10 if square == 1.0 else 20
+    path = []
+
+    for step in range(steps + 1):
+        turn = math.tau * step / steps
+        reach = math.copysign(abs(math.cos(turn)) ** square, math.cos(turn))
+        spread = math.copysign(abs(math.sin(turn)) ** square, math.sin(turn))
+        path.append(centre + along * reach + across * spread)
+
+    return core.tube(name, path, wire, core.material("metal"), sides=6, cap=False)
+
+
+def _chain(name, points, pitch, wire):
+    """Oval links threaded along `points`, each turned a quarter from the
+    last, so a drawn line becomes a chain that could bear weight."""
+
+    links = []
+    travelled = pitch
+
+    for near, far in zip(points, points[1:]):
+        travelled += (far - near).length
+
+        if travelled < pitch:
+            continue
+
+        travelled = 0.0
+        tangent = (far - near).normalized()
+        outward = Vector((far.x, far.y, 0)) if abs(tangent.z) < 0.99 else Vector((0, -1, 0))
+        outward = (outward - tangent * outward.dot(tangent)).normalized()
+        across = outward if len(links) % 2 else tangent.cross(outward)
+
+        links.append(_ring(f"{name}_{len(links)}", far, tangent * pitch * 0.8, across * pitch * 0.38, wire))
+
+    return core.shade_smooth(core.join(links, name))
+
+
+# Collars ---------------------------------------------------------------
+
+
 def _collars(head):
     """Three collars and no heads.
 
-    Each stands low around a dark stump where the neck was cut, below the
-    crowns of the pauldrons, so that the notch between them stays empty.
-    One small ember burns on the stump, out of sight from the front. The
+    Each is a ragged ring round the cut neck, low at the throat and high at
+    the nape, below the points of the pauldrons, so that the V between them
+    ends in a hole. The hole is lined in void, which prints flat key with no
+    line: from the front you look over the collar's lip into the dark. One
+    small ember burns at the bottom of it, out of sight from the front. The
     collar is what the game turns in place of a head.
     """
 
     base = SHOULDER_HEIGHT - NECK_HEIGHT
     fabric = core.material("cloth")
 
-    def cut(turn):
-        """A plain standing collar cut straight round, a little higher at
-        the nape."""
+    def ragged(turn, seed):
+        """Torn points along a collar's lip, deepest where the cloth is
+        thinnest, never cut lower than half its height."""
 
-        return 0.1 + 0.025 * (1 + math.cos(turn)) / 2
+        return 0.022 * abs(math.sin(turn * 5.5 + seed)) ** 3 + 0.01 * abs(math.sin(turn * 11 + seed * 2.0))
+
+    def cut(turn):
+        """A standing collar, cut down in a V at the throat and at the nape
+        and highest under the pauldrons, so that from any side the notch
+        between the pauldrons runs down into it."""
+
+        return 0.045 + 0.05 * abs(math.sin(turn)) ** 1.2
 
     def turned(turn):
-        """A riding coat's collar turned down: low, and open at the throat."""
+        """A riding coat's collar turned down: open at the throat, and
+        standing a little at either side."""
 
-        return 0.07 + 0.02 * (1 + math.cos(turn)) / 2
+        return 0.04 + 0.04 * abs(math.sin(turn)) ** 1.2
 
     variants = [
-        dict(rise=cut, gap=0.0, flare=0.32),
-        dict(rise=turned, gap=1.3, flare=1.05),
+        dict(rise=cut, gap=0.0, flare=0.4, seed=0.6),
+        dict(rise=turned, gap=1.3, flare=1.0, seed=2.1),
     ]
 
     for index in range(3):
@@ -565,38 +722,43 @@ def _collars(head):
         if index < 2:
             variant = variants[index]
 
-            def point(u, v, variant=variant):
+            def point(u, v, variant=variant, inset=0.0, torn=True):
                 # `turn` runs from one side of the throat, round the nape, to
                 # the other; 0 is the back of the neck.
                 turn = (u * 2 - 1) * (math.pi - variant["gap"] / 2)
                 gain = 1 + variant["flare"] * v**1.6
+                rise = variant["rise"](turn) - (ragged(turn, variant["seed"]) if torn else 0.012)
 
                 return (
-                    math.sin(turn) * 0.165 * gain,
-                    math.cos(turn) * 0.138 * gain + 0.012,
-                    base + variant["rise"](turn) * v,
+                    math.sin(turn) * (NECK[0] * gain - inset),
+                    math.cos(turn) * (NECK[1] * gain - inset) + 0.012,
+                    base + rise * v,
                 )
 
-            collar = _shell(f"collar_{index}", fabric, point, 80, 6, 0.012, group, closed=variant["gap"] == 0)
+            collar = _shell(f"collar_{index}", fabric, point, 72, 4, 0.012, group, closed=variant["gap"] == 0)
+
+            def lining(turn, variant=variant):
+                # The void follows the collar's inside face up to just under
+                # its lip, and stands low where a turned collar is open.
+                u = (turn / (math.pi - variant["gap"] / 2) + 1) / 2
+                inside = abs(turn) <= math.pi - variant["gap"] / 2
+
+                if inside:
+                    return Vector(point(u, 1.0, inset=0.02, torn=False)), Vector(point(u, 0.0, inset=0.02, torn=False))
+
+                return Vector((math.sin(turn) * NECK[0] * 0.86, math.cos(turn) * NECK[1] * 0.86 + 0.012, base + 0.012)), None
         else:
             collar = _ruff("collar_2", fabric, group)
 
-        finish(_crisp(collar, 50), hollow=_whole, seed=index)
+            def lining(turn):
+                return Vector((math.sin(turn) * 0.112, math.cos(turn) * 0.1 + 0.012, base + 0.02)), None
 
-        # The stump is cut flat, so that nothing inside the collar can be
-        # taken for a head. It closes the neck of the coat.
-        stump = core.revolve(
-            f"void_{index}",
-            [(0.0, -0.035), (0.11, -0.035), (0.128, -0.045), (0.132, -0.09)],
-            core.material("void"),
-            group,
-            segments=32,
-        )
-        stump.data.transform(Matrix.Diagonal((1, 0.86, 1, 1)))
+        finish(core.crisp(collar, 0.002, angle=50, segments=1), hollow=_whole, seed=index)
+        _hole(f"void_{index}", lining, base, group)
 
-        # The ember sits on the stump, small: the hollow's light is in its
-        # skull's eyes. It is built around its own origin so the game can
-        # scale it by the genome's gaze without moving it.
+        # The ember sits at the bottom of the hole, small: the hollow's
+        # light is in its skull's eyes. It is built around its own origin
+        # so the game can scale it by the genome's gaze without moving it.
         ember = core.sculpt(
             f"eyes_{index}",
             [
@@ -606,21 +768,60 @@ def _collars(head):
             core.material("accent"),
             group,
             voxel=0.004,
-            smooth=1,
         )
-        ember.location = (0, 0.02, -0.03)
+        ember.location = (0, 0.02, base - 0.05)
 
         if index == 1:
             _neck_ring(group)
 
 
+def _hole(name, lining, base, group):
+    """The dark inside a collar: a funnel of void from just under the lip
+    down into the coat, where the neck was. `lining(turn)` gives the lip and
+    the foot of its wall at `turn` round the neck."""
+
+    rings = [[], [], [], []]
+
+    for step in range(32):
+        turn = -math.pi + math.tau * (step + 0.5) / 32
+        lip, foot = lining(turn)
+        foot = foot if foot is not None else Vector((lip.x, lip.y, base))
+        rings[0].append(lip)
+        rings[1].append(foot)
+        rings[2].append(Vector((foot.x * 0.62, foot.y * 0.62, base - 0.06)))
+        rings[3].append(Vector((foot.x * 0.2, foot.y * 0.2, base - 0.11)))
+
+    hole = core.loft(name, [[tuple(point) for point in ring] for ring in rings], core.material("void"), group, cap_end=True)
+
+    # Given thickness, so it shows a face to the eye looking down into it
+    # as well as to one outside it.
+    core.apply_modifier(hole, "SOLIDIFY", thickness=0.004, offset=0.0)
+
+    return _outward(hole)
+
+
+def _shell(name, mat, point, columns, rows, thickness, parent=None, closed=False):
+    """A sheet with real thickness: a collar, or a plate of armour.
+
+    `point(u, v)` maps the unit square onto the sheet's outer face. A
+    `closed` sheet wraps round on itself at u = 1, with no seam.
+    """
+
+    span = columns if closed else columns + 1
+    rings = [[point(column / columns, row / rows) for column in range(span)] for row in range(rows + 1)]
+    sheet = core.loft(name, rings, mat, parent, closed=closed)
+
+    return core.apply_modifier(sheet, "SOLIDIFY", thickness=thickness, offset=-1.0)
+
+
 def _ruff(name, mat, group):
     """A pleated ruff worn on the neck that is no longer there: a flat wheel
-    of figure-of-eight folds round the stump, with nothing above it."""
+    of figure-of-eight folds round the hole, with nothing above it. Twelve
+    pleats, each big enough to take a band of its own."""
 
-    pleats = 18
+    pleats = 12
     columns = pleats * 6
-    rows = 8
+    rows = 6
     rings = []
 
     for row in range(rows + 1):
@@ -631,10 +832,10 @@ def _ruff(name, mat, group):
         for column in range(columns):
             turn = math.tau * column / columns
             lobe = abs(math.sin(turn * pleats / 2)) ** 0.6
-            reach = 0.155 + (0.048 + 0.026 * lobe) * math.cos(phi)
-            rise = (0.036 + 0.008 * lobe) * math.sin(phi)
+            reach = 0.16 + (0.052 + 0.03 * lobe) * math.cos(phi)
+            rise = (0.04 + 0.01 * lobe) * math.sin(phi)
 
-            ring.append((math.sin(turn) * reach, math.cos(turn) * reach * 0.88 + 0.01, -0.04 + rise + 0.012 * math.cos(turn)))
+            ring.append((math.sin(turn) * reach, math.cos(turn) * reach * 0.88 + 0.01, -0.058 + rise + 0.012 * math.cos(turn)))
 
         rings.append(ring)
 
@@ -649,9 +850,9 @@ def _neck_ring(group):
 
     path = []
 
-    for step in range(57):
+    for step in range(41):
         # The break is the part of the circle the ring never covers.
-        turn = -2.2 + (math.tau - 0.6) * step / 56
+        turn = -2.2 + (math.tau - 0.6) * step / 40
 
         path.append((math.cos(turn) * 0.142, math.sin(turn) * 0.122 + 0.004, -0.03 - 0.012 * math.sin(turn + 0.5)))
 
@@ -662,16 +863,19 @@ def _neck_ring(group):
         lambda t: 0.018 * (1 - 0.7 * max(0.0, abs(2 * t - 1) - 0.88) / 0.12),
         core.material("metal"),
         group,
-        sides=10,
+        sides=8,
         flatten=0.75,
     )
     finish(core.shade_smooth(ring), hollow=_whole, wear_boost=1.8)
 
 
+# Mantles ---------------------------------------------------------------
+
+
 def _mantles(root):
     """What sits on a hollow's shoulders, under its pauldrons and below the
-    notch between them: a gorget, a cape or chains. None rises past the
-    collar, and none breaks the symmetry the lantern alone breaks."""
+    V between them: a gorget, a cape or a chain. None rises past the collar,
+    and none breaks the symmetry the lantern alone breaks."""
 
     metal = core.material("metal")
 
@@ -682,8 +886,8 @@ def _mantles(root):
 
     for index, (top, bottom, inner, outer, point) in enumerate(
         (
-            (1.73, 1.655, (0.145, 0.12), (0.272, 0.172), 0.0),
-            (1.672, 1.585, (0.24, 0.16), (0.3, 0.19), 0.085),
+            (1.7, 1.635, (0.15, 0.125), (0.272, 0.172), 0.0),
+            (1.655, 1.575, (0.24, 0.16), (0.3, 0.19), 0.085),
         )
     ):
 
@@ -692,20 +896,19 @@ def _mantles(root):
             # nape.
             turn = (u * 2 - 1) * (math.pi - 0.14)
             front = math.cos(turn / 2) ** 8
-            bulge = 0.014 * math.sin(math.pi * v)
-            width = inner[0] + (outer[0] - inner[0]) * v + bulge
-            depth = inner[1] + (outer[1] - inner[1]) * v + bulge
+            width = inner[0] + (outer[0] - inner[0]) * v
+            depth = inner[1] + (outer[1] - inner[1]) * v
 
             return (math.sin(turn) * width, -math.cos(turn) * depth + 0.01, top + (bottom - top) * v - point * front * v**1.4)
 
-        lames.append(_shell(f"gorget_{index}", metal, at, 72, 4, 0.007))
+        lames.append(_shell(f"gorget_{index}", metal, at, 36, 2, 0.007))
 
-    gorget = _crisp(core.join(lames, "gorget"), 50)
+    gorget = core.crisp(_outward(core.join(lames, "gorget")), 0.002, angle=30, segments=1)
     gorget.parent = group
     finish(gorget, wear_boost=1.8)
 
     # A cape hung from the shoulders down the back, under the pauldrons, and
-    # held across the chest by a chain.
+    # held across the chest by three big links.
     group = core.empty("mantle_1", root)
     stops = core.bezier([(0.2, 0.13, 1.69), (0.3, 0.165, 1.58), (0.36, 0.22, 1.3), (0.4, 0.28, 0.9), (0.44, 0.32, 0.55)], samples=6)
 
@@ -718,36 +921,37 @@ def _mantles(root):
         position = reach * (len(stops) - 1)
         index = min(int(position), len(stops) - 2)
         width, thickness, height = stops[index].lerp(stops[index + 1], position - index)
-        fold = 1 + 0.08 * reach * (0.6 * math.sin(turn * 5 + 0.7) + 0.4 * math.sin(turn * 9 + 2.1))
+        fold = 1 + 0.08 * reach * (0.6 * math.sin(turn * 3 + 0.7) + 0.4 * math.sin(turn * 5 + 2.1))
 
         return (math.sin(turn) * width * fold, math.cos(turn) * thickness * fold + 0.01, height)
 
-    finish(core.loft("cape", [[cape(column / 72, row / 20) for column in range(73)] for row in range(21)], core.material("cloth"), group, closed=False), seed=3)
+    finish(core.loft("cape", [[cape(column / 60, row / 18) for column in range(61)] for row in range(19)], core.material("cloth"), group, closed=False), seed=3)
 
     path = []
 
     for step in range(61):
         share = step / 30 - 1
         sag = 1 - share * share
-        path.append(Vector((0.15 * share, -0.14 - 0.035 * sag, 1.665 - 0.06 * sag)))
+        path.append(Vector((0.16 * share, -0.15 - 0.035 * sag, 1.665 - 0.07 * sag)))
 
-    clasp = _chain("cape_clasp", path, 0.05, 0.009)
+    clasp = _chain("cape_clasp", path, 0.1, 0.014)
     clasp.parent = group
     finish(clasp, wear_boost=1.6)
 
-    # Chains from shoulder to shoulder, under the pauldrons: two across the
-    # chest and one across the back, in links big enough to read.
+    # One great chain slung from shoulder to shoulder across the chest and
+    # one across the back, under the pauldrons, in four links each: big
+    # enough to read as a chain when the reaper is a thumb tall.
     group = core.empty("mantle_2", root)
     swags = []
 
-    for middle, spread, sag in ((270, 62, 0.12), (270, 70, 0.26), (90, 66, 0.18)):
+    for middle, spread, sag in ((270, 64, 0.22), (90, 60, 0.16)):
         path = []
 
         for step in range(121):
             share = step / 60 - 1
-            path.append(_coat_point(math.radians(middle + spread * share), 1.64 - sag * (1 - share * share), 0.03))
+            path.append(_coat_point(math.radians(middle + spread * share), 1.64 - sag * (1 - share * share), 0.035))
 
-        swags.append(_chain(f"swag_{len(swags)}", path, 0.07, 0.011))
+        swags.append(_chain(f"swag_{len(swags)}", path, 0.125, 0.017))
 
     chains = core.join(swags, "chains")
     chains.parent = group
