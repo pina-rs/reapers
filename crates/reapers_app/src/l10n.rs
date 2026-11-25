@@ -369,11 +369,11 @@ pub trait Messages: Send + Sync {
 	fn colophon_title(&self) -> &'static str;
 	/// `Set in`
 	fn colophon_type(&self) -> &'static str;
-	/// `Both released under the SIL Open Font License 1.1.`
+	/// `Hand-drawn cuts of Recursive and Noto Sans by the Skribble authors, all three released under the SIL Open Font License 1.1.`
 	fn colophon_type_credit(&self) -> &'static str;
 	/// `Type`
 	fn colophon_type_heading(&self) -> &'static str;
-	/// `Fraunces and DM Sans`
+	/// `Skribble Black, Skribble Noto Sketch and Skribble Mono Gentle`
 	fn colophon_type_piece(&self) -> &'static str;
 	/// `Anima`
 	fn common_anima(&self) -> &'static str;
@@ -2524,7 +2524,7 @@ impl Messages for En {
 	}
 
 	fn colophon_type_credit(&self) -> &'static str {
-		"Both released under the SIL Open Font License 1.1."
+		"Hand-drawn cuts of Recursive and Noto Sans by the Skribble authors, all three released under the SIL Open Font License 1.1."
 	}
 
 	fn colophon_type_heading(&self) -> &'static str {
@@ -2532,7 +2532,7 @@ impl Messages for En {
 	}
 
 	fn colophon_type_piece(&self) -> &'static str {
-		"Fraunces and DM Sans"
+		"Skribble Black, Skribble Noto Sketch and Skribble Mono Gentle"
 	}
 
 	fn common_anima(&self) -> &'static str {

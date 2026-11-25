@@ -145,7 +145,23 @@ The second builds the server and `reapers_ops`, starts PostgreSQL, a localnet an
 
 - Wallets: the browser reaches its wallets through the Wallet Standard (`src/wallet/browser.rs`), written as `leptoskit_auth`'s web client does it. `solana_kit_browser`'s wallet would do, but at the pinned Solana Kit revision it requires wasm-bindgen 0.2.128 and leptoskit's CLI embeds 0.2.129, and one build holds only one.
 
-- Fonts: leptoskit has no font-family utility. The web shell sets display type (headings) in Fraunces and the rest in DM Sans (`assets/app.css`); native apps use the system face.
+- Fonts: the interface is set in three Skribble faces (`assets/fonts/CREDITS.md` at the repository's root): Display, Text and Figures, chosen with `font-[var(--display)]`, `font-[var(--text)]` and `font-[var(--figures)]` (`theme::Face`). The web shell loads them by `@font-face` and names the three properties with their fallback chains (`assets/app.css`), and preloads the files (`web/index.html`). At the pinned leptoskit, native builds accept the classes and draw the system face: nothing breaks and nothing is clipped, the words are only in the wrong hand. When leptoskit's native font loading lands (its guide, "Fonts", `[theme.fonts]`), move the pin with `cargo xtask leptoskit` and switch it on with these tables in `leptoskit.toml`, then delete the three `@font-face` rules and the `:root` block from `assets/app.css`, which the build's own `leptoskit-fonts.css` replaces (keep the fallback chains by giving each family its first fallback in the stack the build writes, or leave the `:root` block after it):
+
+  ```toml
+  [theme.fonts.display]
+  family = "Skribble Black"
+  faces = [{ file = "fonts/Skribble-Black-Latin.ttf", weight = 900 }]
+
+  [theme.fonts.text]
+  family = "Skribble Noto Sketch"
+  faces = [{ file = "fonts/SkribbleNotoSketch-Latin.ttf" }]
+
+  [theme.fonts.figures]
+  family = "Skribble Mono Gentle"
+  faces = [{ file = "fonts/SkribbleMonoGentle-Bold-Latin.ttf", weight = 700 }]
+  ```
+
+  `tabular-nums` and `tracking-widest` stay web-only there too; Figures is monospaced, so numbers hold still without them.
 - Images: `asset://` names a file under the project's `assets/` on every platform; `build.rs` mirrors the repository's `assets/` there.
 - Meta Quest: `leptoskit build --platform quest` packages the Android app for Horizon OS as a panel (`[native.quest] immersive = false`): the screens are ordinary views. A hunt or a rift starts the `xr` plugin's `ImmersiveAr` session and presents its `Scene3d`, so the headset opens an immersive activity over the panel and draws the husk over passthrough; the fight's 2D marks stay on the panel. The session's end returns to the panel.
 - The iOS app's `Info.plist` is app-owned (`ios/Info.plist`): ARKit needs its camera usage text.

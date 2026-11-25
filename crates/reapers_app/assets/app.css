@@ -1,28 +1,53 @@
-/* The web shell of the funeral ledger: the page's ink, and the two faces
-   leptoskit has no utility for. Display type is a heading (`Heading`), set in
-   Fraunces at its sharpest cut; everything else is DM Sans. Both are under
-   the SIL Open Font License; see fonts/. */
+/* The web shell of Second Ink: the vigil page, and the three Skribble faces
+   the interface is set in (the art bible, §7). Each face is named by a
+   custom property, so a class reads `font-[var(--display)]`; leptoskit's
+   native font loading takes the same names and files. All three are under
+   the SIL Open Font License 1.1; see fonts/ and assets/fonts/CREDITS.md in
+   the repository. Every colour here is a token in src/theme.rs. */
 
+/* One weight per face, declared over the whole range, so a heading or a
+   `font-bold` anywhere still sets the face as it is drawn and nothing is
+   ever made bold by the browser. */
 @font-face {
-  font-family: "Fraunces";
-  src: url("fonts/Fraunces.woff2") format("woff2");
+  font-family: "Skribble Black";
+  src: url("fonts/Skribble-Black-Latin.ttf") format("truetype");
   font-weight: 100 900;
+  font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: "DM Sans";
-  src: url("fonts/DMSans.woff2") format("woff2");
-  font-weight: 100 1000;
+  font-family: "Skribble Noto Sketch";
+  src: url("fonts/SkribbleNotoSketch-Latin.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
   font-display: swap;
+}
+
+@font-face {
+  font-family: "Skribble Mono Gentle";
+  src: url("fonts/SkribbleMonoGentle-Bold-Latin.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* The fallback chain (§7.3): a script a face lacks falls to Noto Sketch,
+   then to the platform's Noto Sans at the same size. */
+:root {
+  --display: "Skribble Black", "Skribble Noto Sketch", "Noto Sans", ui-sans-serif, system-ui,
+    sans-serif;
+  --text: "Skribble Noto Sketch", "Noto Sans", ui-sans-serif, system-ui, sans-serif;
+  --figures: "Skribble Mono Gentle", "Skribble Noto Sketch", "Noto Sans Mono", ui-monospace,
+    monospace;
 }
 
 html,
 body {
   margin: 0;
   min-height: 100%;
-  background: #07080b;
-  color: #e9e4d4;
+  background: #342f33;
+  color: #ece3cf;
   color-scheme: dark;
 }
 
@@ -30,11 +55,13 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
+  font-family: var(--text);
+  -webkit-font-smoothing: antialiased;
 }
 
 body,
 body * {
-  font-family: "DM Sans", system-ui, sans-serif !important;
+  font-synthesis: none;
   -webkit-tap-highlight-color: transparent;
   overflow-wrap: anywhere;
 }
@@ -45,14 +72,14 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: "Fraunces", Georgia, serif !important;
-  font-variation-settings: "SOFT" 0, "WONK" 1;
-  letter-spacing: -0.022em;
-  line-height: 0.98;
+  font-family: var(--display);
+  font-weight: inherit;
+  margin: 0;
 }
 
-/* Every button's own focus ring is replaced by the reaper's light on its
-   hand-drawn outline; keyboard focus still shows. */
+/* Keyboard focus is shown by paper crop marks at a control's four corners
+   (§8), drawn by the kit; the browser's ring would cover them. Controls the
+   kit has not reprinted keep a ring of their own colour. */
 button:focus-visible,
 a:focus-visible {
   outline: 1px solid currentColor;
@@ -60,6 +87,6 @@ a:focus-visible {
 }
 
 ::selection {
-  background: #e9e4d4;
-  color: #07080b;
+  background: #ece3cf;
+  color: #16121a;
 }

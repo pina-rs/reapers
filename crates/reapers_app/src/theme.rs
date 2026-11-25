@@ -284,6 +284,65 @@ impl Step {
 	}
 }
 
+/// The advance of each printable ASCII character in the Display face
+/// (Skribble Black), in thousandths of an em, from U+0020 to U+007E: read
+/// from the font's `hmtx` table, so a name can be fitted to its box before
+/// it is laid out.
+const DISPLAY_ADVANCES: [u16; 95] = [
+	300, 350, 600, 600, 600, 600, 600, 350, 400, 400, 600, 600, 350, 450, 350, 600, 600, 600, 600,
+	600, 600, 600, 600, 600, 600, 600, 350, 350, 600, 600, 600, 600, 1050, 650, 600, 600, 650, 550,
+	550, 650, 650, 500, 500, 600, 550, 800, 650, 650, 600, 650, 600, 600, 600, 650, 650, 950, 600,
+	650, 600, 450, 600, 450, 600, 600, 350, 600, 600, 500, 600, 600, 400, 600, 600, 350, 350, 600,
+	350, 850, 600, 600, 600, 600, 450, 550, 500, 600, 600, 800, 600, 600, 550, 550, 300, 550, 600,
+];
+
+/// How wide `text` sets in the Display face at one em, in ems. Characters
+/// outside ASCII take the face's widest common advance, so the estimate
+/// errs toward shrinking.
+pub fn display_width(text: &str) -> f32 {
+	text.chars()
+		.map(|character| {
+			let index = (character as u32).wrapping_sub(0x20) as usize;
+			f32::from(DISPLAY_ADVANCES.get(index).copied().unwrap_or(650)) / 1000.0
+		})
+		.sum()
+}
+
+/// The size a Display word in a box `width` points wide sets at (§7.2,
+/// fitted Display): its `step`, shrunk 1 pt at a time until it breaks
+/// into no more than two lines, and never below [`Step::S5`].
+pub fn fit_display(text: &str, width: f32, step: Step) -> u32 {
+	let words: Vec<f32> = text.split_whitespace().map(display_width).collect();
+	let space = display_width(" ");
+	let lines_at = |size: u32| {
+		let size = size as f32;
+		let mut lines = 1;
+		let mut line = 0.0;
+		for &word in &words {
+			let word = word * size;
+			if line > 0.0 && line + space * size + word > width {
+				lines += 1;
+				line = word;
+			} else if line > 0.0 {
+				line += space * size + word;
+			} else {
+				line = word;
+			}
+			if word > width {
+				// A word wider than the box would break mid-word: count it
+				// as a line too many.
+				lines += 2;
+			}
+		}
+		lines
+	};
+	let floor = Step::S5.size();
+	(floor..=step.size().max(floor))
+		.rev()
+		.find(|&size| lines_at(size) <= 2)
+		.unwrap_or(floor)
+}
+
 /// The spacing scale. The bible gives its measures component by component;
 /// they all fall on a 4 pt grid, and these are the steps of it the kit and
 /// the screens use, with the named measures (§8, §9, §15.3).
@@ -719,6 +778,19 @@ mod tests {
 		}
 		assert_eq!(Step::S1.size(), 11, "nothing on the page is under 11 pt");
 		assert_eq!(Step::SPOT_MINIMUM.size(), 22);
+	}
+
+	#[test]
+	fn a_long_name_shrinks_to_two_lines_and_no_further() {
+		// The proof's name fits its 286 pt box in two lines at its step.
+		assert_eq!(fit_display("Umbra of the Slow Water", 286.0, Step::S7), 40);
+		// A narrower box shrinks it a point at a time.
+		let narrow = fit_display("Umbra of the Slow Water", 220.0, Step::S7);
+		assert!((22..40).contains(&narrow), "{narrow}");
+		assert!(fit_display("Umbra of the Slow Water", 220.0, Step::S7) >= Step::S5.size());
+		// Nothing is set under s5, however little room there is.
+		assert_eq!(fit_display("Umbra of the Slow Water", 40.0, Step::S7), 22);
+		assert_eq!(fit_display("IV", 70.0, Step::S7), 40);
 	}
 
 	#[test]

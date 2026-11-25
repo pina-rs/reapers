@@ -22,6 +22,7 @@ pub use text::aside;
 pub use text::body;
 pub use text::display;
 pub use text::figure;
+pub use text::fitted_display;
 pub use text::label;
 pub use text::margin;
 pub use text::prose;
