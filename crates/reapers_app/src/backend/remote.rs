@@ -309,9 +309,11 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 				.await;
 		};
 		let status = self.status_cached().await?;
-		cluster.check_status(&status)?;
+		// Only a linked wallet touches the cluster; without one the release
+		// is the server's alone.
 		let held = match status.wallet.as_deref() {
 			Some(_) => {
+				cluster.check_status(&status)?;
 				let address = linked(&status)?;
 				cluster
 					.wallet_husk(&status.husks, &address, nft)
@@ -455,10 +457,10 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 			return Ok(Vec::new());
 		};
 		let status = self.status_cached().await?;
-		cluster.check_status(&status)?;
 		if status.wallet.is_none() {
 			return Ok(Vec::new());
 		}
+		cluster.check_status(&status)?;
 		Ok(cluster
 			.wallet_husks(&status.husks, &linked(&status)?)
 			.await?)
@@ -1457,6 +1459,77 @@ mod tests {
 			Err(KeeperError::Chain(ChainFailure::Rejected(_)))
 		));
 		assert_eq!(wallet.signed.get(), 0);
+		assert!(rpc.calls.borrow().is_empty());
+	}
+
+	/// A player with no linked wallet releases through the server alone,
+	/// touching neither the cluster nor a wallet, so a server that names no
+	/// program (or another chain) does not stop it.
+	#[test]
+	fn a_guest_release_reaches_the_server_when_it_names_no_program() {
+		let keypair = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]);
+		let address = keypair.address();
+		let saint = Nft::new(reapers_rules::NftCollection::DegenApes, 1);
+		let player = PlayerState::initial()
+			.take_oath(1)
+			.unwrap()
+			.acquire(saint)
+			.unwrap();
+		let rpc = Rc::new(ReleasingRpc {
+			owner: address,
+			calls: RefCell::new(Vec::new()),
+		});
+		let cluster = Rc::new(
+			Cluster::new(
+				crate::chain::ClusterName::Localnet,
+				"http://rpc",
+				rpc.clone(),
+			)
+			.with_pause(Rc::new(|_| Box::pin(async { true }))),
+		);
+		let wallet = Rc::new(CountingWallet {
+			keypair,
+			signed: Cell::new(0),
+		});
+		let status = ChainStatus {
+			wallet: None,
+			program: None,
+			..linked_to(&address)
+		};
+		let keeper = RemoteBackend::new(ReleaseStub {
+			player,
+			chain: status,
+			release_refusal: "veilCrowded",
+		})
+		.with_cluster(cluster, wallet.clone());
+
+		let error = block_on(keeper.release(saint)).unwrap_err();
+		assert_eq!(
+			error.refusal(),
+			Some(Refusal::VeilCrowded),
+			"the server was never asked; the player is shown {error:?}"
+		);
+		assert_eq!(wallet.signed.get(), 0);
+		assert!(rpc.calls.borrow().is_empty());
+	}
+
+	/// A player with no linked wallet has no husks on the cluster to read,
+	/// whatever program the server names.
+	#[test]
+	fn a_guests_wallet_husks_are_empty_when_the_server_names_no_program() {
+		let address = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]).address();
+		let rpc = Rc::new(Burning::default());
+		let keeper = RemoteBackend::new(Refusing {
+			chain: Some(ChainStatus {
+				wallet: None,
+				program: None,
+				..linked_to(&address)
+			}),
+			..Refusing::default()
+		})
+		.with_cluster(cluster(&rpc), Rc::new(Wallet(None)));
+
+		assert_eq!(block_on(keeper.wallet_husks()), Ok(Vec::new()));
 		assert!(rpc.calls.borrow().is_empty());
 	}
 
