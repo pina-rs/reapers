@@ -202,29 +202,45 @@ pub fn tag_turn(seed: i64) -> f64 {
 }
 
 /// `wanted`, the middle of a slip `slip` big, kept inside the view's margins
-/// and out of the sight's clear circle: above it, or below it where there is
-/// no room above.
+/// and out of the sight's clear circle: moved the least it can be, right,
+/// up, left or down, to stay as near its blow as it may. Where none of those
+/// fits, it stands above the circle.
 pub fn keep_clear(wanted: At, view: At, slip: At) -> At {
 	let half = (slip.0 / 2.0, slip.1 / 2.0);
+	let low = (TAG_SIDE + half.0, TAG_TOP + half.1);
+	let high = (view.0 - TAG_SIDE - half.0, view.1 - TAG_BOTTOM - half.1);
 	let within = |value: f64, low: f64, high: f64| value.max(low).min(high);
-	let mut at = (
-		within(wanted.0, TAG_SIDE + half.0, view.0 - TAG_SIDE - half.0),
-		within(wanted.1, TAG_TOP + half.1, view.1 - TAG_BOTTOM - half.1),
+	let at = (
+		within(wanted.0, low.0, high.0),
+		within(wanted.1, low.1, high.1),
 	);
 	let centre = (view.0 / 2.0, view.1 / 2.0);
-	let nearest = (
-		within(centre.0, at.0 - half.0, at.0 + half.0),
-		within(centre.1, at.1 - half.1, at.1 + half.1),
+	// How far the slip's edges stand from the sight's middle, across and up;
+	// nothing where the slip spans it.
+	let apart = (
+		((at.0 - centre.0).abs() - half.0).max(0.0),
+		((at.1 - centre.1).abs() - half.1).max(0.0),
 	);
-	if (nearest.0 - centre.0).hypot(nearest.1 - centre.1) < CLEAR {
-		let above = centre.1 - CLEAR - half.1;
-		at.1 = if above >= TAG_TOP + half.1 {
-			above
-		} else {
-			centre.1 + CLEAR + half.1
-		};
+	if apart.0.hypot(apart.1) >= CLEAR {
+		return at;
 	}
-	at
+	// The middle's distance from the sight's, across or up, at which an edge
+	// just touches the circle.
+	let across = (CLEAR * CLEAR - apart.1 * apart.1).sqrt() + half.0;
+	let up = (CLEAR * CLEAR - apart.0 * apart.0).sqrt() + half.1;
+	[
+		(centre.0 + across, at.1),
+		(at.0, centre.1 - up),
+		(centre.0 - across, at.1),
+		(at.0, centre.1 + up),
+	]
+	.into_iter()
+	.filter(|place| (low.0..=high.0).contains(&place.0) && (low.1..=high.1).contains(&place.1))
+	.min_by(|one, other| {
+		let moved = |place: &At| (place.0 - at.0).hypot(place.1 - at.1);
+		moved(one).total_cmp(&moved(other))
+	})
+	.unwrap_or((at.0, (centre.1 - CLEAR - half.1).max(low.1)))
 }
 
 /// A blow's splat on one frame.
@@ -706,15 +722,21 @@ mod tests {
 				"seed {seed}: {at:?}"
 			);
 		}
-		// Far from the sight, it is 60–130 pt up and right of the blow.
-		let hit = (120.0, 700.0);
-		let at = tag_place(hit, 7, view, slip);
-		let (right, up) = (at.0 - hit.0, hit.1 - at.1);
-		assert!(right > 0.0 && up > 0.0);
-		assert!(
-			(60.0..=130.0).contains(&right) && (60.0..=130.0).contains(&up),
-			"{right}, {up}"
-		);
+		// Far from the sight, it is 60–130 pt up and right of the blow; and
+		// below the sight it steps aside from the circle rather than leaping
+		// over it, so it stays as near.
+		for (hit, seed) in [
+			((120.0, 700.0), 7),
+			((200.0, 540.0), 3),
+			((200.0, 540.0), 31),
+		] {
+			let at = tag_place(hit, seed, view, slip);
+			let (right, up) = (at.0 - hit.0, hit.1 - at.1);
+			assert!(
+				(60.0..=130.0).contains(&right) && (60.0..=130.0).contains(&up),
+				"{hit:?}: {right}, {up}"
+			);
+		}
 		for seed in 0..40 {
 			assert!((-8.0..=-2.0).contains(&tag_turn(seed)));
 		}
