@@ -490,6 +490,7 @@ impl Arena {
 	/// Advances the fight and everything drawn from it, with the player at
 	/// `live`, and returns what happened, each on the rules' tick it happened
 	/// on. Before a fight is engaged this only idles.
+	#[allow(clippy::too_many_lines, reason = "one tick, in the order it happens")]
 	pub fn advance(
 		&mut self,
 		delta: f64,

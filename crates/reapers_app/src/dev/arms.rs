@@ -140,6 +140,10 @@ pub enum Ground {
 }
 
 /// The bench between renders.
+#[allow(
+	clippy::struct_excessive_bools,
+	reason = "each is one switch on the bench"
+)]
 pub struct Bench {
 	/// The bench's clock, in the hunt's ticks.
 	pub tick: f64,
@@ -793,6 +797,10 @@ const fn own_motions(archetype: Archetype) -> &'static [ViewAction] {
 	}
 }
 
+#[allow(
+	clippy::too_many_lines,
+	reason = "one panel of chips, read top to bottom"
+)]
 fn controls(state: &Bench) -> Element {
 	let words = use_l10n();
 	let weapons = [

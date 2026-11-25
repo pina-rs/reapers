@@ -1139,9 +1139,10 @@ mod tests {
 			tags.extend(tagged.first().map(|tag| (tag.scale, tag.centre)));
 		}
 		assert_eq!(coverage.len(), 33, "f1 to f33");
-		assert!(coverage.iter().all(|left| *left == 1.0), "{coverage:?}");
+		assert_eq!(coverage, [1.0; 33]);
 		assert_eq!(tags.len(), 49, "f2 to f50");
-		assert!(tags.iter().all(|tag| *tag == tags[0] && tag.0 == 1.0));
+		assert!(tags.iter().all(|tag| *tag == tags[0]), "{tags:?}");
+		assert_eq!(tags[0].0, 1.0);
 	}
 
 	#[test]
