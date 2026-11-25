@@ -931,19 +931,15 @@ impl Sight {
 /// in when it would strike, a ring round them on an open seal, and a cross
 /// when the husk is too far for the weapon in hand. Its arms stand `out`
 /// further from the middle, as they do for an instant when a blow lands.
-pub(crate) fn crosshair(
-	sketch: &mut Sketch,
-	centre: (f64, f64),
-	sight: Sight,
-	light: Rgb,
-	out: f64,
-) {
+/// It says what a press would do by its shape, never by taking the husk's
+/// colour (art bible §10.2): the seal's ring is key on a paper edge.
+pub(crate) fn crosshair(sketch: &mut Sketch, centre: (f64, f64), sight: Sight, out: f64) {
 	let (cx, cy) = centre;
 	let (tint, alpha, width, gap) = match sight {
 		Sight::Off => (BONE, 0.75, 1.6, 7.0),
 		Sight::TooFar => (crate::theme::ASH, 0.9, 1.8, 7.0),
 		Sight::On => (BONE, 1.0, 2.0, 4.0),
-		Sight::Seal => (light, 1.0, 2.4, 4.0),
+		Sight::Seal => (BONE, 1.0, 2.4, 4.0),
 	};
 	let paint = colour(tint, alpha);
 	// A dark edge under every stroke, so the crosshair reads over a bright
@@ -979,8 +975,8 @@ pub(crate) fn crosshair(
 	sketch.dot((cx, cy), 1.6, paint);
 	if sight == Sight::Seal {
 		let radius = gap + out + arm + 5.0;
-		sketch.ring((cx, cy), radius, shadow, 3.6);
-		sketch.ring((cx, cy), radius, colour(light, 0.9), 1.6);
+		sketch.ring((cx, cy), radius, colour(crate::ink::PAPER, 1.0), 3.6);
+		sketch.ring((cx, cy), radius, colour(crate::ink::KEY, 1.0), 1.6);
 	}
 }
 
@@ -1049,6 +1045,61 @@ mod tests {
 	/// A lens looking where `pose` says, at the hunt's default lens.
 	fn looking(pose: ArPose) -> Lens {
 		Lens { pose, ..lens() }
+	}
+
+	/// The crosshair for `sight`, its arms `out`: each path's colours, and
+	/// how near the middle its nearest point comes.
+	fn sight_paths(sight: Sight, out: f64) -> Vec<(Option<Color>, Option<Color>, f64)> {
+		let centre = (195.0, 422.0);
+		let mut sketch = Sketch::default();
+		crosshair(&mut sketch, centre, sight, out);
+		sketch
+			.into_paths()
+			.iter()
+			.map(|path| {
+				let nearest = path
+					.data()
+					.commands()
+					.iter()
+					.filter_map(|command| {
+						match command {
+							PathCommand::MoveTo(at) | PathCommand::LineTo(at) => Some(*at),
+							PathCommand::CubicTo { to, .. } => Some(*to),
+							_ => None,
+						}
+					})
+					.map(|at| (f64::from(at.x) - centre.0).hypot(f64::from(at.y) - centre.1))
+					.fold(f64::MAX, f64::min);
+				(
+					path.fill_color(),
+					path.stroke_style().map(|stroke| stroke.color()),
+					nearest,
+				)
+			})
+			.collect()
+	}
+
+	/// An open seal is told by the ring's shape, key on a paper edge, and by
+	/// nothing in the husk's colour: every stroke and fill is bone, key, paper
+	/// or the dark edge under them all.
+	#[test]
+	fn the_sight_says_a_seal_by_shape_not_colour() {
+		let key = colour(crate::ink::KEY, 1.0);
+		let paper = colour(crate::ink::PAPER, 1.0);
+		let paths = sight_paths(Sight::Seal, 0.0);
+		let rings: Vec<Option<Color>> = paths
+			.iter()
+			.rev()
+			.take(2)
+			.map(|(_, stroke, _)| *stroke)
+			.collect();
+		assert_eq!(rings, [Some(key), Some(paper)], "key over a paper edge");
+		let inks = [key, paper, colour(BONE, 1.0), colour(SHADOW, 0.55)];
+		for (fill, stroke, _) in paths {
+			for paint in fill.into_iter().chain(stroke) {
+				assert!(inks.contains(&paint), "{paint:?}");
+			}
+		}
 	}
 
 	/// A trace whose only light hangs along `direction`.

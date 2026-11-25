@@ -31,9 +31,11 @@
 //! for a caller with a clock of its own, such as the bench.
 //!
 //! It draws in two scenes. The arms have a scene of their own, drawn over
-//! everything from a fixed eye, so they never reach into the room. The orb,
-//! the tracers and the soul-shard sparks belong to the room, so they go in
-//! the world's scene, the one the husk is in, named by [`WorldView`].
+//! everything from a fixed eye, so they never reach into the room. The orb
+//! and the soul-shard sparks of a blade's or a class weapon's blow belong to
+//! the room, so they go in the world's scene, the one the husk is in, named
+//! by [`WorldView`]. The pistol throws no light into the room: its shot and
+//! its blow are printed flat over the view ([`viewmodel_marks`]).
 //!
 //! The shake turns the arms here. On the world it is the owner's to apply,
 //! with [`shake_turn`], because the owner holds the world's camera. Neither
@@ -64,7 +66,6 @@ pub use crate::render::arms::ViewAction;
 use crate::render::camera::Point;
 use crate::render::curves::Ease;
 use crate::render::effects::Burst;
-use crate::render::effects::Tracer;
 use crate::render::effects::WorldFrame;
 use crate::render::effects::WorldFx;
 use crate::render::juice;
@@ -76,7 +77,6 @@ use crate::render::scene::Key;
 use crate::render::scene::scene;
 use crate::render::turn::add;
 use crate::render::turn::inverse;
-use crate::render::turn::lerp;
 use crate::render::turn::rotate;
 use crate::render::turn::sub;
 use crate::render::turn::view_turn;
@@ -88,9 +88,6 @@ use crate::theme::Rgb;
 /// The arms' own scene.
 pub const VIEWMODEL: Key = Key::Fixed("viewmodel");
 
-/// How many frames a tracer lasts, and how long each is.
-const TRACER_FRAMES: f32 = 4.0;
-const TRACER_FRAME_SECONDS: f32 = 1.0 / 30.0;
 /// How long a burst of shards flies, in seconds.
 const SHARD_SECONDS: f32 = 0.4;
 
@@ -160,8 +157,8 @@ pub struct ViewmodelProps {
 	/// The reaper's spot, the second ink its marks are printed in.
 	pub spot: Rgb,
 	/// The sight at the middle of the view, while there is one: what a press
-	/// would do now, and the light it shows an open seal in.
-	pub sight: Option<(Sight, Rgb)>,
+	/// would do now.
+	pub sight: Option<Sight>,
 }
 
 impl ViewmodelProps {
@@ -427,20 +424,13 @@ impl Seam {
 		);
 		arms_scene.flush();
 		match props.world {
-			Some(world) => self.show_world(&props, &world, &pose, tick, seconds),
+			Some(world) => self.show_world(&props, &world, tick, seconds),
 			None => self.hide_world(),
 		}
 	}
 
-	/// Shows the orb, the tracer and the shards in the world.
-	fn show_world(
-		&mut self,
-		props: &ViewmodelProps,
-		world: &WorldView,
-		pose: &arms::Pose,
-		tick: f64,
-		seconds: f32,
-	) {
+	/// Shows the orb and the shards in the world.
+	fn show_world(&mut self, props: &ViewmodelProps, world: &WorldView, tick: f64, seconds: f32) {
 		let world_scene = scene(world.scene);
 		let ops = world_scene.ops();
 		let id = world_scene.id();
@@ -462,10 +452,10 @@ impl Seam {
 		if let Some(orb) = props.orb {
 			frame.orb = Some(self.orb_look(&orb, world, tick));
 		}
-		if props.archetype == Archetype::Gun && props.action == ViewAction::Fire {
-			frame.tracer = tracer(props, world, pose, tick);
-		}
+		// The pistol's blows throw no shards in the husk's light: they are
+		// printed in the reaper's spot instead, one ink (art bible §3.2).
 		if let Some(hit) = props.hit
+			&& props.archetype != Archetype::Gun
 			&& self.shards[0].is_none_or(|latest| latest.tick != hit.tick)
 		{
 			self.shards = [Some(hit), self.shards[0]];
@@ -611,7 +601,7 @@ impl Seam {
 				});
 			}
 		}
-		print.sight = props.sight.map(|(sight, light)| (sight, light, out));
+		print.sight = props.sight.map(|sight| (sight, out));
 		tags
 	}
 
@@ -655,37 +645,6 @@ impl Seam {
 	}
 }
 
-/// The tracer of a shot `tick` into it: from the muzzle to what it struck,
-/// or far ahead, over [`TRACER_FRAMES`] frames. Its head races out in two;
-/// its tail follows, and it fades.
-fn tracer(
-	props: &ViewmodelProps,
-	world: &WorldView,
-	pose: &arms::Pose,
-	tick: f64,
-) -> Option<Tracer> {
-	let frames = ((tick - props.action_tick as f64) / f64::from(TICKS_PER_SECOND)) as f32
-		/ TRACER_FRAME_SECONDS;
-	if !(0.0..TRACER_FRAMES).contains(&frames) {
-		return None;
-	}
-	let muzzle = carry(world, place(props.archetype, pose).muzzle);
-	let struck = props
-		.hit
-		.filter(|hit| (0..=6).contains(&(hit.tick - props.action_tick)))
-		.map(|hit| hit.at);
-	let target = struck
-		.or_else(|| scene(world.scene).shot_target(props.action_tick))
-		.unwrap_or_else(|| ahead(world, 25.0));
-	let head = f32::midpoint(frames, 1.0).min(1.0);
-	let tail = ((frames - 0.5) / (TRACER_FRAMES - 1.0)).clamp(0.0, 0.9);
-	Some(Tracer {
-		from: lerp(muzzle, target, tail),
-		to: lerp(muzzle, target, head),
-		brightness: 1.0 - frames / TRACER_FRAMES,
-	})
-}
-
 /// The burst of shards from `hit` at `tick`, while it flies.
 fn shards(hit: &HitView, tick: f64) -> Option<Burst> {
 	let age = ((tick - hit.tick as f64) / f64::from(TICKS_PER_SECOND)) as f32;
@@ -708,14 +667,6 @@ fn carry(world: &WorldView, point: Point) -> Point {
 	add(
 		world.camera.translation,
 		rotate(world.camera.rotation, local),
-	)
-}
-
-/// The point `distance` metres straight ahead of the world's eye.
-fn ahead(world: &WorldView, distance: f32) -> Point {
-	add(
-		world.camera.translation,
-		rotate(world.camera.rotation, [0.0, 0.0, -distance]),
 	)
 }
 
@@ -934,17 +885,8 @@ mod tests {
 	}
 
 	#[test]
-	fn a_tracer_lasts_four_frames_and_shards_wait_for_their_blow() {
+	fn shards_wait_for_their_blow() {
 		let world = world();
-		let mut props = ViewmodelProps::at_rest(Archetype::Gun, WeaponKind::Scythe, 100);
-		props.action = ViewAction::Fire;
-		let pose = arms::pose(props.manner(), props.action, 0.0, 0.0);
-		assert!(tracer(&props, &world, &pose, 100.0).is_some());
-		assert!(tracer(&props, &world, &pose, 107.0).is_some());
-		assert!(
-			tracer(&props, &world, &pose, 108.0).is_none(),
-			"four frames at thirty a second are eight ticks"
-		);
 		let hit = HitView {
 			tick: 120,
 			at: world.husk,
@@ -963,6 +905,27 @@ mod tests {
 				.all(|(shown, own)| (shown - own).abs() < 1.0e-6)
 		}));
 		assert!(shards(&hit, 120.0 + 0.4 * 60.0).is_none());
+	}
+
+	/// The pistol's blow is printed in the reaper's spot and nothing else:
+	/// it throws no shards in the husk's light into the room, as the
+	/// blade's and the class weapon's still do.
+	#[test]
+	fn a_pistol_blow_throws_no_shards() {
+		let (mut props, world) = seal_shot();
+		let seam = seam();
+		let mut seam = seam.borrow_mut();
+		seam.shards = [None; 2];
+		seam.show_world(&props, &world, 101.0, 1.0 / 60.0);
+		assert_eq!(seam.shards, [None; 2], "a shot's blow");
+		props.archetype = Archetype::Blade;
+		props.action = ViewAction::Stab {
+			nth: 0,
+			dived: true,
+		};
+		seam.show_world(&props, &world, 101.0, 1.0 / 60.0);
+		assert_eq!(seam.shards[0], props.hit, "a stab's blow");
+		seam.hide_world();
 	}
 
 	/// What a shot on tick 100 prints at the hunt's tick `shown`, on a phone
@@ -1035,7 +998,7 @@ mod tests {
 		props.action = ViewAction::Fire;
 		props.action_tick = 100;
 		props.world = Some(world);
-		props.sight = Some((Sight::Seal, BONE_LIGHT));
+		props.sight = Some(Sight::Seal);
 		props.hit = Some(HitView {
 			tick: 100,
 			at: world.husk,
@@ -1047,8 +1010,6 @@ mod tests {
 		});
 		(props, world)
 	}
-
-	const BONE_LIGHT: Rgb = Rgb(0xE9, 0xE4, 0xD4);
 
 	/// What the seam prints for `props` at the hunt's tick `shown`: the
 	/// print, and the tags.
@@ -1080,7 +1041,7 @@ mod tests {
 			if let Some(splat) = print.splats.first() {
 				splats.push((shown, splat.beat, splat.radius));
 			}
-			if print.sight.is_some_and(|(_, _, stepped)| stepped > 0.0) {
+			if print.sight.is_some_and(|(_, stepped)| stepped > 0.0) {
 				out.push(shown);
 			}
 			if let Some(tag) = tagged.first() {

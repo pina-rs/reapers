@@ -82,9 +82,8 @@ pub struct Print {
 	/// three frames before.
 	pub smear: Option<[At; 4]>,
 	/// The sight at the middle of the view, while there is one: what a press
-	/// would do, the light it shows a seal in, and how far its arms stand
-	/// out.
-	pub sight: Option<(Sight, Rgb, f64)>,
+	/// would do, and how far its arms stand out.
+	pub sight: Option<(Sight, f64)>,
 }
 
 impl Print {
@@ -125,8 +124,8 @@ pub fn print_view(print: &Print) -> Element {
 	if let Some((at, seed)) = print.burst {
 		burst(&mut sketch, at, seed, print.spot);
 	}
-	if let Some((sight, light, out)) = print.sight {
-		crosshair(&mut sketch, centre, sight, light, out);
+	if let Some((sight, out)) = print.sight {
+		crosshair(&mut sketch, centre, sight, out);
 	}
 	sketch.into_view(print.view.0, print.view.1)
 }

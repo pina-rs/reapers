@@ -92,8 +92,6 @@ const ORB_REST: f32 = 0.126;
 const MISS_AT: [f64; 3] = [1.1, -1.32, 4.6];
 /// The class weapon in the bench's heavy slot.
 const HEAVY: WeaponKind = WeaponKind::Scythe;
-/// The husk's light, that the sight shows an open seal in.
-const LIGHT: Rgb = Rgb(0xC8, 0x9B, 0xF2);
 /// The spot the bench's marks print in: the Ferryman's lantern.
 const SPOT: crate::theme::Rgb = crate::ink::LANTERN;
 
@@ -566,14 +564,11 @@ impl Bench {
 			}),
 			hit: self.hit,
 			spot: SPOT,
-			sight: Some((
-				match self.outcome {
-					Outcome::Seal => Sight::Seal,
-					Outcome::Body => Sight::On,
-					Outcome::Miss => Sight::Off,
-				},
-				LIGHT,
-			)),
+			sight: Some(match self.outcome {
+				Outcome::Seal => Sight::Seal,
+				Outcome::Body => Sight::On,
+				Outcome::Miss => Sight::Off,
+			}),
 		}
 	}
 }

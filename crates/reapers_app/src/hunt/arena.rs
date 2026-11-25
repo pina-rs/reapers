@@ -103,10 +103,8 @@ pub struct Arena {
 	pub fov: f64,
 	/// The view's width over its height.
 	pub aspect: f64,
-	/// The reaper's spot, the second ink its blows print in, and the
-	/// hunt's light, the husk's, that the sight shows an open seal in.
+	/// The reaper's spot, the second ink its blows print in.
 	pub spot: Rgb,
-	pub light: Rgb,
 	/// Where the phone pointed last tick, for the sight.
 	forward: Option<Vec3>,
 	/// The camera last sent, so a still view sends nothing, and its turn.
@@ -176,7 +174,6 @@ impl Arena {
 			fov: HUNT_FOV,
 			aspect,
 			spot: crate::ink::CHAFF,
-			light: crate::theme::BONE,
 			forward: None,
 			camera: None,
 			turned: [0.0, 0.0, 0.0, 1.0],
@@ -424,7 +421,7 @@ impl Arena {
 		props.sight = self
 			.forward
 			.filter(|_| aiming)
-			.map(|forward| (Sight::of(sim, forward), self.light));
+			.map(|forward| Sight::of(sim, forward));
 		Some(props)
 	}
 
