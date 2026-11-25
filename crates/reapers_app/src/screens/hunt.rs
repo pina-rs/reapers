@@ -63,7 +63,7 @@ enum Stage {
 	Settling(HuntBrief),
 	/// Over, but the keeper did not settle it: keeps the recorded log so the
 	/// player can retry without fighting again.
-	SettleFailed(HuntBrief, HuntLog, HuntOutcome),
+	SettleFailed(HuntBrief, Box<HuntLog>, HuntOutcome),
 	/// What it came to.
 	Done(HuntBrief, HuntReward),
 }
@@ -184,7 +184,7 @@ fn show(game: Game, stage: &Stage) -> Element {
 				)
 		}
 		Stage::SettleFailed(brief, ref log, outcome) => {
-			settle_failed(game, brief, log.clone(), outcome)
+			settle_failed(game, brief, (**log).clone(), outcome)
 		}
 		Stage::Done(ref brief, ref reward) => result(game, brief, reward),
 	}
@@ -234,7 +234,11 @@ fn settle(game: Game, brief: HuntBrief, log: HuntLog, outcome: HuntOutcome) {
 		move |keeper| async move { keeper.settle_hunt(sighting_id, &log).await },
 		move |settlement| {
 			let Some(settlement) = settlement else {
-				stage.set(Some(Stage::SettleFailed(brief, retry_log, outcome)));
+				stage.set(Some(Stage::SettleFailed(
+					brief,
+					Box::new(retry_log),
+					outcome,
+				)));
 				return;
 			};
 			let after = &settlement.state;

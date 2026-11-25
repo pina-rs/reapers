@@ -25,6 +25,7 @@ reapers_db = { workspace = true }
 reapers_program_client = { workspace = true }
 reapers_receipt = { workspace = true }
 reapers_rules = { workspace = true }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-webpki-roots", "http2", "gzip", "brotli"] }
 serde = { workspace = true, features = ["std"] }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
@@ -37,7 +38,7 @@ solana-pubkey = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }
 toml = { workspace = true }
-tower-http = { version = "0.6", features = ["cors"] }
+tower-http = { version = "0.6", features = ["cors", "compression-br", "compression-gzip", "decompression-gzip"] }
 url = { workspace = true }
 
 [dev-dependencies]

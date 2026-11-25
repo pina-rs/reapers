@@ -317,12 +317,11 @@ impl Client {
 			.signed_post(&format!("/api/{}", O::NAME), key, &op)
 			.await?;
 		if (200..300).contains(&reply.status) {
-			let value: Value = if reply.body.iter().all(u8::is_ascii_whitespace) {
-				Value::Null
+			if reply.body.iter().all(u8::is_ascii_whitespace) {
+				serde_json::from_slice(b"null").map_err(unavailable)
 			} else {
-				serde_json::from_slice(&reply.body).map_err(unavailable)?
-			};
-			serde_json::from_value(value).map_err(unavailable)
+				serde_json::from_slice(&reply.body).map_err(unavailable)
+			}
 		} else {
 			Err(failure(&reply))
 		}
@@ -542,8 +541,21 @@ impl ReapersApi for ServerApi {
 		let frames = live::enter_rift(site, demo)?;
 		let reporter = self.0.clone();
 		platform::spawn(async move {
+			use futures::FutureExt as _;
+
 			let mut reports = reports;
-			while let Some(report) = reports.next().await {
+			while let Some(mut report) = reports.next().await {
+				// Whole-state reports supersede older queued ones; coalesce
+				// backlogged updates while keeping any `standing` fix attached.
+				while let Some(next) = reports.next().now_or_never() {
+					let Some(mut newer) = next else {
+						break;
+					};
+					if newer.standing.is_none() {
+						newer.standing = report.standing;
+					}
+					report = newer;
+				}
 				// A report the server could not take ends the rift's stream
 				// with the reason, so nothing more is said of it here.
 				let _ = reporter

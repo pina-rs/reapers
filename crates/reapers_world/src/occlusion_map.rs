@@ -76,52 +76,89 @@ impl OcclusionMap {
 		if !floor.is_finite() || floor <= 0.0 || !scale.is_finite() || scale <= 0.0 {
 			return;
 		}
+		if frame.width == 0 || frame.height == 0 {
+			return;
+		}
 
 		let pose = frame.pose;
 		let origin = frame.origin;
+		let width = frame.width;
+		let height = frame.height;
+		let inv_w = 2.0 / width as f64;
+		let inv_h = 2.0 / height as f64;
+		let across_step = inv_w * frame.tan_half_width;
+		let across_start = (0.5 * inv_w - 1.0) * frame.tan_half_width;
+		let step_x = (pose.right.x * across_step) as f32;
+		let step_y = (pose.right.y * across_step) as f32;
+		let step_z = (pose.right.z * across_step) as f32;
+		let scale_f = scale as f32;
+		let floor_f = floor as f32;
+		let ox = origin.x as f32;
+		let oy = origin.y as f32;
+		let oz = origin.z as f32;
+		let self_sq = (Self::SELF_METRES * Self::SELF_METRES) as f32;
+		let rad_to_deg = 180.0_f32 / core::f32::consts::PI;
+		let inv_cell = (1.0 / Self::CELL_DEGREES) as f32;
+		let lowest_f = Self::LOWEST as f32;
+		let highest_f = Self::HIGHEST as f32;
+		let tan_low = math::tan(Self::LOWEST * (math::PI / 180.0)) as f32;
+		let tan_high = math::tan(Self::HIGHEST * (math::PI / 180.0)) as f32;
+		let floor_slack = Self::FLOOR_SLACK as f32;
+		let floor_slack_per_m = Self::FLOOR_SLACK_PER_METRE as f32;
+		let farthest_f = Self::FARTHEST as f32;
+		let metres_buf = self.metres.as_mut_slice();
 
-		for row in 0..frame.height {
-			for column in 0..frame.width {
-				let (across, up) = frame.tangents(column, row);
-				let depth = f64::from(frame.depths[row * frame.width + column]);
+		for row in 0..height {
+			let up = (1.0 - (row as f64 + 0.5) * inv_h) * frame.tan_half_height;
+			let mut dir_x = (pose.forward.x + pose.up.x * up + pose.right.x * across_start) as f32;
+			let mut dir_y = (pose.forward.y + pose.up.y * up + pose.right.y * across_start) as f32;
+			let mut dir_z = (pose.forward.z + pose.up.z * up + pose.right.z * across_start) as f32;
+			let row_depths = &frame.depths[row * width..(row + 1) * width];
 
-				if depth.is_nan() || depth <= 0.0 || depth.is_infinite() {
-					continue;
-				}
+			for &depth in row_depths {
+				if depth > 0.0 && depth.is_finite() {
+					let local_y = depth * dir_y;
+					let scaled_d = depth * scale_f;
+					let x = scaled_d * dir_x + ox;
+					let y = local_y * scale_f + oy;
+					let z = scaled_d * dir_z + oz;
+					let away_sq = x * x + z * z;
+					let dist_sq = away_sq + y * y;
 
-				let local_x = depth * (pose.forward.x + pose.right.x * across + pose.up.x * up);
-				let local_y = depth * (pose.forward.y + pose.right.y * across + pose.up.y * up);
-				let local_z = depth * (pose.forward.z + pose.right.z * across + pose.up.z * up);
-				let x = local_x * scale + origin.x;
-				let y = local_y * scale + origin.y;
-				let z = local_z * scale + origin.z;
-				let away = math::sqrt(x * x + z * z);
-				let distance = math::sqrt(away * away + y * y);
+					if dist_sq >= self_sq {
+						let away = away_sq.sqrt();
+						if y >= tan_low * away && y < tan_high * away {
+							let pitch_deg = math::fast_atan2_f32(y, away) * rad_to_deg;
+							if pitch_deg >= lowest_f && pitch_deg < highest_f {
+								let yaw_deg = math::fast_atan2_f32(x, z) * rad_to_deg;
+								let col = (((yaw_deg + 180.0) * inv_cell) as usize)
+									.min(Self::COLUMNS - 1);
+								let map_row = (((highest_f - pitch_deg) * inv_cell) as usize)
+									.min(Self::ROWS - 1);
+								let cell = map_row * Self::COLUMNS + col;
 
-				if distance < Self::SELF_METRES {
-					continue;
-				}
+								let on_floor = ((floor_f + local_y) * scale_f).abs()
+									<= floor_slack + floor_slack_per_m * away;
 
-				let Some(cell) = Self::cell_of(math::atan2(x, z), math::atan2(y, away)) else {
-					continue;
-				};
-				let on_floor = ((floor + local_y) * scale).abs()
-					<= Self::FLOOR_SLACK + Self::FLOOR_SLACK_PER_METRE * away;
-
-				if on_floor {
-					if self.metres[cell] == 0.0 {
-						self.metres[cell] = f32::INFINITY;
+								if on_floor {
+									if metres_buf[cell] == 0.0 {
+										metres_buf[cell] = f32::INFINITY;
+									}
+								} else {
+									let metres = dist_sq.sqrt().min(farthest_f);
+									let known = metres_buf[cell];
+									if known == 0.0 || metres < known {
+										metres_buf[cell] = metres;
+									}
+								}
+							}
+						}
 					}
-
-					continue;
 				}
 
-				let metres = distance.min(Self::FARTHEST) as f32;
-				let known = self.metres[cell];
-
-				if known == 0.0 || metres < known {
-					self.metres[cell] = metres;
-				}
+				dir_x += step_x;
+				dir_y += step_y;
+				dir_z += step_z;
 			}
 		}
 

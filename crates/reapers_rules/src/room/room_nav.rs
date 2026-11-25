@@ -235,6 +235,19 @@ pub struct RoomNav {
 
 	/// Whether a husk's body fits on each cell.
 	pub(crate) standable: Vec<bool>,
+
+	/// Compact per-cell standable region id (`-1` when not standable or no region),
+	/// combining `standable` and `region` into a single L1-cache-friendly `i16` load.
+	pub(crate) standable_region: Vec<i16>,
+
+	/// Outgoing link indices in `self.links` grouped by `from_region`.
+	pub(crate) links_by_region: Vec<Vec<usize>>,
+
+	/// Precomputed reachability table (`reachable[from][to]`).
+	pub(crate) reachable: Vec<Vec<bool>>,
+
+	/// First index in `self.spots` where `RoomSpotKind::Open` begins.
+	pub(crate) open_spot_start: usize,
 }
 
 impl RoomNav {
@@ -294,7 +307,7 @@ impl RoomNav {
 			&region_cells,
 			&inset,
 		);
-		let regions = assemble_regions(&grid, &region, &level, &region_cells, &standable);
+		let regions = assemble_regions(&grid, &region, &level, region_cells, &standable);
 		let edges = build_edges(&grid, &region, &standable);
 		let links = build_links(&grid, &profile, &regions, &region, &standable, &edges);
 		let spots = build_spots(
@@ -308,6 +321,27 @@ impl RoomNav {
 			near_metres,
 		);
 
+		let mut links_by_region = vec![Vec::new(); regions.len()];
+		for (idx, link) in links.iter().enumerate() {
+			if let Some(bucket) = links_by_region.get_mut(link.from_region) {
+				bucket.push(idx);
+			}
+		}
+
+		let reachable = compute_reachability(regions.len(), &links, &links_by_region);
+		let open_spot_start = spots.partition_point(|spot| spot.kind != RoomSpotKind::Open);
+		let standable_region: Vec<i16> = standable
+			.iter()
+			.zip(region.iter())
+			.map(|(&ok, &reg)| {
+				if ok && reg >= 0 {
+					i16::try_from(reg).unwrap_or(-1)
+				} else {
+					-1
+				}
+			})
+			.collect();
+
 		Self {
 			grid,
 			profile,
@@ -319,6 +353,10 @@ impl RoomNav {
 			level,
 			region,
 			standable,
+			standable_region,
+			links_by_region,
+			reachable,
+			open_spot_start,
 		}
 	}
 
@@ -437,26 +475,56 @@ impl RoomNav {
 	/// Which regions a husk standing in region `from` can get to, by
 	/// walking and leaping: one entry per region, in region order.
 	pub fn reachable_from(&self, from: usize) -> Vec<bool> {
-		let mut reached = vec![false; self.regions.len()];
-		let mut queue = vec![from];
+		self.reachable
+			.get(from)
+			.cloned()
+			.unwrap_or_else(|| vec![false; self.regions.len()])
+	}
 
-		if let Some(start) = reached.get_mut(from) {
-			*start = true;
-		} else {
-			return reached;
-		}
+	/// Precomputed reachability slice from region `from`, with zero allocation.
+	pub(crate) fn reachable_slice(&self, from: usize) -> Option<&[bool]> {
+		self.reachable.get(from).map(Vec::as_slice)
+	}
+
+	/// Perch, peek, and hide spots (everything before `RoomSpotKind::Open`).
+	pub(crate) fn non_open_spots(&self) -> &[RoomSpot] {
+		&self.spots[..self.open_spot_start]
+	}
+
+	/// Open-floor spots (`RoomSpotKind::Open`).
+	pub(crate) fn open_spots(&self) -> &[RoomSpot] {
+		&self.spots[self.open_spot_start..]
+	}
+}
+
+fn compute_reachability(
+	region_count: usize,
+	links: &[JumpLink],
+	links_by_region: &[Vec<usize>],
+) -> Vec<Vec<bool>> {
+	let mut table = Vec::with_capacity(region_count);
+	let mut queue = Vec::with_capacity(region_count);
+
+	for from in 0..region_count {
+		let mut reached = vec![false; region_count];
+		reached[from] = true;
+		queue.clear();
+		queue.push(from);
 
 		while let Some(region) = queue.pop() {
-			for link in &self.links {
-				if link.from_region == region && !reached[link.to_region] {
-					reached[link.to_region] = true;
-					queue.push(link.to_region);
+			for &link_index in &links_by_region[region] {
+				let target = links[link_index].to_region;
+				if !reached[target] {
+					reached[target] = true;
+					queue.push(target);
 				}
 			}
 		}
 
-		reached
+		table.push(reached);
 	}
+
+	table
 }
 
 /// The level index of every cell, or -1 where it is not walkable.
@@ -527,11 +595,11 @@ fn build_regions(grid: &RoomGrid, level: &[i8]) -> (Vec<i64>, Vec<Vec<usize>>) {
 
 		cells.sort_unstable();
 		let id = kept.len() as i64;
-		kept.push(cells.clone());
 
-		for cell in cells {
+		for &cell in &cells {
 			region[cell] = id;
 		}
+		kept.push(cells);
 	}
 
 	(region, kept)
@@ -541,7 +609,7 @@ fn build_regions(grid: &RoomGrid, level: &[i8]) -> (Vec<i64>, Vec<Vec<usize>>) {
 /// inward from an edge is one more.
 fn build_inset(grid: &RoomGrid, region: &[i64]) -> Vec<i64> {
 	let mut inset = vec![-1_i64; region.len()];
-	let mut queue: Vec<usize> = Vec::new();
+	let mut queue: Vec<usize> = Vec::with_capacity(region.len() / 4);
 
 	for index in 0..grid.cell_count() {
 		if region[index] < 0 {
@@ -594,42 +662,43 @@ fn build_inset(grid: &RoomGrid, region: &[i64]) -> Vec<i64> {
 	inset
 }
 
-/// Whether every cell within the foot radius of `cell` belongs to the
-/// same surface. This is what keeps a foot from overhanging an edge.
-///
-/// The distance is measured to the near side of a neighbouring cell, not
-/// to its middle: a cell boundary is half a cell beyond the middle, and a
-/// foot that only just fits inside the cell centres still hangs over the
-/// edge.
-fn foot_clear(
-	grid: &RoomGrid,
-	profile: &LocomotionProfile,
-	region: &[i64],
-	cell: usize,
-	foot_cells: i64,
-) -> bool {
-	let (x, z) = (grid.x_of(cell), grid.z_of(cell));
-
+/// Precomputes every `(dx, dz)` offset whose near cell edge lies strictly
+/// within `profile.foot_radius`, eliminating per-cell `sqrt` calls.
+fn build_foot_offsets(profile: &LocomotionProfile, foot_cells: i64) -> Vec<(i64, i64)> {
+	let mut offsets = Vec::new();
 	for dz in -foot_cells..=foot_cells {
 		for dx in -foot_cells..=foot_cells {
 			if dx == 0 && dz == 0 {
 				continue;
 			}
-
-			let nx = x + dx;
-			let nz = z + dz;
-
-			if !grid.contains(nx, nz) || region[grid.index_of(nx, nz)] == region[cell] {
-				continue;
-			}
-
 			let near_x = math::max(0.0, dx.abs() as f64 - 0.5) * RoomGrid::CELL_METRES;
 			let near_z = math::max(0.0, dz.abs() as f64 - 0.5) * RoomGrid::CELL_METRES;
-			let distance = math::sqrt(near_x * near_x + near_z * near_z);
-
-			if distance < profile.foot_radius {
-				return false;
+			if math::sqrt(near_x * near_x + near_z * near_z) < profile.foot_radius {
+				offsets.push((dx, dz));
 			}
+		}
+	}
+	offsets
+}
+
+/// Whether every cell within the foot radius of `cell` belongs to the
+/// same surface. This is what keeps a foot from overhanging an edge.
+#[inline]
+fn foot_clear(
+	grid: &RoomGrid,
+	region: &[i64],
+	cell: usize,
+	cell_region: i64,
+	foot_offsets: &[(i64, i64)],
+) -> bool {
+	let (x, z) = (grid.x_of(cell), grid.z_of(cell));
+
+	for &(dx, dz) in foot_offsets {
+		let nx = x + dx;
+		let nz = z + dz;
+
+		if grid.contains(nx, nz) && region[grid.index_of(nx, nz)] != cell_region {
+			return false;
 		}
 	}
 
@@ -663,6 +732,13 @@ fn build_standable(
 	let requested =
 		math::ceil_int((profile.foot_radius + 0.05 * range) / RoomGrid::CELL_METRES).max(1);
 	let foot_cells = math::ceil_int(profile.foot_radius / RoomGrid::CELL_METRES) + 1;
+	let foot_offsets = build_foot_offsets(profile, foot_cells);
+	let max_offset = foot_offsets
+		.iter()
+		.map(|&(dx, dz)| dx.abs().max(dz.abs()))
+		.max()
+		.unwrap_or(0);
+	let keep_clear_sq = keep_clear * keep_clear;
 	let mut deepest = vec![0_i64; region_cells.len()];
 
 	for (index, &cell_region) in region.iter().enumerate() {
@@ -689,12 +765,15 @@ fn build_standable(
 		if keep_clear > 0.0 {
 			let centre = grid.centre_of(grid.x_of(index), grid.z_of(index));
 
-			if centre.x * centre.x + centre.z * centre.z < keep_clear * keep_clear {
+			if centre.x * centre.x + centre.z * centre.z < keep_clear_sq {
 				continue;
 			}
 		}
 
-		standable[index] = foot_clear(grid, profile, region, index, foot_cells);
+		// Any cell at least `max_offset` Chebyshev steps inside its region has
+		// every foot-radius neighbour inside the same region.
+		standable[index] = inset[index] >= max_offset
+			|| foot_clear(grid, region, index, cell_region, &foot_offsets);
 	}
 
 	standable
@@ -705,7 +784,7 @@ fn assemble_regions(
 	grid: &RoomGrid,
 	region: &[i64],
 	level: &[i8],
-	region_cells: &[Vec<usize>],
+	region_cells: Vec<Vec<usize>>,
 	standable: &[bool],
 ) -> Vec<RoomRegion> {
 	let mut standable_by_region: Vec<Vec<usize>> = vec![Vec::new(); region_cells.len()];
@@ -717,17 +796,18 @@ fn assemble_regions(
 	}
 
 	region_cells
-		.iter()
+		.into_iter()
+		.zip(standable_by_region)
 		.enumerate()
-		.map(|(id, cells)| {
+		.map(|(id, (cells, standable_cells))| {
 			let level_index = level[cells[0]];
 
 			RoomRegion {
 				id,
 				level_index: level_index as u8,
 				height_centimetres: i64::from(grid.levels_centimetres[level_index as usize]),
-				cells: cells.clone(),
-				standable_cells: standable_by_region[id].clone(),
+				cells,
+				standable_cells,
 			}
 		})
 		.collect()
@@ -831,10 +911,9 @@ fn cast_link(
 	region: &[i64],
 	standable: &[bool],
 	edge: &Edge,
-	segment: usize,
 	direction_x: f64,
 	direction_z: f64,
-	kept: &mut std::collections::BTreeMap<(usize, usize), JumpLink>,
+	segment_links: &mut [Option<JumpLink>],
 ) {
 	let (from_x, from_z) = (grid.x_of(edge.cell), grid.z_of(edge.cell));
 	let from_region = &regions[edge.region];
@@ -869,11 +948,6 @@ fn cast_link(
 
 		let target_point =
 			grid.centre_of(target_x, target_z) + Vec3::new(0.0, profile.half_height(), 0.0);
-		let Some(leap) = Leap::solve(from_point, target_point, grid, profile.half_height(), None)
-		else {
-			continue;
-		};
-
 		let away_x = target_point.x - from_point.x;
 		let away_z = target_point.z - from_point.z;
 		let gap = math::sqrt(away_x * away_x + away_z * away_z);
@@ -881,6 +955,11 @@ fn cast_link(
 		if gap > profile.leaps_across + 1e-9 {
 			continue;
 		}
+
+		let Some(leap) = Leap::solve(from_point, target_point, grid, profile.half_height(), None)
+		else {
+			continue;
+		};
 
 		let link = JumpLink {
 			from_cell: edge.cell,
@@ -891,11 +970,9 @@ fn cast_link(
 			gap_metres: gap,
 		};
 
-		match kept.get(&(segment, target_region.id)) {
-			Some(best) if !is_better_link(&link, best) => {}
-			_ => {
-				kept.insert((segment, target_region.id), link);
-			}
+		let slot = &mut segment_links[target_region.id];
+		if slot.as_ref().is_none_or(|best| is_better_link(&link, best)) {
+			*slot = Some(link);
 		}
 
 		break;
@@ -913,8 +990,8 @@ fn build_links(
 	standable: &[bool],
 	edges: &[Edge],
 ) -> Vec<JumpLink> {
-	let mut kept: std::collections::BTreeMap<(usize, usize), JumpLink> =
-		std::collections::BTreeMap::new();
+	let mut links: Vec<JumpLink> = Vec::new();
+	let mut segment_links: Vec<Option<JumpLink>> = vec![None; regions.len()];
 	let cosine = math::cos(crate::vec3::radians(25.0));
 	let sine = math::sin(crate::vec3::radians(25.0));
 	let mut run_start = 0;
@@ -936,8 +1013,6 @@ fn build_links(
 		if (index - run_start) % 3 != 0 {
 			continue;
 		}
-
-		let segment = run_start + (index - run_start) / 3;
 
 		for turn in -1..=1_i64 {
 			// The normal, turned 25 degrees to the left, to the right,
@@ -965,10 +1040,9 @@ fn build_links(
 				region,
 				standable,
 				edge,
-				segment,
 				direction_x,
 				direction_z,
-				&mut kept,
+				&mut segment_links,
 			);
 		}
 
@@ -984,10 +1058,9 @@ fn build_links(
 				region,
 				standable,
 				edge,
-				segment,
 				edge.normal_x.signum(),
 				0.0,
-				&mut kept,
+				&mut segment_links,
 			);
 			cast_link(
 				grid,
@@ -996,15 +1069,18 @@ fn build_links(
 				region,
 				standable,
 				edge,
-				segment,
 				0.0,
 				edge.normal_z.signum(),
-				&mut kept,
+				&mut segment_links,
 			);
 		}
-	}
 
-	let mut links: Vec<JumpLink> = kept.into_values().collect();
+		for slot in &mut segment_links {
+			if let Some(link) = slot.take() {
+				links.push(link);
+			}
+		}
+	}
 
 	links.sort_unstable_by(|one, other| {
 		one.from_cell
@@ -1026,7 +1102,10 @@ fn obstacle_within(grid: &RoomGrid, x: i64, z: i64, radius: i64) -> bool {
 			let nx = x + dx;
 			let nz = z + dz;
 
-			if grid.contains(nx, nz) && grid.cell_at(nx, nz).kind == RoomCellKind::Obstacle {
+			if grid.contains(nx, nz)
+				&& RoomCell::from_byte(grid.cells[grid.index_of(nx, nz)])
+					.is_some_and(|cell| cell.kind == RoomCellKind::Obstacle)
+			{
 				return true;
 			}
 		}
@@ -1056,7 +1135,9 @@ fn exposed_within(grid: &RoomGrid, level: &[i8], x: i64, z: i64, radius: i64) ->
 
 				let cell = grid.index_of(nx, nz);
 
-				if level[cell] == level[here] && grid.cell_at(nx, nz).kind == RoomCellKind::Walkable
+				if level[cell] == level[here]
+					&& RoomCell::from_byte(grid.cells[cell])
+						.is_some_and(|c| c.kind == RoomCellKind::Walkable)
 				{
 					return Some(cell);
 				}
@@ -1095,7 +1176,8 @@ fn hidden_depths(grid: &RoomGrid, level: &[i8]) -> (Vec<usize>, Vec<i64>) {
 
 	for (index, &cell_level) in level.iter().enumerate() {
 		if cell_level >= 0
-			&& grid.cell_at(grid.x_of(index), grid.z_of(index)).kind == RoomCellKind::Hidden
+			&& RoomCell::from_byte(grid.cells[index])
+				.is_some_and(|cell| cell.kind == RoomCellKind::Hidden)
 		{
 			hidden.push(index);
 		}
@@ -1115,7 +1197,8 @@ fn hidden_depths(grid: &RoomGrid, level: &[i8]) -> (Vec<usize>, Vec<i64>) {
 			let neighbour = grid.index_of(nx, nz);
 
 			if level[neighbour] == level[cell]
-				&& grid.cell_at(nx, nz).kind == RoomCellKind::Walkable
+				&& RoomCell::from_byte(grid.cells[neighbour])
+					.is_some_and(|c| c.kind == RoomCellKind::Walkable)
 			{
 				depth[cell] = 1;
 				queue.push(cell);
@@ -1143,7 +1226,8 @@ fn hidden_depths(grid: &RoomGrid, level: &[i8]) -> (Vec<usize>, Vec<i64>) {
 
 			if depth[neighbour] == 0
 				&& level[neighbour] == level[cell]
-				&& grid.cell_at(nx, nz).kind == RoomCellKind::Hidden
+				&& RoomCell::from_byte(grid.cells[neighbour])
+					.is_some_and(|c| c.kind == RoomCellKind::Hidden)
 			{
 				depth[neighbour] = depth[cell] + 1;
 				queue.push(neighbour);
@@ -1237,21 +1321,24 @@ fn build_spots(
 	}
 
 	// Open floor: seen from the eye, inside the distances the husk keeps.
+	let near_sq = near_metres * near_metres;
+	let range_sq = range * range;
 	for index in 0..grid.cell_count() {
 		if !standable[index] || level[index] != 0 {
 			continue;
 		}
 
-		let (x, z) = (grid.x_of(index), grid.z_of(index));
-
-		if grid.cell_at(x, z).kind != RoomCellKind::Walkable {
+		if RoomCell::from_byte(grid.cells[index])
+			.is_none_or(|cell| cell.kind != RoomCellKind::Walkable)
+		{
 			continue;
 		}
 
+		let (x, z) = (grid.x_of(index), grid.z_of(index));
 		let point = grid.centre_of(x, z);
-		let distance = math::sqrt(point.x * point.x + point.z * point.z);
+		let dist_sq = point.x * point.x + point.z * point.z;
 
-		if distance < near_metres || distance > range || !seen_from_eye(grid, point) {
+		if dist_sq < near_sq || dist_sq > range_sq || !seen_from_eye(grid, point) {
 			continue;
 		}
 

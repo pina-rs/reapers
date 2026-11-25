@@ -323,30 +323,51 @@ fn ground(colour: Rgb) -> String {
 	format!("bg-[{}]", colour.hex_alpha(GROUND_ALPHA))
 }
 
+/// Precomputed sRGB-to-linear luminance lookup table for 8-bit colour channels,
+/// eliminating `powf(2.4)` from every HUD frame.
+static SRGB_LINEAR: std::sync::LazyLock<[f64; 256]> = std::sync::LazyLock::new(|| {
+	std::array::from_fn(|byte| {
+		let value = byte as f64 / 255.0;
+		if value <= 0.040_45 {
+			value / 12.92
+		} else {
+			((value + 0.055) / 1.055).powf(2.4)
+		}
+	})
+});
+
 /// `colour`, lifted toward bone just far enough that words in it hold
 /// `LEGIBLE` on a ground of `under` with white behind: a state keeps its
 /// hue and is still read in a bright room.
 pub fn legible(colour: Rgb, under: Rgb) -> Rgb {
-	let worst = under.lerp(Rgb(255, 255, 255), 1.0 - GROUND_ALPHA);
-	(0..=20)
-		.map(|step| colour.lerp(BONE, f64::from(step) / 20.0))
-		.find(|lifted| contrast(*lifted, worst) >= LEGIBLE)
-		.unwrap_or(BONE)
+	thread_local! {
+		static CACHE: std::cell::RefCell<std::collections::HashMap<(Rgb, Rgb), Rgb>> =
+			std::cell::RefCell::new(std::collections::HashMap::with_capacity(32));
+	}
+	CACHE.with_borrow_mut(|cache| {
+		if let Some(&hit) = cache.get(&(colour, under)) {
+			return hit;
+		}
+		let worst = under.lerp(Rgb(255, 255, 255), 1.0 - GROUND_ALPHA);
+		let lifted = (0..=20)
+			.map(|step| colour.lerp(BONE, f64::from(step) / 20.0))
+			.find(|candidate| contrast(*candidate, worst) >= LEGIBLE)
+			.unwrap_or(BONE);
+		if cache.len() < 128 {
+			cache.insert((colour, under), lifted);
+		}
+		lifted
+	})
 }
 
 /// WCAG's contrast ratio between two colours.
 fn contrast(a: Rgb, b: Rgb) -> f64 {
-	fn luminance(colour: Rgb) -> f64 {
-		let channel = |value: u8| {
-			let value = f64::from(value) / 255.0;
-			if value <= 0.040_45 {
-				value / 12.92
-			} else {
-				((value + 0.055) / 1.055).powf(2.4)
-			}
-		};
-		0.2126 * channel(colour.0) + 0.7152 * channel(colour.1) + 0.0722 * channel(colour.2)
-	}
+	let lut = &*SRGB_LINEAR;
+	let luminance = |colour: Rgb| {
+		0.2126 * lut[usize::from(colour.0)]
+			+ 0.7152 * lut[usize::from(colour.1)]
+			+ 0.0722 * lut[usize::from(colour.2)]
+	};
 	let (a, b) = (luminance(a) + 0.05, luminance(b) + 0.05);
 	a.max(b) / a.min(b)
 }

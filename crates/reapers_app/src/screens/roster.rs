@@ -81,7 +81,11 @@ fn ask_chain(game: Game, panel: Panel) {
 /// Runs a wallet action, one at a time, and says what went wrong when it
 /// does. Wallet cancellation, missing transports and launcher failures are
 /// a failed action, never a successful link or import.
-fn run(game: Game, panel: Panel, action: impl AsyncFnOnce() -> Result<(), KeeperError> + 'static) {
+fn run(
+	game: Game,
+	panel: Panel,
+	action: impl AsyncFnOnce() -> Result<Option<reapers_rules::PlayerState>, KeeperError> + 'static,
+) {
 	if panel.busy.get_untracked() {
 		return;
 	}
@@ -90,18 +94,26 @@ fn run(game: Game, panel: Panel, action: impl AsyncFnOnce() -> Result<(), Keeper
 	platform::spawn(async move {
 		let result = action().await;
 		panel.busy.set(false);
-		if let Err(error) = result {
-			panel.failure.set(Some(match (&error, error.refusal()) {
-				(KeeperError::Chain(failure), _) => {
-					crate::lookups::chain_failure_message(crate::app::messages(), failure)
-						.to_owned()
-				}
-				(_, Some(refusal)) => refusal_message(crate::app::messages(), refusal).to_owned(),
-				(_, None) => crate::app::messages().common_unreachable().to_owned(),
-			}));
-		} else {
-			game.reload().await;
-			ask_chain(game, panel);
+		match result {
+			Err(error) => {
+				panel.failure.set(Some(match (&error, error.refusal()) {
+					(KeeperError::Chain(failure), _) => {
+						crate::lookups::chain_failure_message(crate::app::messages(), failure)
+							.to_owned()
+					}
+					(_, Some(refusal)) => {
+						refusal_message(crate::app::messages(), refusal).to_owned()
+					}
+					(_, None) => crate::app::messages().common_unreachable().to_owned(),
+				}));
+			}
+			Ok(Some(player)) => {
+				game.books.set(crate::state::Books::Open(player));
+			}
+			Ok(None) => {
+				game.reload().await;
+				ask_chain(game, panel);
+			}
 		}
 	});
 }
@@ -159,9 +171,11 @@ pub fn page() -> Element {
 			row.enabled(!busy)
 		} else {
 			row.on_press(move || {
-				let id = id.clone();
-				game.change(
-					move |keeper| async move { keeper.select_reaper(&id).await },
+				let preview_id = id.clone();
+				let request_id = id.clone();
+				game.change_optimistic(
+					move |state| state.select_reaper(&preview_id),
+					move |keeper| async move { keeper.select_reaper(&request_id).await },
 					|_| {},
 				);
 			})
@@ -282,7 +296,8 @@ fn chain_panel(game: Game, panel: Panel) -> Vec<Element> {
 					.keeper()
 					.ok_or_else(|| KeeperError::unavailable("no keeper"))?;
 				let prover: Rc<dyn crate::wallet::WalletProver> = Rc::from(device_wallet());
-				keeper.connect_wallet(&status, &*prover).await
+				keeper.connect_wallet(&status, &*prover).await?;
+				Ok(None)
 			});
 		})
 	});
@@ -291,7 +306,7 @@ fn chain_panel(game: Game, panel: Panel) -> Vec<Element> {
 	entries.push(if busy {
 		refresh.disabled()
 	} else {
-		refresh.on_press(move || run(game, panel, async move || Ok(())))
+		refresh.on_press(move || run(game, panel, async move || Ok(None)))
 	});
 
 	if status.collection.is_none() {
@@ -332,9 +347,9 @@ fn chain_panel(game: Game, panel: Panel) -> Vec<Element> {
 				let keeper = game
 					.keeper()
 					.ok_or_else(|| KeeperError::unavailable("no keeper"))?;
-				keeper.import_reaper(&address).await?;
+				let player = keeper.import_reaper(&address).await?;
 				panel.asset.set(String::new());
-				Ok(())
+				Ok(Some(player))
 			});
 		})
 	});
@@ -357,7 +372,8 @@ fn chain_panel(game: Game, panel: Panel) -> Vec<Element> {
 					}
 					platform::open_url(&market)
 						.await
-						.map_err(KeeperError::unavailable)
+						.map_err(KeeperError::unavailable)?;
+					Ok(None)
 				});
 			})
 		});

@@ -211,6 +211,10 @@ pub struct RoomGrid {
 
 	/// The turn's sine.
 	yaw_sin: f64,
+
+	/// Precomputed `top_centimetres` for every possible cell byte (`0..=255`).
+	#[serde(skip)]
+	top_by_byte: [u8; 256],
 }
 
 #[derive(Deserialize)]
@@ -302,6 +306,21 @@ impl RoomGrid {
 		);
 
 		let yaw = f64::from(grid_yaw) * 2.0 * math::PI / 256.0;
+		let mut top_by_byte = [0_u8; 256];
+		for (byte, slot) in top_by_byte.iter_mut().enumerate() {
+			let cell = RoomCell::from_byte(byte as u8).unwrap_or(RoomCell::UNKNOWN);
+			*slot = match cell.kind {
+				RoomCellKind::Walkable | RoomCellKind::Hidden => {
+					levels_centimetres
+						.get(usize::from(cell.payload))
+						.copied()
+						.unwrap_or(Self::WALL_CENTIMETRES as u8)
+				}
+				RoomCellKind::Obstacle => cell.top_centimetres() as u8,
+				RoomCellKind::Unknown => 0,
+				RoomCellKind::Wall => Self::WALL_CENTIMETRES as u8,
+			};
+		}
 
 		Self {
 			eye_height_centimetres,
@@ -315,6 +334,7 @@ impl RoomGrid {
 			cells,
 			yaw_cos: math::cos(yaw),
 			yaw_sin: math::sin(yaw),
+			top_by_byte,
 		}
 	}
 
@@ -397,48 +417,65 @@ impl RoomGrid {
 			return Self::WALL_CENTIMETRES;
 		}
 
-		let cell = self.cell_at(x, z);
+		i64::from(self.top_by_byte[usize::from(self.cells[self.index_of(x, z)])])
+	}
 
-		match cell.kind {
-			RoomCellKind::Walkable | RoomCellKind::Hidden => {
-				self.levels_centimetres
-					.get(usize::from(cell.payload))
-					.copied()
-					.map_or(Self::WALL_CENTIMETRES, i64::from)
-			}
-			RoomCellKind::Obstacle => cell.top_centimetres(),
-			RoomCellKind::Unknown => 0,
-			RoomCellKind::Wall => Self::WALL_CENTIMETRES,
+	#[inline]
+	fn fast_floor_cell(value: f64) -> Option<i64> {
+		if (-512.0..=512.0).contains(&value) {
+			let trunc = value as i64;
+			Some(if (trunc as f64) > value {
+				trunc - 1
+			} else {
+				trunc
+			})
+		} else {
+			None
 		}
 	}
 
 	/// The height of the top of the cell under a world point, in
 	/// centimetres above the floor.
+	#[inline]
 	pub fn top_centimetres_at_world(&self, world_x: f64, world_z: f64) -> i64 {
-		self.top_centimetres_at(
-			self.cell_x_at(world_x, world_z),
-			self.cell_z_at(world_x, world_z),
-		)
+		let grid_x = world_x * self.yaw_cos - world_z * self.yaw_sin;
+		let grid_z = world_x * self.yaw_sin + world_z * self.yaw_cos;
+		let Some(dx) = Self::fast_floor_cell(grid_x / Self::CELL_METRES + 0.5) else {
+			return Self::WALL_CENTIMETRES;
+		};
+		let Some(dz) = Self::fast_floor_cell(grid_z / Self::CELL_METRES + 0.5) else {
+			return Self::WALL_CENTIMETRES;
+		};
+		let x = i64::from(self.player_x) + dx;
+		let z = i64::from(self.player_z) + dz;
+		if x < 0 || x >= i64::from(self.width) || z < 0 || z >= i64::from(self.depth) {
+			return Self::WALL_CENTIMETRES;
+		}
+		let index = (z as usize) * usize::from(self.width) + (x as usize);
+		i64::from(self.top_by_byte[usize::from(self.cells[index])])
 	}
 
 	/// The world height of the top of `x`, `z`, in metres from the
 	/// player's eye.
+	#[inline]
 	pub fn height_at(&self, x: i64, z: i64) -> f64 {
 		(self.top_centimetres_at(x, z) - i64::from(self.eye_height_centimetres)) as f64 / 100.0
 	}
 
 	/// The cell column the world point falls in, nearest centre.
+	#[inline]
 	pub fn cell_x_at(&self, world_x: f64, world_z: f64) -> i64 {
 		let grid_x = world_x * self.yaw_cos - world_z * self.yaw_sin;
-
-		i64::from(self.player_x) + math::floor_int(grid_x / Self::CELL_METRES + 0.5)
+		let v = grid_x / Self::CELL_METRES + 0.5;
+		i64::from(self.player_x) + Self::fast_floor_cell(v).unwrap_or_else(|| math::floor_int(v))
 	}
 
 	/// The cell row the world point falls in, nearest centre.
+	#[inline]
 	pub fn cell_z_at(&self, world_x: f64, world_z: f64) -> i64 {
 		let grid_z = world_x * self.yaw_sin + world_z * self.yaw_cos;
-
-		i64::from(self.player_z) + math::floor_int(grid_z / Self::CELL_METRES + 0.5)
+		let v = grid_z / Self::CELL_METRES + 0.5;
+		i64::from(self.player_z) + Self::fast_floor_cell(v).unwrap_or_else(|| math::floor_int(v))
 	}
 
 	/// The middle of the top of `x`, `z`, in the hunt's frame.
@@ -590,8 +627,7 @@ impl RoomGrid {
 			/ 100.0
 	}
 
-	/// Whether this grid is one a phone or a test could have made.
-	pub fn is_well_formed(&self) -> bool {
+	fn header_is_well_formed(&self) -> bool {
 		if !(30..=300).contains(&self.eye_height_centimetres)
 			|| self.width == 0
 			|| self.depth == 0
@@ -615,6 +651,15 @@ impl RoomGrid {
 			}
 
 			previous = i64::from(level);
+		}
+
+		true
+	}
+
+	/// Whether this grid is one a phone or a test could have made.
+	pub fn is_well_formed(&self) -> bool {
+		if !self.header_is_well_formed() {
+			return false;
 		}
 
 		self.cells.iter().all(|&byte| {
@@ -730,9 +775,17 @@ impl RoomGrid {
 				return Err(FormatError::new("a room grid has a bad run length"));
 			}
 
-			for slot in &mut cells[filled..filled + usize::from(run)] {
-				*slot = cell;
+			let Some(parsed) = RoomCell::from_byte(cell) else {
+				return Err(FormatError::new("a room grid is not well formed"));
+			};
+			if parsed
+				.level()
+				.is_some_and(|level| usize::from(level) >= level_count)
+			{
+				return Err(FormatError::new("a room grid is not well formed"));
 			}
+
+			cells[filled..filled + usize::from(run)].fill(cell);
 
 			filled += usize::from(run);
 		}
@@ -745,7 +798,8 @@ impl RoomGrid {
 			eye, bytes[3], bytes[4], width, depth, bytes[7], bytes[8], levels, cells,
 		);
 
-		if !grid.is_well_formed() {
+		// Header/level/player checks (all cell bytes were validated per run above).
+		if !grid.header_is_well_formed() {
 			return Err(FormatError::new("a room grid is not well formed"));
 		}
 

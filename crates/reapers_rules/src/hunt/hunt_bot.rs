@@ -224,11 +224,13 @@ impl HuntBot {
 	}
 
 	fn track_seals(&mut self, sim: &HuntSim) {
+		let mask = sim.open_seals_mask();
+		let tick = sim.tick();
 		for index in 0..self.open_since.len() {
-			if !sim.seal_open(index) {
+			if (mask & (1 << index)) == 0 {
 				self.open_since[index] = -1;
 			} else if self.open_since[index] < 0 {
-				self.open_since[index] = sim.tick();
+				self.open_since[index] = tick;
 			}
 		}
 	}
@@ -236,19 +238,22 @@ impl HuntBot {
 	/// Where to put the crosshair: the oldest open seal it has noticed, or
 	/// the middle of the body.
 	fn target(&self, sim: &HuntSim) -> Vec3 {
-		let mut noticed: Vec<usize> = (0..self.open_since.len())
-			.filter(|&index| {
-				self.open_since[index] >= 0
-					&& sim.tick() - self.open_since[index] >= self.style.reaction_ticks
-			})
-			.collect();
+		let tick = sim.tick();
+		let reaction = self.style.reaction_ticks;
+		let mut best: Option<(usize, i64)> = None;
 
-		noticed.sort_by_key(|&seal| sim.seal_rank(seal).unwrap_or(0));
+		for (index, &since) in self.open_since.iter().enumerate() {
+			if since >= 0 && tick - since >= reaction {
+				let order = sim.opened_order_of(index);
+				if best.is_none_or(|(_, best_order)| order < best_order) {
+					best = Some((index, order));
+				}
+			}
+		}
 
-		if noticed.is_empty() {
-			sim.pose().direction()
-		} else {
-			sim.pose().seal_direction(Vec3::ZERO, noticed[0])
+		match best {
+			None => sim.pose().direction(),
+			Some((seal, _)) => sim.pose().seal_direction(Vec3::ZERO, seal),
 		}
 	}
 

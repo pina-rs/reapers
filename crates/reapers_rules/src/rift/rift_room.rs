@@ -725,14 +725,17 @@ impl RiftRoom {
 			return;
 		}
 
-		let cuts: Vec<&Member> = self
-			.present()
-			.filter(|member| member.outcome.and_then(|outcome| outcome.grade()).is_some())
-			.collect();
-		let enough = cuts.len() >= RiftFrame::cuts_needed_for(standing);
-		// Shades can break a ward, but only the living can shut a rift: at
-		// least one of the cuts has to be a person's.
-		let by_the_living = cuts.iter().any(|member| !member.shade);
+		let mut cuts = 0usize;
+		let mut by_the_living = false;
+		for member in self.present() {
+			if member.outcome.and_then(|outcome| outcome.grade()).is_some() {
+				cuts += 1;
+				if !member.shade {
+					by_the_living = true;
+				}
+			}
+		}
+		let enough = cuts >= RiftFrame::cuts_needed_for(standing);
 
 		self.phase = if enough && by_the_living {
 			RiftPhase::Sealed
@@ -743,6 +746,7 @@ impl RiftRoom {
 
 	fn step_seats(&mut self) {
 		let shared = self.ward();
+		let mut events = Vec::new();
 
 		for member in &mut self.members {
 			if let Some((seat, bot)) = &mut member.fight {
@@ -752,7 +756,8 @@ impl RiftRoom {
 
 				seat.sync(shared, seat.dealt());
 				let input = bot.decide(&seat.sim);
-				seat.step(&input);
+				events.clear();
+				seat.sim.step_into(&input, &mut events);
 				member.dealt = seat.dealt();
 				member.outcome = seat.sim.outcome();
 				continue;
@@ -768,7 +773,8 @@ impl RiftRoom {
 					.queued_inputs
 					.pop_front()
 					.unwrap_or_else(|| HuntInput::new(Aim::AHEAD, 0));
-				seat.step(&input);
+				events.clear();
+				seat.sim.step_into(&input, &mut events);
 				member.dealt = seat.dealt();
 				member.outcome = seat.sim.outcome();
 			}

@@ -27,7 +27,7 @@ use crate::config::app_url;
 use crate::l10n::use_l10n;
 
 /// The mark, as the game shows it.
-const MARK: &str = "asset://branding/mark.png";
+const MARK: &str = "asset://branding/mark.webp";
 
 /// The frame around the page: the page's ink.
 pub fn frame(children: &Children) -> Element {

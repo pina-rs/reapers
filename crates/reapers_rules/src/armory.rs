@@ -100,11 +100,12 @@ impl Weapon {
 
 	/// Reads a weapon back from its `id`, such as `scythe.sworn`.
 	pub fn parse(id: &str) -> Result<Self, FormatError> {
-		let parts: Vec<&str> = id.split('.').collect();
-
-		let [kind, temper] = parts[..] else {
+		let Some((kind, temper)) = id.split_once('.') else {
 			return Err(FormatError::with_input("Not a weapon id", id));
 		};
+		if temper.contains('.') {
+			return Err(FormatError::with_input("Not a weapon id", id));
+		}
 
 		Ok(Self::new(
 			WeaponKind::from_name(kind)
@@ -151,21 +152,46 @@ impl Weapon {
 
 impl fmt::Display for Weapon {
 	fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(formatter, "Weapon({})", self.id())
+		write!(
+			formatter,
+			"Weapon({}.{})",
+			self.kind.name(),
+			self.temper.name()
+		)
 	}
 }
 
 impl Serialize for Weapon {
 	fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-		serializer.serialize_str(&self.id())
+		let kind = self.kind.name().as_bytes();
+		let temper = self.temper.name().as_bytes();
+		let mut buf = [0_u8; 40];
+		let len = kind.len() + 1 + temper.len();
+		buf[..kind.len()].copy_from_slice(kind);
+		buf[kind.len()] = b'.';
+		buf[kind.len() + 1..len].copy_from_slice(temper);
+		let text = core::str::from_utf8(&buf[..len]).unwrap_or("");
+		serializer.serialize_str(text)
 	}
 }
 
 impl<'de> Deserialize<'de> for Weapon {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		let id = String::deserialize(deserializer)?;
+		struct Visitor;
 
-		Self::parse(&id).map_err(serde::de::Error::custom)
+		impl serde::de::Visitor<'_> for Visitor {
+			type Value = Weapon;
+
+			fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+				formatter.write_str("a weapon id")
+			}
+
+			fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Self::Value, E> {
+				Weapon::parse(value).map_err(E::custom)
+			}
+		}
+
+		deserializer.deserialize_str(Visitor)
 	}
 }
 

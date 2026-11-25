@@ -210,9 +210,10 @@ impl HuskPose {
 		outward.dot(-self.direction_from(eye)) >= Self::FACING_SHARE * outward.length()
 	}
 
-	/// Seal `index`'s place relative to the middle of the body, in the
-	/// hunt's space, at the body's size.
-	fn seal_offset(&self, index: usize) -> Vec3 {
+	/// Computes seal `index`'s offset relative to the body using precomputed
+	/// `(forward, left)` basis vectors.
+	#[inline]
+	pub(crate) fn seal_offset_with(&self, index: usize, forward: Vec3, left: Vec3) -> Vec3 {
 		let offset = self
 			.vessel
 			.seals()
@@ -220,6 +221,19 @@ impl HuskPose {
 			.map_or(Vec3::ZERO, |seal| seal.offset)
 			* self.scale;
 
-		self.left() * offset.x + Vec3::UP * offset.y + self.forward() * offset.z
+		left * offset.x + Vec3::UP * offset.y + forward * offset.z
+	}
+
+	/// Checks whether `outward` faces `-dir_to_body` without recomputing trig
+	/// or `direction_from(eye)`.
+	#[inline]
+	pub(crate) fn seal_offset_faces(outward: Vec3, neg_dir_from_eye: Vec3) -> bool {
+		outward.dot(neg_dir_from_eye) >= Self::FACING_SHARE * outward.length()
+	}
+
+	/// Seal `index`'s place relative to the middle of the body, in the
+	/// hunt's space, at the body's size.
+	fn seal_offset(&self, index: usize) -> Vec3 {
+		self.seal_offset_with(index, self.forward(), self.left())
 	}
 }

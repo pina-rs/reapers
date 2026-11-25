@@ -42,7 +42,7 @@ use crate::room_map::Cloud;
 use crate::room_map::FloorTracker;
 use crate::room_map::SELF_METRES;
 use crate::room_map::STRIDE;
-use crate::room_map::surface_normals;
+use crate::room_map::level_points;
 
 /// How far the grid reaches either side of the player, in metres. A phone
 /// reads a few metres around itself, and every drawn room's walls come in
@@ -112,9 +112,16 @@ const PLANE_SLOPE: f64 = 0.1763;
 const LEVEL_BIN: f64 = 0.01;
 const LEVEL_BINS: usize = 252;
 
-/// The histogram is smoothed with a 2 cm standard deviation, so one surface
-/// that wobbles gives one peak.
-const LEVEL_BLUR: f64 = 0.02;
+/// Precomputed Gaussian weights for `sigma = LEVEL_BLUR / LEVEL_BIN = 2.0`
+/// over offsets `0..=LEVEL_WINDOW` (5 cm either side).
+const LEVEL_GAUSS: [f64; 6] = [
+	1.0,
+	0.882_496_902_584_595_5,
+	0.606_530_659_712_633_4,
+	0.324_652_467_358_349_74,
+	0.135_335_283_236_612_7,
+	0.043_936_933_623_407_42,
+];
 
 /// A peak's area, and the smoothing, are counted over this many centimetres
 /// either side of it: five is two and a half deviations, enough for one
@@ -216,6 +223,10 @@ pub struct RoomGridBuilder {
 	/// The count of points in each height bin of each fine cell.
 	counts: Vec<u8>,
 
+	/// Highest touched height bin + 1 per fine cell (0 when empty), so
+	/// `tops_of` skips empty cells in O(1) without scanning 63 bins.
+	max_bin: Vec<u8>,
+
 	/// The lowest height above the floor at which a carving ray crossed each
 	/// fine cell, or infinity where none did.
 	clear: Vec<f32>,
@@ -236,6 +247,7 @@ impl RoomGridBuilder {
 		Self {
 			floor: FloorTracker::new(),
 			counts: vec![0; FINE_HEIGHT_COUNTS],
+			max_bin: vec![0; FINE_CELLS],
 			clear: vec![f32::INFINITY; FINE_CELLS],
 			yaw_weights: [0.0; YAW_BINS],
 		}
@@ -267,33 +279,56 @@ impl RoomGridBuilder {
 	/// The picture's own eye is taken into account: a picture taken from
 	/// elsewhere is charted where it was taken, in the room's own frame.
 	pub fn add_frame(&mut self, frame: &DepthFrame) -> bool {
-		if !self.floor.accept_ground(frame, false) {
-			return false;
-		}
-		self.chart_frame(frame)
+		let columns = frame.width / STRIDE;
+		let rows = frame.height / STRIDE;
+		let cloud = Cloud::of(frame);
+		let level = level_points(&cloud, columns, rows);
+		self.add_prepared(frame, &cloud, &level, false)
 	}
 
 	/// Takes estimated depth, finding its own floor before calibrating it
 	/// against a platform measurement, as the room survey does.
 	pub fn add_estimated(&mut self, frame: &DepthFrame) -> bool {
-		if !self.floor.accept_ground(frame, true) {
-			return false;
-		}
-		self.chart_frame(frame)
+		let columns = frame.width / STRIDE;
+		let rows = frame.height / STRIDE;
+		let cloud = Cloud::of(frame);
+		let level = level_points(&cloud, columns, rows);
+		self.add_prepared(frame, &cloud, &level, true)
 	}
 
-	fn chart_frame(&mut self, frame: &DepthFrame) -> bool {
+	pub(crate) fn add_prepared(
+		&mut self,
+		frame: &DepthFrame,
+		cloud: &Cloud,
+		level: &[bool],
+		estimated: bool,
+	) -> bool {
+		if self
+			.floor
+			.evaluate(
+				cloud,
+				level,
+				frame.origin,
+				reapers_rules::Gait::Ground,
+				estimated,
+			)
+			.is_none()
+		{
+			return false;
+		}
+		self.chart_frame_with_cloud(frame, cloud)
+	}
+
+	fn chart_frame_with_cloud(&mut self, frame: &DepthFrame, cloud: &Cloud) -> bool {
 		let Some(picture_floor) = self.floor.last_picture_floor() else {
 			return false;
 		};
 		let origin = frame.origin;
 		let at = self.placement(picture_floor, origin);
-		let keep = flying_pixels(frame);
-		let cloud = Cloud::of_filtered(frame, |column, row| keep[row * frame.width + column]);
 		let columns = frame.width / STRIDE;
 		let rows = frame.height / STRIDE;
 
-		self.chart(&cloud, columns, rows, at);
+		self.chart(frame, cloud, columns, rows, at);
 		self.carve(frame, at);
 
 		true
@@ -318,10 +353,18 @@ impl RoomGridBuilder {
 		self.floor.floor_depth()
 	}
 
-	/// Charts one picture's points, and the directions its vertical
-	/// structure faces, into the fine grid, taken where [`PictureAt`] says
-	/// it was.
-	fn chart(&mut self, cloud: &Cloud, columns: usize, rows: usize, at: PictureAt) {
+	/// Charts one picture's non-flying points and vertical structure directly
+	/// from the shared `Cloud`, checking 4-neighbour flying pixels only at
+	/// strided coordinates and computing vertical normals inline with zero
+	/// intermediate allocations.
+	fn chart(
+		&mut self,
+		frame: &DepthFrame,
+		cloud: &Cloud,
+		columns: usize,
+		rows: usize,
+		at: PictureAt,
+	) {
 		if !at.ground.is_finite()
 			|| at.ground <= 0.0
 			|| !at.picture_floor.is_finite()
@@ -331,55 +374,109 @@ impl RoomGridBuilder {
 		{
 			return;
 		}
+		let count = columns * rows;
+		if count == 0 {
+			return;
+		}
 
-		let normals = surface_normals(cloud, columns, rows);
 		let (scale, origin) = (at.ground, at.origin);
+		let self_sq = SELF_METRES * SELF_METRES;
+		let height_scale = NOMINAL_FLOOR * at.heights / at.picture_floor;
+		let max_height = HEIGHT_BIN * HEIGHT_BINS as f64;
+		let inv_height_bin = 1.0 / HEIGHT_BIN;
+		let horiz_share_sq = YAW_HORIZONTAL_SHARE * YAW_HORIZONTAL_SHARE;
+		let yaw_scale = YAW_BINS as f64 / (PI / 2.0);
 
-		for (index, normal) in normals.into_iter().enumerate() {
-			if let Some(normal) = normal {
-				let horizontal = normal.horizontal_share();
+		// Compute which strided pixels pass the flying-pixel filter once so
+		// neighbour normals reject flying pixels identically to `Cloud::of_filtered`.
+		let mut keep = vec![false; count];
+		for row in 0..rows {
+			let sr = row * STRIDE;
+			let base = row * columns;
+			for column in 0..columns {
+				let sc = column * STRIDE;
+				keep[base + column] = is_not_flying(frame, sc, sr);
+			}
+		}
 
-				if horizontal >= YAW_HORIZONTAL_SHARE {
-					let bin = (normal.folded_angle() / (PI / 2.0) * YAW_BINS as f64) as usize;
+		let xs = cloud.xs.as_slice();
+		let ys = cloud.ys.as_slice();
+		let zs = cloud.zs.as_slice();
+		let has_normals = columns >= 2 && rows >= 2;
 
-					self.yaw_weights[bin.min(YAW_BINS - 1)] += horizontal;
+		for row in 0..rows {
+			let row_base = row * columns;
+			let down_offset: isize = if row + 1 < rows {
+				columns as isize
+			} else {
+				-(columns as isize)
+			};
+
+			for column in 0..columns {
+				let index = row_base + column;
+				if !keep[index] {
+					continue;
+				}
+
+				let cx = f64::from(xs[index]);
+				let cy = f64::from(ys[index]);
+				let cz = f64::from(zs[index]);
+
+				if has_normals {
+					let right = if column + 1 < columns {
+						index + 1
+					} else {
+						index - 1
+					};
+					let down = (index as isize + down_offset) as usize;
+					if keep[right] && keep[down] {
+						let ax = f64::from(xs[right]) - cx;
+						let ay = f64::from(ys[right]) - cy;
+						let az = f64::from(zs[right]) - cz;
+						let bx = f64::from(xs[down]) - cx;
+						let by = f64::from(ys[down]) - cy;
+						let bz = f64::from(zs[down]) - cz;
+						let nx = ay * bz - az * by;
+						let ny = az * bx - ax * bz;
+						let nz = ax * by - ay * bx;
+						let horiz_sq = nx * nx + nz * nz;
+						let len_sq = horiz_sq + ny * ny;
+
+						if len_sq > 0.0 && horiz_sq >= horiz_share_sq * len_sq {
+							let horizontal = math::sqrt(horiz_sq / len_sq);
+							let folded = math::fast_atan2(nx, nz).rem_euclid(PI / 2.0);
+							let bin = (folded * yaw_scale) as usize;
+							self.yaw_weights[bin.min(YAW_BINS - 1)] += horizontal;
+						}
+					}
+				}
+
+				if cy > 0.0 || !cy.is_finite() {
+					continue;
+				}
+				let x = cx * scale + origin.x;
+				let z = cz * scale + origin.z;
+				let away_sq = x * x + z * z;
+				if !(away_sq >= self_sq && away_sq.is_finite()) {
+					continue;
+				}
+
+				let height = (cy + at.picture_floor) * height_scale;
+				if !height.is_finite() || height < -FLOOR_SLACK || height >= max_height {
+					continue;
+				}
+
+				let Some(cell) = fine_cell(x, z) else {
+					continue;
+				};
+				let bin = ((height.max(0.0) * inv_height_bin) as usize).min(HEIGHT_BINS - 1);
+				let slot = cell * HEIGHT_BINS + bin;
+				self.counts[slot] = self.counts[slot].saturating_add(1);
+				let bin_tag = (bin + 1) as u8;
+				if bin_tag > self.max_bin[cell] {
+					self.max_bin[cell] = bin_tag;
 				}
 			}
-
-			let x = f64::from(cloud.xs[index]) * scale + origin.x;
-			let y = f64::from(cloud.ys[index]);
-			let z = f64::from(cloud.zs[index]) * scale + origin.z;
-
-			// A point that was not seen is NaN, and fails this.
-			if !(x.is_finite() && y.is_finite() && z.is_finite()) {
-				continue;
-			}
-
-			// The player's own hands and feet, and anything above the eye:
-			// a ceiling, or a wall the grid calls a wall.
-			if math::sqrt(x * x + z * z) < SELF_METRES || y > 0.0 {
-				continue;
-			}
-
-			let height = (y + at.picture_floor) / at.picture_floor * NOMINAL_FLOOR * at.heights;
-
-			// Reject non-finite values and points outside the valid height range.
-			if !height.is_finite()
-				|| height < -FLOOR_SLACK
-				|| height >= HEIGHT_BIN * HEIGHT_BINS as f64
-			{
-				continue;
-			}
-
-			let height = height.max(0.0);
-
-			let Some(cell) = fine_cell(x, z) else {
-				continue;
-			};
-			let bin = ((height / HEIGHT_BIN) as usize).min(HEIGHT_BINS - 1);
-			let slot = cell * HEIGHT_BINS + bin;
-
-			self.counts[slot] = self.counts[slot].saturating_add(1);
 		}
 	}
 
@@ -393,67 +490,92 @@ impl RoomGridBuilder {
 			|| at.picture_floor <= 0.0
 			|| !at.heights.is_finite()
 			|| at.heights <= 0.0
+			|| frame.width == 0
+			|| frame.height == 0
 		{
 			return;
 		}
 
-		let half_extent = EXTENT / 2.0;
+		let pose = frame.pose;
+		let inv_w = 2.0 / frame.width as f64;
+		let inv_h = 2.0 / frame.height as f64;
+		let across_step = (CARVE_STRIDE as f64) * inv_w * frame.tan_half_width;
+		let across_start = (0.5 * inv_w - 1.0) * frame.tan_half_width;
+		let step_dx = pose.right.x * across_step;
+		let step_dy = pose.right.y * across_step;
+		let step_dz = pose.right.z * across_step;
+		let height_base = NOMINAL_FLOOR * at.heights;
+		let height_y_factor = height_base / (at.ground * at.picture_floor);
+		let clear = self.clear.as_mut_slice();
 
 		for row in (0..frame.height).step_by(CARVE_STRIDE) {
+			let up = (1.0 - (row as f64 + 0.5) * inv_h) * frame.tan_half_height;
+			let mut dir_x = pose.forward.x + pose.up.x * up + pose.right.x * across_start;
+			let mut dir_y = pose.forward.y + pose.up.y * up + pose.right.y * across_start;
+			let mut dir_z = pose.forward.z + pose.up.z * up + pose.right.z * across_start;
+			let row_base = row * frame.width;
+
 			for column in (0..frame.width).step_by(CARVE_STRIDE) {
-				let depth = f64::from(frame.depths[row * frame.width + column]);
+				let depth = f64::from(frame.depths[row_base + column]);
 
-				if !(depth > 0.0 && depth.is_finite()) {
-					continue;
-				}
+				if depth > 0.0 && depth.is_finite() && dir_y < 0.0 {
+					let stretch = math::length(dir_x, dir_y, dir_z);
+					let inv_stretch = 1.0 / stretch;
+					let ray_x = dir_x * inv_stretch;
+					let ray_y = dir_y * inv_stretch;
+					let ray_z = dir_z * inv_stretch;
+					let hit_world = depth * stretch * at.ground;
+					let end_world = hit_world - CARVE_MARGIN;
 
-				let (across, up) = frame.tangents(column, row);
-				let direction = frame.pose.forward + frame.pose.right * across + frame.pose.up * up;
-				let stretch = direction.length();
+					if SELF_METRES < end_world {
+						const OFFSET: f64 = EXTENT / 2.0 - FINE_OFFSET;
+						const INV_CELL: f64 = 1.0 / FINE_CELL;
+						const FINE_SIDE_F: f64 = FINE_SIDE as f64;
+						let hit_cell = fine_cell(
+							ray_x * hit_world + at.origin.x,
+							ray_z * hit_world + at.origin.z,
+						);
+						let mut along_world = SELF_METRES;
+						let mut gx = (ray_x * along_world + at.origin.x + OFFSET) * INV_CELL;
+						let mut gz = (ray_z * along_world + at.origin.z + OFFSET) * INV_CELL;
+						let mut raw_height = height_base + ray_y * along_world * height_y_factor;
+						let dgx = ray_x * CARVE_STEP * INV_CELL;
+						let dgz = ray_z * CARVE_STEP * INV_CELL;
+						let d_height = ray_y * CARVE_STEP * height_y_factor;
 
-				// A ray that climbs sees the ceiling, and nothing the grid
-				// charts lies above the eye.
-				if direction.y >= 0.0 {
-					continue;
-				}
+						while along_world < end_world {
+							if !(0.0..FINE_SIDE_F).contains(&gx)
+								|| !(0.0..FINE_SIDE_F).contains(&gz)
+							{
+								if gx < -1.0
+									|| gx > FINE_SIDE_F + 1.0
+									|| gz < -1.0
+									|| gz > FINE_SIDE_F + 1.0
+								{
+									break;
+								}
+							} else {
+								let cell = (gz as usize) * FINE_SIDE + (gx as usize);
+								if Some(cell) == hit_cell {
+									break;
+								}
+								let height = raw_height.max(0.0) as f32;
+								if height < clear[cell] {
+									clear[cell] = height;
+								}
+							}
 
-				let ray = direction / stretch;
-				let hit_world = depth * stretch * at.ground;
-				let hit_cell = fine_cell(
-					ray.x * hit_world + at.origin.x,
-					ray.z * hit_world + at.origin.z,
-				);
-				let end_world = hit_world - CARVE_MARGIN;
-				let mut along_world = SELF_METRES;
-
-				while along_world < end_world {
-					let x = ray.x * along_world + at.origin.x;
-					let z = ray.z * along_world + at.origin.z;
-
-					if x.abs() > half_extent || z.abs() > half_extent {
-						break;
-					}
-
-					let y_picture = ray.y * (along_world / at.ground);
-					let height = ((y_picture + at.picture_floor) / at.picture_floor
-						* NOMINAL_FLOOR
-						* at.heights)
-						.max(0.0);
-
-					if let Some(cell) = fine_cell(x, z) {
-						// The surface's own cell is not free space: the ray
-						// ends in it.
-						if Some(cell) == hit_cell {
-							break;
+							along_world += CARVE_STEP;
+							gx += dgx;
+							gz += dgz;
+							raw_height += d_height;
 						}
-
-						if height < f64::from(self.clear[cell]) {
-							self.clear[cell] = height as f32;
-						}
 					}
-
-					along_world += CARVE_STEP;
 				}
+
+				dir_x += step_dx;
+				dir_y += step_dy;
+				dir_z += step_dz;
 			}
 		}
 	}
@@ -470,7 +592,13 @@ impl RoomGridBuilder {
 		// The fine grid's heights are shares of the nominal floor; the room's
 		// own floor turns them into its metres.
 		let scale = room_floor / NOMINAL_FLOOR;
-		let (tops, walls) = tops_of(&self.counts, &self.clear, wall_centimetres, scale);
+		let (tops, walls) = tops_of(
+			&self.counts,
+			&self.max_bin,
+			&self.clear,
+			wall_centimetres,
+			scale,
+		);
 		let level = level_cells(&tops, &walls);
 		let levels = levels_from(&tops, &level);
 		let yaw = room_yaw(&self.yaw_weights);
@@ -513,31 +641,39 @@ enum FineKind {
 /// top is a wall. `scale` turns the nominal heights into the room's metres.
 fn tops_of(
 	counts: &[u8],
+	max_bin: &[u8],
 	clear: &[f32],
 	wall_centimetres: f64,
 	scale: f64,
 ) -> (Vec<f32>, Vec<bool>) {
 	let mut tops = vec![f32::NAN; FINE_CELLS];
 	let mut walls = vec![false; FINE_CELLS];
+	let bin_step = HEIGHT_BIN * scale;
+	let wall_metres = wall_centimetres / 100.0;
 
 	for cell in 0..FINE_CELLS {
-		let lowest_clear = f64::from(clear[cell]) * scale;
+		let top_tag = usize::from(max_bin[cell]);
+		if top_tag == 0 {
+			continue;
+		}
+		let clear_limit = f64::from(clear[cell]) * scale + CARVE_SLACK;
+		let base = cell * HEIGHT_BINS;
 
-		for bin in (0..HEIGHT_BINS).rev() {
-			if counts[cell * HEIGHT_BINS + bin] < MIN_POINTS_OF_TOP {
+		for bin in (0..top_tag).rev() {
+			if counts[base + bin] < MIN_POINTS_OF_TOP {
 				continue;
 			}
 
-			let height = (bin as f64 + 0.5) * HEIGHT_BIN * scale;
+			let height = (bin as f64 + 0.5) * bin_step;
 
 			// A ray crossed the cell beneath this height, so nothing was
 			// there and the points are a silhouette the model smeared.
-			if height > lowest_clear + CARVE_SLACK {
+			if height > clear_limit {
 				continue;
 			}
 
 			tops[cell] = height as f32;
-			walls[cell] = height * 100.0 >= wall_centimetres;
+			walls[cell] = height >= wall_metres;
 			break;
 		}
 	}
@@ -550,94 +686,99 @@ fn level_cells(tops: &[f32], walls: &[bool]) -> Vec<bool> {
 	let mut level = vec![false; FINE_CELLS];
 
 	for row in 1..FINE_SIDE - 1 {
+		let row_base = row * FINE_SIDE;
 		for column in 1..FINE_SIDE - 1 {
-			let cell = row * FINE_SIDE + column;
+			let cell = row_base + column;
 
 			if walls[cell] || tops[cell].is_nan() {
 				continue;
 			}
 
-			let Some((slope, residual)) = plane_fit(tops, walls, row, column) else {
-				continue;
-			};
-
-			level[cell] = residual <= PLANE_RESIDUAL && slope <= PLANE_SLOPE;
+			level[cell] = is_level_patch(tops, walls, row_base + column);
 		}
 	}
 
 	level
 }
 
-/// The slope and worst residual of the plane through the 3 by 3 patch of
-/// tops around `row`, `column`, or `None` when any of the nine is missing or
-/// a wall.
-fn plane_fit(tops: &[f32], walls: &[bool], row: usize, column: usize) -> Option<(f64, f64)> {
-	let mut sum = 0.0;
+/// Whether the 3 by 3 patch of tops centred on `center` is complete, free of
+/// walls, no steeper than `PLANE_SLOPE`, and flat within `PLANE_RESIDUAL`.
+#[inline]
+fn is_level_patch(tops: &[f32], walls: &[bool], center: usize) -> bool {
+	const INV_SQUARE_SUM: f64 = 1.0 / (6.0 * FINE_CELL * FINE_CELL);
+	const SLOPE_SQ_MAX: f64 = PLANE_SLOPE * PLANE_SLOPE;
 
-	for down in -1i64..=1 {
-		for across in -1i64..=1 {
-			let at = (row as i64 + down) as usize * FINE_SIDE + (column as i64 + across) as usize;
+	let r0 = center - FINE_SIDE;
+	let r1 = center;
+	let r2 = center + FINE_SIDE;
 
-			if walls[at] || tops[at].is_nan() {
-				return None;
-			}
+	if walls[r0 - 1]
+		|| walls[r0]
+		|| walls[r0 + 1]
+		|| walls[r1 - 1]
+		|| walls[r1 + 1]
+		|| walls[r2 - 1]
+		|| walls[r2]
+		|| walls[r2 + 1]
+	{
+		return false;
+	}
 
-			sum += f64::from(tops[at]);
-		}
+	let v00 = f64::from(tops[r0 - 1]);
+	let v01 = f64::from(tops[r0]);
+	let v02 = f64::from(tops[r0 + 1]);
+	let v10 = f64::from(tops[r1 - 1]);
+	let v11 = f64::from(tops[r1]);
+	let v12 = f64::from(tops[r1 + 1]);
+	let v20 = f64::from(tops[r2 - 1]);
+	let v21 = f64::from(tops[r2]);
+	let v22 = f64::from(tops[r2 + 1]);
+
+	let sum = v00 + v01 + v02 + v10 + v11 + v12 + v20 + v21 + v22;
+	if !sum.is_finite() {
+		return false;
+	}
+
+	// Because sum(across) == 0 and sum(down) == 0 on a symmetric 3×3 grid,
+	// `sum(across * (v - mean)) == FINE_CELL * ((v02+v12+v22) - (v00+v10+v20))`.
+	let dx = ((v02 + v12 + v22) - (v00 + v10 + v20)) * FINE_CELL;
+	let dz = ((v20 + v21 + v22) - (v00 + v01 + v02)) * FINE_CELL;
+	let slope_across = dx * INV_SQUARE_SUM;
+	let slope_down = dz * INV_SQUARE_SUM;
+
+	if slope_across * slope_across + slope_down * slope_down > SLOPE_SQ_MAX {
+		return false;
 	}
 
 	let mean = sum / 9.0;
-	let mut across_sum = 0.0;
-	let mut down_sum = 0.0;
-	let mut square_sum = 0.0;
+	let sa = slope_across * FINE_CELL;
+	let sd = slope_down * FINE_CELL;
 
-	for down in -1i64..=1 {
-		for across in -1i64..=1 {
-			let at = (row as i64 + down) as usize * FINE_SIDE + (column as i64 + across) as usize;
-			let across_metres = across as f64 * FINE_CELL;
-			let down_metres = down as f64 * FINE_CELL;
-			let rise = f64::from(tops[at]) - mean;
-
-			across_sum += across_metres * rise;
-			down_sum += down_metres * rise;
-			square_sum += across_metres * across_metres;
-		}
-	}
-
-	let slope_across = across_sum / square_sum;
-	let slope_down = down_sum / square_sum;
-	let mut residual: f64 = 0.0;
-
-	for down in -1i64..=1 {
-		for across in -1i64..=1 {
-			let at = (row as i64 + down) as usize * FINE_SIDE + (column as i64 + across) as usize;
-			let predicted = mean
-				+ slope_across * (across as f64 * FINE_CELL)
-				+ slope_down * (down as f64 * FINE_CELL);
-
-			residual = residual.max((f64::from(tops[at]) - predicted).abs());
-		}
-	}
-
-	Some((
-		math::sqrt(slope_across * slope_across + slope_down * slope_down),
-		residual,
-	))
+	(v00 - (mean - sa - sd)).abs() <= PLANE_RESIDUAL
+		&& (v01 - (mean - sd)).abs() <= PLANE_RESIDUAL
+		&& (v02 - (mean + sa - sd)).abs() <= PLANE_RESIDUAL
+		&& (v10 - (mean - sa)).abs() <= PLANE_RESIDUAL
+		&& (v11 - mean).abs() <= PLANE_RESIDUAL
+		&& (v12 - (mean + sa)).abs() <= PLANE_RESIDUAL
+		&& (v20 - (mean - sa + sd)).abs() <= PLANE_RESIDUAL
+		&& (v21 - (mean + sd)).abs() <= PLANE_RESIDUAL
+		&& (v22 - (mean + sa + sd)).abs() <= PLANE_RESIDUAL
 }
 
 /// The few heights the room's level tops stand at, in centimetres above the
 /// floor, beginning with the floor itself.
 fn levels_from(tops: &[f32], level: &[bool]) -> Vec<u8> {
-	let mut histogram = vec![0.0f64; LEVEL_BINS];
+	let mut histogram = [0.0_f64; LEVEL_BINS];
+	let cell_area = FINE_CELL * FINE_CELL;
+	let inv_bin = 1.0 / LEVEL_BIN;
 
-	for (cell, top) in tops.iter().enumerate() {
-		if !level[cell] || top.is_nan() {
+	for (&top, &is_level) in tops.iter().zip(level) {
+		if !is_level || top.is_nan() {
 			continue;
 		}
 
-		let bin = math::round(f64::from(*top) / LEVEL_BIN).clamp(0, LEVEL_BINS as i64 - 1) as usize;
-
-		histogram[bin] += FINE_CELL * FINE_CELL;
+		let bin = math::round(f64::from(top) * inv_bin).clamp(0, LEVEL_BINS as i64 - 1) as usize;
+		histogram[bin] += cell_area;
 	}
 
 	let smoothed = smooth_levels(&histogram);
@@ -696,32 +837,26 @@ fn levels_from(tops: &[f32], level: &[bool]) -> Vec<u8> {
 }
 
 /// Smooth a level histogram with a Gaussian, clamped at either end.
-fn smooth_levels(histogram: &[f64]) -> Vec<f64> {
-	let sigma = LEVEL_BLUR / LEVEL_BIN;
-	let radius = LEVEL_WINDOW;
+fn smooth_levels(histogram: &[f64; LEVEL_BINS]) -> [f64; LEVEL_BINS] {
+	let mut out = [0.0_f64; LEVEL_BINS];
+	let radius = LEVEL_WINDOW as usize;
 
-	(0..histogram.len())
-		.map(|bin| {
-			(-radius..=radius)
-				.map(|offset| {
-					let at = bin as i64 + offset;
+	for (bin, slot) in out.iter_mut().enumerate() {
+		let low = bin.saturating_sub(radius);
+		let high = (bin + radius).min(LEVEL_BINS - 1);
+		let mut sum = 0.0;
+		for (at, &count) in histogram.iter().enumerate().take(high + 1).skip(low) {
+			sum += count * LEVEL_GAUSS[bin.abs_diff(at)];
+		}
+		*slot = sum;
+	}
 
-					if at < 0 || at >= histogram.len() as i64 {
-						return 0.0;
-					}
-
-					let distance = offset as f64 / sigma;
-
-					histogram[at as usize] * math::exp(-0.5 * distance * distance)
-				})
-				.sum()
-		})
-		.collect()
+	out
 }
 
 /// Every peak of the smoothed histogram that covers at least
 /// [`LEVEL_PEAK_AREA`], as its mean height and the area of its cells.
-fn peaks_of(histogram: &[f64], smoothed: &[f64]) -> Vec<(f64, f64)> {
+fn peaks_of(histogram: &[f64; LEVEL_BINS], smoothed: &[f64; LEVEL_BINS]) -> Vec<(f64, f64)> {
 	let mut peaks = Vec::new();
 
 	for bin in 0..LEVEL_BINS {
@@ -747,7 +882,7 @@ fn peaks_of(histogram: &[f64], smoothed: &[f64]) -> Vec<(f64, f64)> {
 		let mut total = 0.0;
 		let mut weighted = 0.0;
 
-		for (at, count) in histogram.iter().enumerate().take(high + 1).skip(low) {
+		for (at, &count) in histogram.iter().enumerate().take(high + 1).skip(low) {
 			total += count;
 			weighted += count * ((at as f64 + 0.5) * LEVEL_BIN);
 		}
@@ -763,36 +898,50 @@ fn peaks_of(histogram: &[f64], smoothed: &[f64]) -> Vec<(f64, f64)> {
 /// What every fine cell is, once its top is held to the room's levels.
 fn kinds_of(tops: &[f32], walls: &[bool], levels: &[u8]) -> Vec<FineKind> {
 	let mut kinds = vec![FineKind::Unknown; FINE_CELLS];
+	let mut level_metres = [0.0_f64; MAX_LEVELS];
+	let level_count = levels.len().min(MAX_LEVELS);
+	for (dst, &cm) in level_metres.iter_mut().zip(levels.iter()).take(level_count) {
+		*dst = f64::from(cm) / 100.0;
+	}
+	let level_slice = &level_metres[..level_count];
+	let origin_offset = -EXTENT / 2.0 + FINE_OFFSET + 0.5 * FINE_CELL;
 
-	for cell in 0..FINE_CELLS {
-		let top = tops[cell];
+	for row in 0..FINE_SIDE {
+		let z = origin_offset + row as f64 * FINE_CELL;
+		let z_sq = z * z;
+		let row_base = row * FINE_SIDE;
 
-		if top.is_nan() {
-			continue;
-		}
-
-		if walls[cell] {
-			kinds[cell] = FineKind::Wall;
-			continue;
-		}
-
-		let height = f64::from(top);
-		let (x, z) = fine_centre(cell);
-		let tolerance = LEVEL_SNAP + LEVEL_SNAP_PER_METRE * math::sqrt(x * x + z * z);
-		let mut nearest: Option<(u8, f64)> = None;
-
-		for (index, &centimetres) in levels.iter().enumerate() {
-			let distance = (height - f64::from(centimetres) / 100.0).abs();
-
-			if nearest.is_none_or(|(_, best)| distance < best) {
-				nearest = Some((index as u8, distance));
+		for column in 0..FINE_SIDE {
+			let cell = row_base + column;
+			let top = tops[cell];
+			if top.is_nan() {
+				continue;
 			}
-		}
+			if walls[cell] {
+				kinds[cell] = FineKind::Wall;
+				continue;
+			}
 
-		kinds[cell] = match nearest {
-			Some((level, distance)) if distance <= tolerance => FineKind::Walkable(level),
-			_ => FineKind::Obstacle(top),
-		};
+			let height = f64::from(top);
+			let x = origin_offset + column as f64 * FINE_CELL;
+			let tolerance = LEVEL_SNAP + LEVEL_SNAP_PER_METRE * math::sqrt(x * x + z_sq);
+			let mut best_level = 0_u8;
+			let mut best_dist = f64::INFINITY;
+
+			for (index, &lvl_m) in level_slice.iter().enumerate() {
+				let distance = (height - lvl_m).abs();
+				if distance < best_dist {
+					best_dist = distance;
+					best_level = index as u8;
+				}
+			}
+
+			kinds[cell] = if best_dist <= tolerance {
+				FineKind::Walkable(best_level)
+			} else {
+				FineKind::Obstacle(top)
+			};
+		}
 	}
 
 	kinds
@@ -807,20 +956,22 @@ fn room_yaw(weights: &[f64; YAW_BINS]) -> u8 {
 		return 0;
 	}
 
-	let smoothed: Vec<f64> = (0..YAW_BINS)
-		.map(|bin| {
-			(-YAW_SMOOTH_DEGREES..=YAW_SMOOTH_DEGREES)
-				.map(|offset| {
-					let at = (bin as i64 + offset).rem_euclid(YAW_BINS as i64) as usize;
+	let mut smoothed = [0.0_f64; YAW_BINS];
+	let mut peak = 0_usize;
+	let mut peak_val = f64::NEG_INFINITY;
 
-					weights[at] * (3 - offset.abs()) as f64
-				})
-				.sum()
-		})
-		.collect();
-	let peak = (0..YAW_BINS)
-		.max_by(|one, other| smoothed[*one].total_cmp(&smoothed[*other]))
-		.unwrap_or(0);
+	for (bin, slot) in smoothed.iter_mut().enumerate() {
+		let mut sum = 0.0;
+		for offset in -YAW_SMOOTH_DEGREES..=YAW_SMOOTH_DEGREES {
+			let at = (bin as i64 + offset).rem_euclid(YAW_BINS as i64) as usize;
+			sum += weights[at] * (3 - offset.abs()) as f64;
+		}
+		*slot = sum;
+		if sum > peak_val {
+			peak_val = sum;
+			peak = bin;
+		}
+	}
 
 	// Fold the spread to one quarter turn, where every wall is one axis.
 	let mut cosine = 0.0;
@@ -872,7 +1023,7 @@ impl CoarseVotes {
 	fn choose(&self, levels: &[u8]) -> Vec<u8> {
 		let mut cells = vec![RoomCell::UNKNOWN.byte(); GRID_SIDE * GRID_SIDE];
 
-		for cell in 0..cells.len() {
+		for (cell, out) in cells.iter_mut().enumerate() {
 			let base = cell * self.level_count;
 			let mut best_level = 0usize;
 			let mut best_walk = 0u16;
@@ -893,16 +1044,16 @@ impl CoarseVotes {
 			let known = total_walk.saturating_add(obstacle).saturating_add(wall);
 
 			if wall > 0 && wall >= total_walk && wall >= obstacle && wall >= unknown {
-				cells[cell] = RoomCell::WALL.byte();
+				*out = RoomCell::WALL.byte();
 			} else if unknown > known {
 				// Nothing was seen in most of it, so nothing is known.
 			} else if total_walk > 0 && total_walk >= obstacle {
-				cells[cell] = RoomCell::walkable(best_level as u8).byte();
+				*out = RoomCell::walkable(best_level as u8).byte();
 			} else if obstacle > 0 {
 				let centimetres = math::round(f64::from(self.top[cell]) * 100.0)
 					.clamp(1, RoomCell::MAX_OBSTACLE_CENTIMETRES);
 
-				cells[cell] = RoomCell::obstacle(centimetres).byte();
+				*out = RoomCell::obstacle(centimetres).byte();
 			}
 		}
 
@@ -916,30 +1067,42 @@ fn downsample(kinds: &[FineKind], levels: &[u8], yaw: u8) -> Vec<u8> {
 	let angle = f64::from(yaw) * 2.0 * PI / 256.0;
 	let sine = math::sin(angle);
 	let cosine = math::cos(angle);
+	let inv_grid = 1.0 / GRID_CELL;
+	let half_extent = EXTENT / 2.0;
+	let origin_offset = -half_extent + FINE_OFFSET + 0.5 * FINE_CELL;
+	let step_gx = FINE_CELL * cosine * inv_grid;
+	let step_gz = FINE_CELL * sine * inv_grid;
+	let grid_side_i = GRID_SIDE as i64;
 
-	for (cell, kind) in kinds.iter().enumerate() {
-		let (x, z) = fine_centre(cell);
-		let grid_x = x * cosine - z * sine;
-		let grid_z = x * sine + z * cosine;
-		let column = math::floor((grid_x + EXTENT / 2.0) / GRID_CELL);
-		let row = math::floor((grid_z + EXTENT / 2.0) / GRID_CELL);
+	for row in 0..FINE_SIDE {
+		let z = origin_offset + row as f64 * FINE_CELL;
+		let mut gx = (origin_offset * cosine - z * sine + half_extent) * inv_grid;
+		let mut gz = (origin_offset * sine + z * cosine + half_extent) * inv_grid;
+		let row_kinds = &kinds[row * FINE_SIDE..(row + 1) * FINE_SIDE];
 
-		if column < 0 || row < 0 || column >= GRID_SIDE as i64 || row >= GRID_SIDE as i64 {
-			continue;
-		}
+		for &kind in row_kinds {
+			let column = math::fast_floor(gx);
+			let coarse_row = math::fast_floor(gz);
+			gx += step_gx;
+			gz += step_gz;
 
-		let coarse = row as usize * GRID_SIDE + column as usize;
-
-		match *kind {
-			FineKind::Unknown => votes.unknown[coarse] += 1,
-			FineKind::Walkable(level) => {
-				votes.walk[coarse * votes.level_count + level as usize] += 1;
+			if column < 0 || coarse_row < 0 || column >= grid_side_i || coarse_row >= grid_side_i {
+				continue;
 			}
-			FineKind::Obstacle(top) => {
-				votes.obstacle[coarse] += 1;
-				votes.top[coarse] = votes.top[coarse].max(top);
+
+			let coarse = coarse_row as usize * GRID_SIDE + column as usize;
+
+			match kind {
+				FineKind::Unknown => votes.unknown[coarse] += 1,
+				FineKind::Walkable(level) => {
+					votes.walk[coarse * votes.level_count + level as usize] += 1;
+				}
+				FineKind::Obstacle(top) => {
+					votes.obstacle[coarse] += 1;
+					votes.top[coarse] = votes.top[coarse].max(top);
+				}
+				FineKind::Wall => votes.wall[coarse] += 1,
 			}
-			FineKind::Wall => votes.wall[coarse] += 1,
 		}
 	}
 
@@ -957,20 +1120,30 @@ fn downsample(kinds: &[FineKind], levels: &[u8], yaw: u8) -> Vec<u8> {
 /// way to the edge of the grid.
 fn hide(cells: &mut [u8], levels: &[u8], eye_height: f64) {
 	let hidden = RoomCell::hidden(0).byte();
+	let half_extent = EXTENT / 2.0;
+	let inv_grid = 1.0 / GRID_CELL;
+	let center = half_extent * inv_grid;
+	let inv_eye = 1.0 / eye_height;
+	let grid_side_i = GRID_SIDE as i64;
+	let angle_step = 2.0 * PI / HIDDEN_RAYS as f64;
 
 	for ray in 0..HIDDEN_RAYS {
-		let angle = ray as f64 * 2.0 * PI / HIDDEN_RAYS as f64;
+		let angle = ray as f64 * angle_step;
 		let sine = math::sin(angle);
 		let cosine = math::cos(angle);
 		let mut shadow_end = 0.0;
 		let mut last = usize::MAX;
 		let mut along = HIDDEN_STEP;
+		let step_x = cosine * HIDDEN_STEP * inv_grid;
+		let step_z = sine * HIDDEN_STEP * inv_grid;
+		let mut gx = center + step_x;
+		let mut gz = center + step_z;
 
-		while along <= EXTENT / 2.0 {
-			let column = math::floor((cosine * along + EXTENT / 2.0) / GRID_CELL);
-			let row = math::floor((sine * along + EXTENT / 2.0) / GRID_CELL);
+		while along <= half_extent {
+			let column = math::fast_floor(gx);
+			let row = math::fast_floor(gz);
 
-			if column < 0 || row < 0 || column >= GRID_SIDE as i64 || row >= GRID_SIDE as i64 {
+			if column < 0 || row < 0 || column >= grid_side_i || row >= grid_side_i {
 				break;
 			}
 
@@ -981,6 +1154,8 @@ fn hide(cells: &mut [u8], levels: &[u8], eye_height: f64) {
 
 				let Some(value) = RoomCell::from_byte(cells[cell]) else {
 					along += HIDDEN_STEP;
+					gx += step_x;
+					gz += step_z;
 					continue;
 				};
 
@@ -1001,93 +1176,81 @@ fn hide(cells: &mut [u8], levels: &[u8], eye_height: f64) {
 						if top >= eye_height {
 							shadow_end = EXTENT;
 						} else if top > 0.0 {
-							shadow_end = shadow_end
-								.max((along + GRID_CELL / 2.0) / (1.0 - top / eye_height));
+							shadow_end =
+								shadow_end.max((along + GRID_CELL / 2.0) / (1.0 - top * inv_eye));
 						}
 					}
 				}
 			}
 
 			along += HIDDEN_STEP;
+			gx += step_x;
+			gz += step_z;
 		}
 	}
 }
 
+/// Whether a single pixel `(column, row)` is valid and not flying across a
+/// silhouette relative to its 4-neighbours.
+#[inline]
+fn is_not_flying(frame: &DepthFrame, column: usize, row: usize) -> bool {
+	let width = frame.width;
+	let depths = frame.depths.as_slice();
+	let at = row * width + column;
+	let depth = depths[at];
+	if !(depth > 0.0 && depth.is_finite()) {
+		return false;
+	}
+	let depth_f = f64::from(depth);
+	let exceeds = |other: f32| -> bool {
+		let other_f = f64::from(other);
+		other > 0.0
+			&& other.is_finite()
+			&& (depth_f - other_f).abs() > FLYING_PIXEL_SHARE * depth_f.min(other_f)
+	};
+	if column > 0 && exceeds(depths[at - 1]) {
+		return false;
+	}
+	if column + 1 < width && exceeds(depths[at + 1]) {
+		return false;
+	}
+	if row > 0 && exceeds(depths[at - width]) {
+		return false;
+	}
+	if row + 1 < frame.height && exceeds(depths[at + width]) {
+		return false;
+	}
+	true
+}
+
 /// Which pixels are not flying: a pixel whose depth differs from a
 /// 4-neighbour by more than [`FLYING_PIXEL_SHARE`] is across a silhouette.
+#[cfg(test)]
 fn flying_pixels(frame: &DepthFrame) -> Vec<bool> {
 	let mut keep = vec![false; frame.width * frame.height];
 
 	for row in 0..frame.height {
 		for column in 0..frame.width {
-			let at = row * frame.width + column;
-			let depth = frame.depths[at];
-
-			if !(depth > 0.0 && depth.is_finite()) {
-				continue;
-			}
-
-			let mut flying = false;
-
-			for (across, down) in [(-1i64, 0i64), (1, 0), (0, -1), (0, 1)] {
-				let other_column = column as i64 + across;
-				let other_row = row as i64 + down;
-
-				if other_column < 0
-					|| other_row < 0
-					|| other_column >= frame.width as i64
-					|| other_row >= frame.height as i64
-				{
-					continue;
-				}
-
-				let other = frame.depths[other_row as usize * frame.width + other_column as usize];
-
-				if other > 0.0
-					&& other.is_finite()
-					&& relative_step(depth, other) > FLYING_PIXEL_SHARE
-				{
-					flying = true;
-					break;
-				}
-			}
-
-			keep[at] = !flying;
+			keep[row * frame.width + column] = is_not_flying(frame, column, row);
 		}
 	}
 
 	keep
 }
 
-/// How far apart two depths are, as a share of the nearer one.
-fn relative_step(one: f32, other: f32) -> f64 {
-	let one = f64::from(one);
-	let other = f64::from(other);
-
-	(one - other).abs() / one.min(other)
-}
-
 /// The fine cell a point falls in, or `None` outside the grid.
+#[inline]
 fn fine_cell(x: f64, z: f64) -> Option<usize> {
-	let column = math::floor((x + EXTENT / 2.0 - FINE_OFFSET) / FINE_CELL);
-	let row = math::floor((z + EXTENT / 2.0 - FINE_OFFSET) / FINE_CELL);
+	const OFFSET: f64 = EXTENT / 2.0 - FINE_OFFSET;
+	const INV_CELL: f64 = 1.0 / FINE_CELL;
+	let column = math::fast_floor((x + OFFSET) * INV_CELL);
+	let row = math::fast_floor((z + OFFSET) * INV_CELL);
 
 	if column < 0 || row < 0 || column >= FINE_SIDE as i64 || row >= FINE_SIDE as i64 {
 		return None;
 	}
 
 	Some(row as usize * FINE_SIDE + column as usize)
-}
-
-/// The middle of a fine cell, in the hunt's frame.
-fn fine_centre(cell: usize) -> (f64, f64) {
-	let column = cell % FINE_SIDE;
-	let row = cell / FINE_SIDE;
-
-	(
-		-EXTENT / 2.0 + FINE_OFFSET + (column as f64 + 0.5) * FINE_CELL,
-		-EXTENT / 2.0 + FINE_OFFSET + (row as f64 + 0.5) * FINE_CELL,
-	)
 }
 
 #[cfg(test)]

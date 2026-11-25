@@ -200,9 +200,15 @@ impl ReaperGenome {
 	/// Fails when the code is malformed or names a part that does not exist,
 	/// so a corrupted record is never drawn as a reaper.
 	pub fn parse(code: &str) -> Result<Self, FormatError> {
-		let fields: Vec<&str> = code.split('-').collect();
-
-		if fields.len() != Self::FIELD_COUNT || fields[0] != Self::VERSION {
+		let mut parts = code.split('-');
+		let mut fields = [""; Self::FIELD_COUNT];
+		for slot in &mut fields {
+			let Some(part) = parts.next() else {
+				return Err(FormatError::with_input("Not a reaper genome", code));
+			};
+			*slot = part;
+		}
+		if parts.next().is_some() || fields[0] != Self::VERSION {
 			return Err(FormatError::with_input("Not a reaper genome", code));
 		}
 
@@ -240,9 +246,9 @@ impl ReaperGenome {
 		format!("{given} {epithet}")
 	}
 
-	/// The permanent, compact record of this genome.
-	pub fn code(&self) -> String {
-		format!(
+	fn write_code(&self, out: &mut impl fmt::Write) -> fmt::Result {
+		write!(
+			out,
 			"{}-{}-h{}-m{}-r{}-p{}-o{}-a{}-s{}-g{}-z{}-t{}-n{}-e{}",
 			Self::VERSION,
 			self.reaper_class.code(),
@@ -259,6 +265,13 @@ impl ReaperGenome {
 			self.given_name,
 			self.epithet,
 		)
+	}
+
+	/// The permanent, compact record of this genome.
+	pub fn code(&self) -> String {
+		let mut out = String::with_capacity(64);
+		let _ = self.write_code(&mut out);
+		out
 	}
 
 	/// Tries birth traits in the studio. A bound reaper's genome stays
@@ -299,21 +312,57 @@ impl ReaperGenome {
 
 impl fmt::Display for ReaperGenome {
 	fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(formatter, "ReaperGenome({})", self.code())
+		formatter.write_str("ReaperGenome(")?;
+		self.write_code(formatter)?;
+		formatter.write_str(")")
 	}
 }
 
 impl Serialize for ReaperGenome {
 	fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-		serializer.serialize_str(&self.code())
+		struct StackStr {
+			buf: [u8; 96],
+			len: usize,
+		}
+		impl fmt::Write for StackStr {
+			fn write_str(&mut self, s: &str) -> fmt::Result {
+				let bytes = s.as_bytes();
+				if self.len + bytes.len() > self.buf.len() {
+					return Err(fmt::Error);
+				}
+				self.buf[self.len..self.len + bytes.len()].copy_from_slice(bytes);
+				self.len += bytes.len();
+				Ok(())
+			}
+		}
+
+		let mut out = StackStr {
+			buf: [0; 96],
+			len: 0,
+		};
+		let _ = self.write_code(&mut out);
+		let text = core::str::from_utf8(&out.buf[..out.len]).unwrap_or("");
+		serializer.serialize_str(text)
 	}
 }
 
 impl<'de> Deserialize<'de> for ReaperGenome {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		let code = String::deserialize(deserializer)?;
+		struct Visitor;
 
-		Self::parse(&code).map_err(serde::de::Error::custom)
+		impl serde::de::Visitor<'_> for Visitor {
+			type Value = ReaperGenome;
+
+			fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+				formatter.write_str("a reaper genome code")
+			}
+
+			fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Self::Value, E> {
+				ReaperGenome::parse(value).map_err(E::custom)
+			}
+		}
+
+		deserializer.deserialize_str(Visitor)
 	}
 }
 

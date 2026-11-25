@@ -97,25 +97,46 @@ pub fn page() -> Element {
 		return View();
 	};
 	let husks = game.wallet_husks.get();
-	let mut entries = vec![aside(words.vault_stand_in())];
+	let accent = light();
+	let listings = market_listings();
+
+	// Build O(1) lookup tables once per render instead of scanning vault,
+	// sightings, codex, and wallet husks for every one of the 40 NFTs.
+	let vault_set: std::collections::HashSet<Nft> = player.vault().iter().copied().collect();
+	let loose_set: std::collections::HashSet<Nft> =
+		player.sightings().iter().map(|s| s.nft).collect();
+	let codex_map: std::collections::HashMap<Nft, &reapers_rules::Absorption> = player
+		.codex()
+		.iter()
+		.map(|entry| (entry.nft, entry))
+		.collect();
+	let husk_map: std::collections::HashMap<Nft, HuskPlace> =
+		husks.iter().map(|h| (h.nft, h.place)).collect();
+	let mut absorbed_counts = [0_i64; NftCollection::ALL.len()];
+	for entry in player.codex() {
+		if let Some(idx) = NftCollection::ALL
+			.iter()
+			.position(|&c| c == entry.nft.collection)
+		{
+			absorbed_counts[idx] += 1;
+		}
+	}
+
+	let mut entries = Vec::with_capacity(listings.len() + NftCollection::ALL.len() + 2);
+	entries.push(aside(words.vault_stand_in()));
 	if let Some(cluster) = game.cluster() {
 		entries.push(aside(
 			words.vault_cluster(cluster_name(&*words, cluster.name)),
 		));
 	}
-	for collection in NftCollection::ALL {
+	for (col_idx, collection) in NftCollection::ALL.iter().copied().enumerate() {
 		entries.push(ledger_heading(
 			collection.title(),
-			Some(words.codex_set(
-				player.absorbed_from(collection) as i64,
-				collection.rarities().len() as i64,
-			)),
+			Some(words.codex_set(absorbed_counts[col_idx], collection.rarities().len() as i64)),
 		));
-		for nft in market_listings()
-			.into_iter()
-			.filter(|nft| nft.collection == collection)
-		{
-			entries.push(nft_row(game, nft, holding_of(&player, &husks, nft)));
+		for &nft in listings.iter().filter(|nft| nft.collection == collection) {
+			let holding = holding_fast(nft, &vault_set, &loose_set, &codex_map, &husk_map, &husks);
+			entries.push(nft_row(&*words, game, nft, holding, accent));
 		}
 	}
 	ledger_page(
@@ -129,19 +150,55 @@ pub fn page() -> Element {
 	)
 }
 
-fn nft_row(game: Game, nft: Nft, holding: Holding) -> Element {
-	let words = use_l10n();
+fn holding_fast(
+	nft: Nft,
+	vault_set: &std::collections::HashSet<Nft>,
+	loose_set: &std::collections::HashSet<Nft>,
+	codex_map: &std::collections::HashMap<Nft, &reapers_rules::Absorption>,
+	husk_map: &std::collections::HashMap<Nft, HuskPlace>,
+	husks: &[WalletHusk],
+) -> Holding {
+	let place = husk_map.get(&nft).copied();
+	let loose = loose_set.contains(&nft);
+	let absorbed = codex_map.get(&nft).copied();
+	match place {
+		Some(HuskPlace::Escrowed) if absorbed.is_some_and(|entry| unburned(husks, entry)) => {
+			return Holding::Unburned;
+		}
+		Some(HuskPlace::InWallet) => return Holding::InWallet,
+		Some(HuskPlace::Escrowed) if !loose => return Holding::Escrowed,
+		_ => {}
+	}
+	if vault_set.contains(&nft) {
+		Holding::Held
+	} else if loose {
+		Holding::Loose
+	} else if absorbed.is_some() {
+		Holding::Absorbed
+	} else {
+		Holding::Listed
+	}
+}
+
+fn nft_row(
+	words: &dyn crate::l10n::Messages,
+	game: Game,
+	nft: Nft,
+	holding: Holding,
+	accent: Rgb,
+) -> Element {
 	let (status, colour): (String, Rgb) = match holding {
 		Holding::Listed => (words.common_sol(&sol_amount(nft.rarity().lamports())), BONE),
-		Holding::Held => (words.vault_held().to_owned(), light()),
-		Holding::Loose => (words.vault_loose().to_owned(), light()),
+		Holding::Held => (words.vault_held().to_owned(), accent),
+		Holding::Loose => (words.vault_loose().to_owned(), accent),
 		Holding::Absorbed => (words.vault_absorbed().to_owned(), ASH),
-		Holding::InWallet => (words.vault_in_wallet().to_owned(), light()),
-		Holding::Escrowed => (words.vault_in_escrow().to_owned(), light()),
-		Holding::Unburned => (words.codex_unburned().to_owned(), light()),
+		Holding::InWallet => (words.vault_in_wallet().to_owned(), accent),
+		Holding::Escrowed => (words.vault_in_escrow().to_owned(), accent),
+		Holding::Unburned => (words.codex_unburned().to_owned(), accent),
 	};
-	let rarity = rarity_name(&*words, nft.rarity());
-	Pressable(format!("{}, {rarity}, {status}", nft.title()))
+	let rarity = rarity_name(words, nft.rarity());
+	let title = nft.title();
+	Pressable(format!("{title}, {rarity}, {status}"))
 		.class("flex-row items-center gap-[14px] py-[7px]")
 		.test_id(format!("vault-nft-{}", nft.id()))
 		.on_press(move || game.overlay.set(Some(Overlay::Nft(nft))))
@@ -153,7 +210,7 @@ fn nft_row(game: Game, nft: Nft, holding: Holding) -> Element {
 		.child(
 			View()
 				.class("flex-1 gap-[3px]")
-				.child(body(nft.title(), 15, BONE))
+				.child(body(title, 15, BONE))
 				.child(crate::ui::label(rarity, 10, ASH)),
 		)
 		.child(figure(status, 13, colour))
@@ -196,7 +253,8 @@ pub fn nft_sheet(game: Game, nft: Nft) -> Element {
 				button.disabled()
 			} else {
 				button.on_press(move || {
-					game.change(
+					game.change_optimistic(
+						move |state| state.acquire(nft),
 						move |keeper| async move { keeper.acquire(nft).await },
 						|_| {},
 					);

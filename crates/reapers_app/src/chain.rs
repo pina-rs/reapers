@@ -242,14 +242,23 @@ impl Cluster {
 				}
 			}
 		}
-		let assets: Vec<Address> = known.iter().map(|(_, asset, _)| *asset).collect();
-		let escrows: Vec<Address> = assets.iter().map(program::escrow).collect();
-		let accounts = self.rpc.accounts(&assets).await?;
-		let escrow_accounts = self.rpc.accounts(&escrows).await?;
+		if known.is_empty() {
+			return Ok(Vec::new());
+		}
+		let count = known.len();
+		let mut addresses = Vec::with_capacity(count * 2);
+		for (_, asset, _) in &known {
+			addresses.push(*asset);
+		}
+		for (_, asset, _) in &known {
+			addresses.push(program::escrow(asset));
+		}
+		let mut fetched = self.rpc.accounts(&addresses).await?;
+		let escrow_accounts = fetched.split_off(count);
 
 		Ok(known
 			.into_iter()
-			.zip(accounts.into_iter().zip(escrow_accounts))
+			.zip(fetched.into_iter().zip(escrow_accounts))
 			.filter_map(|((nft, asset, collection), (account, escrow))| {
 				let place = place_of(account.as_ref(), escrow.as_ref(), wallet, &asset)?;
 				Some(WalletHusk {
@@ -260,6 +269,34 @@ impl Cluster {
 				})
 			})
 			.collect())
+	}
+
+	/// Reads a single demo husk (`nft`) and its escrow in one 2-account RPC.
+	pub async fn wallet_husk(
+		&self,
+		husks: &[Husks],
+		wallet: &Address,
+		nft: Nft,
+	) -> ChainResult<Option<WalletHusk>> {
+		let Some((asset, collection)) = husk_of(husks, nft) else {
+			return Ok(None);
+		};
+		let escrow = program::escrow(&asset);
+		let accounts = self.rpc.accounts(&[asset, escrow]).await?;
+		let place = place_of(
+			accounts.first().and_then(Option::as_ref),
+			accounts.get(1).and_then(Option::as_ref),
+			wallet,
+			&asset,
+		);
+		Ok(place.map(|place| {
+			WalletHusk {
+				nft,
+				asset,
+				collection,
+				place,
+			}
+		}))
 	}
 
 	/// Releases `husk` from `wallet` into the program's escrow with

@@ -82,20 +82,37 @@ impl TryFrom<ReaperRecord> for ReaperState {
 	}
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReaperSave<'a> {
+	id: &'a str,
+	genome: &'a ReaperGenome,
+	xp: i64,
+	weapons: &'a [Weapon],
+	outfits: &'a [Outfit],
+	weapon: Weapon,
+	outfit: Outfit,
+	codex: &'a [Absorption],
+	hunts_lost: i64,
+	rifts_sealed: i64,
+	memory: &'a SoulMemory,
+	art: Option<Art>,
+}
+
 impl Serialize for ReaperState {
 	fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-		ReaperRecord {
-			id: self.id.clone(),
-			genome: self.genome.code(),
+		ReaperSave {
+			id: &self.id,
+			genome: &self.genome,
 			xp: self.xp,
-			weapons: self.weapons.clone(),
-			outfits: self.outfits.clone(),
+			weapons: &self.weapons,
+			outfits: &self.outfits,
 			weapon: self.weapon,
 			outfit: self.outfit,
-			codex: self.codex.clone(),
+			codex: &self.codex,
 			hunts_lost: self.hunts_lost,
 			rifts_sealed: self.rifts_sealed,
-			memory: Some(self.memory),
+			memory: &self.memory,
 			art: self.art,
 		}
 		.serialize(serializer)
@@ -104,16 +121,18 @@ impl Serialize for ReaperState {
 
 /// Keeps the first of each item, in the order given: a set that remembers
 /// the order things were added to it.
-fn unique<T: PartialEq>(items: Vec<T>) -> Vec<T> {
-	let mut kept: Vec<T> = Vec::with_capacity(items.len());
-
-	for item in items {
-		if !kept.contains(&item) {
-			kept.push(item);
+fn unique<T: PartialEq>(mut items: Vec<T>) -> Vec<T> {
+	let mut write = 0;
+	for read in 0..items.len() {
+		if !items[..write].contains(&items[read]) {
+			if write != read {
+				items.swap(write, read);
+			}
+			write += 1;
 		}
 	}
-
-	kept
+	items.truncate(write);
+	items
 }
 
 impl ReaperState {

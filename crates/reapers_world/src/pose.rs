@@ -37,17 +37,26 @@ impl ArPose {
 		turn_speed: 0.0,
 	};
 
-	/// A level view along `forward`: the phone held upright, not rolled.
-	pub fn looking(forward: Vec3, turn_speed: f64) -> Self {
-		let yaw = forward.yaw();
-		let pitch = forward.pitch();
+	/// A level view from `yaw` and `pitch` radians directly, using 4 trig calls
+	/// instead of recomputing angles from vectors.
+	#[inline]
+	pub fn from_angles(yaw: f64, pitch: f64, turn_speed: f64) -> Self {
+		let sy = math::sin(yaw);
+		let cy = math::cos(yaw);
+		let sp = math::sin(pitch);
+		let cp = math::cos(pitch);
 
 		Self {
-			forward: Vec3::from_angles(yaw, pitch),
-			up: Vec3::from_angles(yaw, pitch + PI / 2.0),
-			right: Vec3::new(math::cos(yaw), 0.0, -math::sin(yaw)),
+			forward: Vec3::new(sy * cp, sp, cy * cp),
+			up: Vec3::new(-sy * sp, cp, -cy * sp),
+			right: Vec3::new(cy, 0.0, -sy),
 			turn_speed,
 		}
+	}
+
+	/// A level view along `forward`: the phone held upright, not rolled.
+	pub fn looking(forward: Vec3, turn_speed: f64) -> Self {
+		Self::from_angles(forward.yaw(), forward.pitch(), turn_speed)
 	}
 
 	/// The pose of a viewer the platform's AR reports as the unit
@@ -82,6 +91,7 @@ impl ArPose {
 
 	/// Where `direction` appears on the screen, as x and y from -1 to 1 with
 	/// y up, or `None` when it is behind the player.
+	#[inline]
 	pub fn project(&self, direction: Vec3, vertical_fov: f64, aspect: f64) -> Option<(f64, f64)> {
 		if !vertical_fov.is_finite()
 			|| vertical_fov <= 0.0
@@ -103,9 +113,10 @@ impl ArPose {
 			return None;
 		}
 
+		let inv_y = 1.0 / (depth * half_height);
 		Some((
-			direction.dot(self.right) / depth / (half_height * aspect),
-			direction.dot(self.up) / depth / half_height,
+			direction.dot(self.right) * inv_y / aspect,
+			direction.dot(self.up) * inv_y,
 		))
 	}
 }
@@ -417,8 +428,9 @@ impl DragPose {
 }
 
 impl PoseSource for DragPose {
+	#[inline]
 	fn pose(&self) -> ArPose {
-		ArPose::looking(Vec3::from_angles(self.yaw, self.pitch), self.turn_speed)
+		ArPose::from_angles(self.yaw, self.pitch, self.turn_speed)
 	}
 
 	fn follows_device(&self) -> bool {
@@ -478,14 +490,10 @@ impl Rotation {
 
 	/// A turn of `angle` radians about `axis`, which must have length 1.
 	fn about(axis: Vec3, angle: f64) -> Self {
-		let sine = math::sin(angle / 2.0);
+		let half = angle * 0.5;
+		let sine = math::sin(half);
 
-		Self::new(
-			math::cos(angle / 2.0),
-			axis.x * sine,
-			axis.y * sine,
-			axis.z * sine,
-		)
+		Self::new(math::cos(half), axis.x * sine, axis.y * sine, axis.z * sine)
 	}
 
 	/// The shortest turn that carries `from` onto `to`, or the first `share`
@@ -493,8 +501,9 @@ impl Rotation {
 	fn between(from: Vec3, to: Vec3, share: f64) -> Self {
 		let angle = from.angle_to(to);
 		let axis = from.cross(to);
+		let axis_len = axis.length();
 
-		if axis.length() < 1e-9 {
+		if axis_len < 1e-9 {
 			// Already aligned, or exactly opposed. Opposed has no single
 			// shortest turn, so pick the one about the x axis.
 			return if angle < 1.0 {
@@ -504,7 +513,7 @@ impl Rotation {
 			};
 		}
 
-		Self::about(axis / axis.length(), angle * share)
+		Self::about(axis / axis_len, angle * share)
 	}
 
 	fn normalized(self) -> Self {
@@ -515,7 +524,8 @@ impl Rotation {
 			return Self::IDENTITY;
 		}
 
-		Self::new(self.w / size, self.x / size, self.y / size, self.z / size)
+		let inv = 1.0 / size;
+		Self::new(self.w * inv, self.x * inv, self.y * inv, self.z * inv)
 	}
 
 	/// Turns `vector` by this rotation.
@@ -536,10 +546,26 @@ impl Rotation {
 	/// The pose of a viewer turned by this rotation from looking down −Z
 	/// with +Y up, in the hunt's space.
 	fn pose(self, turn_speed: f64) -> ArPose {
+		let Self { w, x, y, z } = self;
+		let x2 = x + x;
+		let y2 = y + y;
+		let z2 = z + z;
+		let xx = x * x2;
+		let yy = y * y2;
+		let zz = z * z2;
+		let xy = x * y2;
+		let xz = x * z2;
+		let yz = y * z2;
+		let wx = w * x2;
+		let wy = w * y2;
+		let wz = w * z2;
+
+		// Columns of the rotation matrix in platform space, mapped with z -> -z:
+		// forward = -col_z, up = col_y, right = col_x.
 		ArPose {
-			forward: from_platform_vec(self.rotate(Vec3::new(0.0, 0.0, -1.0))),
-			up: from_platform_vec(self.rotate(Vec3::UP)),
-			right: from_platform_vec(self.rotate(Vec3::new(1.0, 0.0, 0.0))),
+			forward: Vec3::new(-(xz + wy), -(yz - wx), 1.0 - (xx + yy)),
+			up: Vec3::new(xy - wz, 1.0 - (xx + zz), -(yz + wx)),
+			right: Vec3::new(1.0 - (yy + zz), xy + wz, -(xz - wy)),
 			turn_speed,
 		}
 	}

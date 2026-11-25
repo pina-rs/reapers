@@ -24,6 +24,7 @@ use solana_kit_client::Reply;
 use solana_kit_client::Request;
 use solana_kit_client::Transport;
 use solana_kit_client::TransportError;
+use solana_kit_client::TransportFailureKind;
 use solana_kit_client::methods::AccountInfo;
 use solana_kit_client::methods::Balance;
 use solana_kit_client::methods::Commitment;
@@ -57,9 +58,14 @@ pub const TIMEOUT: Duration = Duration::from_secs(8);
 /// decoding work before the decoder reads its strings.
 const MAX_ASSET_BYTES: usize = 32 * 1024;
 
+/// How long a finalized blockhash stays cached on live RPC gateways. Blockhashes
+/// remain valid for ~150 slots (~60 s), so 3 s saves redundant RPC round trips
+/// across bursts without risking stale lifetimes.
+const BLOCKHASH_TTL: Duration = Duration::from_secs(3);
+
 /// A Solana JSON-RPC endpoint: one request, one bounded reply.
 ///
-/// The keeper's own is Solana Kit's native HTTP transport; the tests answer
+/// The keeper's own uses a pooled HTTP/2 + keep-alive client; the tests answer
 /// with controlled chain responses instead.
 pub trait Rpc: Send + Sync + 'static {
 	/// Posts `request` and receives its reply.
@@ -69,6 +75,85 @@ pub trait Rpc: Send + Sync + 'static {
 impl Rpc for solana_kit_native::NativeHttp {
 	fn exchange(&self, request: Request) -> BoxFuture<'_, Result<Reply, TransportError>> {
 		Box::pin(Transport::exchange(self, request))
+	}
+}
+
+/// Pooled HTTP/2 + keep-alive Solana JSON-RPC transport that avoids a fresh
+/// TCP + TLS handshake on every RPC call while preserving strict response size
+/// bounds, no redirects, and no ambient proxy configuration.
+struct PooledHttp {
+	url: String,
+	client: reqwest::Client,
+}
+
+impl PooledHttp {
+	fn new(url: &str) -> Result<Self, crate::config::ConfigError> {
+		// Validate the endpoint with Solana Kit's strict URL parser first so
+		// invalid endpoints produce the exact same ConfigError.
+		let _ = solana_kit_native::NativeHttp::new(url, solana_kit_native::HttpConfig::default())
+			.map_err(|error| {
+			crate::config::ConfigError(format!("REAPERS_SOLANA_RPC_URL: {error}"))
+		})?;
+
+		let client = reqwest::Client::builder()
+			.pool_max_idle_per_host(16)
+			.pool_idle_timeout(Duration::from_secs(90))
+			.tcp_nodelay(true)
+			.connect_timeout(Duration::from_secs(5))
+			.timeout(TIMEOUT)
+			.no_proxy()
+			.redirect(reqwest::redirect::Policy::none())
+			.build()
+			.map_err(|error| {
+				crate::config::ConfigError(format!("REAPERS_SOLANA_RPC_URL: {error}"))
+			})?;
+
+		Ok(Self {
+			url: url.to_owned(),
+			client,
+		})
+	}
+}
+
+impl Rpc for PooledHttp {
+	fn exchange(&self, request: Request) -> BoxFuture<'_, Result<Reply, TransportError>> {
+		Box::pin(async move {
+			let mut response = self
+				.client
+				.post(&self.url)
+				.header(reqwest::header::CONTENT_TYPE, "application/json")
+				.body(request.body)
+				.send()
+				.await
+				.map_err(|error| {
+					let kind = if error.is_timeout() {
+						TransportFailureKind::Deadline
+					} else {
+						TransportFailureKind::Io
+					};
+					TransportError::with_source(kind, error)
+				})?;
+
+			let status = response.status().as_u16();
+			let capacity = response
+				.content_length()
+				.and_then(|len| usize::try_from(len).ok())
+				.map_or(4096, |len| len.min(request.max_reply_bytes));
+			let mut body = Vec::with_capacity(capacity);
+
+			while let Some(chunk) = response
+				.chunk()
+				.await
+				.map_err(|error| TransportError::with_source(TransportFailureKind::Io, error))?
+			{
+				if body.len().saturating_add(chunk.len()) > request.max_reply_bytes {
+					return Err(TransportError::new(TransportFailureKind::BodyLimit));
+				}
+				body.extend_from_slice(&chunk);
+			}
+
+			Ok(Reply { status, body })
+		})
 	}
 }
 
@@ -91,8 +176,12 @@ const GENESIS_TTL: Duration = Duration::from_secs(300);
 /// The chain, as the keeper reads it.
 pub struct Gateway {
 	config: SolanaConfig,
+	reapers_uri_prefix: String,
 	client: Client<SharedRpc>,
 	genesis_verified_at: Mutex<Option<Instant>>,
+	genesis_lock: tokio::sync::Mutex<()>,
+	cache_blockhash: bool,
+	cached_blockhash: Mutex<Option<(Hash, u64, Instant)>>,
 }
 
 impl std::fmt::Debug for Gateway {
@@ -106,26 +195,28 @@ impl std::fmt::Debug for Gateway {
 impl Gateway {
 	/// Reads the chain `config` names through `rpc`.
 	pub fn new(config: SolanaConfig, rpc: impl Rpc) -> Self {
+		let reapers_uri_prefix = format!("{}reapers/", config.identity_uri);
 		Self {
 			config,
+			reapers_uri_prefix,
 			client: Client::new(SharedRpc(Arc::new(rpc)), Limits::default()),
 			genesis_verified_at: Mutex::new(None),
+			genesis_lock: tokio::sync::Mutex::new(()),
+			cache_blockhash: false,
+			cached_blockhash: Mutex::new(None),
 		}
 	}
 
-	/// Reads the chain `config` names through its RPC URL, over HTTPS.
+	/// Reads the chain `config` names through its RPC URL, over pooled HTTPS.
 	///
 	/// # Errors
 	///
 	/// When the URL is not one Solana Kit's native transport accepts.
 	pub fn connect(config: SolanaConfig) -> Result<Self, crate::config::ConfigError> {
-		let http = solana_kit_native::NativeHttp::new(
-			&config.rpc_url,
-			solana_kit_native::HttpConfig::default(),
-		)
-		.map_err(|error| crate::config::ConfigError(format!("REAPERS_SOLANA_RPC_URL: {error}")))?;
-
-		Ok(Self::new(config, http))
+		let http = PooledHttp::new(&config.rpc_url)?;
+		let mut gateway = Self::new(config, http);
+		gateway.cache_blockhash = true;
+		Ok(gateway)
 	}
 
 	/// The settings the gateway reads by.
@@ -143,23 +234,33 @@ impl Gateway {
 
 	/// Checks the RPC is the configured cluster, re-verifying after
 	/// [`GENESIS_TTL`] so steady-state reads do not spend an extra RPC round
-	/// trip on every call. Mismatches and transport failures are never cached.
-	/// A localnet has no genesis to check: it is whatever validator the
-	/// developer started on this machine.
+	/// trip on every call. Single-flighted so concurrent callers never
+	/// thundering-herd `getGenesisHash`. Mismatches and transport failures are
+	/// never cached. A localnet has no genesis to check: it is whatever
+	/// validator the developer started on this machine.
 	async fn check_cluster(&self) -> Result<(), Refusal> {
 		if self.config.is_localnet() {
 			return Ok(());
 		}
 
+		if self
+			.genesis_verified_at
+			.lock()
+			.unwrap_or_else(PoisonError::into_inner)
+			.is_some_and(|at| at.elapsed() < GENESIS_TTL)
 		{
-			let verified = self
-				.genesis_verified_at
-				.lock()
-				.unwrap_or_else(PoisonError::into_inner);
+			return Ok(());
+		}
 
-			if verified.is_some_and(|at| at.elapsed() < GENESIS_TTL) {
-				return Ok(());
-			}
+		let _flight = self.genesis_lock.lock().await;
+
+		if self
+			.genesis_verified_at
+			.lock()
+			.unwrap_or_else(PoisonError::into_inner)
+			.is_some_and(|at| at.elapsed() < GENESIS_TTL)
+		{
+			return Ok(());
 		}
 
 		let genesis = self.call(GenesisHash).await?;
@@ -191,11 +292,29 @@ impl Gateway {
 	/// The newest finalized blockhash and the height it lasts until, for a
 	/// transaction the keeper hands a wallet to sign.
 	pub async fn latest_blockhash(&self) -> Result<(Hash, u64), Refusal> {
+		if self.cache_blockhash
+			&& let Some((hash, height, at)) = *self
+				.cached_blockhash
+				.lock()
+				.unwrap_or_else(PoisonError::into_inner)
+			&& at.elapsed() < BLOCKHASH_TTL
+		{
+			return Ok((hash, height));
+		}
+
 		self.check_cluster().await?;
 
 		let latest = self.call(LatestBlockhash(Some(finalized()))).await?;
+		let pair = (latest.value.blockhash, latest.value.last_valid_block_height);
 
-		Ok((latest.value.blockhash, latest.value.last_valid_block_height))
+		if self.cache_blockhash {
+			*self
+				.cached_blockhash
+				.lock()
+				.unwrap_or_else(PoisonError::into_inner) = Some((pair.0, pair.1, Instant::now()));
+		}
+
+		Ok(pair)
 	}
 
 	/// Which of `assets` `wallet` owns as reapers of the configured
@@ -379,8 +498,9 @@ impl Gateway {
 	/// valid genome. The trusted collection binds the URI; the first import
 	/// freezes that genome in the keeper's ledger.
 	pub fn genome_from_uri(&self, uri: &str) -> Option<ReaperGenome> {
-		let prefix = format!("{}reapers/", self.config.identity_uri);
-		let code = uri.strip_prefix(&prefix)?.strip_suffix(".json")?;
+		let code = uri
+			.strip_prefix(self.reapers_uri_prefix.as_str())?
+			.strip_suffix(".json")?;
 
 		ReaperGenome::parse(code).ok()
 	}

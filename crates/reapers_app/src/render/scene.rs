@@ -25,6 +25,10 @@ pub struct GameScene {
 	closed: Cell<bool>,
 	#[cfg(all(target_arch = "wasm32", any(feature = "web", feature = "native")))]
 	submissions: super::submissions::Submissions,
+	#[cfg(all(target_arch = "wasm32", any(feature = "web", feature = "native")))]
+	pending_ops: Rc<RefCell<Vec<Op>>>,
+	#[cfg(all(target_arch = "wasm32", any(feature = "web", feature = "native")))]
+	pumping: Rc<Cell<bool>>,
 	shot_target: RefCell<Option<(i64, super::camera::Point)>>,
 	#[cfg(not(all(target_arch = "wasm32", any(feature = "web", feature = "native"))))]
 	sent: RefCell<Vec<Op>>,
@@ -47,6 +51,10 @@ impl GameScene {
 			closed: Cell::new(false),
 			#[cfg(all(target_arch = "wasm32", any(feature = "web", feature = "native")))]
 			submissions,
+			#[cfg(all(target_arch = "wasm32", any(feature = "web", feature = "native")))]
+			pending_ops: Rc::new(RefCell::new(Vec::new())),
+			#[cfg(all(target_arch = "wasm32", any(feature = "web", feature = "native")))]
+			pumping: Rc::new(Cell::new(false)),
 			shot_target: RefCell::new(None),
 			#[cfg(not(all(target_arch = "wasm32", any(feature = "web", feature = "native"))))]
 			sent: RefCell::new(Vec::new()),
@@ -83,21 +91,36 @@ impl GameScene {
 		}
 		#[cfg(all(target_arch = "wasm32", any(feature = "web", feature = "native")))]
 		{
-			let ops = self.scene.take_ops();
+			self.pending_ops.borrow_mut().extend(self.scene.take_ops());
+			if self.pumping.replace(true) {
+				return;
+			}
 			let id = self.id();
+			let pending = self.pending_ops.clone();
+			let pumping = self.pumping.clone();
 			let sent = self.submissions.after(move || {
 				async move {
-					let batch = Scene::new(id);
-					for op in ops {
-						batch.push(op);
+					let mut last_result = Ok(());
+					loop {
+						let ops = std::mem::take(&mut *pending.borrow_mut());
+						if ops.is_empty() {
+							pumping.set(false);
+							break;
+						}
+						let batch = Scene::new(id);
+						for op in ops {
+							batch.push(op);
+						}
+						if let Err(error) = batch.flush().await {
+							crate::platform::log(&format!("a scene's ops were not taken: {error}"));
+							last_result = Err(error);
+						}
 					}
-					batch.flush().await
+					last_result
 				}
 			});
 			crate::platform::spawn(async move {
-				if let Err(error) = sent.await {
-					crate::platform::log(&format!("a scene's ops were not taken: {error}"));
-				}
+				let _ = sent.await;
 			});
 		}
 		#[cfg(not(all(target_arch = "wasm32", any(feature = "web", feature = "native"))))]
@@ -117,6 +140,7 @@ impl GameScene {
 		self.closed.set(true);
 		#[cfg(all(target_arch = "wasm32", any(feature = "web", feature = "native")))]
 		{
+			self.pending_ops.borrow_mut().clear();
 			let id = self.id();
 			let closed = self.submissions.after(move || Scene::new(id).close());
 			crate::platform::spawn(async move {
@@ -190,6 +214,7 @@ pub fn forget(key: Key) {
 	let Some(scene) = SCENES.with_borrow_mut(|scenes| scenes.remove(&key)) else {
 		return;
 	};
+	super::pointer::forget(scene.id());
 	scene.close();
 }
 

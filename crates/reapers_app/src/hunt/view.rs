@@ -165,6 +165,14 @@ pub fn clear() {
 	}
 }
 
+/// How many times the active hunt view has triggered a reactive DOM rebuild.
+pub fn drawn_count() -> u64 {
+	CURRENT.with_borrow(|hunt| {
+		hunt.as_ref()
+			.map_or(0, |hunt| hunt.borrow().drawn.get_untracked())
+	})
+}
+
 /// Leaves the hunt on screen cleanly through the hunt screen when a [`Game`]
 /// context is available, or falls back to router back.
 fn retreat(audio: Option<crate::state::Game>) {
@@ -593,6 +601,9 @@ impl HuntState {
 		let Some(controller) = self.arena.controller.as_ref() else {
 			return;
 		};
+		if let Some(arms) = self.arena.viewmodel() {
+			crate::seams::viewmodel_show(&arms);
+		}
 		if let Some(game) = self.audio {
 			game.shape(crate::sound::hunt_mix(controller.sim()));
 		}
@@ -613,13 +624,16 @@ impl HuntState {
 		}
 	}
 
-	/// A cheap summary of what is on screen.
+	/// A cheap summary of what is actually visible on screen (2D overlay + HUD),
+	/// avoiding full-tree DOM rebuilds on ticks where only 3D scene transforms changed.
 	fn fingerprint(&self) -> u64 {
 		use std::hash::Hash;
 		use std::hash::Hasher;
 		let mut hasher = std::collections::hash_map::DefaultHasher::new();
-		let pose = self.lens().pose;
+		let lens = self.lens();
+		let pose = lens.pose;
 		let quantum = |value: f64| (value * 500.0).round() as i64;
+		let coarse = |value: f64| (value * 40.0).round() as i64;
 		(
 			quantum(pose.forward.x),
 			quantum(pose.forward.y),
@@ -629,22 +643,76 @@ impl HuntState {
 			.hash(&mut hasher);
 		std::mem::discriminant(&self.stage).hash(&mut hasher);
 		if let Stage::Tracing(trace) = &self.stage {
-			(
-				trace.caught(),
-				quantum(trace.fill()),
-				(self.seconds * 4.0) as i64,
-			)
-				.hash(&mut hasher);
+			(trace.caught(), quantum(trace.fill())).hash(&mut hasher);
 		}
 		if let Some(controller) = &self.arena.controller {
-			controller.ticks().hash(&mut hasher);
-			std::mem::discriminant(&controller.pause_status()).hash(&mut hasher);
+			let sim = controller.sim();
+			let husk = sim.pose();
+			let mut open_mask = 0_u16;
+			for index in 0..sim.vessel().seals().len() {
+				if sim.seal_open(index) {
+					open_mask |= 1 << index;
+				}
+			}
+			(
+				std::mem::discriminant(&controller.pause_status()),
+				std::mem::discriminant(&sim.phase()),
+				std::mem::discriminant(&sim.ring()),
+				sim.ward().round() as i64,
+				sim.resolve(),
+				sim.soul().floor() as i64,
+				controller.slot(),
+				sim.rounds(),
+				sim.reloading(),
+				sim.reload_jammed(),
+				sim.in_active_reload(),
+			)
+				.hash(&mut hasher);
+			(
+				sim.draw_ticks_left() > 0,
+				sim.cooldown_ticks() > 0,
+				sim.dive_charges(),
+				sim.art_charges(),
+				sim.orb_block().map(|b| std::mem::discriminant(&b)),
+				sim.husk_hidden(),
+				open_mask,
+				coarse(husk.position.x),
+				coarse(husk.position.y),
+				coarse(husk.position.z),
+				(self.arena.wound * 20.0).round() as i64,
+			)
+				.hash(&mut hasher);
+			if sim.reloading() {
+				coarse(sim.reload_progress()).hash(&mut hasher);
+			}
+			if sim.diving() {
+				coarse(sim.dive_progress()).hash(&mut hasher);
+			}
+			if sim.phase() == reapers_rules::HuntPhase::Windup
+				|| sim.phase() == reapers_rules::HuntPhase::Shriek
+			{
+				coarse(sim.shriek_progress()).hash(&mut hasher);
+			}
+			if let Some(orb) = sim.orb() {
+				(
+					std::mem::discriminant(&orb.stage),
+					orb.pulses,
+					orb.ticks / 2,
+				)
+					.hash(&mut hasher);
+			}
+			if let Some(teacher) = &self.teacher {
+				teacher
+					.prompt(sim)
+					.map(|p| std::mem::discriminant(&p))
+					.hash(&mut hasher);
+			}
 		}
 		let eye = self.arena.eye();
 		(quantum(eye.x), quantum(eye.y), quantum(eye.z)).hash(&mut hasher);
 		self.banner
 			.as_ref()
-			.map(|(banner, _)| banner.text.clone())
+			.map(|(banner, _)| banner.text.as_str())
 			.hash(&mut hasher);
 		hasher.finish()
 	}

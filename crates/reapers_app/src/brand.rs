@@ -12,9 +12,9 @@ use leptoskit::prelude::*;
 pub fn reapers_mark(size: u32, splash: bool) -> Element {
 	let frame = format!("w-[{size}px] h-[{size}px]");
 	let source = if splash {
-		"asset://branding/splash_mark.png"
+		"asset://branding/splash_mark.webp"
 	} else {
-		"asset://branding/mark.png"
+		"asset://branding/mark.webp"
 	};
 	Image(source).class(frame).aria_hidden(true)
 }

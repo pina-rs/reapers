@@ -148,6 +148,30 @@ strip = true
 [profile.release.package.reapers_program]
 opt-level = 2
 
+# Cold or heavy Wasm dependencies (shader compiler, GPU validation, Rive,
+# static landing page, and Solana wire types) optimize for size, while hot
+# simulation, spatial, UI/layout, and server crates stay at `opt-level = 3`.
+[profile.release.package.reapers_landing]
+opt-level = "z"
+[profile.release.package.reapers_api]
+opt-level = "z"
+[profile.release.package.reapers_program_client]
+opt-level = "z"
+[profile.release.package.leptoskit_l10n]
+opt-level = "z"
+[profile.release.package.leptoskit_rive]
+opt-level = "z"
+[profile.release.package.wgpu]
+opt-level = "z"
+[profile.release.package.wgpu-core]
+opt-level = "z"
+[profile.release.package.wgpu-hal]
+opt-level = "z"
+[profile.release.package.naga]
+opt-level = "z"
+[profile.release.package.solana_kit_core]
+opt-level = "z"
+
 # The depth model's runtime, which the xr plugin runs on phones without
 # platform depth: unoptimised, one picture takes about 19 s instead of half a
 # second, so a debug build of the app optimises it as a release would.

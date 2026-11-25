@@ -9,7 +9,11 @@ use reapers_rules::radians;
 use crate::depth_frame::DepthFrame;
 use crate::occlusion_map::OcclusionMap;
 use crate::pose::ArPose;
+use crate::room_grid::RoomGridBuilder;
+use crate::room_map::Cloud;
 use crate::room_map::RoomMap;
+use crate::room_map::STRIDE;
+use crate::room_map::level_points;
 
 /// A reading of the room, made while the player traces the husk's sigil,
 /// that ends in a plan of where the husk may go.
@@ -83,6 +87,47 @@ impl RoomSurvey {
 	pub fn add_estimated(&mut self, frame: &DepthFrame) -> bool {
 		let learnt = self.map.add_estimated(frame);
 		self.add_occlusion(frame, learnt)
+	}
+
+	/// Takes in one picture for both this survey and `grid` (when present),
+	/// computing the strided point cloud and levelness mask once instead of
+	/// three times.
+	pub fn add_with_grid(
+		&mut self,
+		frame: &DepthFrame,
+		grid: Option<&mut RoomGridBuilder>,
+	) -> bool {
+		self.add_shared(frame, grid, false)
+	}
+
+	/// Like [`add_estimated`](Self::add_estimated), sharing the prepared point
+	/// cloud and levelness mask with `grid`.
+	pub fn add_estimated_with_grid(
+		&mut self,
+		frame: &DepthFrame,
+		grid: Option<&mut RoomGridBuilder>,
+	) -> bool {
+		self.add_shared(frame, grid, true)
+	}
+
+	fn add_shared(
+		&mut self,
+		frame: &DepthFrame,
+		grid: Option<&mut RoomGridBuilder>,
+		estimated: bool,
+	) -> bool {
+		let columns = frame.width / STRIDE;
+		let rows = frame.height / STRIDE;
+		let cloud = Cloud::of(frame);
+		let level = level_points(&cloud, columns, rows);
+		let learnt = self
+			.map
+			.add_prepared(&cloud, &level, frame.origin, estimated);
+		let learnt = self.add_occlusion(frame, learnt);
+		if let Some(grid) = grid {
+			let _ = grid.add_prepared(frame, &cloud, &level, estimated);
+		}
+		learnt
 	}
 
 	fn add_occlusion(&mut self, frame: &DepthFrame, learnt: bool) -> bool {

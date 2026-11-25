@@ -23,7 +23,7 @@ use crate::config::app_url;
 use crate::l10n::use_l10n;
 
 /// The mark, as the game shows it.
-const MARK: &str = "asset://branding/mark.png";
+const MARK: &str = "asset://branding/mark.webp";
 
 /// The way into the game.
 pub fn play() -> Element {

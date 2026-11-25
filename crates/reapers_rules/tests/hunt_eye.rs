@@ -113,7 +113,7 @@ fn version_twelve_refuses_truncation_bad_room_lengths_and_unknown_versions() {
 	let mut bad = bytes.clone();
 	bad[9..13].copy_from_slice(&u32::MAX.to_le_bytes());
 	assert_eq!(HuntLog::decode(&bad), Err(HuntLogError::EndsMidPlan));
-	bad[0] = 13;
+	bad[0] = 14;
 	assert_eq!(HuntLog::decode(&bad), Err(HuntLogError::UnsupportedVersion));
 	let mut origin = bytes;
 	let end = origin.len();

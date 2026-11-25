@@ -324,17 +324,21 @@ mod platform {
 				}
 				// A touch that lifts before it is held is a strike along its
 				// ray; one that stays is the art held ready.
-				let present: Vec<_> = frame
+				for input in frame
 					.inputs
 					.iter()
 					.filter(|input| input.kind == InputKind::Screen)
-					.collect();
-				for input in &present {
+				{
 					if !touches.iter().any(|(id, ..)| *id == input.id) {
 						touches.push((input.id, frame.time, false));
 					}
 				}
-				touches.retain(|(id, ..)| present.iter().any(|input| input.id == *id));
+				touches.retain(|(id, ..)| {
+					frame
+						.inputs
+						.iter()
+						.any(|input| input.kind == InputKind::Screen && input.id == *id)
+				});
 				live.holding = touches
 					.iter()
 					.any(|(_, since, _)| frame.time - since > HOLD_SECONDS);
@@ -490,16 +494,16 @@ mod platform {
 			millis: crate::platform::now().millis() - started.millis(),
 		});
 		let picture = DepthFrame::from_ray_hits_at(&grid, &ray_hits, origin);
-		chart(shared, eye, source, eye_height, picture).await;
+		chart(shared, eye, source, eye_height, &picture);
 	}
 
-	/// Calibrates a picture into the survey and the walking grid together.
-	async fn chart(
+	/// Calibrates a picture into the survey and the walking grid in one shared pass.
+	fn chart(
 		shared: &Shared,
 		eye: leptoskit_xr::Vec3,
 		source: DepthSource,
 		eye_height: Option<f64>,
-		picture: DepthFrame,
+		picture: &DepthFrame,
 	) {
 		let origin = picture.origin;
 		let surveyed = {
@@ -507,15 +511,20 @@ mod platform {
 			let Some(survey) = survey.as_mut() else {
 				return;
 			};
+			let mut grid = shared.grid.borrow_mut();
 			if let Some(height) = eye_height {
 				// The platform measures the floor below the eye that is
 				// looking, which is not where the hunt's frame begins when
 				// the player has moved.
-				survey.measure_floor(height - origin.y);
+				let floor = height - origin.y;
+				survey.measure_floor(floor);
+				if let Some(cells) = grid.as_mut() {
+					cells.measure_floor(floor);
+				}
 			}
 			match source {
-				DepthSource::Measured => survey.add(&picture),
-				DepthSource::Estimated => survey.add_estimated(&picture),
+				DepthSource::Measured => survey.add_with_grid(picture, grid.as_mut()),
+				DepthSource::Estimated => survey.add_estimated_with_grid(picture, grid.as_mut()),
 			}
 		};
 		if surveyed && shared.room_frame.get().is_none() {
@@ -525,25 +534,6 @@ mod platform {
 			shared
 				.room_frame
 				.set(Some([f64::from(eye.x), f64::from(eye.y), f64::from(eye.z)]));
-		}
-		if shared.grid.borrow().is_some() {
-			if let Some(height) = eye_height
-				&& let Some(cells) = shared.grid.borrow_mut().as_mut()
-			{
-				cells.measure_floor(height - origin.y);
-			}
-			if surveyed {
-				// Charting the picture into the grid costs about as much
-				// again as the survey did, so it waits for the next turn of
-				// the event loop, where a frame can be drawn between the two.
-				crate::platform::sleep(std::time::Duration::ZERO).await;
-				if let Some(cells) = shared.grid.borrow_mut().as_mut() {
-					match source {
-						DepthSource::Measured => cells.add_frame(&picture),
-						DepthSource::Estimated => cells.add_estimated(&picture),
-					};
-				}
-			}
 		}
 	}
 }

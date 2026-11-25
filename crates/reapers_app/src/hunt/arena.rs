@@ -345,9 +345,21 @@ impl Arena {
 		let (Some(arms), Some(controller)) = (&self.arms, &self.controller) else {
 			return self.fov;
 		};
+		let (action, action_tick) = arms.action();
+		if !matches!(
+			action,
+			crate::seams::ViewAction::DiveIn
+				| crate::seams::ViewAction::Stab { dived: true, .. }
+				| crate::seams::ViewAction::DiveOut
+				| crate::seams::ViewAction::Swing { dived: true }
+		) {
+			return self.fov;
+		}
 		let sim = controller.sim();
-		let props = arms.props(sim, None, [0.0; 2]);
-		let lens = dive(props.action, props.action_seconds(sim.tick() as f64));
+		let juice = arms.juice();
+		let moved = juice.motion_tick(sim.tick() as f64) - juice.motion_tick(action_tick as f64);
+		let since = (moved / f64::from(crate::render::arms::TICKS_PER_SECOND)).max(0.0) as f32;
+		let lens = dive(action, since);
 		let zoom = dive_zoom(lens, (sim.pose().position - self.eye()).length() as f32);
 		f64::from(zoomed_fov(self.fov as f32, zoom))
 	}
@@ -480,7 +492,6 @@ impl Arena {
 		} else {
 			delta
 		};
-		self.rig.place_from(&controller.sim().pose(), eye);
 		self.environment.borrow_mut().advance(delta);
 		self.hear_events(&events, &pose, eye);
 		self.follow_turn(delta, &pose);

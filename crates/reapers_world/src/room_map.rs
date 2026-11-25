@@ -156,20 +156,9 @@ impl FloorTracker {
 		true
 	}
 
-	/// Evaluates a picture's floor against this tracker for a walking room
-	/// grid (accepting only pictures with a valid, agreeing floor).
-	pub(crate) fn accept_ground(&mut self, frame: &DepthFrame, estimated: bool) -> bool {
-		let columns = frame.width / STRIDE;
-		let rows = frame.height / STRIDE;
-		let cloud = Cloud::of(frame);
-		let level = level_points(&cloud, columns, rows);
-		self.evaluate(&cloud, &level, frame.origin, Gait::Ground, estimated)
-			.is_some()
-	}
-
 	/// Resolves `(picture_floor, scale, unit)` for `frame`, updating floor
 	/// tracking state if accepted. Returns `None` if the picture is rejected.
-	fn evaluate(
+	pub(crate) fn evaluate(
 		&mut self,
 		cloud: &Cloud,
 		level: &[bool],
@@ -303,38 +292,6 @@ pub(crate) struct Cloud {
 	pub(crate) zs: Vec<f32>,
 }
 
-/// The normal of the surface through one point of a [`Cloud`], before it is
-/// scaled to length 1, so that its tilt can be compared without dividing
-/// twice.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct SurfaceNormal {
-	pub(crate) x: f64,
-	pub(crate) y: f64,
-	pub(crate) z: f64,
-	pub(crate) length: f64,
-}
-
-impl SurfaceNormal {
-	/// Whether the surface faces nearly straight up or down: a floor, a
-	/// table top, a ceiling.
-	pub(crate) fn is_level(self) -> bool {
-		self.y.abs() / self.length >= LEVEL_SHARE
-	}
-
-	/// How much of this normal lies in the horizontal plane, from 0 for a
-	/// level surface to 1 for a vertical one.
-	pub(crate) fn horizontal_share(self) -> f64 {
-		math::sqrt(self.x * self.x + self.z * self.z) / self.length
-	}
-
-	/// The direction this surface faces across the floor, folded into one
-	/// quarter turn: a wall and the same wall seen the other way round are
-	/// one axis.
-	pub(crate) fn folded_angle(self) -> f64 {
-		math::atan2(self.x, self.z).rem_euclid(PI / 2.0)
-	}
-}
-
 impl RoomMap {
 	/// An empty map, for a husk shaped as `vessel` is.
 	pub fn new(vessel: Vessel) -> Self {
@@ -423,7 +380,7 @@ impl RoomMap {
 			return false;
 		}
 
-		self.reckon();
+		self.reckon(u128::MAX);
 
 		true
 	}
@@ -446,38 +403,54 @@ impl RoomMap {
 	fn add_frame(&mut self, frame: &DepthFrame, estimated: bool) -> bool {
 		let columns = frame.width / STRIDE;
 		let rows = frame.height / STRIDE;
-		let mut cloud = Cloud::of(frame);
+		let cloud = Cloud::of(frame);
 		let level = level_points(&cloud, columns, rows);
+		self.add_prepared(&cloud, &level, frame.origin, estimated)
+	}
+
+	pub(crate) fn add_prepared(
+		&mut self,
+		cloud: &Cloud,
+		level: &[bool],
+		origin: Vec3,
+		estimated: bool,
+	) -> bool {
+		let prev_floor = self.floor.floor_depth();
 		let Some((chart, scale, unit)) =
 			self.floor
-				.evaluate(&cloud, &level, frame.origin, self.vessel.gait(), estimated)
+				.evaluate(cloud, level, origin, self.vessel.gait(), estimated)
 		else {
 			return false;
 		};
 
+		let mut dirty_slices = 0_u128;
+
 		if let (Some(floor), Some(scale), Some(unit)) = (chart, scale, unit) {
 			if self.vessel.gait() == Gait::Ground {
-				self.chart_floor(&cloud, floor, scale, frame.origin, unit);
+				dirty_slices |=
+					self.chart_ground_and_furniture(cloud, level, floor, scale, origin, unit);
+			} else {
+				dirty_slices |= self.chart_furniture(cloud, level, floor, scale, origin, unit);
 			}
-			self.chart_furniture(&cloud, &level, floor, scale, frame.origin, unit);
 		}
 		if self.vessel.gait() != Gait::Ground {
-			if estimated && self.floor.floor_is_measured() {
-				// Air is classified in metres; the model's floor calibrates
-				// distances from this picture's eye before its origin is added.
+			let air_scale = if estimated && self.floor.floor_is_measured() {
 				let Some(scale) = scale else {
 					return false;
 				};
-				for axis in [&mut cloud.xs, &mut cloud.ys, &mut cloud.zs] {
-					for coordinate in axis {
-						*coordinate *= scale as f32;
-					}
-				}
-			}
-			self.chart_air(&cloud, &level, frame.origin);
+				scale
+			} else {
+				1.0
+			};
+			dirty_slices |= self.chart_air(cloud, level, origin, air_scale);
 		}
 
-		self.reckon();
+		let floor_changed = self.floor.floor_depth() != prev_floor;
+		self.reckon(if floor_changed {
+			u128::MAX
+		} else {
+			dirty_slices
+		});
 
 		true
 	}
@@ -591,47 +564,39 @@ impl RoomMap {
 		}
 	}
 
-	fn reckon(&mut self) {
+	fn reckon(&mut self, dirty_slices: u128) {
+		let ground = self.vessel.gait() == Gait::Ground;
 		// One ring of the map in metres.
-		let unit = if self.vessel.gait() == Gait::Ground {
+		let unit = if ground {
 			self.floor_depth().unwrap_or(0.0)
 		} else {
 			1.0
 		};
-		let clear: Vec<Clear> = (0..HuntPlan::SLICES)
-			.map(|slice| self.clear_rings(slice))
-			.collect();
 
-		self.read = self
-			.seen
-			.iter()
-			.map(|seen| (f64::from(*seen) / POINTS_TO_READ).clamp(0.0, 1.0))
-			.collect();
-		self.reach = (0..HuntPlan::SLICES)
-			.map(|slice| {
-				(self.read[slice] >= 1.0).then(|| clear[slice].rings as f64 * RING_SIZE * unit)
-			})
-			.collect();
-		self.furniture = (0..HuntPlan::SLICES)
-			.map(|slice| {
-				if self.read[slice] < 1.0 {
-					None
-				} else {
-					self.furniture_along(slice, clear[slice])
-				}
-			})
-			.collect();
-
-		// A husk that flies keeps in front of a ledge it may come down onto,
-		// so that it lands on the front of it.
-		if self.vessel.gait() != Gait::Ground {
-			for (reach, found) in self.reach.iter_mut().zip(&self.furniture) {
-				if let (Some(metres), Some(found)) = (*reach, found)
-					&& found.front < metres
-				{
-					*reach = Some(found.front);
-				}
+		for slice in 0..HuntPlan::SLICES {
+			if (dirty_slices & (1_u128 << slice)) == 0 {
+				continue;
 			}
+			let read = (f64::from(self.seen[slice]) / POINTS_TO_READ).clamp(0.0, 1.0);
+			self.read[slice] = read;
+			if read < 1.0 {
+				self.reach[slice] = None;
+				self.furniture[slice] = None;
+				continue;
+			}
+			let clear = self.clear_rings(slice);
+			let mut reach = clear.rings as f64 * RING_SIZE * unit;
+			let furniture = self.furniture_along(slice, clear);
+			// A husk that flies keeps in front of a ledge it may come down onto,
+			// so that it lands on the front of it.
+			if !ground
+				&& let Some(found) = furniture
+				&& found.front < reach
+			{
+				reach = found.front;
+			}
+			self.reach[slice] = Some(reach);
+			self.furniture[slice] = furniture;
 		}
 	}
 
@@ -787,38 +752,86 @@ impl RoomMap {
 		}
 	}
 
-	/// Charts one picture for a husk that walks. Every length is divided by
-	/// `floor`, the picture's own floor depth, before it goes on the map, and
-	/// `scale` brings it from the picture's metres to the hunt's. `origin`
-	/// is where the picture was taken, so its furniture lands where it is in
-	/// the room.
-	fn chart_floor(&mut self, cloud: &Cloud, floor: f64, scale: f64, origin: Vec3, unit: f64) {
+	/// Single-pass ground + furniture charting for walking husks: computes
+	/// radial distance, ring, and slice once per point instead of twice.
+	fn chart_ground_and_furniture(
+		&mut self,
+		cloud: &Cloud,
+		level: &[bool],
+		floor: f64,
+		scale: f64,
+		origin: Vec3,
+		unit: f64,
+	) -> u128 {
+		if !unit.is_finite() || unit <= 0.0 || !scale.is_finite() || scale <= 0.0 {
+			return 0;
+		}
 		let top = 2.0 * self.vessel.half_height() + 0.2;
+		let inv_ring = 1.0 / (unit * RING_SIZE);
+		let inv_height = 1.0 / (unit * HEIGHT_BIN);
+		let self_sq = SELF_METRES * SELF_METRES;
+		let max_away = RINGS as f64 * unit * RING_SIZE;
+		let max_away_sq = max_away * max_away;
+		let mut dirty = 0_u128;
 
-		for index in 0..cloud.xs.len() {
-			let Some((x, y, z, away, ring)) = cloud.point(index, scale, origin, unit) else {
+		for (index, &is_level) in level.iter().enumerate() {
+			let y = f64::from(cloud.ys[index]);
+			if !y.is_finite() {
 				continue;
-			};
+			}
+			let x = f64::from(cloud.xs[index]) * scale + origin.x;
+			let z = f64::from(cloud.zs[index]) * scale + origin.z;
+			let away_sq = x * x + z * z;
+			if !(away_sq >= self_sq && away_sq < max_away_sq) {
+				continue;
+			}
+			let away = math::sqrt(away_sq);
+			let ring = (away * inv_ring) as usize;
+			if ring >= RINGS {
+				continue;
+			}
+
 			let above = (floor + y) * scale;
 			let slack = FLOOR_SLACK + FLOOR_SLACK_PER_METRE * away;
 			let slice = slice_of(x, z);
 			let cell = slice * RINGS + ring;
+			let on_floor = above.abs() <= slack;
+			let mut touched = false;
 
-			if above.abs() <= slack {
+			if on_floor {
 				self.clear[cell] += 1;
 				self.seen[slice] += 1;
+				touched = true;
 			} else if above > slack && above < top {
 				self.taken[cell] += 1;
 				self.seen[slice] += 1;
+				touched = true;
+			}
+
+			if y * scale + origin.y <= 0.0 {
+				if on_floor {
+					self.floor_at[cell] += 1;
+					touched = true;
+				} else if above >= slack {
+					let bin = ((above * inv_height) as usize).min(HEIGHT_BINS - 1);
+					self.solid[cell] += 1;
+					self.heights[cell * HEIGHT_BINS + bin] += 1;
+					if is_level {
+						self.level_heights[cell * HEIGHT_BINS + bin] += 1;
+					}
+					touched = true;
+				}
+			}
+
+			if touched {
+				dirty |= 1_u128 << slice;
 			}
 		}
+
+		dirty
 	}
 
-	/// Charts what stands on the floor in one picture, for any husk: every
-	/// length is divided by `floor`, the picture's own floor depth.
-	///
-	/// Only what is no higher than the eye is charted. Anything taller is a
-	/// wall as far as a husk is concerned, and a ceiling is not furniture.
+	/// Charts what stands on the floor in one picture, for flying/still husks.
 	fn chart_furniture(
 		&mut self,
 		cloud: &Cloud,
@@ -827,22 +840,42 @@ impl RoomMap {
 		scale: f64,
 		origin: Vec3,
 		unit: f64,
-	) {
-		for (index, level) in level.iter().enumerate() {
-			let Some((x, y, z, away, ring)) = cloud.point(index, scale, origin, unit) else {
-				continue;
-			};
+	) -> u128 {
+		if !unit.is_finite() || unit <= 0.0 || !scale.is_finite() || scale <= 0.0 {
+			return 0;
+		}
+		let inv_ring = 1.0 / (unit * RING_SIZE);
+		let inv_height = 1.0 / (unit * HEIGHT_BIN);
+		let self_sq = SELF_METRES * SELF_METRES;
+		let max_away = RINGS as f64 * unit * RING_SIZE;
+		let max_away_sq = max_away * max_away;
+		let mut dirty = 0_u128;
 
-			if y * scale + origin.y > 0.0 {
+		for (index, &is_level) in level.iter().enumerate() {
+			let y = f64::from(cloud.ys[index]);
+			if !y.is_finite() || y * scale + origin.y > 0.0 {
+				continue;
+			}
+			let x = f64::from(cloud.xs[index]) * scale + origin.x;
+			let z = f64::from(cloud.zs[index]) * scale + origin.z;
+			let away_sq = x * x + z * z;
+			if !(away_sq >= self_sq && away_sq < max_away_sq) {
+				continue;
+			}
+			let away = math::sqrt(away_sq);
+			let ring = (away * inv_ring) as usize;
+			if ring >= RINGS {
 				continue;
 			}
 
 			let above = (floor + y) * scale;
 			let slack = FLOOR_SLACK + FLOOR_SLACK_PER_METRE * away;
-			let cell = slice_of(x, z) * RINGS + ring;
+			let slice = slice_of(x, z);
+			let cell = slice * RINGS + ring;
 
 			if above.abs() <= slack {
 				self.floor_at[cell] += 1;
+				dirty |= 1_u128 << slice;
 				continue;
 			}
 
@@ -851,16 +884,18 @@ impl RoomMap {
 			}
 
 			// How high it stands, as a share of the hunt's own floor.
-			let bin =
-				math::floor(above / unit / HEIGHT_BIN).clamp(0, HEIGHT_BINS as i64 - 1) as usize;
+			let bin = ((above * inv_height) as usize).min(HEIGHT_BINS - 1);
 
 			self.solid[cell] += 1;
 			self.heights[cell * HEIGHT_BINS + bin] += 1;
 
-			if *level {
+			if is_level {
 				self.level_heights[cell * HEIGHT_BINS + bin] += 1;
 			}
+			dirty |= 1_u128 << slice;
 		}
+
+		dirty
 	}
 
 	/// Charts one picture for a husk that flies: what matters is whatever
@@ -868,30 +903,40 @@ impl RoomMap {
 	///
 	/// A level surface is left out. A ceiling or a floor that the band
 	/// brushes is not a wall, and would otherwise close off the whole room.
-	fn chart_air(&mut self, cloud: &Cloud, level: &[bool], origin: Vec3) {
+	fn chart_air(&mut self, cloud: &Cloud, level: &[bool], origin: Vec3, scale: f64) -> u128 {
 		let low = self.vessel.low_metres() - self.vessel.half_height() - 0.1;
 		let high = self.vessel.high_metres() + self.vessel.half_height() + 0.1;
+		let self_sq = SELF_METRES * SELF_METRES;
+		let inv_ring = 1.0 / RING_SIZE;
+		let mut dirty = 0_u128;
 
-		for index in 0..cloud.xs.len() {
-			let x = f64::from(cloud.xs[index]) + origin.x;
-			let y = f64::from(cloud.ys[index]) + origin.y;
-			let z = f64::from(cloud.zs[index]) + origin.z;
-			let away = math::sqrt(x * x + z * z);
-			let in_the_band = away >= SELF_METRES && !level[index] && y >= low && y <= high;
-
-			if !in_the_band {
+		for (index, &is_level) in level.iter().enumerate() {
+			if is_level {
 				continue;
 			}
-
+			let y = f64::from(cloud.ys[index]) * scale + origin.y;
+			if !(low..=high).contains(&y) {
+				continue;
+			}
+			let x = f64::from(cloud.xs[index]) * scale + origin.x;
+			let z = f64::from(cloud.zs[index]) * scale + origin.z;
+			let away_sq = x * x + z * z;
+			if !(away_sq >= self_sq && away_sq.is_finite()) {
+				continue;
+			}
+			let away = math::sqrt(away_sq);
 			let slice = slice_of(x, z);
-			let ring = math::floor(away / RING_SIZE);
+			let ring = (away * inv_ring) as usize;
 
 			self.seen[slice] += 1;
+			dirty |= 1_u128 << slice;
 
-			if ring >= 0 && ring < RINGS as i64 {
-				self.taken[slice * RINGS + ring as usize] += 1;
+			if ring < RINGS {
+				self.taken[slice * RINGS + ring] += 1;
 			}
 		}
+
+		dirty
 	}
 }
 
@@ -908,139 +953,100 @@ impl Cloud {
 		let columns = frame.width / STRIDE;
 		let rows = frame.height / STRIDE;
 		let count = columns * rows;
-		let mut cloud = Self {
-			xs: vec![0.0; count],
-			ys: vec![0.0; count],
-			zs: vec![0.0; count],
-		};
+		let mut xs = Vec::with_capacity(count);
+		let mut ys = Vec::with_capacity(count);
+		let mut zs = Vec::with_capacity(count);
 		let pose = frame.pose;
 
+		if count == 0 {
+			return Self { xs, ys, zs };
+		}
+
+		let inv_w = 2.0 / frame.width as f64;
+		let inv_h = 2.0 / frame.height as f64;
+		let across_step = (STRIDE as f64) * inv_w * frame.tan_half_width;
+		let across_start = (0.5 * inv_w - 1.0) * frame.tan_half_width;
+		let step_x = pose.right.x * across_step;
+		let step_y = pose.right.y * across_step;
+		let step_z = pose.right.z * across_step;
+
 		for row in 0..rows {
+			let sampled_row = row * STRIDE;
+			let up = (1.0 - (sampled_row as f64 + 0.5) * inv_h) * frame.tan_half_height;
+			let mut dir_x = pose.forward.x + pose.up.x * up + pose.right.x * across_start;
+			let mut dir_y = pose.forward.y + pose.up.y * up + pose.right.y * across_start;
+			let mut dir_z = pose.forward.z + pose.up.z * up + pose.right.z * across_start;
+			let row_base = sampled_row * frame.width;
+
 			for column in 0..columns {
 				let sampled_column = column * STRIDE;
-				let sampled_row = row * STRIDE;
-				let (across, up) = frame.tangents(sampled_column, sampled_row);
-				let depth = f64::from(frame.depths[sampled_row * frame.width + sampled_column]);
-				let depth = if depth > 0.0 && depth.is_finite() && keep(sampled_column, sampled_row)
-				{
-					depth
+				let depth = f64::from(frame.depths[row_base + sampled_column]);
+				if depth > 0.0 && depth.is_finite() && keep(sampled_column, sampled_row) {
+					xs.push((depth * dir_x) as f32);
+					ys.push((depth * dir_y) as f32);
+					zs.push((depth * dir_z) as f32);
 				} else {
-					f64::NAN
-				};
-				let index = row * columns + column;
-
-				cloud.xs[index] =
-					(depth * (pose.forward.x + pose.right.x * across + pose.up.x * up)) as f32;
-				cloud.ys[index] =
-					(depth * (pose.forward.y + pose.right.y * across + pose.up.y * up)) as f32;
-				cloud.zs[index] =
-					(depth * (pose.forward.z + pose.right.z * across + pose.up.z * up)) as f32;
+					xs.push(f32::NAN);
+					ys.push(f32::NAN);
+					zs.push(f32::NAN);
+				}
+				dir_x += step_x;
+				dir_y += step_y;
+				dir_z += step_z;
 			}
 		}
 
-		cloud
+		Self { xs, ys, zs }
 	}
-
-	/// Point `index` in the hunt's frame as `(x, y, z)`, how far it is from
-	/// the hunt's origin across the floor, and the ring it falls in when the
-	/// floor is `unit` below the origin. `None` for a point that was not
-	/// seen, is the player's own hands and feet, or lies beyond the map.
-	///
-	/// `scale` brings the picture's metres to the hunt's; `origin` is where
-	/// its eye was. `y` stays relative to that eye, which is what says how
-	/// high the point is above the floor.
-	fn point(
-		&self,
-		index: usize,
-		scale: f64,
-		origin: Vec3,
-		unit: f64,
-	) -> Option<(f64, f64, f64, f64, usize)> {
-		if !unit.is_finite() || unit <= 0.0 || !scale.is_finite() || scale <= 0.0 {
-			return None;
-		}
-
-		let y = f64::from(self.ys[index]);
-		let x = f64::from(self.xs[index]) * scale + origin.x;
-		let z = f64::from(self.zs[index]) * scale + origin.z;
-		let away = math::sqrt(x * x + z * z);
-
-		// A point that was not seen is NaN, and fails this too.
-		if !away.is_finite() || !y.is_finite() || away < SELF_METRES {
-			return None;
-		}
-
-		let ring = math::floor(away / unit / RING_SIZE);
-
-		(ring >= 0 && ring < RINGS as i64).then_some((x, y, z, away, ring as usize))
-	}
-}
-
-/// The surface normal at every point of a cloud, or `None` where no surface
-/// can be told: a point next to one that was not seen.
-///
-/// The surface at a point faces along the cross product of the steps to the
-/// next point across and the next point down.
-pub(crate) fn surface_normals(
-	cloud: &Cloud,
-	columns: usize,
-	rows: usize,
-) -> Vec<Option<SurfaceNormal>> {
-	let mut normals = vec![None; cloud.xs.len()];
-
-	for row in 0..rows {
-		for column in 0..columns {
-			let at = row * columns + column;
-			// At the last column and the last row the step is taken
-			// backwards. Which way the cross product ends up pointing does
-			// not matter.
-			let right = if column + 1 < columns {
-				at + 1
-			} else {
-				at.wrapping_sub(1)
-			};
-			let down = if row + 1 < rows {
-				at + columns
-			} else {
-				at.wrapping_sub(columns)
-			};
-
-			if right >= cloud.xs.len() || down >= cloud.xs.len() {
-				continue;
-			}
-
-			let ax = f64::from(cloud.xs[right]) - f64::from(cloud.xs[at]);
-			let ay = f64::from(cloud.ys[right]) - f64::from(cloud.ys[at]);
-			let az = f64::from(cloud.zs[right]) - f64::from(cloud.zs[at]);
-			let bx = f64::from(cloud.xs[down]) - f64::from(cloud.xs[at]);
-			let by = f64::from(cloud.ys[down]) - f64::from(cloud.ys[at]);
-			let bz = f64::from(cloud.zs[down]) - f64::from(cloud.zs[at]);
-			let nx = ay * bz - az * by;
-			let ny = az * bx - ax * bz;
-			let nz = ax * by - ay * bx;
-			let length = math::length(nx, ny, nz);
-
-			// NaN, from a point not seen, fails this too.
-			if length > 0.0 {
-				normals[at] = Some(SurfaceNormal {
-					x: nx,
-					y: ny,
-					z: nz,
-					length,
-				});
-			}
-		}
-	}
-
-	normals
 }
 
 /// Which points lie on a level surface: a floor, a table top, a ceiling.
-fn level_points(cloud: &Cloud, columns: usize, rows: usize) -> Vec<bool> {
-	surface_normals(cloud, columns, rows)
-		.into_iter()
-		.map(|normal| normal.is_some_and(SurfaceNormal::is_level))
-		.collect()
+/// Computes the cross-product levelness directly without allocating an
+/// intermediate `Vec<Option<SurfaceNormal>>` or calling `sqrt`.
+pub(crate) fn level_points(cloud: &Cloud, columns: usize, rows: usize) -> Vec<bool> {
+	let len = cloud.xs.len();
+	let mut level = vec![false; len];
+	if columns < 2 || rows < 2 {
+		return level;
+	}
+	let level_share_sq = LEVEL_SHARE * LEVEL_SHARE;
+	let xs = cloud.xs.as_slice();
+	let ys = cloud.ys.as_slice();
+	let zs = cloud.zs.as_slice();
+
+	for row in 0..rows {
+		let row_base = row * columns;
+		let down_offset: isize = if row + 1 < rows {
+			columns as isize
+		} else {
+			-(columns as isize)
+		};
+		for column in 0..columns {
+			let at = row_base + column;
+			let right = if column + 1 < columns { at + 1 } else { at - 1 };
+			let down = (at as isize + down_offset) as usize;
+
+			let x0 = f64::from(xs[at]);
+			let y0 = f64::from(ys[at]);
+			let z0 = f64::from(zs[at]);
+			let ax = f64::from(xs[right]) - x0;
+			let ay = f64::from(ys[right]) - y0;
+			let az = f64::from(zs[right]) - z0;
+			let bx = f64::from(xs[down]) - x0;
+			let by = f64::from(ys[down]) - y0;
+			let bz = f64::from(zs[down]) - z0;
+			let nx = ay * bz - az * by;
+			let ny = az * bx - ax * bz;
+			let nz = ax * by - ay * bx;
+			let len_sq = nx * nx + ny * ny + nz * nz;
+
+			if len_sq > 0.0 && ny * ny >= level_share_sq * len_sq {
+				level[at] = true;
+			}
+		}
+	}
+
+	level
 }
 
 /// How far below the eye the floor in one picture is, or `None` when the
@@ -1050,37 +1056,52 @@ fn level_points(cloud: &Cloud, columns: usize, rows: usize) -> Vec<bool> {
 /// surface in the picture: lower than the table tops, and bigger than the
 /// stray points below it that a depth model always leaves.
 fn floor_of(ys: &[f32], level: &[bool]) -> Option<f64> {
+	const MAX_STEPS: usize = 160;
 	let steps = math::ceil((FLOOR_FARTHEST - FLOOR_NEAREST) / FLOOR_STEP) as usize;
-	let mut tally = vec![0.0; steps];
+	debug_assert!(steps <= MAX_STEPS);
+	let mut tally = [0.0_f64; MAX_STEPS];
+	let inv_step = 1.0 / FLOOR_STEP;
 
-	for (y, level) in ys.iter().zip(level) {
-		let below = -f64::from(*y);
-
-		if *level && (FLOOR_NEAREST..FLOOR_FARTHEST).contains(&below) {
-			tally[math::floor((below - FLOOR_NEAREST) / FLOOR_STEP) as usize] += 1.0;
+	for (&y, &is_level) in ys.iter().zip(level) {
+		if !is_level {
+			continue;
+		}
+		let below = -f64::from(y);
+		if (FLOOR_NEAREST..FLOOR_FARTHEST).contains(&below) {
+			let bin = ((below - FLOOR_NEAREST) * inv_step) as usize;
+			if bin < steps {
+				tally[bin] += 1.0;
+			}
 		}
 	}
 
 	// A surface's points land a few steps either side of it, so each step is
 	// taken together with its neighbours.
-	let smooth: Vec<f64> = (0..steps)
-		.map(|step| {
-			tally[step.saturating_sub(FLOOR_BLUR)..=(step + FLOOR_BLUR).min(steps - 1)]
-				.iter()
-				.sum()
-		})
-		.collect();
-	let most = smooth.iter().copied().fold(0.0, f64::max);
+	let mut smooth = [0.0_f64; MAX_STEPS];
+	let mut most = 0.0_f64;
+	for (step, slot) in smooth.iter_mut().enumerate().take(steps) {
+		let low = step.saturating_sub(FLOOR_BLUR);
+		let high = (step + FLOOR_BLUR).min(steps - 1);
+		let mut sum = 0.0;
+		for &count in &tally[low..=high] {
+			sum += count;
+		}
+		*slot = sum;
+		if sum > most {
+			most = sum;
+		}
+	}
 
 	if most < FLOOR_POINTS {
 		return None;
 	}
 
+	let threshold = (most * FLOOR_SHARE).max(FLOOR_POINTS);
 	for step in (0..steps).rev() {
-		let is_peak = smooth[step] >= most * FLOOR_SHARE
-			&& smooth[step] >= FLOOR_POINTS
-			&& smooth[step] >= smooth[step.saturating_sub(1)]
-			&& smooth[step] >= smooth[(step + 1).min(steps - 1)];
+		let cur = smooth[step];
+		let is_peak = cur >= threshold
+			&& cur >= smooth[step.saturating_sub(1)]
+			&& cur >= smooth[(step + 1).min(steps - 1)];
 
 		if !is_peak {
 			continue;
@@ -1095,7 +1116,7 @@ fn floor_of(ys: &[f32], level: &[bool]) -> Option<f64> {
 		let nearest = step.saturating_sub(2 * FLOOR_BLUR);
 		let farthest = (step + 2 * FLOOR_BLUR).min(steps - 1);
 
-		for (near, count) in tally.iter().enumerate().take(farthest + 1).skip(nearest) {
+		for (near, &count) in tally.iter().enumerate().take(farthest + 1).skip(nearest) {
 			points += count;
 			depth += count * (FLOOR_NEAREST + (near as f64 + 0.5) * FLOOR_STEP);
 		}
@@ -1106,7 +1127,8 @@ fn floor_of(ys: &[f32], level: &[bool]) -> Option<f64> {
 	None
 }
 
+#[inline]
 fn slice_of(x: f64, z: f64) -> usize {
-	math::floor((math::atan2(x, z) + PI) / HuntPlan::SLICE_WIDTH)
-		.clamp(0, HuntPlan::SLICES as i64 - 1) as usize
+	let idx = ((math::fast_atan2(x, z) + PI) * (1.0 / HuntPlan::SLICE_WIDTH)) as i64;
+	idx.clamp(0, HuntPlan::SLICES as i64 - 1) as usize
 }

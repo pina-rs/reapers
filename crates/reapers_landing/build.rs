@@ -15,11 +15,12 @@ use std::fs;
 use std::path::Path;
 
 /// Each file the page uses, relative to the repository's `assets/`.
-const MIRRORED: [&str; 10] = [
-	"fonts/Fraunces.ttf",
+const MIRRORED: [&str; 11] = [
+	"fonts/Fraunces.woff2",
 	"fonts/Fraunces-LICENSE.txt",
-	"fonts/DMSans.ttf",
+	"fonts/DMSans.woff2",
 	"fonts/DMSans-LICENSE.txt",
+	"branding/mark.webp",
 	"branding/mark.png",
 	"nfts/degenApes_1.webp",
 	"nfts/peskyPenguins_2.webp",
@@ -46,6 +47,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 		println!("cargo::rerun-if-changed={}", from.display());
 		mirror(&from, &Path::new("assets").join(file))
 			.map_err(|error| format!("could not mirror {}: {error}", from.display()))?;
+	}
+	// Remove legacy TTF mirrors if present from earlier builds.
+	for stale in ["assets/fonts/Fraunces.ttf", "assets/fonts/DMSans.ttf"] {
+		let _ = fs::remove_file(stale);
 	}
 	// Where the page's "play" links go, read by `src/config.rs`.
 	println!("cargo::rerun-if-env-changed=REAPERS_APP_URL");

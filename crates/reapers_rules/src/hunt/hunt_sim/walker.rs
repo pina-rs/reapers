@@ -276,23 +276,26 @@ impl Walker {
 
 		// The links come in take-off order, and only a nearer one replaces
 		// the one found, so a tie goes to the lower take-off cell.
-		for link in &nav.links {
+		for &link_index in &nav.links_by_region[here.id] {
+			let link = &nav.links[link_index];
 			let lower = nav
 				.regions
 				.get(link.to_region)
 				.is_some_and(|region| region.height_centimetres < here.height_centimetres);
 
-			if link.from_region != here.id || !lower {
+			if !lower {
 				continue;
 			}
 
 			let take_off = nav
 				.grid
 				.centre_of(nav.grid.x_of(link.from_cell), nav.grid.z_of(link.from_cell));
-			let distance = flat_length(take_off - at);
+			let dx = take_off.x - at.x;
+			let dz = take_off.z - at.z;
+			let dist_sq = dx * dx + dz * dz;
 
-			if nearest.is_none_or(|(found, _)| distance < found) {
-				nearest = Some((distance, link.to_cell));
+			if nearest.is_none_or(|(found, _)| dist_sq < found) {
+				nearest = Some((dist_sq, link.to_cell));
 			}
 		}
 
@@ -304,10 +307,7 @@ impl Walker {
 
 	/// Whether the body has a way from where it stands to `target`.
 	fn has_way_to(&self, target: Vec3) -> bool {
-		self.motion
-			.nav
-			.path(self.motion.position(), target)
-			.is_some_and(|path| !path.is_empty())
+		self.motion.nav.has_path(self.motion.position(), target)
 	}
 
 	/// Sets off for the reaper, straight across the surface it stands on,
@@ -775,19 +775,17 @@ impl HuntSim {
 			return aim;
 		};
 		let mut nearest = aim;
-		let mut nearest_distance = f64::INFINITY;
+		let mut nearest_dist_sq = f64::INFINITY;
 
 		// Spots come in cell order, and only a nearer one replaces the
 		// one found, so a tie goes to the lower cell.
-		for spot in &walker.motion.nav.spots {
-			if spot.kind != RoomSpotKind::Open {
-				continue;
-			}
+		for spot in walker.motion.nav.open_spots() {
+			let dx = spot.point.x - aim.x;
+			let dz = spot.point.z - aim.z;
+			let dist_sq = dx * dx + dz * dz;
 
-			let distance = flat_length(spot.point - aim);
-
-			if distance < nearest_distance {
-				nearest_distance = distance;
+			if dist_sq < nearest_dist_sq {
+				nearest_dist_sq = dist_sq;
 				nearest = spot.point;
 			}
 		}
@@ -804,31 +802,39 @@ impl HuntSim {
 			return Vec::new();
 		};
 		let nav = &walker.motion.nav;
-		let Some(here) = nav.region_of(walker.motion.cell()) else {
+		let current_cell = walker.motion.cell();
+		let Some(here) = nav.region_of(current_cell) else {
 			return Vec::new();
 		};
-		let reachable = nav.reachable_from(here.id);
+		let Some(reachable) = nav.reachable_slice(here.id) else {
+			return Vec::new();
+		};
 		let farthest = HuntRules::STAGING_FAR_METRES + HuntRules::HIDE_BEYOND;
+		let farthest_sq = farthest * farthest;
 		let lowest = math::round(HuntRules::LOWEST_LEDGE * 100.0);
 
-		nav.spots
+		nav.non_open_spots()
 			.iter()
 			.filter(|spot| {
+				if spot.cell == current_cell {
+					return false;
+				}
+				let dist_sq = spot.point.x * spot.point.x + spot.point.z * spot.point.z;
+				if dist_sq > farthest_sq {
+					return false;
+				}
+				let Some(region) = nav.region_of(spot.cell) else {
+					return false;
+				};
+				if !reachable.get(region.id).copied().unwrap_or(false)
+					|| (spot.kind == RoomSpotKind::Perch && region.height_centimetres < lowest)
+				{
+					return false;
+				}
 				let bearing = math::atan2(spot.point.x, spot.point.z);
 				let away = wrap_angle(bearing - around).abs();
-				let region = nav.region_of(spot.cell);
 
-				spot.kind != RoomSpotKind::Open
-					&& spot.cell != walker.motion.cell()
-					&& away <= within
-					&& away >= beyond
-					&& self.plan.contains(bearing)
-					&& flat_length(spot.point) <= farthest
-					&& region.is_some_and(|region| {
-						reachable.get(region.id).copied().unwrap_or(false)
-							&& (spot.kind != RoomSpotKind::Perch
-								|| region.height_centimetres >= lowest)
-					})
+				away <= within && away >= beyond && self.plan.contains(bearing)
 			})
 			.copied()
 			.collect()

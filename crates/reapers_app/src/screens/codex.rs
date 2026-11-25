@@ -67,7 +67,11 @@ pub fn finish_burn(game: Game, nft: Nft) -> Element {
 			button.on_press(move || {
 				game.attempt(
 					move |keeper| async move { keeper.finish_burn(nft).await },
-					move |_| game.refresh_husks(),
+					move |done| {
+						if done.is_none() {
+							game.refresh_husks();
+						}
+					},
 				);
 			})
 		})

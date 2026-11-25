@@ -44,10 +44,22 @@ macro_rules! named_enum {
 
         impl<'de> ::serde::Deserialize<'de> for $ty {
             fn deserialize<D: ::serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-                let name = <::std::string::String as ::serde::Deserialize>::deserialize(deserializer)?;
+                struct Visitor;
 
-                Self::from_name(&name)
-                    .ok_or_else(|| ::serde::de::Error::unknown_variant(&name, &[$($name),+]))
+                impl ::serde::de::Visitor<'_> for Visitor {
+                    type Value = $ty;
+
+                    fn expecting(&self, formatter: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+                        formatter.write_str(concat!("a ", stringify!($ty), " name"))
+                    }
+
+                    fn visit_str<E: ::serde::de::Error>(self, value: &str) -> Result<Self::Value, E> {
+                        $ty::from_name(value)
+                            .ok_or_else(|| E::unknown_variant(value, &[$($name),+]))
+                    }
+                }
+
+                deserializer.deserialize_str(Visitor)
             }
         }
     };

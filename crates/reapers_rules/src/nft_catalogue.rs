@@ -171,17 +171,17 @@ impl Nft {
 
 	/// Reads an NFT back from its `id`, such as `thugbirdz:3`.
 	pub fn parse(id: &str) -> Result<Self, FormatError> {
-		let parts: Vec<&str> = id.split(':').collect();
-		let serial = match parts[..] {
-			[_, serial] => crate::parse::parse_int(serial),
-			_ => None,
+		let Some((col, serial_str)) = id.split_once(':') else {
+			return Err(FormatError::with_input("Not an NFT id", id));
 		};
-
-		let Some(serial) = serial else {
+		if serial_str.contains(':') {
+			return Err(FormatError::with_input("Not an NFT id", id));
+		}
+		let Some(serial) = crate::parse::parse_int(serial_str) else {
 			return Err(FormatError::with_input("Not an NFT id", id));
 		};
 
-		let collection = NftCollection::from_name(parts[0])
+		let collection = NftCollection::from_name(col)
 			.ok_or_else(|| FormatError::with_input("No such collection", id))?;
 
 		if serial < 1 || serial > collection.rarities().len() as i64 {
@@ -238,21 +238,57 @@ impl Nft {
 
 impl fmt::Display for Nft {
 	fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(formatter, "Nft({})", self.id())
+		write!(formatter, "Nft({}:{})", self.collection.name(), self.serial)
 	}
 }
 
 impl Serialize for Nft {
 	fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-		serializer.serialize_str(&self.id())
+		use core::fmt::Write as _;
+
+		struct StackStr {
+			buf: [u8; 40],
+			len: usize,
+		}
+		impl fmt::Write for StackStr {
+			fn write_str(&mut self, s: &str) -> fmt::Result {
+				let bytes = s.as_bytes();
+				if self.len + bytes.len() > self.buf.len() {
+					return Err(fmt::Error);
+				}
+				self.buf[self.len..self.len + bytes.len()].copy_from_slice(bytes);
+				self.len += bytes.len();
+				Ok(())
+			}
+		}
+
+		let mut out = StackStr {
+			buf: [0; 40],
+			len: 0,
+		};
+		let _ = write!(out, "{}:{}", self.collection.name(), self.serial);
+		let text = core::str::from_utf8(&out.buf[..out.len]).unwrap_or("");
+		serializer.serialize_str(text)
 	}
 }
 
 impl<'de> Deserialize<'de> for Nft {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		let id = String::deserialize(deserializer)?;
+		struct Visitor;
 
-		Self::parse(&id).map_err(serde::de::Error::custom)
+		impl serde::de::Visitor<'_> for Visitor {
+			type Value = Nft;
+
+			fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+				formatter.write_str("an NFT id")
+			}
+
+			fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Self::Value, E> {
+				Nft::parse(value).map_err(E::custom)
+			}
+		}
+
+		deserializer.deserialize_str(Visitor)
 	}
 }
 

@@ -112,50 +112,104 @@ impl Timestamp {
 		parse_iso(text).ok_or_else(|| FormatError::with_input("Invalid date format", text))
 	}
 
-	/// The moment as ISO 8601 text in UTC, as saves write it.
-	pub fn to_iso8601(self) -> String {
+	/// Writes the moment as ISO 8601 text in UTC into `out`.
+	fn write_iso8601(self, out: &mut impl fmt::Write) -> fmt::Result {
 		let days = self.micros.div_euclid(MICROS_PER_DAY);
 		let within = self.micros.rem_euclid(MICROS_PER_DAY);
 		let (year, month, day) = civil_from_days(days);
 		let seconds = within / MICROS_PER_SECOND;
 		let fraction = within % MICROS_PER_SECOND;
-		let year = if (0..=9999).contains(&year) {
-			format!("{year:04}")
-		} else {
-			format!("{}{:06}", if year < 0 { '-' } else { '+' }, year.abs())
-		};
-		let fraction = if fraction % 1000 == 0 {
-			format!("{:03}", fraction / 1000)
-		} else {
-			format!("{fraction:06}")
-		};
 
-		format!(
-			"{year}-{month:02}-{day:02}T{:02}:{:02}:{:02}.{fraction}Z",
+		if (0..=9999).contains(&year) {
+			write!(out, "{year:04}")?;
+		} else {
+			write!(out, "{}{:06}", if year < 0 { '-' } else { '+' }, year.abs())?;
+		}
+
+		write!(
+			out,
+			"-{month:02}-{day:02}T{:02}:{:02}:{:02}.",
 			seconds / 3600,
 			seconds / 60 % 60,
 			seconds % 60,
-		)
+		)?;
+
+		if fraction % 1000 == 0 {
+			write!(out, "{:03}Z", fraction / 1000)
+		} else {
+			write!(out, "{fraction:06}Z")
+		}
+	}
+
+	/// The moment as ISO 8601 text in UTC, as saves write it.
+	pub fn to_iso8601(self) -> String {
+		let mut out = String::with_capacity(32);
+		let _ = self.write_iso8601(&mut out);
+		out
+	}
+}
+
+struct StackBuf<const N: usize> {
+	buf: [u8; N],
+	len: usize,
+}
+
+impl<const N: usize> StackBuf<N> {
+	const fn new() -> Self {
+		Self {
+			buf: [0; N],
+			len: 0,
+		}
+	}
+
+	fn as_str(&self) -> &str {
+		core::str::from_utf8(&self.buf[..self.len]).unwrap_or("")
+	}
+}
+
+impl<const N: usize> fmt::Write for StackBuf<N> {
+	fn write_str(&mut self, s: &str) -> fmt::Result {
+		let bytes = s.as_bytes();
+		if self.len + bytes.len() > N {
+			return Err(fmt::Error);
+		}
+		self.buf[self.len..self.len + bytes.len()].copy_from_slice(bytes);
+		self.len += bytes.len();
+		Ok(())
 	}
 }
 
 impl fmt::Display for Timestamp {
 	fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-		formatter.write_str(&self.to_iso8601())
+		self.write_iso8601(formatter)
 	}
 }
 
 impl Serialize for Timestamp {
 	fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-		serializer.serialize_str(&self.to_iso8601())
+		let mut buf = StackBuf::<40>::new();
+		let _ = self.write_iso8601(&mut buf);
+		serializer.serialize_str(buf.as_str())
 	}
 }
 
 impl<'de> Deserialize<'de> for Timestamp {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		let text = String::deserialize(deserializer)?;
+		struct Visitor;
 
-		Self::parse(&text).map_err(serde::de::Error::custom)
+		impl serde::de::Visitor<'_> for Visitor {
+			type Value = Timestamp;
+
+			fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+				formatter.write_str("an ISO 8601 timestamp")
+			}
+
+			fn visit_str<E: serde::de::Error>(self, value: &str) -> Result<Self::Value, E> {
+				Timestamp::parse(value).map_err(E::custom)
+			}
+		}
+
+		deserializer.deserialize_str(Visitor)
 	}
 }
 

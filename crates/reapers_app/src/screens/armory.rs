@@ -284,13 +284,15 @@ fn weapon_row(
 	let reachable = player.level() >= weapon.level_required();
 	let strike = format!("{:.2}", weapon.profile().strike * weapon.temper.strike());
 	let buy = move || {
-		game.change(
+		game.change_optimistic(
+			move |state| state.buy_weapon(weapon),
 			move |keeper| async move { keeper.buy_weapon(weapon).await },
 			|_| {},
 		);
 	};
 	let wield = move || {
-		game.change(
+		game.change_optimistic(
+			move |state| state.wield(weapon),
 			move |keeper| async move { keeper.wield(weapon).await },
 			|_| {},
 		);
@@ -334,13 +336,15 @@ fn outfit_row(
 	let owned = player.outfits().contains(&outfit);
 	let reachable = player.level() >= outfit.level_required();
 	let buy = move || {
-		game.change(
+		game.change_optimistic(
+			move |state| state.buy_outfit(outfit),
 			move |keeper| async move { keeper.buy_outfit(outfit).await },
 			|_| {},
 		);
 	};
 	let wear = move || {
-		game.change(
+		game.change_optimistic(
+			move |state| state.wear(outfit),
 			move |keeper| async move { keeper.wear(outfit).await },
 			|_| {},
 		);
@@ -412,7 +416,8 @@ fn art_row(game: Game, art: Art, reaper: &ReaperState, light: Rgb) -> Element {
 		.child(label(action, 12, colour));
 	let action_button = if !ready && rank > 0 {
 		action_button.on_press(move || {
-			game.change(
+			game.change_optimistic(
+				move |state| state.attune(art),
 				move |keeper| async move { keeper.attune(art).await },
 				|_| {},
 			);

@@ -46,6 +46,9 @@ pub enum Change {
 
 /// The keeper: whatever answers the operations.
 pub trait Keeper: Send + Sync + 'static {
+	/// Loads the signed-in player's books, opening them on first use.
+	fn load<'a>(&'a self, cx: &'a rpc::ActionCx) -> BoxFuture<'a, rpc::Result<PlayerState>>;
+
 	/// Applies `change` to the signed-in player's books, in the mutation's
 	/// transaction.
 	fn change<'a>(
@@ -54,10 +57,18 @@ pub trait Keeper: Send + Sync + 'static {
 		change: Change,
 	) -> BoxFuture<'a, rpc::Result<PlayerState>>;
 
+	/// Applies a naturally-idempotent loadout change to the signed-in player's
+	/// books in a serializable transaction without writing an RPC receipt.
+	fn apply_action<'a>(
+		&'a self,
+		cx: &'a rpc::ActionCx,
+		change: Change,
+	) -> BoxFuture<'a, rpc::Result<PlayerState>>;
+
 	/// Replays and settles a hunt; see [`crate::player::settle_hunt`].
 	fn settle_hunt<'a>(
 		&'a self,
-		cx: &'a rpc::MutationCx,
+		cx: &'a rpc::ActionCx,
 		sighting: i64,
 		log: String,
 	) -> BoxFuture<'a, rpc::Result<SettledHunt>>;
@@ -73,7 +84,7 @@ pub trait Keeper: Send + Sync + 'static {
 	/// Keeps or clears the player's latest location.
 	fn update_location<'a>(
 		&'a self,
-		cx: &'a rpc::MutationCx,
+		cx: &'a rpc::ActionCx,
 		fix: Option<GeoFix>,
 	) -> BoxFuture<'a, rpc::Result<()>>;
 
