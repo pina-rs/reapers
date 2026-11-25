@@ -1,5 +1,7 @@
 //! The progression that travels with one reaper.
 
+use std::collections::BTreeSet;
+
 use serde::Deserialize;
 use serde::Serialize;
 use serde::Serializer;
@@ -281,15 +283,18 @@ impl ReaperState {
 	}
 
 	/// How deep `art` runs in this reaper: 0 until it has absorbed a husk
-	/// that carries it. It is read from the codex, so it travels with the
-	/// reaper and cannot be bought.
+	/// that carries it. It is read from distinct husks in the codex, so it
+	/// travels with the reaper and cannot be bought.
 	pub fn art_rank(&self, art: Art) -> i64 {
-		Art::rank_for(
-			self.codex
-				.iter()
-				.filter(|entry| art.carried_by_vessel(entry.nft.collection.vessel()))
-				.count(),
-		)
+		let mut seen = BTreeSet::new();
+
+		for entry in &self.codex {
+			if art.carried_by_vessel(entry.nft.collection.vessel()) {
+				seen.insert(entry.nft);
+			}
+		}
+
+		Art::rank_for(seen.len())
 	}
 
 	/// The art the reaper throws, at the rank it knows it.
