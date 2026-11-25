@@ -1,7 +1,13 @@
 """The soul capture orb: an iron cup with six bone talons closed over a
 core of light.
 
-The orb's middle is the origin and Z is up. It is three draws:
+The orb's middle is the origin and Z is up. The talons are broad at the rim,
+almost touching, and narrow to hooked points 70% of the way up the core, so
+the core shows between them as six wedges of light that open upward and
+read even at 64 pt (art bible 6.5). One talon, the thumb, is longer and
+hooks right over the top: the orb's one asymmetry.
+
+It is three draws:
 
 - `orb_body`, the cup, its studs and the six talons, as one mesh. Two morph
   targets move the talons: `open` turns each one outward about its hinge on
@@ -27,7 +33,22 @@ from . import common, effects
 RADIUS = 0.07
 RIM_Z = -0.017
 RIM_RADIUS = 0.064
+CORE_RADIUS = 0.041
 TALONS = 6
+
+# Each talon's spine, (distance out from the axis, height), from its hinge
+# on the rim to its point: up the core's side and hooked in at 70% of its
+# height. The thumb's runs on over the top.
+TALON = ((0.0635, -0.0185), (0.0668, -0.0065), (0.0652, 0.0040), (0.0605, 0.0118), (0.0540, 0.0168), (0.0475, 0.0190), (0.0430, 0.0178))
+THUMB = ((0.0635, -0.0185), (0.0672, -0.0050), (0.0668, 0.0090), (0.0615, 0.0225), (0.0520, 0.0335), (0.0400, 0.0405), (0.0300, 0.0400))
+# Which talon is the thumb: the one toward the eye as the hand holds it.
+THUMB_INDEX = 4
+# Half a talon's width at its root: six of them leave a gap of under a
+# centimetre at the rim.
+ROOT_HALF_WIDTH = 0.0285
+# A talon's section: a D, flat inside against the core, rounded outside.
+SECTION = ((-1.0, 0.0), (-0.72, 0.62), (0.0, 1.0), (0.72, 0.62), (1.0, 0.0), (0.0, -0.32))
+HELD_SECTION = ((-1.0, 0.0), (0.0, 1.0), (1.0, 0.0), (0.0, -0.32))
 
 # How far `open` turns each talon out about its hinge.
 OPEN_DEGREES = 72
@@ -38,12 +59,12 @@ HELD_SCALE = 0.4
 
 def build(parent=None):
     root = core.empty("capture_orb", parent)
-    _cup(root, segments=26)
-    _talons(root, sides=6, samples=3)
+    _cup(root, segments=24)
+    _talons(root, SECTION, stations=7)
     common.merge(root, "orb_body")
 
     core_node = core.empty("orb_core", root)
-    _core(core_node, subdivisions=3).data.materials[0] = effects.light_material()
+    _core(core_node, subdivisions=2).data.materials[0] = effects.light_material()
 
     sigil = core.empty("orb_sigil", root)
     common.paint(
@@ -66,7 +87,7 @@ def build(parent=None):
 def build_held(parent):
     root = core.empty("viewmodel_orb_held", parent)
     _cup(root, segments=10, keys=False, studs=False)
-    _talons(root, sides=4, samples=2, keys=False)
+    _talons(root, HELD_SECTION, stations=4, keys=False)
     _core(root, subdivisions=1)
     held = common.merge(root, "orb_held")
     held.data.transform(Matrix.Scale(HELD_SCALE, 4))
@@ -75,7 +96,7 @@ def build_held(parent):
 
 
 def _core(parent, subdivisions):
-    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=subdivisions, radius=0.041, location=(0, 0, 0))
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=subdivisions, radius=CORE_RADIUS, location=(0, 0, 0))
     light = bpy.context.object
     light.name = f"{parent.name}_light"
     light.data.name = light.name
@@ -113,8 +134,8 @@ def _cup(parent, segments, keys=True, studs=True):
     )
     parts = [cup]
 
-    # Studs on the cup between the talons' hinges, too small to see in the
-    # hand.
+    # Studs on the cup under the gaps between the talons, too small to see
+    # in the hand.
     for stud in range(TALONS if studs else 0):
         angle = math.tau * stud / TALONS
         out = Vector((math.cos(angle), math.sin(angle), 0.0))
@@ -138,47 +159,59 @@ def _cup(parent, segments, keys=True, studs=True):
             core.add_shape_key(part, "burst", lambda co: Vector((co.x * 1.12, co.y * 1.12, co.z * 0.9 - 0.01)))
 
 
-def _talons(parent, sides, samples, keys=True):
+def _spine(points, share):
+    """A point `share` of the way along a talon's spine, eased through its
+    points, as (out, height)."""
+
+    place = share * (len(points) - 1)
+    index = min(int(place), len(points) - 2)
+    local = place - index
+    smooth = local * local * (3 - 2 * local)
+    (r0, z0), (r1, z1) = points[index], points[index + 1]
+
+    return r0 + (r1 - r0) * smooth, z0 + (z1 - z0) * smooth
+
+
+def _talons(parent, section, stations, keys=True):
     bone = core.material("bone")
 
-    # Six talons, curved over the core like the fingers of a closed claw.
     for talon in range(TALONS):
         angle = math.tau * (talon + 0.5) / TALONS
         out = Vector((math.cos(angle), math.sin(angle), 0.0))
-        hinge = out * RIM_RADIUS + Vector((0, 0, RIM_Z))
-        # Round the core on a sphere a little wider than the cup, from just
-        # under the rim to just short of the pole, where the tip hooks in.
-        cage = RADIUS + 0.004
-        centre = Vector((0, 0, -RIM_Z)) - out * RIM_RADIUS
-        path = core.bezier(
-            [Vector((0, 0, 0))]
-            + [
-                centre + (out * math.cos(math.radians(theta)) + Vector((0, 0, math.sin(math.radians(theta))))) * cage
-                for theta in (8, 32, 56, 74)
-            ]
-            + [centre + out * 0.01 + Vector((0, 0, cage * 0.93))],
-            samples=samples,
-        )
-        path = [hinge + point for point in path]
-        claw = core.tube(
-            f"orb_talon_{talon}",
-            path,
-            lambda t: 0.0068 * (1 - 0.8 * t) * (1 + 0.25 * abs(math.sin(t * math.pi * 3)) ** 4),
-            bone,
-            parent,
-            sides=sides,
-        )
+        across = Vector((-math.sin(angle), math.cos(angle), 0.0))
+        up = Vector((0, 0, 1))
+        points = THUMB if talon == THUMB_INDEX else TALON
+        rings = []
+
+        for station in range(stations):
+            share = station / stations
+            r, z = _spine(points, share)
+            ahead = _spine(points, min(share + 0.02, 1.0))
+            behind = _spine(points, max(share - 0.02, 0.0))
+            # Square to the spine, in the plane of the axis: outward.
+            dr, dz = ahead[0] - behind[0], ahead[1] - behind[1]
+            length = math.hypot(dr, dz)
+            normal = out * (dz / length) - up * (dr / length)
+            centre = out * r + up * z
+            half = ROOT_HALF_WIDTH * (1 - share) ** 0.85 + 0.0015
+            thick = 0.0058 * (1 - 0.55 * share) + 0.0008
+            # Broad near the rim, so it is dished to the cup's round.
+            dish = half * half / (2 * r)
+            rings.append([centre + across * u * half + normal * (v * thick - u * u * dish) for u, v in section])
+
+        r, z = points[-1]
+        claw = common.skin(f"orb_talon_{talon}", rings, bone, parent, tip=out * r + up * z, smooth=True)
 
         if not keys:
             continue
 
         # Each talon turns out about the rim's tangent at its hinge.
-        tangent = Vector((0, 0, 1)).cross(out)
-        opened = Matrix.Translation(hinge) @ Matrix.Rotation(math.radians(OPEN_DEGREES), 4, tangent) @ Matrix.Translation(-hinge)
+        hinge = out * RIM_RADIUS + up * RIM_Z
+        opened = Matrix.Translation(hinge) @ Matrix.Rotation(math.radians(OPEN_DEGREES), 4, across) @ Matrix.Translation(-hinge)
         flung = (
             Matrix.Translation(out * 0.09 + Vector((0, 0, 0.05)))
             @ Matrix.Translation(hinge)
-            @ Matrix.Rotation(math.radians(125), 4, tangent)
+            @ Matrix.Rotation(math.radians(125), 4, across)
             @ Matrix.Rotation(math.radians(40 * (1 if talon % 2 else -1)), 4, out)
             @ Matrix.Translation(-hinge)
         )
