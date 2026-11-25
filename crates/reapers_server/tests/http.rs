@@ -13,11 +13,6 @@ use base64::engine::general_purpose::STANDARD;
 use http_body_util::BodyExt;
 use leptoskit_auth::Keys;
 use reapers_api::auth::SignedIn;
-use reapers_rules::HuntInput;
-use reapers_rules::HuntLog;
-use reapers_rules::HuntPhase;
-use reapers_rules::HuntSim;
-use reapers_rules::HuntStats;
 use reapers_rules::PlayerState;
 use reapers_rules::Refusal;
 use reapers_rules::Sighting;
@@ -427,35 +422,6 @@ async fn settle_with_key(
 	(status, value)
 }
 
-/// The hunt for `sighting` played by a reaper who never holds still
-/// through a shriek, so that the husk gets away.
-fn escape(state: &PlayerState, sighting: &Sighting) -> HuntLog {
-	let mut sim = HuntSim::open(
-		sighting.seed,
-		sighting.nft.collection.vessel(),
-		sighting.nft.rarity(),
-		sighting.nft.rarity().ward(),
-		&HuntStats::derive(&state.loadout(), 1.0).expect("a valid loadout"),
-	);
-	let mut inputs = Vec::new();
-
-	while sim.phase() != HuntPhase::Escaped && inputs.len() < HuntLog::MAX_TICKS {
-		let turn = if sim.phase() == HuntPhase::Shriek {
-			3.0
-		} else {
-			0.0
-		};
-		let input = HuntInput::still(sim.pose().direction(), turn);
-
-		sim.step(&input);
-		inputs.push(input);
-	}
-
-	assert_eq!(sim.phase(), HuntPhase::Escaped, "the husk got away");
-
-	HuntLog::new(inputs)
-}
-
 #[tokio::test]
 async fn settle_hunt_replays_cached_result_for_retried_idempotency_key() {
 	let (router, token, surfaced, sighting) = ready_to_hunt().await;
@@ -504,6 +470,33 @@ async fn an_escape_retried_with_the_same_idempotency_key_is_lost_once() {
 	let (retry_status, retry_body) = settle_with_key(&router, &token, key, &payload).await;
 	assert_eq!(retry_status, StatusCode::OK, "{retry_body}");
 	assert_eq!(retry_body, first_body);
+
+	let (status, body) = post(&router, "/api/load", Some(&token), json!({})).await;
+	assert_eq!(status, StatusCode::OK, "{body}");
+	let state: PlayerState = serde_json::from_value(body).expect("a player");
+
+	assert_eq!(state.hunts_lost(), 1, "the escape is counted once");
+}
+
+/// A phone that times out sends the hunt again while the first request is
+/// still settling. Both answers are the one settlement, and the escape is
+/// counted once.
+#[tokio::test]
+async fn an_escape_sent_twice_at_once_with_one_key_is_lost_once() {
+	let (router, token, surfaced, sighting) = ready_to_hunt().await;
+	let payload = json!({
+		"sighting": sighting.id,
+		"log": packed(&escape(&surfaced, &sighting)),
+	});
+	let key = "00112233445566778899aabbccddeeff";
+	let ((first_status, first_body), (second_status, second_body)) = tokio::join!(
+		settle_with_key(&router, &token, key, &payload),
+		settle_with_key(&router, &token, key, &payload),
+	);
+
+	assert_eq!(first_status, StatusCode::OK, "{first_body}");
+	assert_eq!(second_status, StatusCode::OK, "{second_body}");
+	assert_eq!(first_body, second_body);
 
 	let (status, body) = post(&router, "/api/load", Some(&token), json!({})).await;
 	assert_eq!(status, StatusCode::OK, "{body}");

@@ -1251,20 +1251,13 @@ async fn a_retried_settlement_of_an_escrowed_husk_answers_with_its_burn_again() 
 			log: log.clone(),
 		}
 	};
-	let keyed = || {
-		let mut identity = world
-			.identity(Some(player))
-			.with_caller("the player's session");
-
-		identity.context = identity.context.with(reapers_server::keeper::RequestKey(
-			"0123456789abcdef0123456789abcdef".to_owned(),
-		));
-		identity
-	};
-	let first = leptoskit_rpc::server::call_as(&world.db, keyed(), None, settle())
+	let key = "0123456789abcdef0123456789abcdef";
+	let first = world
+		.call_keyed(player, "the player's session", key, settle())
 		.await
 		.expect("the settlement");
-	let again = leptoskit_rpc::server::call_as(&world.db, keyed(), None, settle())
+	let again = world
+		.call_keyed(player, "the player's session", key, settle())
 		.await
 		.expect("the same settlement, answered again");
 	let receipt = first.receipt.expect("the burn");
@@ -1352,4 +1345,78 @@ async fn a_binding_the_manifest_does_not_vouch_for_earns_no_receipt() {
 
 	assert_refused(world.call(player, settle).await, Refusal::NotInVault);
 	assert_eq!(world.stored(player).await, before, "nothing was settled");
+}
+
+/// A holder whose NFT reaper is chosen settles through the keeper's
+/// serializable fallback, never its fast path: there too, an escape sent
+/// twice at once under one key, and sent again later, is lost once.
+#[tokio::test]
+async fn an_nft_reapers_escape_sent_twice_at_once_with_one_key_is_lost_once() {
+	let world = World::new().await;
+	let wallet = Wallet::new(1);
+	let player = holder(&world, &wallet).await;
+
+	own(&world.chain, wallet.address());
+	world
+		.call(
+			player,
+			ImportReaper {
+				asset: reaper_asset(),
+			},
+		)
+		.await
+		.unwrap();
+	world
+		.call(player, SelectReaper { id: reaper_asset() })
+		.await
+		.unwrap();
+
+	let released = world
+		.call(
+			player,
+			Release {
+				nft: SAINT.into(),
+				escrow: None,
+			},
+		)
+		.await
+		.unwrap();
+	let sighting = released.sightings()[0];
+
+	world.surface_everything(player).await;
+
+	let before = world.call(player, Load {}).await.unwrap();
+	let log = packed(&escape(&before, &sighting));
+	let settle = || {
+		SettleHunt {
+			sighting: sighting.id,
+			log: log.clone(),
+		}
+	};
+	let key = "00112233445566778899aabbccddeeff";
+	let session = "the player's session";
+	let (first, second) = tokio::join!(
+		world.call_keyed(player, session, key, settle()),
+		world.call_keyed(player, session, key, settle()),
+	);
+	let first = first.expect("the settlement");
+	let second = second.expect("the same settlement, answered again");
+	let later = world
+		.call_keyed(player, session, key, settle())
+		.await
+		.expect("the same settlement, answered later");
+
+	assert!(
+		before
+			.active_reaper()
+			.is_some_and(reapers_rules::ReaperState::is_nft)
+	);
+	assert!(!first.settlement.outcome.absorbed(), "the husk got away");
+	assert_eq!(second.settlement, first.settlement);
+	assert_eq!(later.settlement, first.settlement);
+	assert_eq!(
+		world.stored(player).await.hunts_lost(),
+		1,
+		"the escape is counted once"
+	);
 }

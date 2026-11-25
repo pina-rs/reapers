@@ -35,7 +35,9 @@ use leptoskit_rpc::Operation;
 use reapers_api::keeper::KeeperHandle;
 use reapers_rules::Difficulty;
 use reapers_rules::HuntBot;
+use reapers_rules::HuntInput;
 use reapers_rules::HuntLog;
+use reapers_rules::HuntPhase;
 use reapers_rules::HuntPlan;
 use reapers_rules::HuntSim;
 use reapers_rules::HuntStats;
@@ -49,6 +51,7 @@ use reapers_server::chain::Rpc;
 use reapers_server::config::RunMode;
 use reapers_server::config::SolanaConfig;
 use reapers_server::keeper::Keeper;
+use reapers_server::keeper::RequestKey;
 use reapers_server::keeper::Shared;
 use reapers_server::rift::RiftHall;
 use reapers_server::signer::ReceiptSigner;
@@ -459,6 +462,21 @@ impl World {
 		rpc::server::call_as(&self.db, self.identity(Some(account)), None, op).await
 	}
 
+	/// Runs `op` as `account` from the session `caller`, under the
+	/// `Idempotency-Key` `key`, as the API would.
+	pub async fn call_keyed<O: Operation>(
+		&self,
+		account: Id<Account>,
+		caller: &str,
+		key: &str,
+		op: O,
+	) -> rpc::Result<O::Output> {
+		let mut identity = self.identity(Some(account)).with_caller(caller);
+
+		identity.context = identity.context.with(RequestKey(key.to_owned()));
+		rpc::server::call_as(&self.db, identity, None, op).await
+	}
+
 	/// Runs `op` as nobody.
 	pub async fn anonymous<O: Operation>(&self, op: O) -> rpc::Result<O::Output> {
 		rpc::server::call_as(&self.db, self.identity(None), None, op).await
@@ -518,6 +536,35 @@ pub fn play(state: &PlayerState, sighting: &Sighting) -> HuntLog {
 	bot.play(&mut sim);
 
 	HuntLog::new(bot.recorded)
+}
+
+/// The hunt for `sighting` played by a reaper who never holds still
+/// through a shriek, so that the husk gets away.
+pub fn escape(state: &PlayerState, sighting: &Sighting) -> HuntLog {
+	let mut sim = HuntSim::open(
+		sighting.seed,
+		sighting.nft.collection.vessel(),
+		sighting.nft.rarity(),
+		sighting.nft.rarity().ward(),
+		&HuntStats::derive(&state.loadout(), 1.0).expect("a valid loadout"),
+	);
+	let mut inputs = Vec::new();
+
+	while sim.phase() != HuntPhase::Escaped && inputs.len() < HuntLog::MAX_TICKS {
+		let turn = if sim.phase() == HuntPhase::Shriek {
+			3.0
+		} else {
+			0.0
+		};
+		let input = HuntInput::still(sim.pose().direction(), turn);
+
+		sim.step(&input);
+		inputs.push(input);
+	}
+
+	assert_eq!(sim.phase(), HuntPhase::Escaped, "the husk got away");
+
+	HuntLog::new(inputs)
 }
 
 /// The hunt for `sighting`, played by the shared bot as `state` would, in
