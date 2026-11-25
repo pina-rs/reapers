@@ -334,7 +334,7 @@ blender --background --python-exit-code 1 --python art/blender/husks.py -- \
 That leaves two things to look at:
 
 - `art/build/previews/husk_<vessel>.png`: a row for each thing it can wear, each in one NFT's look: front, three-quarter, side, back, and the silhouette with its phone-size thumbnail.
-- `art/build/portraits/<collection>_<n>.png`: the eight NFTs' portraits, each a specimen plate in Second Ink (art bible 3.6 and 12.5): the husk in its ghost wash, with its key line and paper knockout, in a window washed with the ghost of its backdrop, on paper, with a registration mark at each corner (`husks.specimen_plates`). Every plate of a collection is seen from the same place and framed on the creature wearing all it can, so the eight read as one set. These are the pictures the game shows, so they have to read at thumbnail size.
+- `art/build/portraits/<collection>_<n>.png`: the eight NFTs' portraits, each a specimen plate in Second Ink (art bible 3.6 and 12.5): the husk in its ghost wash, with its key line and paper knockout, in a window washed with the ghost of its backdrop, on paper, with a registration mark at each corner (`husks.specimen_plates`). Every plate of a collection is seen from the same place and framed on the creature wearing all it can, so the eight read as one set; a tall, narrow husk (the llama) is framed without the lowest part of its height (`husks.PLATE_CROP`), so the window cuts it off at the legs rather than leaving it a thin figure in a square. The seals are left out of a plate; their sockets stay. These are the pictures the game shows, so they have to read at thumbnail size.
 
 The build fails, with a list of what to fix, if a creature breaks any rule below. `creature_kinds/penguin.py` is the reference: start by reading it.
 
@@ -345,6 +345,7 @@ The build fails, with a list of what to fix, if a creature breaks any rule below
 - `spec["gait"]`: `"ground"` for a creature that walks, `"air"` for one that flies.
 - `spec["halfWidth"]`, `spec["halfHeight"]`: half the body's width and height in metres. The middle of the body is the origin. A walker's feet stand on the floor at `z = -halfHeight` (`creature.floor(spec)`), and the top of its head is near `z = +halfHeight`. Width and length should stay within about one and a half half-widths of the middle.
 - `spec["seals"]`: where strikes land. `creature.studs(root, spec)` puts a small glowing stud at each. Model the body so every stud sits on its surface or just proud of it, never buried and never floating: the build measures each seal's centre against the outermost surface near it, prints `SEAL seal_<n> stands … mm off the body`, and fails one buried more than half a stud's height or standing off more than three quarters of it. Never move a seal; shape the body to it.
+- Set every seal in a socket, `creature.seat(f"seat_{n}", spec, n, material, parent, body, radius=…, rise=…)`: a low plate whose face passes through the seal's centre, so the stud prints as the boss of a wax seal and not as a bare dot, which reads as a hole, a navel or a third eye. Its rim is scalloped (`lobes`, a rosette or a cog) or, with `lobes=0`, a superellipse of `power` (4 is a square hatch); a plain round rim reads as the ring of an eye, so do not use one. Shape the body to lie about `rise` under the seal, hang the seat from the part it sits on, and read `SEAT seat_<n> stands … mm proud of its body` in the log: about `rise` is right. The seats are `detail` on every creature, and part of the body the seal is measured against.
 
 ### Axes
 
@@ -401,7 +402,7 @@ Use only these. The game keeps the name and throws the rest away.
 | --- | --- | --- |
 | `body` | Fur, feathers, skin, plate. | The NFT's main colour. |
 | `trim` | The second colour: a belly, a face, a blanket. | The NFT's second colour. |
-| `detail` | Small hard things: beak, claws, teeth, and whatever it wears. | The NFT's third colour. |
+| `detail` | Small hard things: beak, claws, teeth, the seals' sockets (`seat_<n>`), and whatever it wears. | The NFT's third colour. |
 | `accent` | The light in its eyes. Keep it small. | Glows in the NFT's eye colour. |
 | `dark` | Sockets, a mouth, the inside of anything hollow. | Near black. |
 | `glow` | Seal studs. Made by `creature.studs`. | Glows. |
@@ -419,14 +420,15 @@ Make organic parts with `creature.form(name, blobs, material, parent, triangles=
 
 ### The reliquary stack
 
-The body of a rift is not a creature: `husks.reliquary_stack` builds it, a leaning tower of four picture-frame crates crowned by a smaller casket with a gabled roof, held apart by seams of crystal at the rules' seal heights. The casket's height is whatever the rules' half-height leaves above the top seam once its roof is on, and the build fails a tower whose top stands over `halfHeight` or that reaches more than one and a half half-widths from its axis, naming the part that does. The game finds its parts by these names:
+The body of a rift is not a creature: `husks.reliquary_stack` builds it, a leaning tower of four picture-frame crates crowned by a smaller casket under a steep gabled roof and a crown of three crystals, held apart by seams of crystal at the rules' seal heights. The crates shrink as they climb, from a broad chest at the foot, and each slides and rolls a little further the same way, so the tower leans; the casket leans back against it. The casket's height is whatever the rules' half-height leaves above the top seam once its roof and crown are on, and the build fails a tower whose top stands over `halfHeight` or that reaches more than one and a half half-widths from its axis, naming the part that does. The game finds its parts by these names:
 
 | Node | What it is |
 | --- | --- |
 | `cube_<storey>` | One crate, 0 at the bottom. Its own node, slid and turned a little off the one below, so the game can let it fall when the seam under it breaks. |
-| `block_<storey>` | The crate's frame (`frame`): posts, rails, liners, lid and skirt; the plinth on the bottom one and the roof on the top one. |
+| `block_<storey>` | The crate's frame (`frame`): posts, rails, liners, lid and skirt; the plinth on the bottom one and the roof on the top one, whose crown crystals are `paper`. |
 | `panel_<storey>_<face>` | A portrait face (`canvas`): a square sheet in the frame's opening carrying the whole of one portrait, UV 0 to 1, upright as seen from outside. Face 0 looks to the front (-Y), 1 to the tower's left (+X), 2 to the back, 3 to its right. Twenty faces for a collection's eight portraits: the game deals them round. |
-| `seam_<index>` | A seam of crystal between two crates (`glow`), 0 the lowest. The seams are the stack's seals. |
-| `seal_<index>` | A seal's boss on the flat front of its seam (`glow`), at the rules' seal offset, as on a creature. |
+| `seam_<index>` | A seam of crystal between two crates (`paper`), 0 the lowest: a band that stands proud of the crates on either side of it and over their lids, so a closed seam prints as a bright ring round the tower (art bible 6.3), with a few big crystals breaking out of it. The seams are the stack's seals; an open one is the game's to print in the player's spot. |
+| `seat_<index>` | The rosette of `frame` each seal is set in, on the flat front of its seam. |
+| `seal_<index>` | A seal's boss on its seat (`glow`), at the rules' seal offset, as on a creature. |
 
-The seams and seals hang from the root and stay where they are when a crate falls.
+The seams, seats and seals hang from the root and stay where they are when a crate falls.

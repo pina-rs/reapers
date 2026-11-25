@@ -22,7 +22,6 @@ import importlib
 import json
 import math
 import os
-import random
 import sys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -95,36 +94,54 @@ def image_grid(name, mat, parent, origin, across, up, columns, rows, uv=(0.0, 0.
 # Reliquary Stack --------------------------------------------------------
 
 
-# Each storey, bottom first: its crate's half-width, how far it has slid
-# along x, and how far it is rolled about y and turned about z (radians).
-# The tower leans to its left as it climbs and every crate sits a little
-# askew on the one below, so it reads as something piled up, not built.
+# Each storey, bottom first: its crate's half-width and half-depth, how far
+# it has slid along x, and how far it is rolled about y and turned about z
+# (radians). The crates shrink as they climb, from a broad chest at the foot
+# to narrow cabinets, and every one slides and rolls the same way, so the
+# whole tower leans to its left; the casket on top leans back against it,
+# as a pile that has settled. Each sits a little askew on the one below, so
+# it reads as something piled up, not built. No crate's front comes as far
+# forward as the seals, so every seam stands proud of the crates round it.
 STOREYS = (
-    (1.0, 0.0, 0.0, 0.06),
-    (0.87, 0.1, -0.035, -0.2),
-    (0.94, 0.24, 0.04, 0.28),
-    (0.84, 0.42, -0.035, -0.1),
-    (0.64, 0.6, 0.05, 0.22),
+    (1.15, 0.88, 0.0, 0.0, 0.04),
+    (0.9, 0.8, 0.12, 0.03, -0.14),
+    (0.76, 0.72, 0.24, 0.055, 0.16),
+    (0.64, 0.64, 0.36, 0.08, -0.1),
+    (0.52, 0.52, 0.22, -0.07, 0.24),
 )
-# The top storey is a casket, smaller than the crates below it, and its
-# gabled roof rises this far over its eaves, with finials this long at the
-# gables. The casket's own height is whatever the rules' half-height leaves
-# above the top seam once the roof is on.
-CASKET_LIP = 0.1
+# The top storey is a casket, smaller than the crates below it, under a
+# steep gabled roof that rises this far over its eaves, crowned at the
+# middle of the ridge with crystals this tall, and with short finials at
+# the gables. The casket's own height is whatever the rules' half-height
+# leaves above the top seam once the roof and crown are on.
+CASKET_LIP = 0.06
 CASKET_RISE = 0.42
+CASKET_CROWN = 0.62
 CASKET_FINIAL = 0.16
-# The ridge's finials stand this far above the ridge line.
-CASKET_CREST = 0.06
 # How far the tower may stand above its half-height, and how far out from
 # its axis it may reach, in half-widths, before the build refuses it.
 STACK_OVER = 0.05
 STACK_REACH = 1.5
 # How tall the gap between two crates is, which the seam fills, and how
-# thick a crate's frame members are.
+# thick a crate's frame members are (a casket's are lighter).
 SEAM_GAP = 0.34
 MEMBER = 0.16
+CASKET_MEMBER = 0.12
 # The farthest a seam's centre strays from the seals' line.
 SEAM_ASIDE = 0.25
+# How far a seam's band stands out past the crates it parts and how far
+# above and below its middle its flat face runs, over the crates' lids, so
+# it prints as a bright ring clamped round the tower; and the few big
+# crystals that break out of it, the same three on every seam turned a
+# little further round each storey: (bearing in degrees from the front,
+# rise, length, width). None comes near the front, where the seal is.
+SEAM_PROUD = 0.18
+SEAM_FACE = 0.16
+SHARDS = ((78, 0.75, 0.78, 0.24), (175, 0.5, 0.6, 0.2), (272, 0.9, 0.72, 0.22))
+# Each seal is set in a rosette of the frame's metal, this wide, standing
+# this far out of its seam, so it prints as a wax seal and never a hole.
+STACK_SEAT_RADIUS = 0.24
+STACK_SEAT_RISE = 0.03
 # How deep a portrait sits behind the face of its frame.
 RECESS = 0.07
 # The seals are wax bosses scaled up to the tower's size.
@@ -133,14 +150,16 @@ STACK_SEAL_HEIGHT = 0.06
 
 
 def reliquary_stack(spec):
-    """A leaning tower of reliquaries: four picture-frame crates piled askew
-    and a smaller casket with a gabled roof on top, each wearing a portrait
-    on every side, held apart by seams of crystal that are its seals.
+    """A leaning tower of reliquaries: four picture-frame crates piled askew,
+    shrinking as they climb, and a smaller casket with a steep gabled roof
+    and a crown of crystals on top, each wearing a portrait on every side,
+    held apart by proud seams of crystal that are its seals.
 
     Every crate is its own node, `cube_<storey>`, holding its frame
     (`block_<storey>`) and its four portrait faces (`panel_<storey>_<face>`),
     so the game can let one fall when the seam under it breaks. The seams
-    (`seam_<index>`) and their seal bosses (`seal_<index>`) hang from the
+    (`seam_<index>`, `paper`: closed seams print paper, open ones the
+    player's spot) and their seal bosses (`seal_<index>`) hang from the
     root, at the rules' seal heights, and stay where they are."""
 
     root = core.empty("husk")
@@ -148,33 +167,33 @@ def reliquary_stack(spec):
     spacing = seams[1] - seams[0]
     centres = [seams[0] - spacing / 2 + spacing * index for index in range(len(seams) + 1)]
     frame = core.material("frame", color=(1.0, 1.0, 1.0), roughness=0.42, metallic=0.72, pbr="stone")
-    glow = core.material("glow", color=(1.0, 1.0, 1.0), roughness=0.20)
+    crystal = core.material("paper", color=(1.0, 1.0, 1.0), roughness=0.20)
     canvas = core.material("canvas")
     half_height = (spacing - SEAM_GAP) / 2
     floor = -spec["halfHeight"]
     top = len(centres) - 1
-    # The casket stands on the top seam and stops where its roof brings the
-    # tower up to its half-height.
+    # The casket stands on the top seam and stops where its roof and crown
+    # bring the tower up to its half-height.
     casket_floor = centres[top] - half_height
-    roof = CASKET_LIP + CASKET_RISE + CASKET_CREST + CASKET_FINIAL
+    roof = CASKET_LIP + CASKET_RISE + CASKET_CROWN
     casket_half_height = (spec["halfHeight"] - roof - casket_floor) / 2
 
-    for index, (centre, (half, slide, roll, turn)) in enumerate(zip(centres, STOREYS)):
-        tall = half_height
+    for index, (centre, (half, deep, slide, roll, turn)) in enumerate(zip(centres, STOREYS)):
+        tall, member = half_height, MEMBER
 
         if index == top:
-            tall = casket_half_height
+            tall, member = casket_half_height, CASKET_MEMBER
             centre = casket_floor + tall
 
         cube = core.empty(f"cube_{index}", root, location=(slide, 0, centre))
         cube.rotation_euler = (0, roll, turn)
-        parts = _crate(index, half, tall, frame)
+        parts = _crate(index, half, deep, tall, member, frame)
 
         if index == 0:
-            parts.append(_box("plinth", (-half - 0.1, -half - 0.1, floor - centre), (half + 0.1, half + 0.1, -tall), frame))
+            parts.append(_box("plinth", (-half - 0.1, -deep - 0.1, floor - centre), (half + 0.1, deep + 0.1, -tall), frame))
 
         if index == top:
-            parts.extend(_casket(half, tall, frame))
+            parts.extend(_casket(half, deep, tall, frame, crystal))
 
         block = core.join(parts, f"block_{index}")
         block.parent = cube
@@ -182,22 +201,25 @@ def reliquary_stack(spec):
         finish(block, wear_boost=1.8)
 
         for face in range(4):
-            _portrait(index, face, half, tall, canvas, cube)
+            _portrait(index, face, half, deep, tall, member, canvas, cube)
 
-    # Each seam's flat front stands as far forward as its seal.
-    front = max(seal["offset"][2] for seal in spec["seals"])
+    # Each seam's flat front stands just behind its seal, under its seat.
+    front = max(seal["offset"][2] for seal in spec["seals"]) - STACK_SEAT_RISE
     made = []
 
     for index, height in enumerate(seams):
         # Centred between the crates it parts, but never so far aside that
         # its seal slips off its flat front.
-        between = (STOREYS[index][1] + STOREYS[index + 1][1]) / 2
-        aside = max(-SEAM_ASIDE, min(SEAM_ASIDE, between))
-        made.append(_seam(index, Vector((aside, 0, height)), front, glow, root))
+        below, above = STOREYS[index], STOREYS[index + 1]
+        aside = max(-SEAM_ASIDE, min(SEAM_ASIDE, (below[2] + above[2]) / 2))
+        across = max(abs(crate[2] - aside) + crate[0] for crate in (below, above)) + SEAM_PROUD
+        back = max(below[1], above[1]) + SEAM_PROUD
+        made.append(_seam(index, Vector((aside, 0, height)), front, across, back, crystal, root))
 
+    seats = [creature.seat(f"seat_{index}", spec, index, frame, root, made, radius=STACK_SEAT_RADIUS, rise=STACK_SEAT_RISE, lobes=8, scallop=0.12) for index in range(len(seams))]
     creature.studs(root, spec, radius=STACK_SEAL_RADIUS, height=STACK_SEAL_HEIGHT, body=made)
 
-    for index, gap in enumerate(creature.seal_gaps(root, spec, body=made)):
+    for index, gap in enumerate(creature.seal_gaps(root, spec, body=made + seats)):
         print(f"SEAL seal_{index} stands {gap * 1000:+.0f} mm off its seam")
 
         if not -STACK_SEAL_HEIGHT / 2 <= gap <= STACK_SEAL_HEIGHT * 0.75:
@@ -258,48 +280,52 @@ def _turned(obj, quarter):
     return obj
 
 
-def _crate(index, half, tall, mat):
-    """A crate built like four picture frames boxed together: a square post
-    at each upright edge, a rail top and bottom on each face, a liner
-    sloping in from the rails to the portrait, and a carcass behind."""
+def _crate(index, half, deep, tall, member, mat):
+    """A crate built like four picture frames boxed together, `half` wide
+    and `deep` deep to either side of its middle: a square post at each
+    upright edge, a rail top and bottom on each face, a liner sloping in
+    from the rails to the portrait, and a carcass behind."""
 
-    inner = half - MEMBER
-    parts = [_box(f"carcass_{index}", (-half + RECESS, -half + RECESS, -tall + 0.02), (half - RECESS, half - RECESS, tall - 0.02), mat)]
+    parts = [_box(f"carcass_{index}", (-half + RECESS, -deep + RECESS, -tall + 0.02), (half - RECESS, deep - RECESS, tall - 0.02), mat)]
 
     # A lid and a skirt, overhanging all round: the step in the outline
     # that says crate, storey by storey.
     for way in (-1, 1):
-        lip = half + 0.08
-        parts.append(_box(f"lid_{index}_{way}", (-lip, -lip, way * tall - 0.06), (lip, lip, way * tall + 0.06), mat))
+        parts.append(_box(f"lid_{index}_{way}", (-half - 0.08, -deep - 0.08, way * tall - 0.06), (half + 0.08, deep + 0.08, way * tall + 0.06), mat))
 
     for sx in (-1, 1):
         for sy in (-1, 1):
             # Posts stand a little proud of the rails, so each edge of the
             # tower is a column that catches its own band.
             proud = 0.03
-            low = (min(sx * (half + proud), sx * inner), min(sy * (half + proud), sy * inner), -tall)
-            high = (max(sx * (half + proud), sx * inner), max(sy * (half + proud), sy * inner), tall)
+            low = (min(sx * (half + proud), sx * (half - member)), min(sy * (deep + proud), sy * (deep - member)), -tall)
+            high = (max(sx * (half + proud), sx * (half - member)), max(sy * (deep + proud), sy * (deep - member)), tall)
             parts.append(_box(f"post_{index}_{sx}_{sy}", low, high, mat))
 
     for face in range(4):
+        # Faces 0 and 2 are `half` wide and stand `deep` out; 1 and 3 the
+        # other way round. Each is built as the front and turned to its side.
+        wide, out = (half, deep) if face % 2 == 0 else (deep, half)
+        inner = wide - member
+
         for way in (-1, 1):
-            low = (-inner, -half, way * tall - (MEMBER if way > 0 else 0))
-            high = (inner, -half + MEMBER, way * tall + (0 if way > 0 else MEMBER))
+            low = (-inner, -out, way * tall - (member if way > 0 else 0))
+            high = (inner, -out + member, way * tall + (0 if way > 0 else member))
             parts.append(_turned(_box(f"rail_{index}_{face}_{way}", low, high, mat), face))
 
         # The liner: a sloped frame from the rails' inner edge down to the
         # portrait, the plane that takes the light round each picture.
-        out_w, out_h = inner, tall - MEMBER
-        in_w, in_h = inner - 0.07, tall - MEMBER - 0.07
-        outer = [(-out_w, -half, -out_h), (out_w, -half, -out_h), (out_w, -half, out_h), (-out_w, -half, out_h)]
-        deep = -half + RECESS
-        inside = [(-in_w, deep, -in_h), (in_w, deep, -in_h), (in_w, deep, in_h), (-in_w, deep, in_h)]
+        out_w, out_h = inner, tall - member
+        in_w, in_h = inner - 0.07, tall - member - 0.07
+        outer = [(-out_w, -out, -out_h), (out_w, -out, -out_h), (out_w, -out, out_h), (-out_w, -out, out_h)]
+        recessed = -out + RECESS
+        inside = [(-in_w, recessed, -in_h), (in_w, recessed, -in_h), (in_w, recessed, in_h), (-in_w, recessed, in_h)]
         parts.append(_turned(core.loft(f"liner_{index}_{face}", [inside, outer], mat), face))
 
     return parts
 
 
-def _portrait(index, face, half, tall, mat, cube):
+def _portrait(index, face, half, deep, tall, member, mat, cube):
     """The portrait face on side `face` of crate `index`: a square sheet in
     the frame's opening, the whole of one portrait across it (UV 0 to 1,
     upright as seen from outside). Face 0 looks to the front (-Y), 1 to the
@@ -308,12 +334,13 @@ def _portrait(index, face, half, tall, mat, cube):
     angle = math.pi / 2 * face
     outward = Vector((math.sin(angle), -math.cos(angle), 0))
     across = Vector((math.cos(angle), math.sin(angle), 0))
-    size = min(half - MEMBER, tall - MEMBER) - 0.07
+    wide, out = (half, deep) if face % 2 == 0 else (deep, half)
+    size = min(wide - member, tall - member) - 0.07
     panel = image_grid(
         f"panel_{index}_{face}",
         mat,
         cube,
-        outward * (half - RECESS + 0.004) - across * size - Vector((0, 0, size)),
+        outward * (out - RECESS + 0.004) - across * size - Vector((0, 0, size)),
         across * size * 2,
         (0, 0, size * 2),
         4,
@@ -322,12 +349,14 @@ def _portrait(index, face, half, tall, mat, cube):
     finish_image(panel)
 
 
-def _casket(half, tall, mat):
-    """The top crate's lid: a gabled casket roof, its ridge running front to
-    back so the gable faces whoever looks up at it, with finials along the
-    ridge."""
+def _casket(half, deep, tall, mat, crystal):
+    """The top crate's lid: a steep gabled casket roof, its ridge running
+    front to back so the gable faces whoever looks up at it, crowned with
+    three crystals of the seams' kind on a stepped plinth at the middle of
+    the ridge, big enough to break the tower's outline at a glance, and
+    short finials at the gables."""
 
-    eave = half + 0.14
+    eave = max(half, deep) + 0.12
     rise = CASKET_RISE
     lip = CASKET_LIP
     base = tall
@@ -340,19 +369,25 @@ def _casket(half, tall, mat):
     for side in (-1, 1):
         ridge = Vector((0, 0, base + lip + rise))
         eaves = Vector((side * (eave + 0.08), 0, base + lip - 0.08 * rise / eave))
-        thick = 0.09
+        thick = 0.08
         normal = Vector((side * rise, 0, eave)).normalized()
         section = [ridge, eaves, eaves + normal * thick, ridge + normal * thick]
         rings = [[point + Vector((0, y, 0)) for point in section] for y in (-eave - 0.08, eave + 0.08)]
         parts.append(core.loft(f"pitch_{side}", rings, mat, cap_start=True, cap_end=True))
 
-    crest = base + lip + rise + CASKET_CREST
+    crest = base + lip + rise + 0.05
 
-    for step in range(5):
-        y = -eave + 2 * eave * step / 4
-        gable = step in (0, 4)
-        size = CASKET_FINIAL if gable else CASKET_FINIAL * 0.5
-        parts.append(_spike(f"finial_{step}", Vector((0, y, crest)), Vector((0, 0, 1)), size, 0.08 if gable else 0.05, mat))
+    # The crown: a stepped plinth astride the ridge, and on it one tall
+    # crystal between two shorter ones splayed to the sides.
+    step = crest + 0.06
+    parts.append(_box("crown_plinth", (-0.2, -0.2, crest - 0.14), (0.2, 0.2, step), mat))
+    parts.append(_spike("crown_point", Vector((0, 0, step - 0.04)), Vector((0, 0, 1)), CASKET_CROWN - 0.04, 0.2, crystal, sides=5))
+
+    for side in (-1, 1):
+        parts.append(_spike(f"crown_side_{side}", Vector((side * 0.1, 0, step - 0.04)), Vector((side * 0.9, 0.0, 1.0)), CASKET_CROWN * 0.7, 0.14, crystal, sides=5))
+
+    for y in (-eave, eave):
+        parts.append(_spike(f"finial_{y > 0}", Vector((0, y, crest - 0.02)), Vector((0, 0, 1)), CASKET_FINIAL, 0.07, mat))
 
     return parts
 
@@ -368,32 +403,33 @@ def _spike(name, at, direction, length, width, mat, sides=4):
     return spike
 
 
-def _seam(index, centre, front, mat, parent):
-    """A seam between two crates: a band of crystal, octagonal and flat at
-    the front, `front` from the tower's axis, where the seal sits, its edges
-    sloping into the crates, and shards of crystal jutting from it to the
-    sides and back."""
+def _seam(index, centre, front, across, back, mat, parent):
+    """A seam between two crates: a proud band of crystal round the tower,
+    its front a flat `front` from the tower's axis where the seal sits, its
+    sides `across` from its own middle and its back `back` behind, so it
+    overhangs the crates on either side of it and prints as a bright ring;
+    its edges slope in to the crates, and a few big crystals break out of
+    it."""
 
-    def ring(apothem, z):
-        reach = apothem / math.cos(math.pi / 8)
-        points = []
+    def ring(inset, z):
+        f, x, b = front - inset, across - inset, back - inset
+        corners = [(0.42 * f, -f), (x, -0.42 * f), (x, 0.42 * b), (0.42 * b, b), (-0.42 * b, b), (-x, 0.42 * b), (-x, -0.42 * f), (-0.42 * f, -f)]
 
-        for corner in range(8):
-            angle = math.pi / 8 + math.pi / 4 * corner
-            points.append(centre + Vector((math.sin(angle) * reach, -math.cos(angle) * reach, z)))
+        # The front's x is the tower's, not the seam's: the seals stand on
+        # the tower's middle line.
+        return [Vector((cx + (centre.x if cy > -f + 1e-6 else 0.0), cy, centre.z + z)) for cx, cy in corners]
 
-        return points
-
-    rings = [ring(0.72, SEAM_GAP * 0.62), ring(front, 0.09), ring(front, -0.09), ring(0.72, -SEAM_GAP * 0.62)]
+    rings = [ring(0.22, SEAM_FACE + 0.08), ring(0.0, SEAM_FACE), ring(0.0, -SEAM_FACE), ring(0.22, -SEAM_FACE - 0.08)]
     parts = [core.loft(f"seam_band_{index}", rings, mat, cap_start=True, cap_end=True)]
-    generator = random.Random(40 + index)
 
-    for corner, (bearing, length) in enumerate(((55, 0.72), (100, 0.52), (150, 0.62), (210, 0.58), (255, 0.66), (305, 0.7))):
-        bearing = math.radians(bearing + generator.uniform(-12, 12))
-        tilt = generator.uniform(-0.45, 0.55)
-        direction = Vector((math.sin(bearing), -math.cos(bearing), tilt)).normalized()
-        start = centre + Vector((math.sin(bearing), -math.cos(bearing), 0.0)) * 0.74
-        parts.append(_spike(f"shard_{index}_{corner}", start, direction, length, 0.16, mat, sides=5))
+    for corner, (bearing, rise, length, width) in enumerate(SHARDS):
+        bearing = math.radians(bearing + 37 * index * (1 if corner % 2 else -1) % 50 - 25)
+        out = Vector((math.sin(bearing), -math.cos(bearing), 0.0))
+        # Alternate seams throw their crystals up and down, so the tower's
+        # outline is broken both ways.
+        direction = (out + Vector((0, 0, rise * (1 if (index + corner) % 2 == 0 else -0.6)))).normalized()
+        start = centre + Vector((out.x * (across - 0.25), out.y * ((back if out.y > 0 else front) - 0.25), 0.0))
+        parts.append(_spike(f"shard_{index}_{corner}", start, direction, length, width, mat, sides=5))
 
     seam = core.join(parts, f"seam_{index}")
     seam.parent = parent
@@ -418,9 +454,13 @@ PLATE_VIEW = "threequarter"
 PLATE_ELEVATION = 7.0
 PLATE_LENS = 70
 PLATE_FILL = 1.12
+# A tall, narrow husk stands thin in a square window, so its plate leaves
+# this share of its height out of the framing, from the floor up: the
+# window cuts it off at the legs, a bust rather than a figure.
+PLATE_CROP = {"llama": 0.3}
 
 
-def specimen_plates(root, looks, directory, palette):
+def specimen_plates(root, looks, directory, palette, crop=0.0):
     """Renders every NFT's portrait as a specimen plate in Second Ink (art
     bible 3.6 and 12.5): the husk in its ghost wash, with its key line and
     paper knockout, in a window washed with its backdrop's ghost, on paper,
@@ -429,7 +469,8 @@ def specimen_plates(root, looks, directory, palette):
 
     Every plate of a collection is framed alike, from the creature wearing
     everything it can, so the eight read as one set at thumbnail size. The
-    seals are left out; they belong to the hunt."""
+    seals are left out; they belong to the hunt. `crop` is the share of its
+    height, from the floor up, that the framing leaves out."""
 
     cel_look = cel.look(palette, "husk")
     ink.weigh(root, "husk")
@@ -438,7 +479,7 @@ def specimen_plates(root, looks, directory, palette):
     for seal in seals:
         seal.hide_render = True
 
-    framing, size = _plate_framing(root)
+    framing, size = _plate_framing(root, crop)
 
     try:
         for look in looks:
@@ -462,10 +503,11 @@ def specimen_plates(root, looks, directory, palette):
             seal.hide_render = False
 
 
-def _plate_framing(root):
+def _plate_framing(root, crop=0.0):
     """Where every plate's camera looks and how far back it stands, and how
     big the figure is: from the bounds of the husk wearing all it can, but
-    neither its seals nor its floor shadow."""
+    neither its seals nor its floor shadow, nor the lowest `crop` of its
+    height."""
 
     meshes = [node for node in root.children_recursive if node.type == "MESH"]
     shown = {node: node.hide_render for node in meshes}
@@ -482,6 +524,9 @@ def _plate_framing(root):
 
     low = Vector(map(min, *corners))
     high = Vector(map(max, *corners))
+    cut = low.z + (high.z - low.z) * crop
+    points = [point for point in points if point.z >= cut]
+    low.z = cut
     turn, rise = math.radians(preview.ANGLES[PLATE_VIEW]), math.radians(PLATE_ELEVATION)
     back = Vector((math.sin(turn) * math.cos(rise), -math.cos(turn) * math.cos(rise), math.sin(rise)))
     right = Vector((0, 0, 1)).cross(back).normalized()
@@ -668,7 +713,7 @@ def main():
 
         if options.portraits and looks and not options.fast:
             os.makedirs(options.portraits, exist_ok=True)
-            specimen_plates(root, looks, options.portraits, cel.load())
+            specimen_plates(root, looks, options.portraits, cel.load(), PLATE_CROP.get(name, 0.0))
             print(f"BUILT {len(looks)} portraits for {name}")
 
 
