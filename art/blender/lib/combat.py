@@ -80,17 +80,19 @@ KEYS = {
             ),
         ),
         # Past the contact the blade sweeps on round a loop, never back the
-        # way it came: the body's turn carries it on across while the arm
-        # lifts it...
+        # way it came: the body's turn carries it on across, and the arm
+        # carries on across the body as it lifts, so a weapon lying along
+        # the sweep (a whip, a bell) keeps moving as well as one standing
+        # across it (a scythe)...
         (
             0.55,
-            pose(move=(0, -0.21, -0.05), motion=(16, 7, 56), head=(0, 0, -26), arm_r=(-120, -10, 40), elbow_r=(-34, 0, 0), wrist_r=(2, -36, 18), arm_l=(32, -38, 0), elbow_l=(-26, 0, 0)),
+            pose(move=(0, -0.21, -0.05), motion=(16, 7, 56), head=(0, 0, -26), arm_r=(-100, -20, 52), elbow_r=(-34, 0, 0), wrist_r=(2, -36, 18), arm_l=(32, -38, 0), elbow_l=(-26, 0, 0)),
             trunk(over(0.08, 0.07, 0.12)),
         ),
         # ...up over the shoulder as the body unwinds under it...
-        (0.65, pose(move=(0, -0.14, -0.04), motion=(10, 5, 36), head=(1, 0, -16), arm_r=(-130, -20, 10), elbow_r=(-66, 0, 0), wrist_r=(10, -48, 26), arm_l=(20, -30, 0), elbow_l=(-38, 0, 0))),
+        (0.65, pose(move=(0, -0.14, -0.04), motion=(10, 5, 36), head=(1, 0, -16), arm_r=(-120, -30, 24), elbow_r=(-66, 0, 0), wrist_r=(10, -48, 26), arm_l=(20, -30, 0), elbow_l=(-38, 0, 0))),
         # ...and down to the guard.
-        (0.77, pose(move=(0, -0.07, -0.02), motion=(5, 2, 12), head=(2, 0, -6), arm_r=(-100, -20, -20), elbow_r=(-56, 0, 0), wrist_r=(10, -44, 24), arm_l=(2, -20, 0), elbow_l=(-44, 0, 0))),
+        (0.77, pose(move=(0, -0.07, -0.02), motion=(5, 2, 12), head=(2, 0, -6), arm_r=(-98, -24, -12), elbow_r=(-56, 0, 0), wrist_r=(10, -44, 24), arm_l=(2, -20, 0), elbow_l=(-44, 0, 0))),
         (0.89, stance(move=(0, -0.02, -0.01), motion=(2, 1, 4), head=(2, 0, -2), arm_r=(-30, 8, 4), elbow_r=(-40, 0, 0), wrist_r=(2, -6, 4), arm_l=(-10, -10, 2), elbow_l=(-30, 0, 0))),
         (1, REST, STOP),
     ],
