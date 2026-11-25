@@ -147,7 +147,8 @@ def _shroud(root, metal, bone):
 
 def _frame(root, metal, bone):
     """The open frame under the drum, the post that carries the barrel, the
-    hammer curled up behind the drum's right, the trigger and a bone guard."""
+    hammer curled up outside the drum's right edge, the trigger and a heavy
+    bone guard."""
 
     # The frame's flat side, (y, z): up the back of the grip, under the drum
     # and up the post in front of it, under the coffin.
@@ -173,36 +174,37 @@ def _frame(root, metal, bone):
         bevel=0.0,
     )
 
-    # The hammer: up behind the drum's right edge, clear of its chambers as
-    # the eye sees them, over its top corner and curled back into a spur.
+    # The hammer: a heavy hook of iron up behind the drum's right edge,
+    # outside its outline as the eye sees it, so it never covers a chamber,
+    # over its top corner and curled back into a broad spur.
     core.tube(
         "pistol_hammer",
         core.bezier(
-            [(-0.010, 0.016, 0.040), (-0.022, 0.010, 0.058), (-0.023, 0.008, 0.076), (-0.015, 0.011, 0.088), (-0.010, 0.021, 0.092), (-0.010, 0.030, 0.087)],
+            [(-0.012, 0.016, 0.038), (-0.030, 0.012, 0.050), (-0.037, 0.010, 0.070), (-0.034, 0.012, 0.087), (-0.027, 0.022, 0.095), (-0.024, 0.036, 0.091)],
             samples=2,
         ),
-        lambda t: 0.0064 - 0.0026 * t,
+        lambda t: 0.0115 * (1 - 0.35 * t) * (1 + 0.35 * max(0.0, t - 0.7) / 0.3),
         metal,
         root,
         sides=6,
-        flatten=0.75,
+        flatten=0.6,
     )
 
     core.tube(
         "pistol_trigger",
-        core.bezier([(0, -0.019, 0.020), (0, -0.023, 0.011), (0, -0.021, 0.002)], samples=2),
-        lambda t: 0.0034 - 0.001 * t,
+        core.bezier([(0, -0.019, 0.020), (0, -0.024, 0.011), (0, -0.021, 0.001)], samples=2),
+        lambda t: 0.0052 - 0.0016 * t,
         metal,
         root,
         sides=5,
         flatten=0.6,
     )
 
-    # The guard: a hook of bone in front of the index finger.
+    # The guard: a heavy hook of bone in front of the index finger.
     core.tube(
         "pistol_guard",
-        core.bezier([(0, -0.060, 0.022), (0, -0.069, 0.008), (0, -0.064, -0.007), (0, -0.050, -0.011)], samples=2),
-        lambda t: 0.0038 - 0.0012 * t,
+        core.bezier([(0, -0.060, 0.022), (0, -0.071, 0.008), (0, -0.066, -0.008), (0, -0.050, -0.012)], samples=2),
+        lambda t: 0.0075 - 0.0025 * t,
         bone,
         root,
         sides=6,
