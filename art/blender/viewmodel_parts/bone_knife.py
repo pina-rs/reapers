@@ -15,8 +15,13 @@ Notch 0 is nearest the guard. A seam of light runs along the edge.
 one draw.
 
 The bible asks for a blade 3.5 times its handle. The handle is the grip
-every weapon is held by, four vertebrae a fist long, so the blade is a
-little under twice it: the tip stays at .268 m.
+every weapon is held by, four vertebrae a fist long (the one hand closes
+on every weapon, so a shorter grip would leave its little finger round
+air), so the blade is a little under twice it and the tip stays at .268 m.
+What the fang loses in length it makes up in body: its belly is half as
+wide again as a stiletto's, its spine a flat back 14 mm thick, and its
+notches are cut deep enough that a spent one reads as a black bite at stab
+size.
 """
 
 import math
@@ -33,13 +38,13 @@ TIP_Z = 0.268
 # The blade's back and edge, (x, height): a straight spine leaning a little
 # toward the point, and a belly widest a third of the way up.
 SPINE = ((-0.0105, GUARD_Z + 0.002), (0.003, TIP_Z))
-BELLY = ((0.0135, GUARD_Z + 0.002), (0.0215, 0.098), (0.0240, 0.123), (0.0215, 0.160), (0.0140, 0.205), (0.0062, 0.245), (0.003, TIP_Z))
-THICKNESS = 0.0105
+BELLY = ((0.016, GUARD_Z + 0.002), (0.030, 0.098), (0.035, 0.123), (0.031, 0.160), (0.020, 0.205), (0.009, 0.245), (0.003, TIP_Z))
+THICKNESS = 0.014
 
 # The notches: where each is cut in the spine, how deep and how tall.
 NOTCHES = (0.084, 0.112, 0.140)
-NOTCH_DEPTH = 0.0062
-NOTCH_HALF = 0.0058
+NOTCH_DEPTH = 0.0093
+NOTCH_HALF = 0.0075
 # How far a spent notch's light sinks into the blade.
 SINK = 0.0095
 
@@ -115,13 +120,14 @@ def _blade(root, bone):
         heights += [notch - NOTCH_HALF, notch, notch + NOTCH_HALF]
 
     heights += [0.160, 0.185, 0.210, 0.232, 0.252]
+    heights = sorted(set(heights))
     rings = []
 
     for z in heights:
         spine = _spine_x(z)
         width = _belly_x(z) - spine
         # Thinner toward the point.
-        thick = THICKNESS * (0.35 + 0.65 * min(1.0, width / 0.028)) / 2
+        thick = THICKNESS * (0.35 + 0.65 * min(1.0, width / 0.036)) / 2
 
         if z in NOTCHES:
             spine += NOTCH_DEPTH
@@ -129,7 +135,9 @@ def _blade(root, bone):
 
         ridge = spine + width * 0.38
         edge = spine + width
-        rings.append([(spine, thick * 0.62, z), (ridge, thick, z), (edge, 0, z), (ridge, -thick, z), (spine, -thick * 0.62, z)])
+        # A flat back nearly as thick as the blade, so the fang has a spine
+        # seen from the side, then two faces ground to the edge.
+        rings.append([(spine, thick * 0.86, z), (ridge, thick, z), (edge, 0, z), (ridge, -thick, z), (spine, -thick * 0.86, z)])
 
     return common.skin("knife_blade", rings, bone, root, tip=(SPINE[1][0], 0, TIP_Z))
 
@@ -143,7 +151,7 @@ def _notches(root):
 
     for index, z in enumerate(NOTCHES):
         spine = _spine_x(z)
-        thick = THICKNESS * 0.62 / 2
+        thick = THICKNESS * 0.86 / 2
         # Both are the notch's own V moved out toward its mouth, so their
         # faces lie just in front of the blade's: the lining 0.4 mm, its
         # mouth sunk 1.5 mm below the spine, and the light 0.8 mm, proud of

@@ -336,25 +336,47 @@ VERTEBRA = [(-0.86, 0.82), (0.86, 0.82), (1.0, -0.1), (0.5, -1.0), (-0.5, -1.0),
 
 def vertebrae(prefix, parent, top, bottom, half_width=0.0145, half_depth=0.0165, count=4, rake=0.0, mat=None):
     """`count` iron vertebrae stacked down a grip from `top` to `bottom`
-    (heights), each a short body flared at its ends with a gap between, the
-    whole stack raked back toward +Y by `rake` per metre of drop. The pistol
-    and the knife share it, so the two read as one maker's."""
+    (heights), each a short body flared at its ends with a clear gap
+    between, growing toward the bottom as a spine does, and each with a
+    spinous process, a blade of iron raked back and down from its back. The
+    whole stack is raked back toward +Y by `rake` per metre of drop. The
+    pistol and the knife share it, so the two read as one maker's."""
 
     mat = mat or core.material("metal")
     step = (top - bottom) / count
     parts = []
     # Across is X; "up" in the profile is the back of the grip, +Y.
     for index in range(count):
-        high = top - index * step - step * 0.08
-        low = high - step * 0.84
+        grown = 0.88 + 0.24 * index / max(count - 1, 1)
+        high = top - index * step - step * 0.12
+        low = high - step * 0.74
         stations = []
 
-        for z, flare in ((high, 0.86), (high - step * 0.16, 1.0), (low + step * 0.16, 1.0), (low, 0.86)):
-            stations.append((Vector((0.0, (top - z) * rake, z)), half_width * flare, half_depth * flare))
+        for z, flare in ((high, 0.84), (high - step * 0.14, 1.0), (low + step * 0.14, 1.0), (low, 0.84)):
+            stations.append((Vector((0.0, (top - z) * rake, z)), half_width * flare * grown, half_depth * flare * grown))
 
         # Smooth across its six sides: small enough that the bands round it
         # well, and a fraction of the vertices flat facets would cost.
         parts.append(section(f"{prefix}_vertebra_{index}", stations, VERTEBRA, mat, parent, across=(1, 0, 0), up=(0, 1, 0), smooth=True))
+
+        # The spinous process: a flat wedge off the back of the body, raked
+        # down like a spine's, so the grip reads as vertebrae from the side.
+        middle = (high + low) / 2
+        back = (top - middle) * rake + half_depth * 0.7 * grown
+        parts.append(
+            section(
+                f"{prefix}_process_{index}",
+                [
+                    (Vector((0.0, back - 0.002, middle)), 0.0034 * grown, step * 0.26),
+                    (Vector((0.0, back + 0.0105 * grown, middle - step * 0.3)), 0.0014, step * 0.06),
+                ],
+                [(-1.0, 1.0), (1.0, 1.0), (1.0, -1.0), (-1.0, -1.0)],
+                mat,
+                parent,
+                across=(1, 0, 0),
+                up=(0, 0, 1),
+            )
+        )
 
     return parts
 
@@ -383,9 +405,10 @@ def chamber_angle(index):
 
 def drum(label, parent, chambers=None):
     """A revolver's drum, on its axis along Y and centred on `parent`: a
-    six-sided iron prism, chamfered front and back, whose six chambers face
-    the eye from its back face, each a socket of void holding a plug of soul
-    light. Merged into `<label>`.
+    six-sided iron prism, fluted between its chambers, chamfered front and
+    back and bossed round its pin, whose six chambers face the eye from its
+    back face, each a socket of void holding a plug of soul light. Merged
+    into `<label>`.
 
     Given `chambers`, the drum counts: each chamber has a morph target,
     `spent_<n>`, that sinks its light into the drum and leaves the void
@@ -397,19 +420,31 @@ def drum(label, parent, chambers=None):
     void = core.material("void")
     accent = core.material("accent")
     back = DRUM_LENGTH / 2
-    hexagon = polygon(6, start=0.0)
-    # The prism, a flat toward the bore, so each chamber sits behind a flat.
+    # The prism, a flat toward the bore, so each chamber sits behind a flat,
+    # and each of its six corners notched with a flute between the chambers
+    # either side, so it reads as a gun's cylinder, not a nut. Chamfered
+    # front and back.
+    profile = _fluted(6, flute=0.2, depth=0.16)
     section(
         f"{label}_body",
-        [((0, -back, 0), DRUM_RADIUS * 0.86, DRUM_RADIUS * 0.86), ((0, -back + 0.004, 0), DRUM_RADIUS, DRUM_RADIUS), ((0, back - 0.004, 0), DRUM_RADIUS, DRUM_RADIUS), ((0, back, 0), DRUM_RADIUS * 0.88, DRUM_RADIUS * 0.88)],
-        hexagon,
+        [((0, -back, 0), DRUM_RADIUS * 0.84, DRUM_RADIUS * 0.84), ((0, -back + 0.005, 0), DRUM_RADIUS, DRUM_RADIUS), ((0, back - 0.005, 0), DRUM_RADIUS, DRUM_RADIUS), ((0, back, 0), DRUM_RADIUS * 0.86, DRUM_RADIUS * 0.86)],
+        profile,
         metal,
         parent,
         across=(1, 0, 0),
         up=(0, 0, 1),
     )
-    # The pin it turns on, standing out of its front.
-    section(f"{label}_pin", [((0, -back + 0.001, 0), 0.0075, 0.0075), ((0, -back - 0.004, 0), 0.0068, 0.0068), ((0, -back - 0.006, 0), 0.004, 0.004)], polygon(6, math.pi / 6), metal, parent)
+    # A raised boss round the pin on its front.
+    section(
+        f"{label}_boss",
+        [((0, -back + 0.002, 0), 0.0165, 0.0165), ((0, -back - 0.0025, 0), 0.0165, 0.0165), ((0, -back - 0.004, 0), 0.0130, 0.0130)],
+        polygon(6, math.pi / 6),
+        metal,
+        parent,
+        caps=(False, True),
+    )
+    # The pin it turns on, standing out of the boss.
+    section(f"{label}_pin", [((0, -back - 0.003, 0), 0.0075, 0.0075), ((0, -back - 0.008, 0), 0.0068, 0.0068), ((0, -back - 0.010, 0), 0.004, 0.004)], polygon(6, math.pi / 6), metal, parent)
     groups = []
 
     for index in range(CHAMBERS):
@@ -418,7 +453,7 @@ def drum(label, parent, chambers=None):
         section(
             f"{label}_socket_{index}",
             [(centre + Vector((0, -0.002, 0)), SOCKET, SOCKET), (centre + Vector((0, 0.0007, 0)), SOCKET, SOCKET)],
-            polygon(8, math.pi / 8),
+            polygon(6, math.pi / 6),
             void,
             parent,
             up=(0, 0, 1),
@@ -427,7 +462,7 @@ def drum(label, parent, chambers=None):
         soul = section(
             f"{label}_soul_{index}",
             [(centre + Vector((0, -0.004, 0)), SOUL, SOUL), (centre + Vector((0, 0.0013, 0)), SOUL, SOUL), (centre + Vector((0, 0.0022, 0)), SOUL * 0.7, SOUL * 0.7)],
-            polygon(8, math.pi / 8),
+            polygon(6, math.pi / 6),
             accent,
             parent,
             smooth=True,
@@ -446,6 +481,21 @@ def drum(label, parent, chambers=None):
         empties(joined, groups, lambda co: co + Vector((0, -0.007, 0)))
 
     return joined
+
+
+def _fluted(sides, flute, depth):
+    """A regular polygon's outline, one flat at the top, with a V notched
+    into each corner: `flute` of the way along each side either side of the
+    corner, cut in `depth` of the radius. A profile for `section`."""
+
+    corners = [Vector((math.cos(math.tau * k / sides), math.sin(math.tau * k / sides))) for k in range(sides)]
+    points = []
+
+    for index, corner in enumerate(corners):
+        before, after = corners[index - 1], corners[(index + 1) % sides]
+        points += [corner.lerp(before, flute), corner * (1 - depth), corner.lerp(after, flute)]
+
+    return [(point.x, point.y) for point in points]
 
 
 # Kept for the parts that cut a frame's flat side from an outline.
