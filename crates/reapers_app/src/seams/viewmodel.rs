@@ -405,7 +405,7 @@ impl Seam {
 					lively,
 				};
 				let mut print = shot.print(&world, shown, &untrailed, &pose);
-				self.land(&props, &world, shown, &pose, print.view);
+				self.land(&props, &world, shown, &pose, print.view, lively);
 				let tags = self.blows(&mut print, &props, &world, shown, lively);
 				(Some(print), tags)
 			}
@@ -499,8 +499,11 @@ impl Seam {
 	/// Remembers the latest blow once it has landed, by the hunt's tick
 	/// `shown`, with the arms at `pose`, on a view `view` points big: where it
 	/// struck the husk, the way the shot crossed the screen, and where its tag
-	/// stands. Blows whose marks have all gone are forgotten, and no more than
-	/// [`blow::MOST_TAGS`] are kept: a fourth sends the oldest at once.
+	/// stands. A blow soon after the last stacks its tag over the last's,
+	/// where that has risen to unless the player asks for less motion
+	/// (`lively` false). Blows whose marks have all gone are forgotten, and no
+	/// more than [`blow::MOST_TAGS`] are kept: a fourth sends the oldest at
+	/// once.
 	fn land(
 		&mut self,
 		props: &ViewmodelProps,
@@ -508,6 +511,7 @@ impl Seam {
 		shown: f64,
 		pose: &arms::Pose,
 		view: marks::At,
+		lively: bool,
 	) {
 		let showing = |tick: i64| blow::beat(marks::frames_since(shown, tick)) < blow::TAG_GONE;
 		self.landed.retain(|landed| showing(landed.hit.tick));
@@ -536,7 +540,9 @@ impl Seam {
 		let slip = blow::slip_size(figure.chars().count(), blow::figure_size(hit.cadence));
 		let tag = match self.landed.last() {
 			Some(last) if hit.tick - last.hit.tick < blow::STACK_BEATS => {
-				blow::keep_clear((last.tag.0, last.tag.1 - blow::STACK), view, slip)
+				let beat = blow::beat(marks::frames_since(shown, last.hit.tick));
+				let risen = blow::tag(beat, lively).map_or(0.0, |(_, rise)| rise);
+				blow::keep_clear((last.tag.0, last.tag.1 - risen - blow::STACK), view, slip)
 			}
 			_ => blow::tag_place(at, hit.tick, view, slip),
 		};
@@ -603,6 +609,13 @@ impl Seam {
 			}
 		}
 		print.sight = props.sight.map(|sight| (sight, out));
+		// Only the newest tag keeps its chip: the next stacks over the last's
+		// slip, and a chip left showing under it would read as its own.
+		if let Some((_, older)) = tags.split_last_mut() {
+			for tag in older {
+				tag.chip = None;
+			}
+		}
 		tags
 	}
 
@@ -1052,7 +1065,7 @@ mod tests {
 	) -> (marks::Print, Vec<TagLook>) {
 		let pose = arms::flowing(props.manner(), ViewAction::Idle, 0.0, 0.0, None, true);
 		let mut print = marks::Print::blank((390.0, 844.0), props.spot);
-		seam.land(props, world, shown, &pose, print.view);
+		seam.land(props, world, shown, &pose, print.view, lively);
 		let tags = seam.blows(&mut print, props, world, shown, lively);
 		(print, tags)
 	}
@@ -1146,10 +1159,19 @@ mod tests {
 		let first = seam.landed[0].tag;
 		let second = seam.landed[1].tag;
 		assert_eq!(tags.len(), 1, "the second's tag waits for f2");
+		// It stacks over the first's tag where that has risen to, not where
+		// it was put, which would print it over the first's figure.
+		let risen = tags[0].centre.1;
+		assert!(first.1 - risen > 17.0, "the first has risen: {risen}");
 		assert!(
-			(second.1 - (first.1 - blow::STACK)).abs() < 1.0e-9,
-			"{first:?} {second:?}"
+			(second.1 - (risen - blow::STACK)).abs() < 1.0e-9,
+			"{risen} {second:?}"
 		);
+		// Once the second's tag shows, the seal's chip is on it alone.
+		let (_, tags) = printed_at(&mut seam, &props, &world, 122.0, true);
+		assert_eq!(tags.len(), 2);
+		assert_eq!(tags[0].chip, None, "the first gives its chip up");
+		assert!(tags[1].chip.is_some());
 		for tick in [130, 140] {
 			next.tick = tick;
 			props.hit = Some(next);
