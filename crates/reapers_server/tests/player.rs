@@ -1250,3 +1250,32 @@ async fn invalid_eye_settlement_changes_nothing() {
 	);
 	assert_eq!(world.call(player, Load {}).await.unwrap(), before);
 }
+
+/// An `Idempotency-Key` belongs to the session that sent it: two players'
+/// sessions that happen to send the same key each settle their own hunt.
+#[tokio::test]
+async fn one_idempotency_key_from_two_sessions_settles_each_hunt() {
+	let world = World::new().await;
+	let key = "0123456789abcdef0123456789abcdef";
+
+	for session in ["the first player's session", "the second player's session"] {
+		let player = world.player().await;
+		let before = with_loose_husk(&world, player).await;
+		let sighting = before.sightings()[0];
+		let settled = world
+			.call_keyed(
+				player,
+				session,
+				key,
+				SettleHunt {
+					sighting: sighting.id,
+					log: packed(&play(&before, &sighting)),
+				},
+			)
+			.await
+			.expect("each session settles its own hunt");
+
+		assert!(settled.settlement.outcome.absorbed());
+		assert_eq!(world.stored(player).await, settled.settlement.state);
+	}
+}

@@ -1221,11 +1221,10 @@ async fn a_rotated_keeper_signs_no_other_numbers_than_the_settlement_did() {
 	assert_eq!(error.status(), 500, "{error:?}");
 }
 
-#[tokio::test]
-async fn a_retried_settlement_of_an_escrowed_husk_answers_with_its_burn_again() {
-	let world = escrowing().await;
-	let wallet = Wallet::new(1);
-	let player = holder(&world, &wallet).await;
+/// `holder`'s saint, released into its escrow on the chain and surfaced:
+/// the player and the hunt that settles it, as the careful bot plays it.
+async fn released_into_escrow(world: &World, wallet: &Wallet) -> (Id<Account>, SettleHunt) {
+	let player = holder(world, wallet).await;
 
 	escrow_on_chain(&world.chain, wallet.address(), mint());
 
@@ -1244,20 +1243,28 @@ async fn a_retried_settlement_of_an_escrowed_husk_answers_with_its_burn_again() 
 	world.surface_everything(player).await;
 
 	let before = world.call(player, Load {}).await.unwrap();
-	let log = packed(&play(&before, &sighting));
-	let settle = || {
+
+	(
+		player,
 		SettleHunt {
 			sighting: sighting.id,
-			log: log.clone(),
-		}
-	};
+			log: packed(&play(&before, &sighting)),
+		},
+	)
+}
+
+#[tokio::test]
+async fn a_retried_settlement_of_an_escrowed_husk_answers_with_its_burn_again() {
+	let world = escrowing().await;
+	let wallet = Wallet::new(1);
+	let (player, settle) = released_into_escrow(&world, &wallet).await;
 	let key = "0123456789abcdef0123456789abcdef";
 	let first = world
-		.call_keyed(player, "the player's session", key, settle())
+		.call_keyed(player, "the player's session", key, settle.clone())
 		.await
 		.expect("the settlement");
 	let again = world
-		.call_keyed(player, "the player's session", key, settle())
+		.call_keyed(player, "the player's session", key, settle)
 		.await
 		.expect("the same settlement, answered again");
 	let receipt = first.receipt.expect("the burn");
@@ -1269,6 +1276,58 @@ async fn a_retried_settlement_of_an_escrowed_husk_answers_with_its_burn_again() 
 	assert_eq!(rebuilt.signature, receipt.signature);
 	assert!(rebuilt.transaction.is_some());
 	assert_eq!(world.stored(player).await, first.settlement.state);
+}
+
+/// A retry that arrives after the burn landed is answered with the
+/// settlement and no burn: the husk has none left to send.
+#[tokio::test]
+async fn a_settlement_retried_after_its_burn_landed_answers_without_one() {
+	let world = escrowing().await;
+	let wallet = Wallet::new(1);
+	let (player, settle) = released_into_escrow(&world, &wallet).await;
+	let key = "0123456789abcdef0123456789abcdef";
+	let first = world
+		.call_keyed(player, "the player's session", key, settle.clone())
+		.await
+		.expect("the settlement");
+	let (address, _) = escrow::address_of(&mint());
+
+	assert!(first.receipt.is_some(), "the burn");
+
+	// The burn landed: the program closed the escrow.
+	world.chain.remove(&address.to_string());
+
+	let again = world
+		.call_keyed(player, "the player's session", key, settle)
+		.await
+		.expect("the same settlement, answered again");
+
+	assert_eq!(again.settlement, first.settlement);
+	assert!(again.receipt.is_none(), "a burned husk has no burn to send");
+}
+
+/// An absorption kept without the signature it was settled with is never
+/// signed: the keeper signs only what a settlement signed.
+#[tokio::test]
+async fn an_absorption_kept_without_its_signature_is_not_signed() {
+	let world = escrowing().await;
+	let wallet = Wallet::new(1);
+	let (player, settled) = absorbed_from_escrow(&world, &wallet).await;
+	let mut stripped = settled.settlement.state.codex()[0].clone();
+
+	stripped.signature = None;
+	HuskEscrow::update()
+		.set(|row| row.absorption, Some(leptoskit_db::Json(stripped)))
+		.run(&world.db)
+		.await
+		.unwrap();
+
+	let error = world
+		.call(player, AbsorbTransaction { nft: SAINT.into() })
+		.await
+		.expect_err("an absorption no settlement signed");
+
+	assert_eq!(error.status(), 500, "{error:?}");
 }
 
 /// `holder`'s saint, released without an escrow and then bound to

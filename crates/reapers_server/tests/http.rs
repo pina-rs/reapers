@@ -450,6 +450,14 @@ async fn settle_hunt_replays_cached_result_for_retried_idempotency_key() {
 	let other = json!({ "sighting": sighting.id + 1, "log": payload["log"] });
 	let (status, body) = settle_with_key(&router, &token, key, &other).await;
 	assert_eq!(status, StatusCode::CONFLICT, "{body}");
+
+	// So is the same key for the same sighting with another log.
+	let other = json!({
+		"sighting": sighting.id,
+		"log": packed(&escape(&surfaced, &sighting)),
+	});
+	let (status, body) = settle_with_key(&router, &token, key, &other).await;
+	assert_eq!(status, StatusCode::CONFLICT, "{body}");
 }
 
 #[tokio::test]
