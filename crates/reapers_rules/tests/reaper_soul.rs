@@ -355,4 +355,174 @@ mod power_replay {
 		bytes[0] = 4;
 		assert!(HuntLog::decode(&bytes).is_err());
 	}
+
+	#[test]
+	fn safe_passage_at_full_soul_never_loses_soul() {
+		let stats = HuntStats::derive(
+			&HuntLoadout {
+				soul: Some(ReaperSoul {
+					gift: ReaperGift::Passage,
+					temperament: Temperament::Stalwart,
+				}),
+				soul_rank: 0,
+				..HuntLoadout::new(
+					ReaperClass::Ferryman,
+					1,
+					Weapon::new(ReaperClass::Ferryman.weapon(), Temper::Shrouded),
+				)
+			},
+			1.0,
+		)
+		.unwrap();
+		// High ward so repeated pistol shots fill soul to 100 without breaking the ward.
+		let mut sim = HuntSim::open(
+			7,
+			Vessel::Penguin,
+			Rarity::Epic,
+			Rarity::Epic.ward(),
+			&stats,
+		);
+		// Ambush arms Safe Passage (`passage_ready = true`).
+		let mut armed = false;
+		for _ in 0..2000 {
+			let events = sim.step(&support::steady_on_husk(&sim));
+			if events
+				.iter()
+				.any(|event| matches!(event, HuntEvent::GiftStirred(ReaperGift::Passage)))
+			{
+				armed = true;
+				break;
+			}
+		}
+		assert!(armed, "ambush arms Safe Passage");
+
+		// Fill soul to 100 by holding through shrieks and shooting, while
+		// parrying charges so Safe Passage stays armed until soul is capped.
+		while sim.soul() < CaptureRules::SOUL_MAX {
+			let input = if sim.phase() == HuntPhase::Charge {
+				support::wary_on_husk(&sim)
+			} else if sim.phase() == HuntPhase::Fight {
+				HuntInput::measured(sim.pose().direction(), 0.0, true, Arsenal::GUN_SLOT, false)
+			} else {
+				support::steady_on_husk(&sim)
+			};
+			sim.step(&input);
+			assert!(!sim.is_over(), "hunt ended before soul filled");
+		}
+		assert_eq!(sim.soul(), CaptureRules::SOUL_MAX);
+
+		// Wait for the next charge and do not swing so Safe Passage fires.
+		let mut triggered = false;
+		for _ in 0..4000 {
+			let before = sim.soul();
+			let events = sim.step(&support::steady_on_husk(&sim));
+			if events
+				.iter()
+				.any(|event| matches!(event, HuntEvent::GiftStirred(ReaperGift::Passage)))
+			{
+				triggered = true;
+				assert_eq!(
+					sim.soul(),
+					before,
+					"Safe Passage pays no soul, so it must not subtract soul when already capped"
+				);
+				break;
+			}
+		}
+		assert!(triggered, "Safe Passage triggered on an un-parried charge");
+	}
+
+	#[test]
+	fn safe_passage_preserves_soul_below_and_near_cap() {
+		let run_at_threshold = |min_soul: f64, max_soul: f64| {
+			let stats = HuntStats::derive(
+				&HuntLoadout {
+					soul: Some(ReaperSoul {
+						gift: ReaperGift::Passage,
+						temperament: Temperament::Stalwart,
+					}),
+					soul_rank: 0,
+					..HuntLoadout::new(
+						ReaperClass::Ferryman,
+						1,
+						Weapon::new(ReaperClass::Ferryman.weapon(), Temper::Shrouded),
+					)
+				},
+				1.0,
+			)
+			.unwrap();
+			let mut sim = HuntSim::open(
+				7,
+				Vessel::Penguin,
+				Rarity::Epic,
+				Rarity::Epic.ward(),
+				&stats,
+			);
+			let mut armed = false;
+			for _ in 0..2000 {
+				let events = sim.step(&support::steady_on_husk(&sim));
+				if events
+					.iter()
+					.any(|event| matches!(event, HuntEvent::GiftStirred(ReaperGift::Passage)))
+				{
+					armed = true;
+					break;
+				}
+			}
+			assert!(armed, "ambush arms Safe Passage");
+
+			while sim.soul() < min_soul {
+				let input = if sim.phase() == HuntPhase::Charge {
+					support::wary_on_husk(&sim)
+				} else if sim.phase() == HuntPhase::Fight {
+					HuntInput::measured(sim.pose().direction(), 0.0, true, Arsenal::GUN_SLOT, false)
+				} else {
+					support::steady_on_husk(&sim)
+				};
+				sim.step(&input);
+				assert!(!sim.is_over(), "hunt ended before reaching target soul");
+			}
+			assert!(
+				sim.soul() >= min_soul && sim.soul() < max_soul,
+				"expected soul in [{min_soul}, {max_soul}), got {}",
+				sim.soul()
+			);
+
+			let mut triggered = false;
+			for _ in 0..4000 {
+				let before = sim.soul();
+				let parries_before = sim.deeds().parries;
+				let events = sim.step(&support::steady_on_husk(&sim));
+				if events
+					.iter()
+					.any(|event| matches!(event, HuntEvent::GiftStirred(ReaperGift::Passage)))
+				{
+					triggered = true;
+					assert_eq!(
+						sim.soul(),
+						before,
+						"Safe Passage must leave soul unchanged at {before}"
+					);
+					assert_eq!(
+						sim.deeds().parries,
+						parries_before,
+						"Safe Passage must not count as a player parry deed"
+					);
+					assert!(
+						events
+							.iter()
+							.any(|event| matches!(event, HuntEvent::Parried)),
+						"Safe Passage turns the charge aside with a Parried event"
+					);
+					break;
+				}
+			}
+			assert!(triggered, "Safe Passage triggered on an un-parried charge");
+		};
+
+		// Mid-range soul (below 90): pays no soul and loses none.
+		run_at_threshold(45.0, 75.0);
+		// Near cap (above 90, below 100): previously lost `soul + 10 - 100`.
+		run_at_threshold(91.0, CaptureRules::SOUL_MAX);
+	}
 }

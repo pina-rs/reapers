@@ -395,7 +395,7 @@ The following `S` is the strength in that table, never a random roll.
 | Harvester | The Last Furrow | Unseen | Ambush cleave's extra seals take `0.4 + 0.15S` of the primary blow. |
 | Harvester | Aftermath | Stillness | After a hold, the next cleave leaves caught extra seals open for at least `170 + 24S` ticks, instead of shutting them. |
 | Harvester | The Gathering | Rhythm | Every third cadence hit reopens its struck seal for `44 + 24S` ticks. |
-| Ferryman | Safe Passage | Unseen | An ambush protects against one un-parried charge and stuns the husk for `30S` ticks. This automatic protection is not a player parry. |
+| Ferryman | Safe Passage | Unseen | An ambush protects against one un-parried charge, turning it aside (emitting a parry event), opening every seal for 170 ticks and stunning the husk for `30S` ticks. This automatic protection pays no soul and does not count as a player parry deed. |
 | Ferryman | The Anchor | Stillness | A hold restores one lost resolve, at most `S` times per hunt; never above starting resolve. |
 | Ferryman | Returning Light | Rhythm | Five cadence hits prepare one flinch forgiveness, at most `S` preparations per hunt. The class's first free flinch is used before this light. |
 | Weigher | Foreknowledge | Unseen | The ambush's exposed seals stay open `30S` ticks longer. |
