@@ -207,12 +207,16 @@ impl ReaperRig {
 		}
 	}
 
-	/// Plays `playback`'s motion, in this reaper's form. Weapon-free
-	/// performances hide the weapon while they play.
+	/// Plays `playback`'s motion, in this reaper's form, held still for a
+	/// player who asked for less motion. Weapon-free performances hide the
+	/// weapon while they play.
 	pub fn perform(&mut self, scene: &Scene, playback: &ReaperPlayback) {
 		let unarmed_before = self.motion.unarmed();
 		self.motion = playback.motion();
-		scene.play(self.body, playback.play(&self.appearance));
+		scene.play(
+			self.body,
+			playback.play(&self.appearance, crate::platform::reduced_motion()),
+		);
 		if unarmed_before != self.motion.unarmed() {
 			self.show_weapon(scene);
 		}

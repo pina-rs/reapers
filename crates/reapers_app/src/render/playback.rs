@@ -116,13 +116,22 @@ impl ReaperPlayback {
 		}
 	}
 
-	/// What the host is told to play for this clock, in `appearance`'s form.
+	/// What the host is told to play for this clock, in `appearance`'s form,
+	/// for a player who asked for `still` motion or not.
 	///
 	/// Gaits loop; everything else plays once and holds its last frame,
-	/// which every clip authors as rest. A held clock plays at no speed.
-	pub fn play(&self, appearance: &ReaperAppearance) -> Play {
+	/// which every clip authors as rest. A held clock plays at no speed, and
+	/// so does every clock for a player who asked for less motion: the host
+	/// plays its clips on its own clock, which the stage's own stopping
+	/// would not reach.
+	pub fn play(&self, appearance: &ReaperAppearance, still: bool) -> Play {
+		let speed = if self.playing && !still {
+			self.speed as f32
+		} else {
+			0.0
+		};
 		let play = Play::new(appearance.clip_name(self.motion))
-			.speed(if self.playing { self.speed as f32 } else { 0.0 })
+			.speed(speed)
 			.fade(crossfade(self.motion));
 		if self.motion.loops() {
 			play
@@ -234,15 +243,27 @@ mod tests {
 	fn the_host_is_told_to_loop_gaits_and_hold_the_rest() {
 		let mut clock = ReaperPlayback::default();
 		clock.select(ReaperMotion::Run, true);
-		let play = clock.play(&ReaperAppearance::default());
+		let play = clock.play(&ReaperAppearance::default(), false);
 		assert_eq!(play.clip, "run");
 		assert_eq!(play.mode, LoopMode::Loop);
 		clock.select(ReaperMotion::Slash, true);
-		let play = clock.play(&ReaperAppearance::default());
+		let play = clock.play(&ReaperAppearance::default(), false);
 		assert_eq!(play.mode, LoopMode::Once);
 		assert!(play.fade > 0.0 && play.fade < crossfade(ReaperMotion::Walk));
 		clock.toggle();
-		assert_eq!(clock.play(&ReaperAppearance::default()).speed, 0.0);
+		assert_eq!(clock.play(&ReaperAppearance::default(), false).speed, 0.0);
+	}
+
+	#[test]
+	fn a_player_who_asked_for_less_motion_sees_the_idle_held() {
+		let mut clock = ReaperPlayback::default();
+		clock.select(ReaperMotion::Idle, true);
+		assert_eq!(clock.play(&ReaperAppearance::default(), false).speed, 1.0);
+		let held = clock.play(&ReaperAppearance::default(), true);
+		assert_eq!(held.speed, 0.0, "the idle does not breathe on its own");
+		assert_eq!(held.clip, "idle");
+		clock.select(ReaperMotion::Run, true);
+		assert_eq!(clock.play(&ReaperAppearance::default(), true).speed, 0.0);
 	}
 
 	#[test]

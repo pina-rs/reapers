@@ -566,6 +566,13 @@ mod guest {
 			.map_err(failed)
 	}
 
+	/// The leptoskit revision this app is pinned to gives a native guest no
+	/// way to ask for the device's reduce-motion setting. The host reads it
+	/// (iOS `UIAccessibility.isReduceMotionEnabled`, Android's animator
+	/// duration scale), but only hands it to Rive scenes, as a flag of
+	/// `lk_guest_rive_tick`; `leptoskit::guest` exports nothing that carries
+	/// it, and no plugin answers it. Until a guest export or a plugin does,
+	/// a native player always sees full motion.
 	pub fn reduced_motion() -> bool {
 		false
 	}
