@@ -408,7 +408,7 @@ Make organic parts with `creature.form(name, blobs, material, parent, triangles=
 
 ### The reliquary stack
 
-The body of a rift is not a creature: `husks.reliquary_stack` builds it, a leaning tower of five picture-frame crates with a gabled casket roof on the top one, held apart by seams of crystal at the rules' seal heights. The game finds its parts by these names:
+The body of a rift is not a creature: `husks.reliquary_stack` builds it, a leaning tower of four picture-frame crates crowned by a smaller casket with a gabled roof, held apart by seams of crystal at the rules' seal heights. The casket's height is whatever the rules' half-height leaves above the top seam once its roof is on, and the build fails a tower whose top stands over `halfHeight` or that reaches more than one and a half half-widths from its axis, naming the part that does. The game finds its parts by these names:
 
 | Node | What it is |
 | --- | --- |

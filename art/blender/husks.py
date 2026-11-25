@@ -104,8 +104,21 @@ STOREYS = (
     (0.87, 0.1, -0.035, -0.2),
     (0.94, 0.24, 0.04, 0.28),
     (0.84, 0.42, -0.035, -0.1),
-    (0.86, 0.64, 0.06, 0.22),
+    (0.64, 0.6, 0.05, 0.22),
 )
+# The top storey is a casket, smaller than the crates below it, and its
+# gabled roof rises this far over its eaves, with finials this long at the
+# gables. The casket's own height is whatever the rules' half-height leaves
+# above the top seam once the roof is on.
+CASKET_LIP = 0.1
+CASKET_RISE = 0.42
+CASKET_FINIAL = 0.16
+# The ridge's finials stand this far above the ridge line.
+CASKET_CREST = 0.06
+# How far the tower may stand above its half-height, and how far out from
+# its axis it may reach, in half-widths, before the build refuses it.
+STACK_OVER = 0.05
+STACK_REACH = 1.5
 # How tall the gap between two crates is, which the seam fills, and how
 # thick a crate's frame members are.
 SEAM_GAP = 0.34
@@ -120,9 +133,9 @@ STACK_SEAL_HEIGHT = 0.06
 
 
 def reliquary_stack(spec):
-    """A leaning tower of reliquary crates: five picture-frame boxes piled
-    askew, each wearing a portrait on every side, held apart by seams of
-    crystal that are its seals, and capped with a gabled casket roof.
+    """A leaning tower of reliquaries: four picture-frame crates piled askew
+    and a smaller casket with a gabled roof on top, each wearing a portrait
+    on every side, held apart by seams of crystal that are its seals.
 
     Every crate is its own node, `cube_<storey>`, holding its frame
     (`block_<storey>`) and its four portrait faces (`panel_<storey>_<face>`),
@@ -140,17 +153,28 @@ def reliquary_stack(spec):
     half_height = (spacing - SEAM_GAP) / 2
     floor = -spec["halfHeight"]
     top = len(centres) - 1
+    # The casket stands on the top seam and stops where its roof brings the
+    # tower up to its half-height.
+    casket_floor = centres[top] - half_height
+    roof = CASKET_LIP + CASKET_RISE + CASKET_CREST + CASKET_FINIAL
+    casket_half_height = (spec["halfHeight"] - roof - casket_floor) / 2
 
     for index, (centre, (half, slide, roll, turn)) in enumerate(zip(centres, STOREYS)):
-        cube = core.empty(f"cube_{index}", root, location=(slide, 0, centre))
-        cube.rotation_euler = (0, roll, turn)
-        parts = _crate(index, half, half_height, frame)
-
-        if index == 0:
-            parts.append(_box("plinth", (-half - 0.1, -half - 0.1, floor - centre), (half + 0.1, half + 0.1, -half_height), frame))
+        tall = half_height
 
         if index == top:
-            parts.extend(_casket(half, half_height, frame))
+            tall = casket_half_height
+            centre = casket_floor + tall
+
+        cube = core.empty(f"cube_{index}", root, location=(slide, 0, centre))
+        cube.rotation_euler = (0, roll, turn)
+        parts = _crate(index, half, tall, frame)
+
+        if index == 0:
+            parts.append(_box("plinth", (-half - 0.1, -half - 0.1, floor - centre), (half + 0.1, half + 0.1, -tall), frame))
+
+        if index == top:
+            parts.extend(_casket(half, tall, frame))
 
         block = core.join(parts, f"block_{index}")
         block.parent = cube
@@ -158,7 +182,7 @@ def reliquary_stack(spec):
         finish(block, wear_boost=1.8)
 
         for face in range(4):
-            _portrait(index, face, half, half_height, canvas, cube)
+            _portrait(index, face, half, tall, canvas, cube)
 
     # Each seam's flat front stands as far forward as its seal.
     front = max(seal["offset"][2] for seal in spec["seals"])
@@ -179,7 +203,38 @@ def reliquary_stack(spec):
         if not -STACK_SEAL_HEIGHT / 2 <= gap <= STACK_SEAL_HEIGHT * 0.75:
             raise RuntimeError(f"reliquaryStack: seal_{index} is {gap * 1000:+.0f} mm off its seam; widen the seam so its front meets the seal")
 
+    _check_stack_bounds(root, spec)
+
     return root
+
+
+def _check_stack_bounds(root, spec):
+    """Refuses a tower that has outgrown the body the rules give it: the
+    room clears `halfHeight` above its middle and the hunt keeps to a
+    footprint of `halfWidth`, so a crown or a shard past them would stand
+    through a ceiling or a wall the game thinks is clear."""
+
+    bpy.context.view_layer.update()
+    high, reach, farthest = -math.inf, 0.0, None
+
+    for node in root.children_recursive:
+        if node.type != "MESH":
+            continue
+
+        for vertex in node.data.vertices:
+            at = node.matrix_world @ vertex.co
+            high = max(high, at.z)
+
+            if max(abs(at.x), abs(at.y)) > reach:
+                reach, farthest = max(abs(at.x), abs(at.y)), node.name
+
+    print(f"BOUNDS reliquaryStack top {high:.2f} m (half-height {spec['halfHeight']:.2f}), reach {reach:.2f} m ({reach / spec['halfWidth']:.2f} half-widths, at {farthest})")
+
+    if high > spec["halfHeight"] + STACK_OVER:
+        raise RuntimeError(f"reliquaryStack: its top is at z = {high:.2f}, over its half-height of {spec['halfHeight']:.2f}; lower the casket roof")
+
+    if reach > STACK_REACH * spec["halfWidth"]:
+        raise RuntimeError(f"reliquaryStack: {farthest} reaches {reach:.2f} m from the tower's axis, past {STACK_REACH} half-widths; shorten it or the lean")
 
 
 def _box(name, low, high, mat):
@@ -273,8 +328,8 @@ def _casket(half, tall, mat):
     ridge."""
 
     eave = half + 0.14
-    rise = 0.95
-    lip = 0.1
+    rise = CASKET_RISE
+    lip = CASKET_LIP
     base = tall
     roof = [(-eave, base), (eave, base), (eave, base + lip), (0.0, base + lip + rise), (-eave, base + lip)]
     rings = [[(x, y, z) for x, z in roof] for y in (-eave, eave)]
@@ -291,12 +346,13 @@ def _casket(half, tall, mat):
         rings = [[point + Vector((0, y, 0)) for point in section] for y in (-eave - 0.08, eave + 0.08)]
         parts.append(core.loft(f"pitch_{side}", rings, mat, cap_start=True, cap_end=True))
 
-    crest = base + lip + rise + 0.06
+    crest = base + lip + rise + CASKET_CREST
 
-    for step in range(7):
-        y = -eave + 2 * eave * step / 6
-        size = 0.5 if step in (0, 6) else 0.2
-        parts.append(_spike(f"finial_{step}", Vector((0, y, crest)), Vector((0, 0, 1)), size, 0.1 if step in (0, 6) else 0.06, mat))
+    for step in range(5):
+        y = -eave + 2 * eave * step / 4
+        gable = step in (0, 4)
+        size = CASKET_FINIAL if gable else CASKET_FINIAL * 0.5
+        parts.append(_spike(f"finial_{step}", Vector((0, y, crest)), Vector((0, 0, 1)), size, 0.08 if gable else 0.05, mat))
 
     return parts
 
@@ -332,12 +388,12 @@ def _seam(index, centre, front, mat, parent):
     parts = [core.loft(f"seam_band_{index}", rings, mat, cap_start=True, cap_end=True)]
     generator = random.Random(40 + index)
 
-    for corner, (bearing, length) in enumerate(((55, 1.1), (100, 0.75), (150, 0.9), (210, 0.85), (255, 1.0), (305, 1.05))):
+    for corner, (bearing, length) in enumerate(((55, 0.72), (100, 0.52), (150, 0.62), (210, 0.58), (255, 0.66), (305, 0.7))):
         bearing = math.radians(bearing + generator.uniform(-12, 12))
         tilt = generator.uniform(-0.45, 0.55)
         direction = Vector((math.sin(bearing), -math.cos(bearing), tilt)).normalized()
-        start = centre + Vector((math.sin(bearing), -math.cos(bearing), 0.0)) * 0.78
-        parts.append(_spike(f"shard_{index}_{corner}", start, direction, length, 0.17, mat, sides=5))
+        start = centre + Vector((math.sin(bearing), -math.cos(bearing), 0.0)) * 0.74
+        parts.append(_spike(f"shard_{index}_{corner}", start, direction, length, 0.16, mat, sides=5))
 
     seam = core.join(parts, f"seam_{index}")
     seam.parent = parent
