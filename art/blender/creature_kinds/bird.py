@@ -211,10 +211,12 @@ def _shades(head, tree, dark, accent):
 
 def _brows(head, tree, detail):
     """A heavy brow over each lens, just above the shades' top edge, level,
-    so the game tilts it."""
+    so the game tilts it. Each starts well out from the brow seal, so the
+    seal's rosette stands clear between them instead of joining them in one
+    band."""
 
     for side in (1, -1):
-        path = [_around(tree, side * angle, 0.214, 0.008) for angle in (22, 38, 54, 70)]
+        path = [_around(tree, side * angle, 0.214, 0.008) for angle in (37, 50, 63, 76)]
         middle = path[1].lerp(path[2], 0.5)
         brow = creature.pivot(f"brow_{creature.SIDES[side]}", head, middle)
         creature.blade(
