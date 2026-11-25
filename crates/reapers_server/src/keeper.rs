@@ -390,14 +390,15 @@ impl Keeper {
 		Ok(state)
 	}
 
-	/// With a demo husk manifest, checks `mint` is the asset the husk `nft`
+	/// Checks `mint` is the asset the demo husk manifest says the husk `nft`
 	/// stands for, so a cheap asset cannot be burned for a rare husk's pay.
-	/// Without one, any escrowed mint may stand for any husk.
+	/// Without a manifest no mint stands for any husk, and an escrowed
+	/// release is refused as `chainUnconfigured`.
 	fn demo_husk(&self, nft: &str, mint: &str) -> rpc::Result<()> {
 		let config = self.gateway.config();
 
 		if config.husks.is_empty() {
-			return Ok(());
+			return Err(refused(Refusal::ChainUnconfigured));
 		}
 
 		let asset = Nft::parse(nft)

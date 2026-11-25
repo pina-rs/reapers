@@ -541,7 +541,7 @@ async fn holder(world: &World, wallet: &Wallet) -> Id<Account> {
 
 #[tokio::test]
 async fn an_escrowed_husk_earns_a_receipt_the_program_can_burn_it_with() {
-	let world = World::new().await;
+	let world = escrowing().await;
 	let wallet = Wallet::new(1);
 	let player = holder(&world, &wallet).await;
 
@@ -635,7 +635,7 @@ async fn an_escrowed_husk_earns_a_receipt_the_program_can_burn_it_with() {
 
 #[tokio::test]
 async fn a_release_into_an_escrow_that_is_not_there_changes_nothing() {
-	let world = World::new().await;
+	let world = escrowing().await;
 	let wallet = Wallet::new(1);
 	let player = holder(&world, &wallet).await;
 	let before = world.stored(player).await;
@@ -685,7 +685,7 @@ async fn a_release_into_an_escrow_that_is_not_there_changes_nothing() {
 
 #[tokio::test]
 async fn an_escrow_needs_a_proved_wallet_and_binds_one_husk() {
-	let world = World::new().await;
+	let world = escrowing().await;
 	let guest = world.player().await;
 
 	world.call(guest, TakeOath {}).await.unwrap();
@@ -727,6 +727,8 @@ async fn an_escrow_needs_a_proved_wallet_and_binds_one_husk() {
 		.await
 		.unwrap();
 
+	// The manifest names another asset for the second husk, so the saint's
+	// mint cannot stand for it.
 	assert_refused(
 		world
 			.call(
@@ -737,8 +739,9 @@ async fn an_escrow_needs_a_proved_wallet_and_binds_one_husk() {
 				},
 			)
 			.await,
-		Refusal::AlreadyHeld,
+		Refusal::NotInVault,
 	);
+	assert_eq!(HuskEscrow::query().count(&world.db).await.unwrap(), 1);
 	assert!(
 		world
 			.stored(player)
@@ -751,7 +754,7 @@ async fn an_escrow_needs_a_proved_wallet_and_binds_one_husk() {
 
 #[tokio::test]
 async fn a_husk_that_left_its_escrow_cannot_be_settled() {
-	let world = World::new().await;
+	let world = escrowing().await;
 	let wallet = Wallet::new(1);
 	let player = holder(&world, &wallet).await;
 	let (address, _) = escrow::address_of(&mint());
@@ -840,7 +843,7 @@ fn blockhash_of(transaction: &str) -> Hash {
 
 #[tokio::test]
 async fn a_burn_that_did_not_land_is_built_again_with_the_same_receipt() {
-	let world = World::new().await;
+	let world = escrowing().await;
 	let wallet = Wallet::new(1);
 	let (player, settled) = absorbed_from_escrow(&world, &wallet).await;
 	let first = settled.receipt.expect("a receipt for the chain");
@@ -907,7 +910,7 @@ async fn a_burn_that_did_not_land_is_built_again_with_the_same_receipt() {
 
 #[tokio::test]
 async fn the_keeper_signs_no_other_numbers_than_the_settlement_did() {
-	let world = World::new().await;
+	let world = escrowing().await;
 	let wallet = Wallet::new(1);
 	let (player, settled) = absorbed_from_escrow(&world, &wallet).await;
 	let mut changed = settled.settlement.state.codex()[0].clone();
@@ -929,7 +932,7 @@ async fn the_keeper_signs_no_other_numbers_than_the_settlement_did() {
 
 #[tokio::test]
 async fn a_burned_husk_is_not_built_again() {
-	let world = World::new().await;
+	let world = escrowing().await;
 	let wallet = Wallet::new(1);
 	let (player, _) = absorbed_from_escrow(&world, &wallet).await;
 	let (address, _) = escrow::address_of(&mint());
@@ -947,7 +950,7 @@ async fn a_burned_husk_is_not_built_again() {
 
 #[tokio::test]
 async fn only_the_player_whose_hunt_absorbed_the_husk_can_burn_it_again() {
-	let world = World::new().await;
+	let world = escrowing().await;
 	let wallet = Wallet::new(1);
 	let (player, _) = absorbed_from_escrow(&world, &wallet).await;
 	let stranger = holder(&world, &Wallet::new(2)).await;
@@ -1029,12 +1032,23 @@ fn with_husks(assets: Vec<Address>) -> reapers_server::config::SolanaConfig {
 	}])
 }
 
+/// The demo `degenApes` husks, the saint's being [`mint`].
+fn demo_assets() -> Vec<Address> {
+	let mut assets = vec![mint()];
+
+	assets.extend((2..=8).map(|n| Address::from_bytes([40 + n; 32])));
+	assets
+}
+
+/// A keeper with the demo manifest the escrow tests release husks from.
+async fn escrowing() -> World {
+	World::reading(RunMode::Test, quick_hall(), with_husks(demo_assets())).await
+}
+
 #[tokio::test]
 async fn with_a_demo_manifest_a_husk_is_escrowed_as_its_own_asset() {
 	let other = Address::from_bytes([7; 32]);
-	let mut assets = vec![mint()];
-	assets.extend((2..=8).map(|n| Address::from_bytes([40 + n; 32])));
-	let world = World::reading(RunMode::Test, quick_hall(), with_husks(assets)).await;
+	let world = escrowing().await;
 	let wallet = Wallet::new(1);
 	let player = holder(&world, &wallet).await;
 
@@ -1071,4 +1085,34 @@ async fn with_a_demo_manifest_a_husk_is_escrowed_as_its_own_asset() {
 		)
 		.await
 		.expect("its own asset is accepted");
+}
+
+#[tokio::test]
+async fn release_with_escrow_refuses_arbitrary_mint_when_demo_husk_manifest_is_empty() {
+	// Default `solana()` configures REAPERS_PROGRAM_ID without REAPERS_DEMO_HUSKS.
+	let world = World::new().await;
+	let wallet = Wallet::new(1);
+	let player = holder(&world, &wallet).await;
+	let arbitrary = Address::from_bytes([77; 32]);
+
+	escrow_on_chain(&world.chain, wallet.address(), arbitrary);
+
+	let before = world.stored(player).await;
+	let result = world
+		.call(
+			player,
+			Release {
+				nft: SAINT.into(),
+				escrow: Some(arbitrary.to_string()),
+			},
+		)
+		.await;
+
+	assert!(
+		result.is_err(),
+		"Release with an escrow mint must fail closed when no husk manifest maps the mint to the catalogue NFT"
+	);
+	assert_refused(result, Refusal::ChainUnconfigured);
+	assert_eq!(world.stored(player).await, before, "nothing was released");
+	assert_eq!(HuskEscrow::query().count(&world.db).await.unwrap(), 0);
 }
