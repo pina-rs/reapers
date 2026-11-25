@@ -1,22 +1,30 @@
 """The llama: Sollamas.
 
-A stylized fluffy llama: a graceful woolly neck curving proudly up from a
-plush cloud of a body, a sculpted llama head with a soft tapered muzzle and
-curved banana ears, woolly upper breeches over slender anatomical shins and
-cloven hooves, and a striped woven Andean blanket across its back.
+A stylized fluffy llama: a tall neck of a few broad planes rising from a
+plush cloud of a body, a big head with a long muzzle, a heavy underbite and
+curved banana ears, legs that taper from a woolly thigh to a narrow cannon
+over cloven hooves, and a woven blanket draped over its back that hangs
+below its belly with a hem.
 
 It wears a creased cowboy hat or a folded neckerchief.
 """
 
 import math
 
-from mathutils import Vector
+from mathutils import Matrix, Vector
 from mathutils.bvhtree import BVHTree
 
 from lib import core, creature
 
+# How thick the blanket is, and how far each seal's socket stands out of
+# whatever it is set in.
 BLANKET = 0.016
-STRIPE = 0.024
+SEAT_RISE = 0.008
+# The head is drawn at the size below and then grown by this much about the
+# brow seal, which stays where the rules put it.
+HEAD_GROWTH = 1.3
+# How far below the flank seals the blanket's hem hangs, past the belly.
+DRAPE = 0.27
 
 
 def build(spec):
@@ -31,14 +39,15 @@ def build(spec):
     brow, throat, flank, _, rump = (creature.to_blender(seal["offset"]) for seal in spec["seals"])
 
     spine = flank.z
-    wide = flank.x - STRIPE
+    # The barrel is as wide as leaves room for the blanket and the flank
+    # seals' sockets on it.
+    wide = flank.x - BLANKET - SEAT_RISE
     shoulder = throat.y + 0.14
     hip = rump.y + 0.03
 
     barrel = ((0, flank.y + 0.01, spine - 0.015), (wide, 0.42, 0.21))
     haunch = ((0, rump.y - 0.01, spine), (wide - 0.008, 0.19, rump.z - spine + 0.005))
     chest = ((0, shoulder, spine - 0.01), (0.175, 0.15, 0.2))
-    hem = spine - 0.12
 
     torso = creature.facet(
         "torso",
@@ -56,9 +65,12 @@ def build(spec):
         flat=11.0,
     )
 
-    _blanket(root, _surface(torso), spine, flank.y, hem, trim, detail)
+    # The blanket lies between the shoulders and the hips, clear of the
+    # legs, which would otherwise poke through where it hangs.
+    _blanket(root, _surface(torso), spine, flank.y + 0.015, spine - DRAPE, trim, detail)
 
-    tail_at = Vector((0, rump.y + 0.16, rump.z - 0.1))
+    # Low enough that the tuft stands clear of the rump seal's socket.
+    tail_at = Vector((0, rump.y + 0.16, rump.z - 0.17))
     tail = creature.pivot("tail", root, tail_at)
     creature.form(
         "tail_tuft",
@@ -78,6 +90,18 @@ def build(spec):
             _leg(root, f"{end}{name}", Vector((side * 0.115, at, spine - 0.14)), floor, body, detail)
 
     _neck(root, brow, throat, spine, body, detail, dark, accent)
+    part = {node.name: node for node in root.children_recursive}
+
+    # The seals' sockets: the brow's on the forehead, the throat's on the
+    # neck's flat front, the flanks' on the blanket and the rump's on the
+    # wool behind it.
+    creature.seat("seat_0", spec, 0, detail, part["head"], [part["skull"]], radius=0.044, rise=SEAT_RISE)
+    creature.seat("seat_1", spec, 1, detail, part["neck"], [part["neck_wool"]], radius=0.05, rise=SEAT_RISE)
+
+    for index in (2, 3):
+        creature.seat(f"seat_{index}", spec, index, detail, root, [part["blanket"]], radius=0.05, rise=SEAT_RISE)
+
+    creature.seat("seat_4", spec, 4, detail, root, [torso], radius=0.048, rise=SEAT_RISE)
 
     creature.studs(root, spec)
     creature.shadow(root, spec)
@@ -121,16 +145,29 @@ def _reach(surface, origin, direction, missing=0.0):
     return missing if distance is None else distance
 
 
-def _blanket(root, wool, spine, middle, hem, cloth, stripe):
-    half = 0.195
-    _saddle("blanket", wool, spine, middle - half, middle + half, hem, BLANKET, cloth, root, rows=10)
-    for index, offset in enumerate((-0.125, 0.0, 0.125)):
-        at = middle + offset
-        _saddle(f"blanket_stripe_{index}", wool, spine, at - 0.028, at + 0.028, hem - 0.005, STRIPE, stripe, root, rows=3)
+def _blanket(root, wool, spine, middle, hem, cloth, border):
+    """A woven blanket thrown over the back: a thick plate that follows the
+    wool over the spine, then drops straight down each side and hangs free
+    below the belly, where a rolled hem of the border colour weighs it
+    down. It is a cloth laid on, not a band round the barrel."""
+
+    half = 0.16
+    _saddle("blanket", wool, spine, middle - half, middle + half, hem, BLANKET, cloth, root, rows=8)
+
+    for side in (1, -1):
+        edge = Vector((side * (_reach(wool, Vector((0, middle, spine)), Vector((side, 0, 0))) + BLANKET + 0.012), 0, hem + 0.012))
+        rings = []
+
+        for y in (middle - half - 0.012, middle + half + 0.012):
+            centre = edge + Vector((0, y, 0))
+            rings.append([centre + Vector((side * dx, 0, dz)) for dx, dz in ((-0.024, -0.016), (0.012, -0.022), (0.024, 0.0), (0.012, 0.024), (-0.024, 0.02))])
+
+        roll = core.loft(f"blanket_hem_{'l' if side > 0 else 'r'}", rings, border, root, cap_start=True, cap_end=True)
+        creature.finish(core.shade_smooth(roll, angle=50))
 
 
 def _saddle(name, wool, spine, front, back, hem, lift, mat, parent, rows=8, across=8):
-    sunk = 0.03
+    sunk = 0.022
     rings = []
 
     for row in range(rows + 1):
@@ -150,68 +187,62 @@ def _saddle(name, wool, spine, front, back, hem, lift, mat, parent, rows=8, acro
             right = points[0]
             left = points[-1]
 
-            for drop in (0.5, 1.0):
-                level = Vector((0, origin.y, spine + (hem - spine) * drop))
-                tuck = 0.58 * (_reach(wool, origin, Vector((1, 0, 0))) - _reach(wool, level, Vector((1, 0, 0))))
+            # Straight down from the widest point, flaring a little as it
+            # falls, to the hem below the belly.
+            for drop in (0.35, 0.7, 1.0):
+                level = spine + (hem - spine) * drop
+                flare = 0.012 * drop
 
-                points.insert(0, Vector((right.x + tuck, origin.y, level.z)))
-                points.append(Vector((left.x - tuck, origin.y, level.z)))
+                points.insert(0, Vector((right.x - flare, origin.y, level)))
+                points.append(Vector((left.x + flare, origin.y, level)))
 
         rings.append(outer + inner[::-1])
 
     cloth = core.loft(name, rings, mat, parent, closed=True, cap_start=True, cap_end=True)
-    core.shade_smooth(cloth, angle=50)
+    core.shade_smooth(cloth, angle=40)
 
     return creature.finish(cloth)
 
 
 def _leg(root, name, hip, floor, body, detail):
-    """Tapered woolly thigh breech, sleek anatomical shin with fetlock, and cloven hoof."""
+    """A leg that tapers the way a llama's does: a woolly thigh, a knee,
+    and a narrow cannon down to a fetlock over a cloven hoof."""
 
     leg = creature.pivot(f"leg_{name}", root, hip)
     ground = floor - hip.z
 
-    # Smooth tapering woolly upper leg cuff domed smoothly into the body hip/shoulder.
-    wool_rings = []
-    stops = [
-        (0.095, 0.028, 0.034),
-        (0.055, 0.066, 0.078),
-        (0.005, 0.084, 0.098),
-        (-0.08, 0.088, 0.102),
-        (-0.16, 0.082, 0.094),
-        (-0.23, 0.074, 0.080),
-        (-0.275, 0.056, 0.058),
-    ]
-    segs = 18
-    for z, rx, ry in stops:
-        ring = []
-        for s in range(segs):
-            a = math.tau * s / segs
-            tuft = 1.0 + 0.05 * math.sin(a * 5 + z * 18)
-            ring.append((math.cos(a) * rx * tuft, math.sin(a) * ry * tuft, z))
-        wool_rings.append(ring)
-    wool = core.loft(f"leg_wool_{name}", wool_rings, body, leg, cap_start=True, cap_end=True)
-    creature.finish(core.shade_smooth(wool))
-
-    # Slender anatomical shin with gentle knee/fetlock swell.
-    shin_path = [
-        (0, 0.0, -0.23),
-        (0, -0.002, -0.32),
-        (0, 0.002, -0.40),
-        (0, -0.006, ground + 0.08),
-        (0, -0.012, ground + 0.042),
-    ]
-    creature.finish(
-        core.shade_smooth(
-            core.tube(
-                f"shin_{name}",
-                shin_path,
-                lambda t: 0.053 - 0.011 * t + 0.006 * math.exp(-(((t - 0.78) / 0.14) ** 2)),
-                body,
-                leg,
-                sides=10,
-            )
-        )
+    creature.shell(
+        f"leg_wool_{name}",
+        [
+            ((0, 0.0, 0.1), 0.05, 0.05, 0.05, 2.4),
+            ((0, 0.0, 0.02), 0.088, 0.098, 0.098, 2.8),
+            ((0, 0.004, -0.1), 0.076, 0.084, 0.084, 3.0),
+            ((0, 0.004, -0.19), 0.058, 0.062, 0.064, 3.0),
+            ((0, 0.0, -0.26), 0.046, 0.05, 0.05, 2.8),
+        ],
+        body,
+        leg,
+        sides=12,
+        start=0.0,
+        end=0.0,
+        crease=40,
+    )
+    creature.shell(
+        f"shin_{name}",
+        [
+            ((0, 0.0, -0.24), 0.045, 0.048, 0.048, 2.6),
+            ((0, 0.0, -0.3), 0.04, 0.042, 0.042, 2.6),
+            ((0, -0.002, -0.38), 0.031, 0.033, 0.033, 2.6),
+            ((0, -0.005, ground + 0.1), 0.029, 0.031, 0.031, 2.6),
+            ((0, -0.009, ground + 0.07), 0.037, 0.04, 0.038, 2.6),
+            ((0, -0.012, ground + 0.045), 0.034, 0.036, 0.034, 2.4),
+        ],
+        body,
+        leg,
+        sides=10,
+        start=0.0,
+        end=0.0,
+        crease=40,
     )
 
     # Sculpted cloven llama hoof standing flat on the ground.
@@ -236,38 +267,51 @@ def _neck(root, brow, throat, spine, body, detail, dark, accent):
     girth = 0.118
     axis = throat.y + girth
     neck_at = Vector((0, axis, spine + 0.08))
-    skull_at = Vector((0, brow.y + 0.103, brow.z - 0.02))
+    # The skull sits low enough that the forehead, with the brow seal on
+    # it, shows above the bridge of the muzzle from the front.
+    skull_at = Vector((0, brow.y + 0.103, brow.z - 0.045))
     head_at = Vector((0, skull_at.y + 0.01, skull_at.z - 0.085))
     neck = creature.pivot("neck", root, neck_at)
 
-    # Smooth lofted woolly neck column from broad fluffy chest collar up to
-    # sculpted throat under the jaw, keeping throat seal flush on front surface.
-    z_bot = -0.06
-    z_top = (head_at.z - neck_at.z) + 0.06
-    rings = []
-    rows = 22
-    segs = 26
-    for row in range(rows + 1):
-        t = row / rows
-        z = z_bot + (z_top - z_bot) * t
-        # Gentle proud S-curve along Y: leans slightly forward at chest, gracefully back under head.
-        cy = 0.018 * (1.0 - t) - 0.014 * math.sin(t * math.pi)
-        rx = 0.142 * (1.0 - 0.34 * t)
-        ry = 0.136 * (1.0 - 0.30 * t)
-        # Keep the throat seal height cleanly seated (`z_world ~= throat.z`).
-        ring = []
-        for s in range(segs):
-            a = math.tau * s / segs
-            # Soft organic fleece waves (not sharp snowman pinch rings!).
-            fluff = 1.0 + 0.055 * math.sin(a * 5 + t * 14.0) * math.sin(t * math.pi) + 0.035 * math.cos(t * math.pi * 6)
-            ring.append((math.cos(a) * rx * fluff, cy + math.sin(a) * ry * fluff, z))
-        rings.append(ring)
-
-    wool = core.loft("neck_wool", rings, body, neck, cap_start=True, cap_end=True)
-    creature.finish(core.shade_smooth(wool))
+    # The neck: a column of a few broad planes, boxy enough that each side
+    # prints as one tone, leaning forward at the chest and back under the
+    # head, its front flat where the throat seal sits.
+    top = head_at.z - neck_at.z + 0.06
+    wool = creature.shell(
+        "neck_wool",
+        [
+            ((0, 0.02, -0.06), 0.145, 0.14, 0.14, 2.6),
+            ((0, 0.01, 0.06), 0.13, 0.124, 0.13, 3.0),
+            ((0, 0.0, 0.2), 0.112, 0.112, 0.116, 3.0),
+            ((0, 0.0, 0.33), 0.1, 0.098, 0.1, 3.0),
+            ((0, 0.01, top - 0.08), 0.092, 0.088, 0.092, 2.8),
+            ((0, 0.02, top), 0.078, 0.072, 0.078, 2.4),
+        ],
+        body,
+        neck,
+        sides=10,
+        start=0.0,
+        end=0.03,
+        crease=40,
+    )
 
     _neckerchief(creature.pivot("trait_2", neck, (0, 0, 0)), _surface(wool), throat.z + 0.17 - neck_at.z, detail)
-    _head(neck, neck_at, head_at, skull_at, body, detail, dark, accent)
+    head = _head(neck, neck_at, head_at, skull_at, body, detail, dark, accent)
+    _grow(head, brow, HEAD_GROWTH)
+
+
+def _grow(head, about, factor):
+    """Grows the head and everything on it by `factor` about the point
+    `about` (the brow seal, which stays put). Pivots are moved, never
+    scaled: each mesh's own vertices grow, and each pivot's place."""
+
+    head.location = Vector(about) - creature.origin(head.parent) + (creature.origin(head) - Vector(about)) * factor
+
+    for node in head.children_recursive:
+        node.location = Vector(node.location) * factor
+
+        if node.type == "MESH":
+            node.data.transform(Matrix.Scale(factor, 4))
 
 
 def _head(neck, neck_at, head_at, skull_at, body, detail, dark, accent):
@@ -344,10 +388,27 @@ def _head(neck, neck_at, head_at, skull_at, body, detail, dark, accent):
     jaw_at = Vector((0, y - 0.07, z - 0.07))
     jaw = creature.pivot("jaw", head, jaw_at - head_at)
 
-    feature("mouth", chin, (0.032, 0.05, 0.014), dark, 80)
-    # The lower jaw juts past the upper lip: an underbite.
-    jut = (0, chin[1] - 0.06, chin[2] + 0.006)
-    creature.form("jaw_lower", _about(jaw_at, [("sphere", chin, (0.046, 0.068, 0.029)), ("sphere", jut, (0.038, 0.04, 0.026))]), body, jaw, triangles=260)
+    feature("mouth", chin, (0.034, 0.052, 0.016), dark, 80)
+    # The lower jaw: a heavy chin with a jowl to either side, jutting past
+    # the upper lip in an underbite.
+    jut = (0, chin[1] - 0.058, chin[2] + 0.004)
+    creature.facet(
+        "jaw_lower",
+        _about(
+            jaw_at,
+            [
+                ("sphere", chin, (0.052, 0.074, 0.036)),
+                ("sphere", (0.034, chin[1] + 0.03, chin[2] + 0.004), (0.03, 0.05, 0.032)),
+                ("sphere", (-0.034, chin[1] + 0.03, chin[2] + 0.004), (0.03, 0.05, 0.032)),
+                ("sphere", jut, (0.042, 0.044, 0.032)),
+            ],
+        ),
+        body,
+        jaw,
+        triangles=320,
+        voxel=0.009,
+        flat=10.0,
+    )
 
     # The underbite: two flat front teeth standing up out of the lower jaw
     # past the lip, a llama's sass.
@@ -362,6 +423,8 @@ def _head(neck, neck_at, head_at, skull_at, body, detail, dark, accent):
     creature.finish(core.shade_smooth(incisors, angle=40))
 
     _cowboy_hat(creature.pivot("trait_1", head, (0, 0, 0)), Vector((0, y - 0.02, z + 0.09)) - head_at, detail, core.material("trim"))
+
+    return head
 
 
 def _cowboy_hat(parent, at, felt, band):
