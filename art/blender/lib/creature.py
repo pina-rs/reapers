@@ -380,6 +380,49 @@ def studs(root, spec, radius=SEAL_RADIUS, height=SEAL_HEIGHT, body=None):
     return made
 
 
+def seat(name, spec, index, mat, parent, body, radius=0.05, rise=0.012, lobes=8, scallop=0.14, power=2.0, up=(0, 0, 1)):
+    """The socket a seal is set in: a low rosette `radius` across whose
+    face passes through seal `index`'s centre, square to the surface of
+    `body` there, so the seal prints as the boss of a wax seal and not as a
+    bare dot (a hole, a navel, a third eye). Its rim is scalloped into
+    `lobes` (0 for a plain outline, a superellipse of `power` with its
+    sides square to `up`: 4 is a hatch), so it never reads as the ring of
+    an eye. It reaches `rise` and a little more back into the body, so
+    shape the body's surface to lie about `rise` under the seal. Hang it
+    from the part it sits on (`parent`); `body` is the meshes whose surface
+    it sits on. Prints how far the seal stands off `body` (`SEAT`)."""
+
+    at = to_blender(spec["seals"][index]["offset"])
+    tree = surface(body)
+    normal = _facing(tree, at)
+    point, _, _, _ = tree.find_nearest(at)
+    print(f"SEAT {name} stands {(at - point).dot(normal) * 1000:+.0f} mm proud of its body (rise {rise * 1000:.0f} mm)")
+
+    _, front, side = _frames([at - normal, at], up, normal)[0]
+    count = lobes * 4 if lobes else 16
+    outline = []
+
+    for step in range(count):
+        angle = math.tau * step / count
+
+        if lobes:
+            reach = 1.0 + scallop * math.cos(lobes * angle)
+            outline.append((math.cos(angle) * reach, math.sin(angle) * reach))
+        else:
+            outline.extend(section(1.0, 1.0, 1.0, power, count)[step : step + 1])
+
+    home = origin(parent)
+
+    def ring(depth, scale):
+        centre = at - normal * depth - home
+        return [centre + side * x * radius * scale + front * y * radius * scale for x, y in outline]
+
+    made = core.loft(name, [ring(rise + 0.015, 1.04), ring(0.004, 1.0), ring(0.0, 0.82)], mat, parent, cap_start=True, cap_end=True)
+    core.shade_smooth(made, angle=50)
+
+    return finish(made)
+
+
 def _facing(tree, at):
     """The surface's outward normal nearest `at`."""
 
