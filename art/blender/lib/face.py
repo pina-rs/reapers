@@ -5,7 +5,7 @@ import math
 import bpy
 from mathutils import Vector
 
-from . import core
+from . import core, motion
 
 EXPRESSIONS = ("joy", "sorrow", "anger", "smirk", "awe", "fear")
 CLIPS = {
@@ -174,11 +174,18 @@ def build(root, calling):
 
 
 def weight(clip, expression, phase):
-    """Anticipate, hold the expression, then return to neutral on recovery."""
+    """Anticipate, arrive a little past full and settle, hold the
+    expression, then return to neutral on recovery."""
     if CLIPS.get(clip) != expression:
         return 0.0
-    ramp = min(1, phase / 0.2, (1 - phase) / 0.18)
-    strength = ramp * ramp * (3 - 2 * ramp)
+
+    def smooth(t):
+        t = max(0.0, min(1.0, t))
+        return t * t * (3 - 2 * t)
+
+    # Back-out on a smoothstep: still at the start, 5% past full, settled.
+    rise = smooth(phase / 0.2) - 1
+    strength = (1 + 2.2 * rise**3 + 1.2 * rise**2) * smooth((1 - phase) / 0.18)
     if clip == "laugh":
         strength *= 0.82 + 0.18 * math.sin(phase * math.tau * 5)
     if clip == "bow":
@@ -187,27 +194,19 @@ def weight(clip, expression, phase):
 
 
 def bake(faces, specs):
-    """NLA track names merge face weights into the same GLB body clips."""
+    """NLA track names merge face weights into the same GLB body clips, on
+    the bake's own timeline (`motion.timeline`). The face moves with the
+    head (`motion.lead`)."""
     for obj in faces:
         data = obj.data.shape_keys
         data.animation_data_create()
-        offset = 1
-        for spec in specs:
-            frames = round(spec["seconds"] * 30)
-            for frame in range(frames + 1):
-                for expression in EXPRESSIONS:
-                    shape = data.key_blocks[expression]
-                    shape.value = weight(spec["motion"], expression, frame / frames)
-                    shape.keyframe_insert(data_path="value", frame=frame)
-            action = data.animation_data.action
-            action.name = f'{spec["name"]}_{obj.name}'
-            slot = data.animation_data.action_slot
-            track = data.animation_data.nla_tracks.new()
-            track.name = spec["name"]
-            strip = track.strips.new(spec["name"], offset, action)
-            strip.action_slot = slot
-            strip.extrapolation = "NOTHING"
-            data.animation_data.action = None
-            for shape in data.key_blocks:
-                shape.value = 0
-            offset += frames + 5
+        data.animation_data.action = None
+        for spec, first, frames in motion.timeline(specs):
+            name, seconds = spec["motion"], spec["seconds"]
+            channels = {
+                (f'key_blocks["{expression}"].value', 0): [weight(name, expression, motion.lead(name, frame / frames, seconds, "head")) for frame in range(frames + 1)]
+                for expression in EXPRESSIONS
+            }
+            motion.key(data, "KEY", f'{spec["name"]}_{obj.name}', spec["name"], first, channels)
+        for shape in data.key_blocks:
+            shape.value = 0
