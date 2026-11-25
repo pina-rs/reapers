@@ -307,6 +307,27 @@ fn a_practice_hunt_fought_by_the_rules_own_player_ends_in_a_verdict() {
 }
 
 #[test]
+fn a_hunt_draws_its_overlay_no_more_than_thirty_times_a_second() {
+	// The 3D moves on every frame the display draws; the 2D overlay, whose
+	// every drawing rebuilds the screen, is held to thirty a second however
+	// fast the frames come.
+	let mut harness = Harness::autoplay();
+	harness.open(Route::Practice);
+	harness.tap("hunt-begin");
+	// The rules' own player traces the sigil and the fight begins.
+	reapers_app::hunt::view::play_on(3.0);
+	harness.settle();
+	let before = reapers_app::hunt::view::drawn_count();
+	// Four seconds of the fight, a frame at a time.
+	for _ in 0..240 {
+		reapers_app::hunt::view::play_on(1.0 / 60.0);
+	}
+	let drawn = reapers_app::hunt::view::drawn_count() - before;
+	assert!(drawn > 10, "the fight is drawn as it changes: {drawn}");
+	assert!(drawn <= 4 * 30 + 1, "{drawn} drawings in four seconds");
+}
+
+#[test]
 fn a_first_practice_teaches_one_thing_at_a_time() {
 	let mut harness = Harness::autoplay();
 	harness.open(Route::Practice);

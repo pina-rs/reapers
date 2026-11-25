@@ -92,6 +92,13 @@ const AUTOPLAY_ARC: f64 = reapers_rules::radians(80.0);
 /// How long a finished hunt waits, at most, for its husk to come apart
 /// before it is handed to the books.
 const LINGER_SECONDS: f64 = 2.4;
+/// The least time between two drawings of the screen's 2D overlay and HUD,
+/// in seconds. The 3D moves on every frame the display draws, but drawing
+/// the overlay again rebuilds the screen's whole tree: at a display's 60 to
+/// 120 frames a second that cost frames the 3D needed, so the overlay is
+/// drawn at most thirty times a second, as often as it was when the whole
+/// hunt ticked at that rate.
+const REDRAW_SECONDS: f64 = 1.0 / 30.0;
 
 /// Where a hunt has got to.
 #[derive(Clone, Debug, PartialEq)]
@@ -136,6 +143,8 @@ pub struct HuntState {
 	drawn: RwSignal<u64>,
 	/// What was last drawn, so a still screen is not drawn again.
 	fingerprint: u64,
+	/// When the screen was last drawn, in the view's seconds.
+	redrawn_at: f64,
 	/// The hunt's light: its husk's eyes.
 	pub light: Rgb,
 	/// The view's size in layout units.
@@ -285,6 +294,7 @@ impl HuntState {
 			ticking: false,
 			drawn: crate::ui::lasting(|| RwSignal::new(0)),
 			fingerprint: 0,
+			redrawn_at: f64::NEG_INFINITY,
 			light: light_of(&props.brief),
 			size,
 			room: crate::dev::drawn_room::room(),
@@ -564,9 +574,15 @@ impl HuntState {
 		{
 			self.banner = None;
 		}
+		// A change that comes too soon after the last drawing is drawn on
+		// the first frame after the wait: its fingerprint still differs. A frame
+		// that falls a rounding short of the wait counts as waited.
 		let fingerprint = self.fingerprint();
-		if fingerprint != self.fingerprint {
+		if fingerprint != self.fingerprint
+			&& self.seconds - self.redrawn_at >= REDRAW_SECONDS - 1e-6
+		{
 			self.fingerprint = fingerprint;
+			self.redrawn_at = self.seconds;
 			self.drawn.update(|drawn| *drawn += 1);
 		}
 	}
