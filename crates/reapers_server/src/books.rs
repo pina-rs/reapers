@@ -442,8 +442,10 @@ pub async fn change(
 /// never overwritten. A reading that does not [`GeoFix::replaces`] the one
 /// kept is ignored: a delayed upload never moves a player back, and a coarser
 /// copy of the same instant does not replace a tighter one. Nor is one
-/// observed less than [`RiftRules::LOCATION_REPORT_INTERVAL`] after it: the
-/// books keep at most one reading every interval.
+/// observed less than [`RiftRules::LOCATION_REPORT_INTERVAL`] after it,
+/// unless it refines that same instant within the kept reading's accuracy:
+/// within one interval the player moves no further than the first reading's
+/// accuracy. A clear forgets the kept reading, and with it the interval.
 pub async fn locate(
 	db: &Db,
 	account: Id<Account>,
@@ -556,15 +558,23 @@ pub async fn locate(
 }
 
 /// Whether the books keep `fix` over `before`: it [`GeoFix::replaces`] it,
-/// and either tightens the same instant or was observed at least
-/// [`RiftRules::LOCATION_REPORT_INTERVAL`] after it.
+/// and either was observed at least [`RiftRules::LOCATION_REPORT_INTERVAL`]
+/// after it, or refines the same instant with a circle of accuracy that
+/// lies inside `before`'s. Nested circles keep any run of refinements
+/// within the first one.
 fn keeps(fix: &GeoFix, before: &GeoFix) -> bool {
+	if !fix.replaces(before) {
+		return false;
+	}
+
+	if fix.observed_at == before.observed_at {
+		return fix.at.distance_to(&before.at) + fix.accuracy <= before.accuracy;
+	}
+
 	let interval =
 		i64::try_from(RiftRules::LOCATION_REPORT_INTERVAL.as_micros()).unwrap_or(i64::MAX);
 
-	fix.replaces(before)
-		&& (fix.observed_at == before.observed_at
-			|| fix.observed_at.micros_since(before.observed_at) >= interval)
+	fix.observed_at.micros_since(before.observed_at) >= interval
 }
 
 /// `account`'s latest location, while it is still fresh enough at `now` to
