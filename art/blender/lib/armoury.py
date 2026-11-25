@@ -42,3 +42,23 @@ def binding(name, parent, low, high, radius=0.024, turns=7, mat="rope"):
     return finish(core.tube(name, path, 0.0065, core.material(mat), parent, sides=6))
 
 
+
+
+def band(name, parent, low, high, radius=0.027, mat="gold", segments=12):
+    """The spot band (art bible 6.4): one ring of the owner's light, chamfered
+    at both edges, round a haft where the hand meets it, from `low` to
+    `high`. Faceted on purpose: each face prints as one plane."""
+
+    chamfer = min(0.004, (high - low) / 4)
+    ring = core.revolve(
+        name,
+        [(0.0, low), (radius * 0.9, low), (radius, low + chamfer), (radius, high - chamfer), (radius * 0.9, high), (0.0, high)],
+        core.material(mat),
+        parent,
+        segments=segments,
+    )
+
+    for polygon in ring.data.polygons:
+        polygon.use_smooth = False
+
+    return finish(ring, wear_boost=1.6)
