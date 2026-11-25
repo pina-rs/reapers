@@ -177,6 +177,50 @@ async fn out_of_order_uploads_cannot_replace_a_newer_location() {
 }
 
 #[tokio::test]
+async fn a_location_is_kept_at_most_once_every_report_interval() {
+	let world = World::new().await;
+	let player = world.player().await;
+	let first = measured(4.0, GeoPoint::new(51.5, -0.08), 10);
+	let too_soon = measured(4.0, GeoPoint::new(51.501, -0.08), 8);
+	let in_time = measured(4.0, GeoPoint::new(51.502, -0.08), 5);
+	let kept = async || world.call(player, Location {}).await.unwrap().map(|f| f.at);
+
+	for fix in [first, too_soon] {
+		world
+			.call(
+				player,
+				UpdateLocation {
+					fix: shared(Some(fix)),
+				},
+			)
+			.await
+			.unwrap();
+	}
+
+	assert_eq!(
+		kept().await,
+		Some(first.at),
+		"a reading 2 s after the one kept is ignored"
+	);
+
+	world
+		.call(
+			player,
+			UpdateLocation {
+				fix: shared(Some(in_time)),
+			},
+		)
+		.await
+		.unwrap();
+
+	assert_eq!(
+		kept().await,
+		Some(in_time.at),
+		"a reading 5 s after the one kept replaces it"
+	);
+}
+
+#[tokio::test]
 async fn a_same_instant_refinement_replaces_a_coarser_location() {
 	let world = World::new().await;
 	let player = world.player().await;

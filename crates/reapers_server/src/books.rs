@@ -27,6 +27,7 @@ use reapers_rules::GeoFix;
 use reapers_rules::PlayerState;
 use reapers_rules::ReaperState;
 use reapers_rules::Refusal;
+use reapers_rules::RiftRules;
 use reapers_rules::RuleResult;
 use reapers_rules::Timestamp;
 
@@ -440,7 +441,9 @@ pub async fn change(
 /// `state` JSONB blob, so concurrent purchases and hunts touching `state` are
 /// never overwritten. A reading that does not [`GeoFix::replaces`] the one
 /// kept is ignored: a delayed upload never moves a player back, and a coarser
-/// copy of the same instant does not replace a tighter one.
+/// copy of the same instant does not replace a tighter one. Nor is one
+/// observed less than [`RiftRules::LOCATION_REPORT_INTERVAL`] after it: the
+/// books keep at most one reading every interval.
 pub async fn locate(
 	db: &Db,
 	account: Id<Account>,
@@ -486,7 +489,7 @@ pub async fn locate(
 				async {
 					let books = open(tx, account).await?;
 					if let Some(Json(before)) = &books.location
-						&& !fix.replaces(before)
+						&& !keeps(&fix, before)
 					{
 						return Ok(());
 					}
@@ -508,7 +511,7 @@ pub async fn locate(
 		let before_value = cols.next().unwrap_or(Value::Null);
 		if let Value::Json(ref raw) = before_value
 			&& let Ok(before) = serde_json::from_value::<GeoFix>(raw.clone())
-			&& !fix.replaces(&before)
+			&& !keeps(&fix, &before)
 		{
 			return Ok(());
 		}
@@ -537,7 +540,7 @@ pub async fn locate(
 		async {
 			let books = open(tx, account).await?;
 			if let Some(Json(before)) = &books.location
-				&& !fix.replaces(before)
+				&& !keeps(&fix, before)
 			{
 				return Ok(());
 			}
@@ -550,6 +553,18 @@ pub async fn locate(
 		}
 		.await
 	})
+}
+
+/// Whether the books keep `fix` over `before`: it [`GeoFix::replaces`] it,
+/// and either tightens the same instant or was observed at least
+/// [`RiftRules::LOCATION_REPORT_INTERVAL`] after it.
+fn keeps(fix: &GeoFix, before: &GeoFix) -> bool {
+	let interval =
+		i64::try_from(RiftRules::LOCATION_REPORT_INTERVAL.as_micros()).unwrap_or(i64::MAX);
+
+	fix.replaces(before)
+		&& (fix.observed_at == before.observed_at
+			|| fix.observed_at.micros_since(before.observed_at) >= interval)
 }
 
 /// `account`'s latest location, while it is still fresh enough at `now` to
