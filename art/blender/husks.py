@@ -29,7 +29,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 import bmesh  # noqa: E402
 import bpy  # noqa: E402
-from mathutils import Vector  # noqa: E402
+from mathutils import Matrix, Vector  # noqa: E402
 
 from lib import cel, core, creature, ink, preview, review  # noqa: E402
 
@@ -95,105 +95,423 @@ def image_grid(name, mat, parent, origin, across, up, columns, rows, uv=(0.0, 0.
 # Reliquary Stack --------------------------------------------------------
 
 
+# Each storey, bottom first: its crate's half-width, how far it has slid
+# along x, and how far it is rolled about y and turned about z (radians).
+# The tower leans to its left as it climbs and every crate sits a little
+# askew on the one below, so it reads as something piled up, not built.
+STOREYS = (
+    (1.0, 0.0, 0.0, 0.06),
+    (0.87, 0.1, -0.035, -0.2),
+    (0.94, 0.24, 0.04, 0.28),
+    (0.84, 0.42, -0.035, -0.1),
+    (0.86, 0.64, 0.06, 0.22),
+)
+# How tall the gap between two crates is, which the seam fills, and how
+# thick a crate's frame members are.
+SEAM_GAP = 0.34
+MEMBER = 0.16
+# The farthest a seam's centre strays from the seals' line.
+SEAM_ASIDE = 0.25
+# How deep a portrait sits behind the face of its frame.
+RECESS = 0.07
+# The seals are wax bosses scaled up to the tower's size.
+STACK_SEAL_RADIUS = 0.16
+STACK_SEAL_HEIGHT = 0.06
+
+
 def reliquary_stack(spec):
-    """A tower of ornate reliquary cubes held together by crystalline energy
-    seams. Each cube is its own node so the game can let one fall when the seam
-    under it breaks."""
+    """A leaning tower of reliquary crates: five picture-frame boxes piled
+    askew, each wearing a portrait on every side, held apart by seams of
+    crystal that are its seals, and capped with a gabled casket roof.
+
+    Every crate is its own node, `cube_<storey>`, holding its frame
+    (`block_<storey>`) and its four portrait faces (`panel_<storey>_<face>`),
+    so the game can let one fall when the seam under it breaks. The seams
+    (`seam_<index>`) and their seal bosses (`seal_<index>`) hang from the
+    root, at the rules' seal heights, and stay where they are."""
 
     root = core.empty("husk")
-    generator = random.Random(21)
     seams = sorted(seal["offset"][1] for seal in spec["seals"])
-    gap = 0.16
     spacing = seams[1] - seams[0]
-    side = spacing - gap
-    half = side / 2
     centres = [seams[0] - spacing / 2 + spacing * index for index in range(len(seams) + 1)]
-    frame_mat = core.material("frame", color=(1.0, 1.0, 1.0), roughness=0.42, metallic=0.72, pbr="stone")
-    glow_mat = core.material("glow", color=(1.0, 1.0, 1.0), roughness=0.20)
+    frame = core.material("frame", color=(1.0, 1.0, 1.0), roughness=0.42, metallic=0.72, pbr="stone")
+    glow = core.material("glow", color=(1.0, 1.0, 1.0), roughness=0.20)
+    canvas = core.material("canvas")
+    half_height = (spacing - SEAM_GAP) / 2
+    floor = -spec["halfHeight"]
+    top = len(centres) - 1
 
-    for index, centre in enumerate(centres):
-        cube = core.empty(f"cube_{index}", root, location=(0, 0, centre))
-        cube.rotation_euler = (0, 0, generator.uniform(-0.16, 0.16))
-        offset = Vector((generator.uniform(-0.07, 0.07), generator.uniform(-0.07, 0.07), 0))
+    for index, (centre, (half, slide, roll, turn)) in enumerate(zip(centres, STOREYS)):
+        cube = core.empty(f"cube_{index}", root, location=(slide, 0, centre))
+        cube.rotation_euler = (0, roll, turn)
+        parts = _crate(index, half, half_height, frame)
 
-        bpy.ops.mesh.primitive_cube_add(size=side * 0.96)
-        core_block = bpy.context.object
-        core_block.name = f"block_core_{index}"
-        core_block.data.materials.append(frame_mat)
-        core_block.location = offset
-        core.apply_modifier(core_block, "BEVEL", width=0.045, segments=3)
+        if index == 0:
+            parts.append(_box("plinth", (-half - 0.1, -half - 0.1, floor - centre), (half + 0.1, half + 0.1, -half_height), frame))
 
-        frame_parts = [core_block]
-        # Top and bottom gothic cornice moldings + 8 armored corner brackets.
-        for z_sign in (-1, 1):
-            bpy.ops.mesh.primitive_cube_add(size=1.0)
-            cornice = bpy.context.object
-            cornice.name = f"cornice_{index}_{z_sign}"
-            cornice.scale = (side * 1.02, side * 1.02, side * 0.085)
-            cornice.location = offset + Vector((0, 0, z_sign * half * 0.91))
-            cornice.data.materials.append(frame_mat)
-            core.activate(cornice)
-            bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-            core.apply_modifier(cornice, "BEVEL", width=0.015, segments=2)
-            frame_parts.append(cornice)
+        if index == top:
+            parts.extend(_casket(half, half_height, frame))
 
-        for sx in (-1, 1):
-            for sy in (-1, 1):
-                bpy.ops.mesh.primitive_cube_add(size=1.0)
-                pillar = bpy.context.object
-                pillar.name = f"pillar_{index}_{sx}_{sy}"
-                pillar.scale = (side * 0.11, side * 0.11, side * 0.99)
-                pillar.location = offset + Vector((sx * half * 0.93, sy * half * 0.93, 0))
-                pillar.data.materials.append(frame_mat)
-                core.activate(pillar)
-                bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-                core.apply_modifier(pillar, "BEVEL", width=0.014, segments=2)
-                frame_parts.append(pillar)
-
-        block = core.join(frame_parts, f"block_{index}")
+        block = core.join(parts, f"block_{index}")
         block.parent = cube
-        finish(core.shade_smooth(block, angle=42), wear_boost=1.8)
+        core.crisp(block, 0.03, angle=30, segments=1)
+        finish(block, wear_boost=1.8)
 
-        # An image on each of the four sides, framed cleanly inside the corner pillars.
         for face in range(4):
-            angle = math.pi / 2 * face
-            outward = Vector((math.sin(angle), -math.cos(angle), 0))
-            across = Vector((math.cos(angle), math.sin(angle), 0))
-            inset = half * 0.80
-            panel = image_grid(
-                f"panel_{index}_{face}",
-                core.material("canvas"),
-                cube,
-                offset + outward * (half * 0.98) - across * inset - Vector((0, 0, inset)),
-                across * inset * 2,
-                (0, 0, inset * 2),
-                4,
-                4,
-            )
-            finish_image(panel)
+            _portrait(index, face, half, half_height, canvas, cube)
+
+    # Each seam's flat front stands as far forward as its seal.
+    front = max(seal["offset"][2] for seal in spec["seals"])
+    made = []
 
     for index, height in enumerate(seams):
-        # Faceted octagonal crystalline energy core between each reliquary block.
-        seam = core.revolve(
-            f"seam_{index}",
-            [
-                (0.0, gap * 0.56),
-                (side * 0.30, gap * 0.50),
-                (side * 0.42, gap * 0.16),
-                (side * 0.42, -gap * 0.16),
-                (side * 0.30, -gap * 0.50),
-                (0.0, -gap * 0.56),
-            ],
-            glow_mat,
-            root,
-            segments=8,
-            cap_top=True,
-            cap_bottom=True,
-        )
-        seam.location = (0, 0, height)
-        core.shade_smooth(seam, angle=35)
+        # Centred between the crates it parts, but never so far aside that
+        # its seal slips off its flat front.
+        between = (STOREYS[index][1] + STOREYS[index + 1][1]) / 2
+        aside = max(-SEAM_ASIDE, min(SEAM_ASIDE, between))
+        made.append(_seam(index, Vector((aside, 0, height)), front, glow, root))
+
+    creature.studs(root, spec, radius=STACK_SEAL_RADIUS, height=STACK_SEAL_HEIGHT, body=made)
+
+    for index, gap in enumerate(creature.seal_gaps(root, spec, body=made)):
+        print(f"SEAL seal_{index} stands {gap * 1000:+.0f} mm off its seam")
+
+        if not -STACK_SEAL_HEIGHT / 2 <= gap <= STACK_SEAL_HEIGHT * 0.75:
+            raise RuntimeError(f"reliquaryStack: seal_{index} is {gap * 1000:+.0f} mm off its seam; widen the seam so its front meets the seal")
 
     return root
+
+
+def _box(name, low, high, mat):
+    """An axis-aligned box from corner `low` to corner `high`."""
+
+    mesh = bmesh.new()
+    bmesh.ops.create_cube(mesh, size=1.0)
+    low, high = Vector(low), Vector(high)
+
+    for vertex in mesh.verts:
+        vertex.co = Vector(low[axis] + (vertex.co[axis] + 0.5) * (high[axis] - low[axis]) for axis in range(3))
+
+    return core.object_from_bmesh(name, mesh, mat, smooth=False)
+
+
+def _turned(obj, quarter):
+    """Turns a part about the crate's upright axis by `quarter` quarter turns."""
+
+    obj.data.transform(Matrix.Rotation(math.pi / 2 * quarter, 4, "Z"))
+
+    return obj
+
+
+def _crate(index, half, tall, mat):
+    """A crate built like four picture frames boxed together: a square post
+    at each upright edge, a rail top and bottom on each face, a liner
+    sloping in from the rails to the portrait, and a carcass behind."""
+
+    inner = half - MEMBER
+    parts = [_box(f"carcass_{index}", (-half + RECESS, -half + RECESS, -tall + 0.02), (half - RECESS, half - RECESS, tall - 0.02), mat)]
+
+    # A lid and a skirt, overhanging all round: the step in the outline
+    # that says crate, storey by storey.
+    for way in (-1, 1):
+        lip = half + 0.08
+        parts.append(_box(f"lid_{index}_{way}", (-lip, -lip, way * tall - 0.06), (lip, lip, way * tall + 0.06), mat))
+
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            # Posts stand a little proud of the rails, so each edge of the
+            # tower is a column that catches its own band.
+            proud = 0.03
+            low = (min(sx * (half + proud), sx * inner), min(sy * (half + proud), sy * inner), -tall)
+            high = (max(sx * (half + proud), sx * inner), max(sy * (half + proud), sy * inner), tall)
+            parts.append(_box(f"post_{index}_{sx}_{sy}", low, high, mat))
+
+    for face in range(4):
+        for way in (-1, 1):
+            low = (-inner, -half, way * tall - (MEMBER if way > 0 else 0))
+            high = (inner, -half + MEMBER, way * tall + (0 if way > 0 else MEMBER))
+            parts.append(_turned(_box(f"rail_{index}_{face}_{way}", low, high, mat), face))
+
+        # The liner: a sloped frame from the rails' inner edge down to the
+        # portrait, the plane that takes the light round each picture.
+        out_w, out_h = inner, tall - MEMBER
+        in_w, in_h = inner - 0.07, tall - MEMBER - 0.07
+        outer = [(-out_w, -half, -out_h), (out_w, -half, -out_h), (out_w, -half, out_h), (-out_w, -half, out_h)]
+        deep = -half + RECESS
+        inside = [(-in_w, deep, -in_h), (in_w, deep, -in_h), (in_w, deep, in_h), (-in_w, deep, in_h)]
+        parts.append(_turned(core.loft(f"liner_{index}_{face}", [inside, outer], mat), face))
+
+    return parts
+
+
+def _portrait(index, face, half, tall, mat, cube):
+    """The portrait face on side `face` of crate `index`: a square sheet in
+    the frame's opening, the whole of one portrait across it (UV 0 to 1,
+    upright as seen from outside). Face 0 looks to the front (-Y), 1 to the
+    tower's left (+X), 2 to the back and 3 to its right."""
+
+    angle = math.pi / 2 * face
+    outward = Vector((math.sin(angle), -math.cos(angle), 0))
+    across = Vector((math.cos(angle), math.sin(angle), 0))
+    size = min(half - MEMBER, tall - MEMBER) - 0.07
+    panel = image_grid(
+        f"panel_{index}_{face}",
+        mat,
+        cube,
+        outward * (half - RECESS + 0.004) - across * size - Vector((0, 0, size)),
+        across * size * 2,
+        (0, 0, size * 2),
+        4,
+        4,
+    )
+    finish_image(panel)
+
+
+def _casket(half, tall, mat):
+    """The top crate's lid: a gabled casket roof, its ridge running front to
+    back so the gable faces whoever looks up at it, with finials along the
+    ridge."""
+
+    eave = half + 0.14
+    rise = 0.95
+    lip = 0.1
+    base = tall
+    roof = [(-eave, base), (eave, base), (eave, base + lip), (0.0, base + lip + rise), (-eave, base + lip)]
+    rings = [[(x, y, z) for x, z in roof] for y in (-eave, eave)]
+    parts = [core.loft("roof", rings, mat, cap_start=True, cap_end=True)]
+
+    # Slabs laid on the roof, overhanging the gables, so each pitch is one
+    # broad plane with a thick edge.
+    for side in (-1, 1):
+        ridge = Vector((0, 0, base + lip + rise))
+        eaves = Vector((side * (eave + 0.08), 0, base + lip - 0.08 * rise / eave))
+        thick = 0.09
+        normal = Vector((side * rise, 0, eave)).normalized()
+        section = [ridge, eaves, eaves + normal * thick, ridge + normal * thick]
+        rings = [[point + Vector((0, y, 0)) for point in section] for y in (-eave - 0.08, eave + 0.08)]
+        parts.append(core.loft(f"pitch_{side}", rings, mat, cap_start=True, cap_end=True))
+
+    crest = base + lip + rise + 0.06
+
+    for step in range(7):
+        y = -eave + 2 * eave * step / 6
+        size = 0.5 if step in (0, 6) else 0.2
+        parts.append(_spike(f"finial_{step}", Vector((0, y, crest)), Vector((0, 0, 1)), size, 0.1 if step in (0, 6) else 0.06, mat))
+
+    return parts
+
+
+def _spike(name, at, direction, length, width, mat, sides=4):
+    """A crystal or finial: a bipyramid from `at` out along `direction`."""
+
+    profile = [(0.0, length), (width, length * 0.22), (width * 0.8, 0.0), (0.0, -length * 0.08)]
+    spike = core.revolve(name, profile, mat, segments=sides, cap_top=True, cap_bottom=True)
+    spike.data.transform(Vector((0, 0, 1)).rotation_difference(Vector(direction).normalized()).to_matrix().to_4x4())
+    spike.data.transform(Matrix.Translation(at))
+
+    return spike
+
+
+def _seam(index, centre, front, mat, parent):
+    """A seam between two crates: a band of crystal, octagonal and flat at
+    the front, `front` from the tower's axis, where the seal sits, its edges
+    sloping into the crates, and shards of crystal jutting from it to the
+    sides and back."""
+
+    def ring(apothem, z):
+        reach = apothem / math.cos(math.pi / 8)
+        points = []
+
+        for corner in range(8):
+            angle = math.pi / 8 + math.pi / 4 * corner
+            points.append(centre + Vector((math.sin(angle) * reach, -math.cos(angle) * reach, z)))
+
+        return points
+
+    rings = [ring(0.72, SEAM_GAP * 0.62), ring(front, 0.09), ring(front, -0.09), ring(0.72, -SEAM_GAP * 0.62)]
+    parts = [core.loft(f"seam_band_{index}", rings, mat, cap_start=True, cap_end=True)]
+    generator = random.Random(40 + index)
+
+    for corner, (bearing, length) in enumerate(((55, 1.1), (100, 0.75), (150, 0.9), (210, 0.85), (255, 1.0), (305, 1.05))):
+        bearing = math.radians(bearing + generator.uniform(-12, 12))
+        tilt = generator.uniform(-0.45, 0.55)
+        direction = Vector((math.sin(bearing), -math.cos(bearing), tilt)).normalized()
+        start = centre + Vector((math.sin(bearing), -math.cos(bearing), 0.0)) * 0.78
+        parts.append(_spike(f"shard_{index}_{corner}", start, direction, length, 0.17, mat, sides=5))
+
+    seam = core.join(parts, f"seam_{index}")
+    seam.parent = parent
+    core.shade_smooth(seam, angle=30)
+
+    return seam
+
+
+# Portraits --------------------------------------------------------------
+
+# A specimen plate: this many pixels square, with a paper margin this share
+# of its side round the window the husk stands in, the window's rule this
+# many pixels wide, and the window washed with the NFT's backdrop this far
+# from paper toward its ghost.
+PLATE_PX = 384
+PLATE_MARGIN = 0.06
+PLATE_RULE_PX = 2
+PLATE_WASH = 0.5
+# Every plate is seen from the same place: a three-quarter view from a
+# little above, the husk filling the window with this much to spare.
+PLATE_VIEW = "threequarter"
+PLATE_ELEVATION = 7.0
+PLATE_LENS = 70
+PLATE_FILL = 1.12
+
+
+def specimen_plates(root, looks, directory, palette):
+    """Renders every NFT's portrait as a specimen plate in Second Ink (art
+    bible 3.6 and 12.5): the husk in its ghost wash, with its key line and
+    paper knockout, in a window washed with its backdrop's ghost, on paper,
+    with a registration mark at each corner. These are the pictures the game
+    shows for the NFTs.
+
+    Every plate of a collection is framed alike, from the creature wearing
+    everything it can, so the eight read as one set at thumbnail size. The
+    seals are left out; they belong to the hunt."""
+
+    cel_look = cel.look(palette, "husk")
+    ink.weigh(root, "husk")
+    seals = [node for node in root.children_recursive if node.name.startswith("seal_")]
+
+    for seal in seals:
+        seal.hide_render = True
+
+    framing, size = _plate_framing(root)
+
+    try:
+        for look in looks:
+            path = os.path.join(directory, f"{look['key']}.png")
+            tile = preview.row("", None, (PLATE_VIEW,), look=look)
+            plate_look = {**cel_look, "vigil": _plate_wash(cel_look, look["backdrop"])}
+            preview.render_grid(
+                path,
+                [tile],
+                tile=(PLATE_PX, PLATE_PX),
+                cel_look=plate_look,
+                lens=PLATE_LENS,
+                elevation=PLATE_ELEVATION,
+                framing=framing,
+                labels=False,
+                figure_size=size,
+            )
+            _plate_frame(path, cel_look)
+    finally:
+        for seal in seals:
+            seal.hide_render = False
+
+
+def _plate_framing(root):
+    """Where every plate's camera looks and how far back it stands, and how
+    big the figure is: from the bounds of the husk wearing all it can, but
+    neither its seals nor its floor shadow."""
+
+    meshes = [node for node in root.children_recursive if node.type == "MESH"]
+    shown = {node: node.hide_render for node in meshes}
+
+    for node in meshes:
+        node.hide_render = node.name.startswith("seal_")
+
+    bpy.context.view_layer.update()
+    corners = preview.visible_corners(("shadow", "seal_"))
+    points = [node.matrix_world @ vertex.co for node in meshes if not node.hide_render and not node.name.startswith("shadow") for vertex in node.data.vertices]
+
+    for node, hidden in shown.items():
+        node.hide_render = hidden
+
+    low = Vector(map(min, *corners))
+    high = Vector(map(max, *corners))
+    turn, rise = math.radians(preview.ANGLES[PLATE_VIEW]), math.radians(PLATE_ELEVATION)
+    back = Vector((math.sin(turn) * math.cos(rise), -math.cos(turn) * math.cos(rise), math.sin(rise)))
+    right = Vector((0, 0, 1)).cross(back).normalized()
+    up = back.cross(right).normalized()
+    # Centre the figure as it is seen, not its bounds: a bird's swept wings
+    # fill one side of its box and leave the other empty.
+    middle = (low + high) / 2
+    across = [(point - middle).dot(right) for point in points]
+    upward = [(point - middle).dot(up) for point in points]
+    centre = middle + right * (min(across) + max(across)) / 2 + up * (min(upward) + max(upward)) / 2
+    # The window is the plate less its margins; the 36 mm sensor spans it.
+    half_view = 18 / PLATE_LENS * (1 - 2 * PLATE_MARGIN)
+    distance = max(
+        max(offset.dot(back) + abs(offset.dot(right)) * PLATE_FILL / half_view, offset.dot(back) + abs(offset.dot(up)) * PLATE_FILL / half_view)
+        for offset in (point - centre for point in points)
+    )
+    extent = high - low
+
+    return (tuple(centre), distance, None), max(extent.z, max(extent.x, extent.y) * 0.75)
+
+
+def _plate_wash(cel_look, backdrop):
+    """The window's ground: the backdrop's ghost (3.6), half printed on the
+    paper, as the linear colour a render's ground takes."""
+
+    (lit, _, _), _ = cel.ghost(cel_look, backdrop)
+    paper = cel_look["inks"]["paper"]
+
+    return cel.to_linear(tuple(blank + (ghost - blank) * PLATE_WASH for blank, ghost in zip(paper, lit)))
+
+
+def _plate_frame(path, cel_look):
+    """Prints the plate round a rendered window at `path`: a paper margin,
+    a key rule round the window, and a registration mark (a ring and a
+    cross) at each of its corners."""
+
+    import numpy
+
+    image = bpy.data.images.load(path)
+    width, height = image.size
+    pixels = numpy.empty(width * height * 4, dtype=numpy.float32)
+    image.pixels.foreach_get(pixels)
+    bpy.data.images.remove(image)
+    pixels = pixels.reshape(height, width, 4)
+
+    # A saved render holds sRGB, and so do the inks.
+    paper = numpy.asarray(cel_look["inks"]["paper"], dtype=numpy.float32)
+    key = numpy.asarray(cel_look["inks"]["key"], dtype=numpy.float32)
+    margin = round(PLATE_PX * PLATE_MARGIN)
+    rows, columns = numpy.mgrid[0:height, 0:width].astype(numpy.float32) + 0.5
+
+    inside = (columns >= margin) & (columns <= width - margin) & (rows >= margin) & (rows <= height - margin)
+    pixels[~inside, :3] = paper
+
+    def ink(cover):
+        """Lays key over the plate wherever `cover` (0 to 1) says."""
+
+        cover = numpy.clip(cover, 0.0, 1.0)[:, :, None]
+        pixels[:, :, :3] += (key - pixels[:, :, :3]) * cover
+
+    # The rule: a band PLATE_RULE_PX wide, straddling the window's edge.
+    edge = numpy.minimum.reduce([abs(columns - margin), abs(columns - (width - margin)), abs(rows - margin), abs(rows - (height - margin))])
+    within = (columns >= margin - PLATE_RULE_PX) & (columns <= width - margin + PLATE_RULE_PX) & (rows >= margin - PLATE_RULE_PX) & (rows <= height - margin + PLATE_RULE_PX)
+    ink(numpy.where(within, PLATE_RULE_PX / 2 + 0.5 - edge, 0.0))
+
+    # The registration marks, centred in the margin off each corner.
+    reach = margin * 0.34
+    stroke = 0.6
+
+    for x in (margin / 2, width - margin / 2):
+        for y in (margin / 2, height - margin / 2):
+            dx, dy = columns - x, rows - y
+            ring = stroke + 0.5 - abs(numpy.hypot(dx, dy) - reach * 0.55)
+            cross = numpy.maximum(
+                numpy.where(abs(dx) <= reach, stroke + 0.5 - abs(dy), 0.0),
+                numpy.where(abs(dy) <= reach, stroke + 0.5 - abs(dx), 0.0),
+            )
+            ink(numpy.maximum(ring, cross))
+
+    pixels[:, :, 3] = 1.0
+    result = bpy.data.images.new("Plate", width, height, alpha=False)
+    result.pixels.foreach_set(pixels.ravel())
+    result.filepath_raw = path
+    result.file_format = "PNG"
+    result.save()
+    bpy.data.images.remove(result)
 
 
 def build(name, spec):
@@ -294,10 +612,7 @@ def main():
 
         if options.portraits and looks and not options.fast:
             os.makedirs(options.portraits, exist_ok=True)
-
-            for look in looks:
-                preview.render_portrait(os.path.join(options.portraits, f"{look['key']}.png"), look)
-
+            specimen_plates(root, looks, options.portraits, cel.load())
             print(f"BUILT {len(looks)} portraits for {name}")
 
 

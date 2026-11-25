@@ -334,7 +334,7 @@ blender --background --python-exit-code 1 --python art/blender/husks.py -- \
 That leaves two things to look at:
 
 - `art/build/previews/husk_<vessel>.png`: a row for each thing it can wear, each in one NFT's look: front, three-quarter, side, back, and the silhouette with its phone-size thumbnail.
-- `art/build/portraits/<collection>_<n>.png`: the eight NFTs' portraits, each in its own colours. These are the pictures the game shows, so they have to read at thumbnail size.
+- `art/build/portraits/<collection>_<n>.png`: the eight NFTs' portraits, each a specimen plate in Second Ink (art bible 3.6 and 12.5): the husk in its ghost wash, with its key line and paper knockout, in a window washed with the ghost of its backdrop, on paper, with a registration mark at each corner (`husks.specimen_plates`). Every plate of a collection is seen from the same place and framed on the creature wearing all it can, so the eight read as one set. These are the pictures the game shows, so they have to read at thumbnail size.
 
 The build fails, with a list of what to fix, if a creature breaks any rule below. `creature_kinds/penguin.py` is the reference: start by reading it.
 
@@ -416,3 +416,17 @@ Make organic parts with `creature.form(name, blobs, material, parent, triangles=
 - Stylised and chunky, not realistic. Big clear forms, no fine detail that vanishes at three metres on a phone.
 - About 14,000 triangles at most for the whole creature. The build enforces it.
 - The portrait matters as much as the model. If the eight portraits do not look like a collection of the same creature in different colours, it is not done.
+
+### The reliquary stack
+
+The body of a rift is not a creature: `husks.reliquary_stack` builds it, a leaning tower of five picture-frame crates with a gabled casket roof on the top one, held apart by seams of crystal at the rules' seal heights. The game finds its parts by these names:
+
+| Node | What it is |
+| --- | --- |
+| `cube_<storey>` | One crate, 0 at the bottom. Its own node, slid and turned a little off the one below, so the game can let it fall when the seam under it breaks. |
+| `block_<storey>` | The crate's frame (`frame`): posts, rails, liners, lid and skirt; the plinth on the bottom one and the roof on the top one. |
+| `panel_<storey>_<face>` | A portrait face (`canvas`): a square sheet in the frame's opening carrying the whole of one portrait, UV 0 to 1, upright as seen from outside. Face 0 looks to the front (-Y), 1 to the tower's left (+X), 2 to the back, 3 to its right. Twenty faces for a collection's eight portraits: the game deals them round. |
+| `seam_<index>` | A seam of crystal between two crates (`glow`), 0 the lowest. The seams are the stack's seals. |
+| `seal_<index>` | A seal's boss on the flat front of its seam (`glow`), at the rules' seal offset, as on a creature. |
+
+The seams and seals hang from the root and stay where they are when a crate falls.
