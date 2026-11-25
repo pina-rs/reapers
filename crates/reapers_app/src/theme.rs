@@ -343,6 +343,18 @@ pub fn fit_display(text: &str, width: f32, step: Step) -> u32 {
 		.unwrap_or(floor)
 }
 
+/// The size a Display label sets at on one line `width` points wide: a
+/// button's or a stamp's word. Its `step`, shrunk 1 pt at a time, and never
+/// below [`Step::S5`]; a label still too long at s5 wraps.
+pub fn fit_display_line(text: &str, width: f32, step: Step) -> u32 {
+	let em = display_width(text);
+	let floor = Step::S5.size();
+	(floor..=step.size().max(floor))
+		.rev()
+		.find(|&size| em * size as f32 <= width)
+		.unwrap_or(floor)
+}
+
 /// The spacing scale. The bible gives its measures component by component;
 /// they all fall on a 4 pt grid, and these are the steps of it the kit and
 /// the screens use, with the named measures (§8, §9, §15.3).
@@ -791,6 +803,15 @@ mod tests {
 		// Nothing is set under s5, however little room there is.
 		assert_eq!(fit_display("Umbra of the Slow Water", 40.0, Step::S7), 22);
 		assert_eq!(fit_display("IV", 70.0, Step::S7), 40);
+	}
+
+	#[test]
+	fn a_label_keeps_to_one_line_and_no_smaller_than_s5() {
+		// "Go hunting" sets at s6 in the proof's primary.
+		assert_eq!(fit_display_line("Go hunting", 220.0, Step::S6), 30);
+		let tight = fit_display_line("Go hunting", 150.0, Step::S6);
+		assert!((22..30).contains(&tight), "{tight}");
+		assert_eq!(fit_display_line("Go hunting", 20.0, Step::S6), 22);
 	}
 
 	#[test]

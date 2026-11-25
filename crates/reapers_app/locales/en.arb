@@ -224,6 +224,13 @@
   },
   "commonRetry": "Try again",
   "commonUnreachable": "The keeper of the books could not be reached. Try again to recover your place in the veil.",
+  "commonOn": "On",
+  "commonOff": "Off",
+  "dialSoul": "Soul",
+  "dialNeeds": "Needs {soul}",
+  "@dialNeeds": {
+    "placeholders": { "soul": { "type": "int" } }
+  },
 
   "thresholdTagline": "The dead market did not stay dead. What it left behind still drifts between worlds, and someone has to bring it in.",
   "thresholdOath": "Take the oath",

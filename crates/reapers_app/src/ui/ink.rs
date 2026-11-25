@@ -688,6 +688,30 @@ impl Plate {
 		self
 	}
 
+	/// Fills the polygon through `points` in `ink`: a flat shape cut by
+	/// hand, such as a sheet's deckled edge. Like a flood, it has no wobble
+	/// of its own.
+	#[must_use]
+	pub fn shape(mut self, points: &[(f32, f32)], ink: impl Into<Ink>) -> Self {
+		let mut commands: Vec<PathCommand> = points
+			.iter()
+			.enumerate()
+			.map(|(index, &(x, y))| {
+				let point = Point::new(x, y);
+				if index == 0 {
+					PathCommand::MoveTo(point)
+				} else {
+					PathCommand::LineTo(point)
+				}
+			})
+			.collect();
+		commands.push(PathCommand::Close);
+		let shape = PathData::from_commands(commands).expect("a finite shape");
+		self.paths
+			.push(VectorPath::new(shape).fill(ink.into().paint()));
+		self
+	}
+
 	/// The plate, stretched over its parent: lay it first inside a
 	/// `relative` box so it lies beneath the content and takes no room. It
 	/// never takes a press.

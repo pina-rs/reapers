@@ -391,6 +391,10 @@ pub trait Messages: Send + Sync {
 	fn common_level(&self) -> &'static str;
 	/// `Parting the veil…`
 	fn common_loading(&self) -> &'static str;
+	/// `Off`
+	fn common_off(&self) -> &'static str;
+	/// `On`
+	fn common_on(&self) -> &'static str;
 	/// `Refused`
 	fn common_refused_title(&self) -> &'static str;
 	/// `Try again`
@@ -399,6 +403,10 @@ pub trait Messages: Send + Sync {
 	fn common_sol(&self, amount: &str) -> String;
 	/// `The keeper of the books could not be reached. Try again to recover your place in the veil.`
 	fn common_unreachable(&self) -> &'static str;
+	/// `Needs {soul}`
+	fn dial_needs(&self, soul: i64) -> String;
+	/// `Soul`
+	fn dial_soul(&self) -> &'static str;
 	/// `Easy`
 	fn difficulty_easy(&self) -> &'static str;
 	/// `Hard`
@@ -2567,6 +2575,14 @@ impl Messages for En {
 		"Parting the veil…"
 	}
 
+	fn common_off(&self) -> &'static str {
+		"Off"
+	}
+
+	fn common_on(&self) -> &'static str {
+		"On"
+	}
+
 	fn common_refused_title(&self) -> &'static str {
 		"Refused"
 	}
@@ -2581,6 +2597,14 @@ impl Messages for En {
 
 	fn common_unreachable(&self) -> &'static str {
 		"The keeper of the books could not be reached. Try again to recover your place in the veil."
+	}
+
+	fn dial_needs(&self, soul: i64) -> String {
+		format!("Needs {soul}")
+	}
+
+	fn dial_soul(&self) -> &'static str {
+		"Soul"
 	}
 
 	fn difficulty_easy(&self) -> &'static str {

@@ -1,7 +1,10 @@
-//! The interface kit: Second Ink's printed controls, rows and marks, in
-//! paper on a dark page, lit by the bound reaper's own light.
+//! The interface: Second Ink's hand ([`ink`]), its type ([`text`]), and the
+//! kit every rebuilt screen is made of ([`kit`]), in paper on the vigil
+//! page, lit by the bound reaper's own light. The ledger pieces are the
+//! screens not yet rebuilt on the kit.
 
 pub mod ink;
+pub mod kit;
 mod ledger;
 mod overlay;
 mod text;
@@ -21,6 +24,7 @@ pub use overlay::sheet;
 pub use text::aside;
 pub use text::body;
 pub use text::display;
+pub use text::display_words;
 pub use text::figure;
 pub use text::fitted_display;
 pub use text::label;

@@ -110,6 +110,12 @@ pub fn display(text: impl Into<String>, size: u32, colour: Rgb) -> Element {
 	Heading(2, text.into()).class(type_class(Setting::Display, size, colour))
 }
 
+/// Display words that are not a heading: a button's label, a stamp's
+/// numeral. The control they sit in carries the name.
+pub fn display_words(text: impl Into<String>, size: u32, colour: Rgb) -> Element {
+	Text(text.into()).class(type_class(Setting::Display, size, colour))
+}
+
 /// A name or a chop in a box `width` points wide: Display at `step`, shrunk
 /// to fit two lines and never under s5 (§7.2).
 pub fn fitted_display(text: impl Into<String>, width: f32, step: Step, colour: Rgb) -> Element {
