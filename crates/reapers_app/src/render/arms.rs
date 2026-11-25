@@ -190,10 +190,9 @@ pub const KICK: f32 = 7.0 * PI / 180.0;
 /// upright.
 pub const SHOVE: f32 = 0.016;
 /// How the kick is shared between the hand, at the wrist, and the forearm,
-/// about the elbow, and how far the hand leads: the wrist snaps first and
-/// the forearm follows, so the hand whips.
+/// about the elbow: the wrist snaps up with the shot and the forearm is
+/// dragged up after it, so the hand whips.
 const KICK_WRIST: f32 = 0.7;
-const KICK_LAG: f32 = 0.03;
 /// The arm spring the kick rides (the art bible's `arm`, §13): stiffness and
 /// damping on a unit mass. Damped at 0.85, it settles in about 180 ms.
 const ARM_STIFFNESS: f32 = 683.0;
@@ -649,11 +648,13 @@ fn fire(pose: &mut Pose, since: f32) {
 	pose.drum_spin = Ease::InOut.apply(since / DRUM_TURN_SECONDS) * TAU / 6.0;
 }
 
-/// A shot's kick on the arm, `since` seconds after it: the muzzle rises
-/// [`KICK`] and the arm comes back [`SHOVE`] toward the eye, both on the arm
-/// spring, the hand at the wrist [`KICK_LAG`] ahead of the forearm. A kick is
-/// an impulse on a spring, so two add: a shot fired while one recovers lays
-/// its own on what is left of the last ([`flowing`]).
+/// A shot's kick on the arm, `since` seconds after it. The hand snaps the
+/// muzzle up toward [`KICK`] and the arm back [`SHOVE`] on the shot's own
+/// frame, under the burst and its one-frame smear, and the arm spring lets
+/// them down; the forearm is dragged up after the hand, at its height about
+/// 40 ms in, so the hand whips. A kick is linear in the spring, so two add:
+/// a shot fired while one recovers lays its own on what is left of the last
+/// ([`flowing`]).
 fn recoil(arm: &mut ArmPose, since: f32) {
 	if !(0.0..RECOIL_SECONDS).contains(&since) {
 		return;
@@ -661,41 +662,58 @@ fn recoil(arm: &mut ArmPose, since: f32) {
 	// What little is left is faded out over the last moments, so the kick
 	// ends flat and the arm is exactly at rest once it is over.
 	let fade = 1.0 - Ease::InOut.apply((since - (RECOIL_SECONDS - RECOIL_FADE)) / RECOIL_FADE);
-	let wrist = kick(since) * KICK_WRIST * fade;
-	let forearm = kick(since - KICK_LAG) * (1.0 - KICK_WRIST) * fade;
+	let wrist = released(since) * KICK_WRIST * fade;
+	let forearm = dragged(since) * (1.0 - KICK_WRIST) * fade;
 	let scale = KICK / kick_peak();
 	arm.wrist_pitch += wrist * scale;
 	arm.pitch += forearm * scale;
 	arm.wrist_roll += wrist * scale * 0.25;
-	arm.z -= SHOVE * kick(since) * fade;
+	arm.z -= SHOVE * released(since) * fade;
 }
 
 /// How long the end of a kick is faded out over, in seconds.
 const RECOIL_FADE: f32 = 0.05;
 
-/// The arm spring struck once, `since` seconds after the blow: 0 until the
-/// blow, 1 at its height about 40 ms in, then a shallow dip below rest as it
-/// settles, and on toward nothing.
-fn kick(since: f32) -> f32 {
+/// The arm spring's decay rate and its ringing frequency, in radians a
+/// second.
+fn arm_spring() -> (f32, f32) {
+	let decay = ARM_DAMPING / 2.0;
+	(decay, (ARM_STIFFNESS - decay * decay).sqrt())
+}
+
+/// The arm spring thrown out to 1 at the shot and let go, `since` seconds
+/// after: 0 until the shot, all of it the instant after, then down toward
+/// rest, settling in about 180 ms.
+fn released(since: f32) -> f32 {
 	if since <= 0.0 {
 		return 0.0;
 	}
-	let decay = ARM_DAMPING / 2.0;
-	let ring = (ARM_STIFFNESS - decay * decay).sqrt();
+	let (decay, ring) = arm_spring();
+	(-decay * since).exp() * ((ring * since).cos() + decay / ring * (ring * since).sin())
+}
+
+/// The arm spring struck once, `since` seconds after the shot, as the
+/// forearm is dragged up after the hand: 0 until the shot, 1 at its height
+/// about 40 ms in, then on toward nothing.
+fn dragged(since: f32) -> f32 {
+	if since <= 0.0 {
+		return 0.0;
+	}
+	let (decay, ring) = arm_spring();
 	let peak = (ring / decay).atan() / ring;
 	let at = |time: f32| (-decay * time).exp() * (ring * time).sin();
 	at(since) / at(peak)
 }
 
-/// The height of the kick shared between the wrist and the lagging forearm,
-/// as a share of one alone: what the muzzle's rise is scaled by to peak at
-/// [`KICK`].
+/// The height of the kick shared between the snapping wrist and the dragged
+/// forearm, as a share of one alone: what the muzzle's rise is scaled by to
+/// peak at [`KICK`], about 20 ms in.
 fn kick_peak() -> f32 {
 	static PEAK: LazyLock<f32> = LazyLock::new(|| {
-		(0..=60)
+		(1..=120)
 			.map(|step| {
-				let time = step as f32 * 0.001 + 0.03;
-				kick(time) * KICK_WRIST + kick(time - KICK_LAG) * (1.0 - KICK_WRIST)
+				let time = step as f32 * 0.0005;
+				released(time) * KICK_WRIST + dragged(time) * (1.0 - KICK_WRIST)
 			})
 			.fold(0.0, f32::max)
 	});
@@ -1243,10 +1261,15 @@ mod tests {
 			"it rises {}°",
 			most.to_degrees()
 		);
-		assert!((0.035..0.07).contains(&at), "at its height {at} s in");
+		// It snaps up with the shot: at its height on the shot's first frame,
+		// under the burst and the smear, and on its way down from the next.
+		assert!((0.0..0.03).contains(&at), "at its height {at} s in");
+		let frame = |frames: f32| muzzle_rise(&fired(frames / TICKS_PER_SECOND)) / most;
+		assert!(frame(1.0) > 0.95, "{} of it on f0", frame(1.0));
+		assert!(frame(2.0) < frame(1.0) && frame(4.0) < 0.7, "falling by f3");
 		// Settled in about 180 ms, as the spring's envelope has it (the
-		// forearm's lag holds a little on a moment longer), and nothing at all
-		// by the end.
+		// forearm, dragged after the hand, holds a little on a moment longer),
+		// and nothing at all by the end.
 		assert!(
 			rises[180].1.abs() < 0.1 * most,
 			"{}° left at 180 ms",
@@ -1283,9 +1306,11 @@ mod tests {
 		let rest = pose(Swing::Shoot, ViewAction::Idle, 0.0, 0.0).arm;
 		let wrist = peak_of(|arm| arm.wrist_pitch);
 		let forearm = peak_of(|arm| arm.pitch);
+		// The hand is at its height the instant the shot goes; the forearm,
+		// dragged up after it, at the arm spring's own, about 40 ms on.
 		let lead = forearm - wrist;
 		assert!(
-			(0.02..=0.04).contains(&lead),
+			(0.03..=0.045).contains(&lead),
 			"the wrist leads by {lead} s ({wrist} against {forearm}; at rest {rest:?})"
 		);
 	}

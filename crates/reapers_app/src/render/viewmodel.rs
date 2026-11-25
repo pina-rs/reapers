@@ -571,24 +571,43 @@ mod tests {
 	#[test]
 	fn a_shot_moves_the_pistol_without_a_jump_at_sixty_and_a_hundred_and_twenty_frames() {
 		// From rest, through a shot, a second fired in its recovery and back to
-		// rest: halving the frame halves the step, so nothing jumps, and the
-		// biggest step is the kick's own.
-		let largest_step = |rate: f32, second: Option<f32>| {
+		// rest. The kick snaps up on each shot's own frame, the one the burst
+		// and the smear print over (the art bible, §11.4): that step is the
+		// kick, and no more. Every other step halves when the frame does, so
+		// nothing else jumps.
+		let steps = |rate: f32, second: Option<f32>| {
 			let frames = (0.55 * rate) as i32;
-			(0..frames)
-				.map(|frame| {
-					let at = |frame: i32| frame as f32 / rate - 0.05;
-					let [grip, muzzle] = pistol(&shooting(at(frame), second));
-					let [grip_next, muzzle_next] = pistol(&shooting(at(frame + 1), second));
-					(muzzle_next.0 - muzzle.0)
-						.hypot(muzzle_next.1 - muzzle.1)
-						.max((grip_next.0 - grip.0).hypot(grip_next.1 - grip.1))
-				})
-				.fold(0.0, f32::max)
+			let shots = [Some(0.0), second];
+			let (mut snap, mut flow) = (0.0_f32, 0.0_f32);
+			for frame in 0..frames {
+				let at = |frame: i32| frame as f32 / rate - 0.05;
+				let [grip, muzzle] = pistol(&shooting(at(frame), second));
+				let [grip_next, muzzle_next] = pistol(&shooting(at(frame + 1), second));
+				let step = (muzzle_next.0 - muzzle.0)
+					.hypot(muzzle_next.1 - muzzle.1)
+					.max((grip_next.0 - grip.0).hypot(grip_next.1 - grip.1));
+				// The step onto the first frame sampled after the shot, as the
+				// seam samples it (a frame on, so never on the shot itself).
+				let fired = shots.iter().flatten().any(|shot| {
+					let shot = shot + 1.0e-4;
+					at(frame) <= shot && at(frame + 1) > shot
+				});
+				if fired {
+					snap = snap.max(step);
+				} else {
+					flow = flow.max(step);
+				}
+			}
+			(snap, flow)
 		};
 		for second in [None, Some(0.05), Some(0.09)] {
-			let sixty = largest_step(60.0, second);
-			let hundred_and_twenty = largest_step(120.0, second);
+			let (snap, sixty) = steps(60.0, second);
+			let (_, hundred_and_twenty) = steps(120.0, second);
+			// About 55 pt: nearly the whole kick, which the smear spans.
+			assert!(
+				(30.0..70.0).contains(&snap),
+				"{second:?}: the kick snaps {snap} pt"
+			);
 			assert!(sixty < 30.0, "{second:?}: a {sixty} pt step at 60 fps");
 			assert!(
 				hundred_and_twenty < 0.7 * sixty,
