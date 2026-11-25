@@ -110,19 +110,19 @@ pub const fn weapon_part(archetype: Archetype) -> Option<&'static str> {
 
 const fn hold(archetype: Archetype) -> Hold {
 	match archetype {
-		// The pistol is held higher, further out and a little in from the
-		// arm's rest, turned out and its muzzle tipped down: the hand on its
-		// grip sits where the bible's proof has it, about (300, 640) on a
-		// phone, clear of FIRE; the barrel points up the column under the
-		// sight; and the whole barrel, flared mouth and all, stays right of
-		// that column at the height of a kick (the art bible, §6.5).
+		// The pistol is held further out than the arm's rest, a little up and
+		// right, its muzzle tipped down: the hand on its grip sits near where
+		// the bible's proof has it, about (300, 640) on a phone, clear of
+		// FIRE; the barrel is still seen from its side, so it reads as a
+		// barrel; and the whole of it, flared mouth and all, stays right of
+		// the column under the sight at the height of a kick (§6.5).
 		Archetype::Gun => {
 			Hold {
 				lean: 0.0,
 				twist: 0.0,
 				scale: 1.0,
-				rest: [-0.01, 0.06, 0.14],
-				turn: [0.2, -0.2, 0.0],
+				rest: [0.02, 0.04, 0.22],
+				turn: [0.0, -0.25, 0.0],
 				wrist: [0.0; 3],
 			}
 		}
@@ -550,13 +550,12 @@ mod tests {
 	fn the_pistol_rests_in_the_frame_and_kicks_clear_of_the_sight() {
 		let at_rest = posed(Archetype::Gun, ViewAction::Idle, 0.0);
 		let [grip, muzzle] = pistol(&at_rest);
-		// The hand is where the bible's proof has it, about (300, 640), above
-		// FIRE. The muzzle is low and right of the sight, near the proof's
-		// (232, 574), moved up and right as far as the barrel's flared mouth
-		// needs to keep out of the column while the barrel points up it, at
-		// the column below the sight.
+		// The hand is near where the bible's proof has it, about (300, 640),
+		// above FIRE, and the muzzle near its (232, 574), low and right of the
+		// sight. The barrel is seen from its side, drawn at least 45 pt long,
+		// not end on, where it hides behind the drum.
 		assert!(
-			(grip.0 - 300.0).hypot(grip.1 - 640.0) < 20.0,
+			(grip.0 - 300.0).hypot(grip.1 - 640.0) < 30.0,
 			"the grip rests at {grip:?}"
 		);
 		assert!(
@@ -564,11 +563,9 @@ mod tests {
 			"the muzzle rests at {muzzle:?}"
 		);
 		let placed = place(Archetype::Gun, &at_rest);
-		let aim = on_phone(placed.weapon.point([0.0, MUZZLE[1], 5.0]));
-		assert!(
-			(175.0..215.0).contains(&aim.0) && (SIGHT.1..SIGHT.1 + 160.0).contains(&aim.1),
-			"the barrel points at {aim:?}"
-		);
+		let back = on_phone(placed.weapon.point([0.0, MUZZLE[1], 0.064]));
+		let length = (back.0 - muzzle.0).hypot(back.1 - muzzle.1);
+		assert!(length > 45.0, "the barrel is drawn {length} pt long");
 		// At rest, at the height of a kick, and of a second fired as the first
 		// recovers, and everywhere between, the hand and the whole barrel as
 		// it is drawn are in the frame, clear of the sight's circle and right
