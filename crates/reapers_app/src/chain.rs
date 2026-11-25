@@ -207,6 +207,41 @@ impl Cluster {
 		&self.rpc.url
 	}
 
+	/// Whether the server's reported cluster and Reapers program match this
+	/// build's cluster and program ID.
+	pub fn matches(&self, status: &ChainStatus) -> bool {
+		status.chain == self.name.chain()
+			&& status
+				.program
+				.as_deref()
+				.and_then(|program| program.parse::<Address>().ok())
+				== Some(program::program_id())
+	}
+
+	/// Ensures the server's reported cluster and Reapers program match this
+	/// build before touching the cluster or prompting the wallet.
+	pub fn check_status(&self, status: &ChainStatus) -> ChainResult<()> {
+		if status.chain != self.name.chain() {
+			return Err(ChainFailure::Rejected(format!(
+				"server chain {} does not match client cluster {}",
+				status.chain,
+				self.name.chain()
+			)));
+		}
+		let expected = program::program_id();
+		let actual = status
+			.program
+			.as_deref()
+			.and_then(|program| program.parse::<Address>().ok());
+		if actual != Some(expected) {
+			return Err(ChainFailure::Rejected(format!(
+				"server program {:?} does not match client program {expected}",
+				status.program
+			)));
+		}
+		Ok(())
+	}
+
 	/// Calls `listener` with each transaction as it lands.
 	pub fn subscribe(&self, listener: impl Fn(&SimnetTransaction) + 'static) {
 		self.listeners.borrow_mut().push(Box::new(listener));
@@ -314,6 +349,7 @@ impl Cluster {
 		wallet: &Address,
 		husk: &WalletHusk,
 	) -> ChainResult<SimnetTransaction> {
+		self.check_status(status)?;
 		let instruction = program::release_core(wallet, &husk.asset, Some(&husk.collection));
 		let (blockhash, last_valid_block_height) = self.rpc.latest_blockhash().await?;
 		let message = Message::compile(
@@ -373,6 +409,7 @@ impl Cluster {
 		receipt_signature: &[u8],
 		keeper: &str,
 	) -> ChainResult<SimnetTransaction> {
+		self.check_status(status)?;
 		let (unsigned, mint) = verify_absorb_transaction(
 			status,
 			wallet,

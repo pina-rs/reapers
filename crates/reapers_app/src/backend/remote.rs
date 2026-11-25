@@ -281,6 +281,7 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 				.await;
 		};
 		let status = self.status_cached().await?;
+		cluster.check_status(&status)?;
 		let held = match status.wallet.as_deref() {
 			Some(_) => {
 				let address = linked(&status)?;
@@ -415,6 +416,8 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 		let Some((cluster, wallet)) = &self.cluster else {
 			return Err(KeeperError::unavailable("this build moves no husk"));
 		};
+		let status = self.status_cached().await?;
+		cluster.check_status(&status)?;
 		let receipt = self
 			.ask(async |api| api.absorb_transaction(&nft.id()).await)
 			.await?;
@@ -426,6 +429,7 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 			return Ok(Vec::new());
 		};
 		let status = self.status_cached().await?;
+		cluster.check_status(&status)?;
 		if status.wallet.is_none() {
 			return Ok(Vec::new());
 		}
@@ -451,6 +455,7 @@ impl<A: ReapersApi + 'static> RemoteBackend<A> {
 			return Err(ChainFailure::Rejected("the server built no burn".into()).into());
 		};
 		let status = self.status_cached().await?;
+		cluster.check_status(&status)?;
 		let address = linked(&status)?;
 		if receipt.wallet.parse::<solana_kit_core::Address>().ok() != Some(address) {
 			return Err(ChainFailure::WrongWallet.into());
@@ -1283,5 +1288,142 @@ mod tests {
 		assert_eq!(error.refusal(), Some(Refusal::InsufficientFunds));
 		assert_eq!(wallet.signed.get(), 0);
 		assert!(!rpc.calls.borrow().iter().any(|m| m == "sendTransaction"));
+	}
+
+	#[test]
+	fn release_refuses_when_server_chain_mismatches_client_cluster() {
+		let keypair = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]);
+		let address = keypair.address();
+		let saint = Nft::new(reapers_rules::NftCollection::DegenApes, 1);
+		let player = PlayerState::initial()
+			.take_oath(1)
+			.unwrap()
+			.acquire(saint)
+			.unwrap();
+
+		let rpc = Rc::new(ReleasingRpc {
+			owner: address,
+			calls: RefCell::new(Vec::new()),
+		});
+		// Client is built for Devnet, but server reports Localnet.
+		let cluster = Rc::new(
+			Cluster::new(crate::chain::ClusterName::Devnet, "http://rpc", rpc.clone())
+				.with_pause(Rc::new(|_| Box::pin(async { true }))),
+		);
+		let wallet = Rc::new(CountingWallet {
+			keypair,
+			signed: Cell::new(0),
+		});
+		let status = ChainStatus {
+			chain: "solana:localnet".into(),
+			husks: demo_manifest(),
+			..linked_to(&address)
+		};
+		let keeper = RemoteBackend::new(ReleaseStub {
+			player,
+			chain: status,
+			release_refusal: "notInVault",
+		})
+		.with_cluster(cluster, wallet.clone());
+
+		let result = block_on(keeper.release(saint));
+		assert!(matches!(
+			result,
+			Err(KeeperError::Chain(ChainFailure::Rejected(_)))
+		));
+		assert_eq!(
+			wallet.signed.get(),
+			0,
+			"must not sign ReleaseCore on devnet when the server runs on solana:localnet"
+		);
+		assert!(
+			!rpc.calls.borrow().iter().any(|m| m == "sendTransaction"),
+			"must not broadcast ReleaseCore when client cluster and server chain disagree"
+		);
+	}
+
+	#[test]
+	fn release_refuses_when_server_program_mismatches_or_is_missing() {
+		let address = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]).address();
+		let saint = Nft::new(reapers_rules::NftCollection::DegenApes, 1);
+		let player = PlayerState::initial()
+			.take_oath(1)
+			.unwrap()
+			.acquire(saint)
+			.unwrap();
+
+		let wrong_program = Some(solana_kit_core::Address::from_bytes([88; 32]).to_string());
+		for program in [wrong_program, None] {
+			let rpc = Rc::new(ReleasingRpc {
+				owner: address,
+				calls: RefCell::new(Vec::new()),
+			});
+			let cluster = Rc::new(
+				Cluster::new(
+					crate::chain::ClusterName::Localnet,
+					"http://rpc",
+					rpc.clone(),
+				)
+				.with_pause(Rc::new(|_| Box::pin(async { true }))),
+			);
+			let wallet = Rc::new(CountingWallet {
+				keypair: solana_kit_core::crypto::Keypair::from_seed(&[6; 32]),
+				signed: Cell::new(0),
+			});
+			let status = ChainStatus {
+				program,
+				husks: demo_manifest(),
+				..linked_to(&address)
+			};
+			assert!(!cluster.matches(&status));
+			let keeper = RemoteBackend::new(ReleaseStub {
+				player: player.clone(),
+				chain: status,
+				release_refusal: "notInVault",
+			})
+			.with_cluster(cluster, wallet.clone());
+
+			let result = block_on(keeper.release(saint));
+			assert!(matches!(
+				result,
+				Err(KeeperError::Chain(ChainFailure::Rejected(_)))
+			));
+			assert_eq!(wallet.signed.get(), 0);
+			assert!(rpc.calls.borrow().is_empty());
+		}
+	}
+
+	#[test]
+	fn wallet_husks_and_finish_burn_refuse_on_cluster_or_program_mismatch() {
+		let keypair = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]);
+		let address = keypair.address();
+		let saint = Nft::parse("degenApes:1").unwrap();
+		let rpc = Rc::new(Burning::default());
+		let devnet_cluster = Rc::new(
+			Cluster::new(crate::chain::ClusterName::Devnet, "http://rpc", rpc.clone())
+				.with_pause(Rc::new(|_| Box::pin(async { true }))),
+		);
+		let wallet = Rc::new(CountingWallet {
+			keypair,
+			signed: Cell::new(0),
+		});
+		// Server reports localnet while client cluster is devnet.
+		let keeper = RemoteBackend::new(Refusing {
+			chain: Some(linked_to(&address)),
+			burn: Some(saint_burn(&address)),
+			..Refusing::default()
+		})
+		.with_cluster(devnet_cluster, wallet.clone());
+
+		assert!(matches!(
+			block_on(keeper.wallet_husks()),
+			Err(KeeperError::Chain(ChainFailure::Rejected(_)))
+		));
+		assert!(matches!(
+			block_on(keeper.finish_burn(saint)),
+			Err(KeeperError::Chain(ChainFailure::Rejected(_)))
+		));
+		assert_eq!(wallet.signed.get(), 0);
+		assert!(rpc.calls.borrow().is_empty());
 	}
 }
