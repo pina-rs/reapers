@@ -268,3 +268,23 @@ async fn an_escrow_holds_only_when_the_program_records_this_wallet_and_this_mint
 		);
 	}
 }
+
+#[tokio::test]
+async fn latest_blockhash_requests_confirmed_commitment_for_fresh_burn_transactions() {
+	let chain = Chain::default();
+	let gateway = Gateway::new(solana(), chain.clone());
+
+	gateway
+		.latest_blockhash()
+		.await
+		.expect("getLatestBlockhash succeeds");
+
+	let calls = chain.with(|state| state.calls.clone());
+	let (method, params) = calls.last().expect("a blockhash call");
+
+	assert_eq!(method, "getLatestBlockhash");
+	assert_eq!(
+		params[0]["commitment"], "confirmed",
+		"burn transactions should use confirmed commitment rather than finalized (~13s stale + 3s cache)"
+	);
+}
