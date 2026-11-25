@@ -514,11 +514,62 @@ pub struct TagLook {
 /// The slip's rough key edge, and its spot underline's two passes.
 const SLIP_EDGE: f64 = 1.8;
 const UNDERLINE: f64 = 3.0;
+/// Where the key under each pass of the underline is printed from it, down
+/// and right: spot never touches paper without key (§3.2).
+const UNDERPRINT: At = (1.5, 1.5);
 
 /// A blow's tag: a paper slip with a rough key edge, the figure in key
 /// over a spot underline drawn in two passes, and on a seal a chip under it.
 /// It is placed by its middle, and turned and scaled about it.
 pub fn tag_view(look: TagLook) -> Element {
+	let (width, height) = look.slip;
+	let inset = SLIP_EDGE * 2.0;
+	let drawing = match ViewBox::new(0.0, 0.0, width as f32, height as f32) {
+		Ok(view_box) => {
+			Vector(view_box)
+				.scaling(VectorScaling::Stretch)
+				.paths(slip(&look).into_paths())
+				.class("absolute inset-0 w-full h-full")
+		}
+		Err(_) => View(),
+	};
+	let mut tag = View()
+		.class(format!(
+			"absolute left-[{:.1}px] top-[{:.1}px] w-[{width:.1}px] h-[{height:.1}px] items-center justify-center",
+			look.centre.0 - width / 2.0,
+			look.centre.1 - height / 2.0,
+		))
+		.transform(
+			leptoskit::native::Transform::rotate(look.turn as f32)
+				.scaled(look.scale as f32, look.scale as f32),
+		)
+		.child(drawing)
+		.child(display(look.figure, look.size, ink::KEY));
+	if let Some(chip) = look.chip {
+		tag = tag.child(
+			View()
+				.class(format!(
+					"absolute left-0 right-0 top-[{:.1}px] items-center",
+					height - inset
+				))
+				.child(
+					View()
+						.class(format!(
+							"px-[6px] py-[2px] border border-[{}] bg-[{}]",
+							ink::KEY.hex(),
+							ink::PAPER.hex()
+						))
+						.child(label(&chip, 12, ink::KEY)),
+				),
+		);
+	}
+	tag
+}
+
+/// What is drawn on a tag's slip, in the slip's own points: the paper with
+/// its rough key edge, and the spot underline in two passes, each over a
+/// key underprint.
+fn slip(look: &TagLook) -> Sketch {
 	let (width, height) = look.slip;
 	let mut random = SeededRandom::new(look.tick ^ 0x511F);
 	let mut jitter = |reach: f64| random.next_range(-reach, reach);
@@ -538,74 +589,38 @@ pub fn tag_view(look: TagLook) -> Element {
 	.map(|(x, y)| (x + jitter(1.4), y + jitter(1.4)))
 	.collect();
 	let mut sketch = Sketch::default();
-	let mut slip = Vec::with_capacity(corners.len() + 1);
-	outline(&mut slip, &corners);
+	let mut paper = Vec::with_capacity(corners.len() + 1);
+	outline(&mut paper, &corners);
 	sketch.push_commands(
-		slip,
+		paper,
 		Some(colour(ink::PAPER, 1.0)),
 		Some((colour(ink::KEY, 1.0), SLIP_EDGE)),
 	);
 	let size = f64::from(look.size);
 	let text = (look.figure.chars().count() as f64 * 0.55 * size).min(width - 12.0);
 	let line = height / 2.0 + size * 0.36;
-	let mut passes = Vec::new();
+	let (mut under, mut passes) = (Vec::new(), Vec::new());
 	for pass in 0..2 {
 		let lift = f64::from(pass) * 1.6;
+		let ends = [
+			(
+				(width - text) / 2.0 + jitter(2.0),
+				line + lift + jitter(0.8),
+			),
+			(
+				f64::midpoint(width, text) + jitter(2.0),
+				line + lift + jitter(0.8),
+			),
+		];
 		stroke(
-			&mut passes,
-			&[
-				(
-					(width - text) / 2.0 + jitter(2.0),
-					line + lift + jitter(0.8),
-				),
-				(
-					f64::midpoint(width, text) + jitter(2.0),
-					line + lift + jitter(0.8),
-				),
-			],
+			&mut under,
+			&ends.map(|(x, y)| (x + UNDERPRINT.0, y + UNDERPRINT.1)),
 		);
+		stroke(&mut passes, &ends);
 	}
+	sketch.push_commands(under, None, Some((colour(ink::KEY, 1.0), UNDERLINE)));
 	sketch.push_commands(passes, None, Some((colour(look.spot, 1.0), UNDERLINE)));
-	let drawing = match ViewBox::new(0.0, 0.0, width as f32, height as f32) {
-		Ok(view_box) => {
-			Vector(view_box)
-				.scaling(VectorScaling::Stretch)
-				.paths(sketch.into_paths())
-				.class("absolute inset-0 w-full h-full")
-		}
-		Err(_) => View(),
-	};
-	let mut slip = View()
-		.class(format!(
-			"absolute left-[{:.1}px] top-[{:.1}px] w-[{width:.1}px] h-[{height:.1}px] items-center justify-center",
-			look.centre.0 - width / 2.0,
-			look.centre.1 - height / 2.0,
-		))
-		.transform(
-			leptoskit::native::Transform::rotate(look.turn as f32)
-				.scaled(look.scale as f32, look.scale as f32),
-		)
-		.child(drawing)
-		.child(display(look.figure, look.size, ink::KEY));
-	if let Some(chip) = look.chip {
-		slip = slip.child(
-			View()
-				.class(format!(
-					"absolute left-0 right-0 top-[{:.1}px] items-center",
-					height - inset
-				))
-				.child(
-					View()
-						.class(format!(
-							"px-[6px] py-[2px] border border-[{}] bg-[{}]",
-							ink::KEY.hex(),
-							ink::PAPER.hex()
-						))
-						.child(label(&chip, 12, ink::KEY)),
-				),
-		);
-	}
-	slip
+	sketch
 }
 
 #[cfg(test)]
@@ -780,6 +795,53 @@ mod tests {
 			plates.edge[blob..],
 			"its drops' edges are not"
 		);
+	}
+
+	#[test]
+	fn a_tags_spot_underline_prints_over_a_key_underprint() {
+		let look = TagLook {
+			tick: 7,
+			centre: (200.0, 300.0),
+			slip: (86.0, 50.0),
+			turn: -5.0,
+			scale: 1.0,
+			figure: "-27".to_owned(),
+			size: 40,
+			chip: None,
+			spot: ink::WISP,
+		};
+		let paths = slip(&look).into_paths();
+		let stroked = |index: usize| paths[index].stroke_style().map(|stroke| stroke.color());
+		let points = |index: usize| -> Vec<(f32, f32)> {
+			paths[index]
+				.data()
+				.commands()
+				.iter()
+				.filter_map(|command| {
+					match command {
+						PathCommand::MoveTo(at) | PathCommand::LineTo(at) => Some((at.x, at.y)),
+						_ => None,
+					}
+				})
+				.collect()
+		};
+		let line = (0..paths.len())
+			.find(|index| stroked(*index) == Some(colour(ink::WISP, 1.0)))
+			.expect("a spot underline");
+		assert_eq!(
+			stroked(line - 1),
+			Some(colour(ink::KEY, 1.0)),
+			"key printed first"
+		);
+		let (over, under) = (points(line), points(line - 1));
+		assert_eq!(over.len(), 4, "two passes");
+		assert_eq!(over.len(), under.len());
+		for (over, under) in over.iter().zip(&under) {
+			assert!(
+				(under.0 - over.0 - 1.5).abs() < 1.0e-4 && (under.1 - over.1 - 1.5).abs() < 1.0e-4,
+				"{under:?} under {over:?}"
+			);
+		}
 	}
 
 	#[test]
