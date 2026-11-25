@@ -27,7 +27,8 @@
 use leptoskit::scene3d::MaterialOverride;
 use leptoskit::scene3d::NodeId;
 use leptoskit::scene3d::Op;
-use leptoskit::scene3d::Rim;
+use leptoskit::scene3d::PrintOverride;
+use leptoskit::scene3d::PrintTarget;
 use leptoskit::scene3d::Transform;
 use leptoskit::scene3d::client::Scene;
 use reapers_rules::Gait;
@@ -42,11 +43,14 @@ use reapers_rules::wrap_angle;
 use super::gait::Carriage;
 use super::gait::Footwork;
 use super::gait::MAX_LIMBS;
-use super::look::linear;
 use super::parts::parts;
+use super::print::HuskInk;
+use super::print::Inking;
 use super::reaction::HuskPlight;
 use super::reaction::HuskReaction;
 use super::spring::Spring;
+use crate::ink;
+use crate::theme::Rgb;
 
 /// The model of one vessel.
 pub fn husk_model(vessel: Vessel) -> String {
@@ -66,16 +70,16 @@ pub struct HuskMood {
 	pub burning: bool,
 }
 
-/// How bright each glowing surface burns at rest.
-const ACCENT_GLOW: f32 = 6.0;
-const GLOW_GLOW: f32 = 7.0;
+/// What ice and fire do to a husk's own colours before they are washed: ice
+/// pales and blues them, fire reddens them.
+const ICE: Rgb = Rgb::from_hex(0x008C_BFF2);
+const EMBER: Rgb = Rgb::from_hex(0x00FF_5C14);
 
-/// How much of its eye colour edges a creature's coat. Just enough to lift
-/// a dark coat off a dark room, and no more.
-const RIM: f32 = 0.12;
-
-/// How fast a strike's flash fades, as a share lost each second.
+/// How fast a strike's swell fades, as a share lost each second.
 const FLASH_DECAY: f64 = 7.0;
+/// How many times a second the line boils through a windup: every eight
+/// frames (§4.5).
+const BOIL_RATE: f64 = 7.5;
 /// How long a blow prints the husk in the reaper's spot: four frames.
 pub const PRINT_SECONDS: f64 = 4.0 / 60.0;
 
@@ -202,8 +206,9 @@ pub struct HuskRig {
 	/// cannot tip or squash it. Every part but its own patch is hidden.
 	shadow: NodeId,
 	pub vessel: Vessel,
-	parts: super::parts::Parts,
 	look: NftLook,
+	/// The light of the reaper who hunts it, which its colours never wear.
+	player: Option<Rgb>,
 	/// The colour this husk glows: the light in its eyes.
 	pub light: [f32; 3],
 	reaction: HuskReaction,
@@ -211,11 +216,10 @@ pub struct HuskRig {
 	away: (f64, f64),
 	stride: f64,
 	effort: f64,
-	flash: f64,
 	punch: f64,
 	/// A blow's print in the reaper's spot, and how long it has left, in
 	/// seconds; and how long the husk is held still by a blow.
-	print: Option<([f32; 3], f64)>,
+	print: Option<(Rgb, f64)>,
 	stopped: f64,
 	frost: f64,
 	burn: f64,
@@ -242,6 +246,10 @@ pub struct HuskRig {
 	carriage: Carriage,
 	/// Whether its model has a shadow to keep on the ground.
 	has_shadow: bool,
+	/// How long its line has boiled through this windup, in seconds, and
+	/// the boil's step last sent.
+	boil: f64,
+	boiled: Option<u8>,
 	/// The shadow's place, kept for the tests that hold it flat.
 	shadow_placed: Transform,
 	/// The part offsets last sent, so a still husk sends none: each limb,
@@ -254,7 +262,7 @@ pub struct HuskRig {
 	/// platform draws the scene from its own view of the room.
 	origin: [f32; 3],
 	/// What was last sent, so a still husk sends nothing.
-	sent: Option<(Transform, Transform, [i32; 7])>,
+	sent: Option<(Transform, Transform, [i32; 5])>,
 	/// Whether what is only for liveliness moves: the tail's swing, the
 	/// wings' beat, the head's shiver and snap and the limbs' flail. Off for
 	/// a player who asked for less motion, read again every frame so a
@@ -311,21 +319,20 @@ impl HuskRig {
 		for worn in 1..=NftLook::TRAIT_COUNT {
 			scene.set_part_visible(body, format!("trait_{worn}"), worn == look.trait_index);
 		}
-		let light = linear(look.accent);
+		let light = ink::linear(Rgb::from_hex(look.accent));
 		let rig = Self {
 			root,
 			lift,
 			body,
 			shadow,
 			vessel,
-			parts: model_parts,
 			look,
+			player: None,
 			light,
 			reaction: HuskReaction::default(),
 			away: (0.0, 1.0),
 			stride: 0.0,
 			effort: 0.0,
-			flash: 0.0,
 			punch: 0.0,
 			print: None,
 			stopped: 0.0,
@@ -343,6 +350,8 @@ impl HuskRig {
 			gait: Footwork::new(vessel),
 			carriage: Carriage::REST,
 			has_shadow,
+			boil: 0.0,
+			boiled: None,
 			shadow_placed: Transform::IDENTITY,
 			posed: Posed::default(),
 			frozen: false,
@@ -354,128 +363,66 @@ impl HuskRig {
 			tail: Spring::new(TAIL_FREQUENCY, 0.0),
 			beat: 0.0,
 		};
-		rig.style(scene, 1.0);
+		rig.style(scene);
 		scene.set_visible(root, false);
 		rig
 	}
 
-	fn surface(&self, material: &str, eye_glow: f32) -> MaterialOverride {
-		let tint = |colour| {
-			let [red, green, blue] = linear(colour);
-			Some([red, green, blue, 1.0])
+	/// How the husk prints now (art bible §3.6): its NFT's colours, frosted
+	/// or burning, washed for the reaper who hunts it, or struck in that
+	/// reaper's spot.
+	fn inking(&self) -> HuskInk {
+		let shifted = |colour: u32| {
+			Rgb::from_hex(colour)
+				.lerp(ICE, 0.6 * self.frost)
+				.lerp(EMBER, 0.5 * self.burn)
 		};
-		let rim = |strength| {
-			Some(Rim {
-				color: self.light,
-				strength,
-				power: 2.5,
-			})
-		};
-		let frost = self.frost as f32;
-		let burn = self.burn as f32;
-		let flash = self.flash as f32;
-		// A blow's print takes the place of the flash in the husk's light.
-		let (glow, flash) = match self.print {
-			Some((spot, _)) => (spot, 1.0),
-			None => (self.light, flash),
-		};
-		let mut change = match material {
-			"body" => {
-				MaterialOverride {
-					color: tint(self.look.body),
-					rim: rim(RIM),
-					..MaterialOverride::default()
-				}
-			}
-			"trim" => {
-				MaterialOverride {
-					color: tint(self.look.trim),
-					rim: rim(RIM),
-					..MaterialOverride::default()
-				}
-			}
-			"detail" => {
-				MaterialOverride {
-					color: tint(self.look.detail),
-					rim: rim(RIM),
-					..MaterialOverride::default()
-				}
-			}
-			"dark" => {
-				MaterialOverride {
-					color: tint(0x0005_0507),
-					rim: rim(0.15),
-					..MaterialOverride::default()
-				}
-			}
-			"accent" | "glow" => {
-				let strength = if material == "accent" {
-					ACCENT_GLOW
-				} else {
-					GLOW_GLOW
-				};
-				MaterialOverride {
-					color: tint(0x0000_0000),
-					emissive: Some(self.light),
-					emissive_strength: Some(strength * eye_glow),
-					..MaterialOverride::default()
-				}
-			}
-			"canvas" => {
-				MaterialOverride {
-					rim: rim(0.25),
-					..MaterialOverride::default()
-				}
-			}
-			// The soft dark patch under a husk that stands on the floor.
-			"shadow" => {
-				return MaterialOverride {
-					color: Some([0.0, 0.0, 0.0, 1.0]),
-					emissive: Some([0.0; 3]),
-					opacity: Some(
-						(SHADOW_OPACITY * self.shadow_fade * (1.0 - self.dissolved)).min(1.0)
-							as f32,
-					),
-					..MaterialOverride::default()
-				};
-			}
-			_ => {
-				MaterialOverride {
-					color: tint(0x002B_2018),
-					rim: rim(0.9),
-					..MaterialOverride::default()
-				}
-			}
-		};
-		// Ice whitens and blues it; fire lights it from within; a strike
-		// flashes it in its own light, or prints it in the reaper's spot.
-		if let Some(colour) = change.color.as_mut() {
-			for (channel, ice) in colour.iter_mut().zip([0.55, 0.75, 0.95]) {
-				*channel += (ice - *channel) * 0.6 * frost;
-			}
+		HuskInk {
+			body: shifted(self.look.body),
+			trim: shifted(self.look.trim),
+			detail: shifted(self.look.detail),
+			player: self.player,
+			struck: self.print.map(|(spot, _)| spot),
 		}
-		if material != "accent" && material != "glow" {
-			let ember = [1.0, 0.36, 0.08];
-			change.emissive =
-				Some([0, 1, 2].map(|channel| ember[channel] * burn + glow[channel] * flash));
-			change.emissive_strength = Some(1.5 * burn + 2.0 * flash);
-		}
-		change.opacity = Some((1.0 - self.dissolved) as f32);
-		change
 	}
 
-	fn style(&self, scene: &Scene, eye_glow: f32) {
-		for (material, nodes) in self.parts {
-			let change = self.surface(material, eye_glow);
-			for node in *nodes {
-				// The body's own patch is hidden: the shadow is its own
-				// instance, out of the lift's way.
-				if *material == "shadow" {
-					scene.set_material(self.shadow, Some(node), change);
-				} else {
-					scene.set_material(self.body, Some(node), change);
-				}
-			}
+	/// The patch under it: darkest under a body standing on it, gone as the
+	/// husk comes apart.
+	fn shadow_material(&self) -> MaterialOverride {
+		MaterialOverride {
+			opacity: Some(
+				(SHADOW_OPACITY * self.shadow_fade * (1.0 - self.dissolved)).min(1.0) as f32,
+			),
+			..MaterialOverride::default()
+		}
+	}
+
+	/// Prints the body, and the shadow's instance, as the husk now is. A
+	/// husk coming apart fades, and a see-through husk draws no line.
+	fn style(&self, scene: &Scene) {
+		let model = husk_model(self.vessel);
+		let inking = Inking::Husk(self.inking());
+		super::print::print(scene, self.body, &model, &inking);
+		super::print::print(scene, self.shadow, &model, &inking);
+		scene.set_material(
+			self.body,
+			None,
+			MaterialOverride {
+				opacity: Some((1.0 - self.dissolved) as f32),
+				..MaterialOverride::default()
+			},
+		);
+		if self.has_shadow {
+			scene.set_material(self.shadow, Some("shadow"), self.shadow_material());
+		}
+	}
+
+	/// Sees the husk as a reaper whose light is `player` sees it: none of its
+	/// colours wears that light (§3.6).
+	pub fn seen_by(&mut self, scene: &Scene, player: Rgb) {
+		if self.player != Some(player) {
+			self.player = Some(player);
+			self.style(scene);
 		}
 	}
 
@@ -570,17 +517,16 @@ impl HuskRig {
 			.hit(self.away.1.atan2(self.away.0), side, strength, heavy);
 	}
 
-	/// Lights the husk up for an instant, as a strike lands. `strength` runs
-	/// from 0 to 1.
+	/// Swells the husk for an instant, as a strike lands. `strength` runs
+	/// from 0 to 1. Print has no tone to flash it with: a blow that lands
+	/// prints it in the reaper's spot instead ([`Self::print`]).
 	pub fn flash(&mut self, strength: f64) {
-		self.flash = self.flash.max(strength);
 		self.punch = self.punch.max(strength);
 	}
 
-	/// Prints the husk in the reaper's `spot`, linear RGB, for
-	/// [`PRINT_SECONDS`], as a blow lands (art bible §11.2): in place of its
-	/// flash, at full strength.
-	pub fn print(&mut self, spot: [f32; 3]) {
+	/// Prints the husk in the reaper's `spot` for [`PRINT_SECONDS`], with its
+	/// line pressed, as a blow lands (art bible §11.2).
+	pub fn print(&mut self, spot: Rgb) {
 		self.print = Some((spot, PRINT_SECONDS));
 		self.punch = 1.0;
 	}
@@ -663,9 +609,7 @@ impl HuskRig {
 		reaction.step(delta, plight);
 		let played = delta * reaction.time_scale();
 		let frozen = mood.frozen;
-		let fade = (-FLASH_DECAY * delta).exp();
-		self.flash *= fade;
-		self.punch *= fade;
+		self.punch *= (-FLASH_DECAY * delta).exp();
 		approach(
 			&mut self.frost,
 			f64::from(u8::from(mood.frozen)),
@@ -700,7 +644,6 @@ impl HuskRig {
 			self.express(&carriage, f64::from(placed.1), mood, played);
 		}
 		let lift_transform = self.carry(&carriage);
-		let reaction = &self.reaction;
 		// The rules' size for the body: a husk on a room's grid is the
 		// smaller creature of the v2 table.
 		let size = self.pose.map_or(1.0, |pose| pose.scale) * (1.0 + self.punch * 0.06);
@@ -711,7 +654,6 @@ impl HuskRig {
 		)
 		.with_yaw(placed.1)
 		.with_scale(size as f32);
-		let eye_glow = reaction.eye_glow();
 		let ground = self.pose.and_then(|pose| pose.ground);
 		// A husk walking the room's grid keeps its shadow through a leap,
 		// on the surface it left until it crosses onto the next.
@@ -727,11 +669,9 @@ impl HuskRig {
 		// a husk at rest sends nothing.
 		let quantum = |value: f64| (value * 40.0).round() as i32;
 		let looks = [
-			quantum(self.flash),
 			quantum(self.frost),
 			quantum(self.burn),
 			quantum(self.dissolved),
-			quantum(eye_glow),
 			i32::from(shadow),
 			i32::from(self.print.is_some()),
 		];
@@ -742,23 +682,50 @@ impl HuskRig {
 		if self.sent.map(|(_, sent, _)| sent) != Some(lift_transform) {
 			scene.set_transform(self.lift, lift_transform);
 		}
-		let shadow_look = quantum(self.shadow_fade);
-		if changed != Some(false) {
-			self.style(scene, eye_glow as f32);
-			scene.set_visible(self.shadow, looks[5] == 1);
-		} else if shadow && self.posed.shadow_look != shadow_look {
-			scene.set_material(
-				self.shadow,
-				Some("shadow"),
-				self.surface("shadow", eye_glow as f32),
-			);
-		}
-		self.posed.shadow_look = shadow_look;
+		self.restyle(
+			scene,
+			changed != Some(false),
+			shadow,
+			quantum(self.shadow_fade),
+		);
+		self.boil(scene, delta, plight);
 		self.pin_or_pose(scene, &carriage, delta, frozen);
 		if self.sent.is_none() {
 			scene.set_visible(self.root, true);
 		}
 		self.sent = Some((root, lift_transform, looks));
+	}
+
+	/// Prints the husk afresh when how it looks has `changed`, and keeps its
+	/// shadow's strength, `shadow_look`, when only that moved.
+	fn restyle(&mut self, scene: &Scene, changed: bool, shadow: bool, shadow_look: i32) {
+		if changed {
+			self.style(scene);
+			scene.set_visible(self.shadow, shadow);
+		} else if shadow && self.posed.shadow_look != shadow_look {
+			scene.set_material(self.shadow, Some("shadow"), self.shadow_material());
+		}
+		self.posed.shadow_look = shadow_look;
+	}
+
+	/// Boils the line through a windup, the tell, a step every eight frames,
+	/// and stops it dead on the shriek (§4.5). Never for a player who asked
+	/// for less motion.
+	fn boil(&mut self, scene: &Scene, delta: f64, plight: HuskPlight) {
+		let boiling = self.lively && plight.fury > 0.0 && plight.fury < 1.0;
+		self.boil = if boiling { self.boil + delta } else { 0.0 };
+		let step = ((self.boil * BOIL_RATE) as u32 % 3) as u8;
+		if self.boiled != Some(step) {
+			self.boiled = Some(step);
+			scene.set_print(
+				self.body,
+				PrintTarget::All,
+				PrintOverride {
+					boil_step: Some(step),
+					..PrintOverride::default()
+				},
+			);
+		}
 	}
 
 	/// Moves on what only time swings, over a frame `delta` seconds long in
@@ -1244,10 +1211,10 @@ mod tests {
 			scene
 				.take_ops()
 				.iter()
-				.all(|op| !matches!(op, Op::SetMaterial { .. })),
+				.all(|op| !matches!(op, Op::SetMaterial { .. } | Op::SetPrint { .. })),
 			"a husk at rest restyles nothing"
 		);
-		rig.flash(1.0);
+		rig.print(crate::ink::LANTERN);
 		rig.animate(
 			&scene,
 			1.0 / 30.0,
@@ -1258,7 +1225,7 @@ mod tests {
 			scene
 				.take_ops()
 				.iter()
-				.any(|op| matches!(op, Op::SetMaterial { .. }))
+				.any(|op| matches!(op, Op::SetPrint { .. }))
 		);
 	}
 
@@ -1284,7 +1251,7 @@ mod tests {
 				};
 				step(&mut rig);
 				rig.reaction.hit(0.0, 1.0, 1.0, false);
-				rig.print([0.9, 0.6, 0.2]);
+				rig.print(crate::ink::LANTERN);
 				rig.stop(frames);
 				let mut printed = 0;
 				let mut held = 0;

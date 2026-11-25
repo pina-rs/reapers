@@ -421,6 +421,19 @@ impl ReaperInk {
 		}
 	}
 
+	/// The arms of a reaper whose light is `light`, seen from inside, over
+	/// the camera. All the first person knows of the reaper is its light, so
+	/// its robe is Night and it bears no omen.
+	pub const fn arm(light: Rgb) -> Self {
+		Self {
+			light,
+			robe: Robe::Night,
+			omen: Omen::None,
+			outfit: Outfit::Sworn,
+			first_person: true,
+		}
+	}
+
 	/// Ashen halves the spot on every family; the interface keeps it whole.
 	fn spot_share(self) -> f64 {
 		if matches!(self.omen, Omen::Ashen) {

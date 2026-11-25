@@ -394,14 +394,7 @@ impl HuskInk {
 				family,
 				Family::Accent | Family::Glow | Family::Void | Family::Dark
 			) {
-				let gilt = ReaperInk {
-					light: spot,
-					robe: ink::Robe::Night,
-					omen: reapers_rules::Omen::None,
-					outfit: reapers_rules::Outfit::Sworn,
-					first_person: false,
-				}
-				.print(Family::Gold);
+				let gilt = ReaperInk::arm(spot).print(Family::Gold);
 				return Printed {
 					cross: false,
 					rim: false,
@@ -445,6 +438,18 @@ pub fn print_override(printed: &Printed, spot: Rgb) -> PrintOverride {
 		ink_weight: Some(printed.line as f32),
 		knockout: None,
 		boil_step: None,
+	}
+}
+
+/// A smear behind a swing: filled key, with no line, and not the figure
+/// (§11.4).
+pub fn smear() -> PrintOverride {
+	PrintOverride {
+		lit: Some(ink::linear(ink::KEY)),
+		mode: Some(PrintMode::Flat),
+		ink_weight: Some(0.0),
+		knockout: Some(false),
+		..PrintOverride::default()
 	}
 }
 
