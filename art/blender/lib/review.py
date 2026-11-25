@@ -762,7 +762,9 @@ def motion_spec(motions, clip):
 # What `review.py --lineup` sets side by side, by name.
 LINEUPS = {
     "reapers": tuple(f"reaper_{calling}" for calling in CLASS_WEAPONS),
-    "husks": ("husk_ape", "husk_bird", "husk_penguin", "husk_llama", "husk_robot", "husk_reliquaryStack"),
+    # Not the reliquary stack, a tower several storeys high: at one scale
+    # the creatures would be specks beside it.
+    "husks": ("husk_ape", "husk_bird", "husk_penguin", "husk_llama", "husk_robot"),
 }
 
 # The suffix a lineup gives every object of a figure already placed, so the
@@ -771,15 +773,11 @@ PLACED = ".lineup"
 
 
 def lineup(models, names, out, palette, scene=None, specs=None, stem="lineup"):
-    """`<stem>.png`: several built models side by side at one scale, in
-    Second Ink, then in key-only silhouette with the 64-point strip beside
-    it: the figures compared as a phone shows them together.
-
-    `names` are models in `models` (without `.glb`), all reapers or all
-    husks. A reaper stands in its idle stance in robe 0, holding its own
-    weapon, in its class's light; a husk wears its collection's first look.
-    `scene` is cel.toml's scene to light them in (the kind's own when None).
-    """
+    """`<stem>.png` from built models: `names` in `models` (without
+    `.glb`), all reapers or all husks, imported and set side by side
+    (`lay_out`). A reaper stands in its idle stance in robe 0, holding its
+    own weapon, in its class's light; a husk wears its collection's first
+    look."""
 
     kinds = {"reaper" if name.startswith("reaper_") else "husk" if name.startswith("husk_") else None for name in names}
 
@@ -791,28 +789,59 @@ def lineup(models, names, out, palette, scene=None, specs=None, stem="lineup"):
     figures = []
 
     for index, name in enumerate(names):
-        # Earlier figures step aside, by name, for this one's import.
-        for obj in bpy.data.objects:
-            if PLACED not in obj.name:
-                obj.name = f"{obj.name}{PLACED}{index}"
-
+        step_aside(index)
         before = set(bpy.data.objects)
         import_glb(os.path.join(models, f"{name}.glb"))
         added = [obj for obj in bpy.data.objects if obj not in before]
         root = next(obj for obj in added if obj.parent is None and base(obj) in ("reaper", "husk"))
 
         if kind == "reaper":
-            calling = name.removeprefix("reaper_")
-            weapons = hold_weapons(root, (CLASS_WEAPONS[calling],))
-            stand(root, 0, "spirit", weapons, CLASS_WEAPONS[calling])
-            root[cel.LIGHT_PROPERTY] = cel.class_light(palette, calling)
+            line_up_reaper(root, name.removeprefix("reaper_"), palette)
         else:
             vessel = name.removeprefix("husk_")
-            looks = (specs or {}).get(vessel, {}).get("looks", [])
-            _wear(root, looks[0] if looks else None)
+            line_up_husk(root, (specs or {}).get(vessel, {}).get("looks", []))
 
-        _freeze(root)
         figures.append((name, root))
+
+    lay_out(figures, kind, out, palette, scene, stem)
+
+
+def step_aside(index):
+    """Renames every object already in the scene with `PLACED` and `index`,
+    so the next figure built or imported has its names to itself: the
+    drivers and `rest_pose` find nodes by name."""
+
+    for obj in bpy.data.objects:
+        if PLACED not in obj.name:
+            obj.name = f"{obj.name}{PLACED}{index}"
+
+
+def line_up_reaper(root, calling, palette, stance=play_stance):
+    """Readies a reaper for a lineup: in robe 0 and its idle stance
+    (`stance(form)`), holding its own weapon, printed in its class's light,
+    and held still while the others are posed."""
+
+    weapons = hold_weapons(root, (CLASS_WEAPONS[calling],))
+    stand(root, 0, "spirit", weapons, CLASS_WEAPONS[calling], stance)
+    root[cel.LIGHT_PROPERTY] = cel.class_light(palette, calling)
+    _freeze(root)
+
+
+def line_up_husk(root, looks):
+    """Readies a husk for a lineup in the first of its collection's
+    `looks`, held still."""
+
+    _wear(root, looks[0] if looks else None)
+    _freeze(root)
+
+
+def lay_out(figures, kind, out, palette, scene=None, stem="lineup"):
+    """`<stem>.png`: `figures` ((name, root) pairs, all of one `kind`)
+    side by side at one scale, each turned to its three-quarter view and
+    standing on one floor, in Second Ink and then in key-only silhouette
+    with the 64-pixel strip beside it: the figures compared as a phone shows
+    them together. `scene` is cel.toml's scene to light them in (the kind's
+    own when None)."""
 
     sizes = []
     x = 0.0
@@ -828,6 +857,12 @@ def lineup(models, names, out, palette, scene=None, specs=None, stem="lineup"):
         sizes.append(high.z - low.z)
         gap = gap if gap is not None else max(width, 0.4) * 0.35
         root.location.x += x - low.x
+
+        # A reaper's floor is z = 0 already (a spirit floats above it); a
+        # husk's is half a body below its middle, so it is stood on z = 0.
+        if kind == "husk":
+            root.location.z -= low.z
+
         x += width + gap
         bpy.context.view_layer.update()
 

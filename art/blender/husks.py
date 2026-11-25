@@ -31,7 +31,7 @@ import bmesh  # noqa: E402
 import bpy  # noqa: E402
 from mathutils import Vector  # noqa: E402
 
-from lib import core, creature, ink, preview, review  # noqa: E402
+from lib import cel, core, creature, ink, preview, review  # noqa: E402
 
 # Vessels built by a module in creature_kinds/, in build order.
 CREATURES = ("ape", "bird", "penguin", "llama", "robot")
@@ -196,6 +196,32 @@ def reliquary_stack(spec):
     return root
 
 
+def build(name, spec):
+    return reliquary_stack(spec) if name == "reliquaryStack" else build_creature(name, spec)
+
+
+def lineup(names, specs, options):
+    """`lineup_husks.png` (with `--scene`, `lineup_husks_<scene>.png`):
+    the husks `names` built fast into one scene, each in its collection's
+    first look, and set side by side on one floor (`review.lay_out`)."""
+
+    palette = cel.load()
+    core.reset_scene()
+    figures = []
+
+    for index, name in enumerate(names):
+        review.step_aside(index)
+        root = build(name, specs[name])
+        ink.weigh(root, "husk")
+        print(f"BUILT husk_{name} (fast: not exported) triangles={core.triangle_count(root)}")
+        review.line_up_husk(root, specs[name].get("looks", []))
+        figures.append((f"husk_{name}", root))
+
+    os.makedirs(options.preview, exist_ok=True)
+    stem = "lineup_husks" + (f"_{options.scene}" if options.scene else "")
+    review.lay_out(figures, "husk", options.preview, palette, options.scene, stem)
+
+
 def build_creature(name, spec):
     module = importlib.import_module(f"creature_kinds.{name}")
     root = module.build(spec)
@@ -217,24 +243,38 @@ def main():
     parser.add_argument("--fast", action="store_true", help="build and render the sheets: no export, no portraits")
     parser.add_argument("--cel-only", action="store_true", help="render the sheets in the cel look alone")
     parser.add_argument("--scene", help="draw every cel sheet in this scene of cel.toml")
+    parser.add_argument("--lineup", action="store_true", help="with --fast: the husks side by side, instead of each one's sheet")
     options = parser.parse_args(arguments)
+    vessels = (*CREATURES, "reliquaryStack")
+    wanted = set(options.only.split(",")) if options.only else set(vessels)
+
+    if wanted - set(vessels):
+        parser.error(f"no husk called {', '.join(sorted(wanted - set(vessels)))}")
 
     if options.fast and not options.preview:
         parser.error("--fast renders sheets instead of writing a model: give it --preview")
+
+    if options.lineup and not options.fast:
+        parser.error("--lineup builds the husks fast: give it --fast (review.py --lineup reads built models)")
 
     with open(options.specs, encoding="utf-8") as source:
         specs = json.load(source)
 
     os.makedirs(options.out, exist_ok=True)
+    chosen = [name for name in vessels if name in wanted]
 
-    for name in (*CREATURES, "reliquaryStack"):
-        if options.only and options.only != name:
-            continue
+    if options.lineup:
+        # The reliquary stack is a tower several storeys high: beside it at
+        # one scale the creatures would be specks, so it lines up only when
+        # named.
+        lineup(chosen if options.only else list(CREATURES), specs, options)
+        return
 
+    for name in chosen:
         spec = specs[name]
 
         core.reset_scene()
-        root = reliquary_stack(spec) if name == "reliquaryStack" else build_creature(name, spec)
+        root = build(name, spec)
 
         if options.fast:
             ink.weigh(root, "husk")

@@ -109,7 +109,8 @@ blender --background --python-exit-code 1 --python art/blender/viewmodel.py -- \
 - `--sheets spirit,humanoid,armoury` picks a reaper's sheets (all three by default), on the drivers and on `review.py`.
 - `--scene stage|roster|hunt|first_person` draws every Second Ink sheet in that scene of `cel.toml` instead of the one `[sheets]` names.
 - The ink weight is computed just as an export would compute it, so the line on a fast sheet is the line the model will ship with.
-- Without `--fast` every driver does exactly what it did: builds, bakes, exports, then renders the sheets from the exported file. Use that before committing, and for anything `review.py`, the lineups and the motion reviews read, since they read exported models.
+- `--fast --lineup` on `reapers.py` or `husks.py` builds every class or creature (`--only` takes a comma-separated list) into one scene and renders them side by side, as `lineup_reapers.png` or `lineup_husks.png` (see the lineups under [Reviewing a model](#reviewing-a-model)). The reliquary stack, a tower several storeys high, joins a husk lineup only when `--only` names it.
+- Without `--fast` every driver does exactly what it did: builds, bakes, exports, then renders the sheets from the exported file. Use that before committing, and for anything `review.py` and the motion reviews read, since they read exported models.
 
 ## Reviewing a model
 
@@ -139,7 +140,7 @@ blender --background --python-exit-code 1 --python art/blender/review.py -- \
 
 `--only` takes model names without `.glb`; `--models` and `--specs` read from somewhere other than `art/build/models` and `art/build/vessels.json`.
 
-A lineup sets models side by side at one scale, each turned to its three-quarter view, in Second Ink and then in key-only silhouette with the 64-pixel strip: every reaper in its class's light, in robe 0, holding its own weapon, or every husk in its collection's first look. It reads exported models, so build them first without `--fast`:
+A lineup sets models side by side at one scale, each turned to its three-quarter view and standing on one floor, in Second Ink and then in key-only silhouette with the 64-pixel strip: every reaper in its class's light, in robe 0, holding its own weapon, or every husk in its collection's first look. A driver builds one fast (`--fast --lineup`, above); `review.py` builds one from exported models:
 
 ```sh
 blender --background --python-exit-code 1 --python art/blender/review.py -- \
