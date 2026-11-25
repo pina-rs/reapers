@@ -16,6 +16,7 @@ pub mod chain;
 pub mod config;
 pub mod dev;
 pub mod hunt;
+pub mod ink;
 #[allow(
 	clippy::all,
 	clippy::pedantic,

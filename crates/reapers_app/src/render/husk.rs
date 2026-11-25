@@ -76,6 +76,22 @@ const RIM: f32 = 0.12;
 
 /// How fast a strike's flash fades, as a share lost each second.
 const FLASH_DECAY: f64 = 7.0;
+/// How long a blow prints the husk flat in ink: four frames.
+pub const PRINT_SECONDS: f64 = 4.0 / 60.0;
+/// The least time from one print's start to the next: 21 frames. A print
+/// changes the colour of much of the screen, so it may come at most 60 / 21,
+/// about 2.9, times a second, under the three flashes a second WCAG 2.3.1
+/// allows (art bible §2, rule 9). The pistol fires every 18 ticks, so at
+/// most every other shot prints.
+pub const PRINT_GAP_SECONDS: f64 = 21.0 / 60.0;
+
+/// The ink a shot that lands prints the husk in, linear RGB: key, flat, so
+/// the splat in the reaper's spot reads on it, and a dark husk barely
+/// changes how bright it is (art bible §3.2, §11.2).
+pub fn struck_ink() -> [f32; 3] {
+	let crate::theme::Rgb(red, green, blue) = crate::ink::KEY;
+	linear(u32::from_be_bytes([0, red, green, blue]))
+}
 
 /// How dark a shadow is at its darkest, under a body standing on it.
 const SHADOW_OPACITY: f64 = 0.55;
@@ -211,6 +227,12 @@ pub struct HuskRig {
 	effort: f64,
 	flash: f64,
 	punch: f64,
+	/// A blow's print, the ink it is in, and how long it has left, in
+	/// seconds; how long ago the last one began, in real time; and how long
+	/// the husk is held still by a blow.
+	print: Option<([f32; 3], f64)>,
+	printed_ago: f64,
+	stopped: f64,
 	frost: f64,
 	burn: f64,
 	tuck: f64,
@@ -248,7 +270,7 @@ pub struct HuskRig {
 	/// platform draws the scene from its own view of the room.
 	origin: [f32; 3],
 	/// What was last sent, so a still husk sends nothing.
-	sent: Option<(Transform, Transform, [i32; 6])>,
+	sent: Option<(Transform, Transform, [i32; 7])>,
 	/// Whether what is only for liveliness moves: the tail's swing, the
 	/// wings' beat, the head's shiver and snap and the limbs' flail. Off for
 	/// a player who asked for less motion, read again every frame so a
@@ -321,6 +343,9 @@ impl HuskRig {
 			effort: 0.0,
 			flash: 0.0,
 			punch: 0.0,
+			print: None,
+			printed_ago: f64::INFINITY,
+			stopped: 0.0,
 			frost: 0.0,
 			burn: 0.0,
 			tuck: 0.0,
@@ -365,7 +390,8 @@ impl HuskRig {
 		};
 		let frost = self.frost as f32;
 		let burn = self.burn as f32;
-		let flash = self.flash as f32;
+		// A blow's print takes the place of the flash: ink, not light.
+		let flash = self.print.map_or(self.flash as f32, |_| 0.0);
 		let mut change = match material {
 			"body" => {
 				MaterialOverride {
@@ -434,6 +460,17 @@ impl HuskRig {
 				}
 			}
 		};
+		// A blow prints it flat in its ink, lit as it is lit, with
+		// no rim and no glow of its own: ink on the dead (art bible §11.2).
+		// Its mouth and sockets stay key, and its eyes and seals their own.
+		if let Some((ink, _)) = self.print
+			&& !matches!(material, "dark" | "accent" | "glow")
+		{
+			change.color = Some([ink[0], ink[1], ink[2], 1.0]);
+			// An override left empty keeps what was last sent: the rim is
+			// put out, not left.
+			change.rim = rim(0.0);
+		}
 		// Ice whitens and blues it; fire lights it from within; a strike
 		// flashes it in its own light.
 		if let Some(colour) = change.color.as_mut() {
@@ -564,6 +601,58 @@ impl HuskRig {
 		self.punch = self.punch.max(strength);
 	}
 
+	/// Prints the husk flat in `ink`, linear RGB, for
+	/// [`PRINT_SECONDS`], as a blow lands (art bible §11.2). A print never
+	/// begins within [`PRINT_GAP_SECONDS`] of the last, so it cannot flash,
+	/// nor for a player who asks for less motion, who has the splat without
+	/// the whole husk changing colour (§14). Either way the blow punches it.
+	pub fn print(&mut self, ink: [f32; 3]) {
+		self.punch = 1.0;
+		// Counted in whole frames, as the print is: a gap less than half a
+		// frame short is the gap.
+		if crate::platform::reduced_motion() || self.printed_ago < PRINT_GAP_SECONDS - 0.5 / 60.0 {
+			return;
+		}
+		self.print = Some((ink, PRINT_SECONDS));
+		self.printed_ago = 0.0;
+	}
+
+	/// Holds the husk's animation still for `frames` sixtieths of a second,
+	/// as a blow lands: the impact frame, on the husk alone (art bible §11.2).
+	/// Its reaction, gait, face and flash hold; where the rules put it does
+	/// not, so a husk on the move goes on being carried with them.
+	pub fn stop(&mut self, frames: u32) {
+		self.stopped = self.stopped.max(f64::from(frames) / 60.0);
+	}
+
+	/// The ink a blow prints the husk in now, if one does.
+	#[cfg(test)]
+	pub fn printed_in(&self) -> Option<[f32; 3]> {
+		self.print.map(|(ink, _)| ink)
+	}
+
+	/// How long the husk is still held for, in frames at sixty a second.
+	#[cfg(test)]
+	pub fn held_frames(&self) -> f64 {
+		self.stopped * 60.0
+	}
+
+	/// Counts a blow's hold and print down by `delta` seconds, and returns
+	/// the time the husk's own motion moves on: none through an impact frame.
+	/// The print counts down through the hold, so it shows for its frames
+	/// whatever the hold. Each is counted in whole frames: one with less than
+	/// half a frame left is over.
+	fn hold(&mut self, delta: f64) -> f64 {
+		let stopping = self.stopped > delta / 2.0;
+		self.stopped = (self.stopped - delta).max(0.0);
+		self.printed_ago += delta;
+		self.print = self
+			.print
+			.map(|(ink, left)| (ink, left - delta))
+			.filter(|(_, left)| *left > -delta / 2.0);
+		if stopping { 0.0 } else { delta }
+	}
+
 	/// How much of the husk has come apart, from 0 (whole) to 1 (gone).
 	pub fn dissolve(&mut self, amount: f64) {
 		self.dissolved = amount.clamp(0.0, 1.0);
@@ -620,6 +709,13 @@ impl HuskRig {
 		// The seals are drawn where the rules put them: while the ward
 		// holds, nothing that moves the body under them may play.
 		self.gait.set_bouncy(!plight.ward_holds());
+		// Where the rules put it moves on in real time, held or not: a hold
+		// stops what the husk does, never where it is, or it would stand
+		// still and then leap the hold's whole way in one frame, off its
+		// splat. Carried toward their place over one of their ticks, so a
+		// display faster than the rules draws it moving, not stepping.
+		self.carried = (self.carried + delta * HuntRules::TICK_RATE as f64).min(1.0);
+		let delta = self.hold(delta);
 		let reaction = &mut self.reaction;
 		reaction.step(delta, plight);
 		let played = delta * reaction.time_scale();
@@ -653,9 +749,6 @@ impl HuskRig {
 			Some(_) => self.carriage,
 			None => Carriage::REST,
 		};
-		// Carried toward where the rules put it over one of their ticks, so a
-		// display faster than the rules draws it moving, not stepping.
-		self.carried = (self.carried + delta * HuntRules::TICK_RATE as f64).min(1.0);
 		let placed = self.drawn_place();
 		if !frozen {
 			self.express(&carriage, f64::from(placed.1), mood, played);
@@ -694,6 +787,7 @@ impl HuskRig {
 			quantum(self.dissolved),
 			quantum(eye_glow),
 			i32::from(shadow),
+			i32::from(self.print.is_some()),
 		];
 		let changed = self.sent.map(|(_, _, sent)| sent != looks);
 		if self.sent.map(|(sent, ..)| sent) != Some(root) {
@@ -1220,6 +1314,180 @@ mod tests {
 				.iter()
 				.any(|op| matches!(op, Op::SetMaterial { .. }))
 		);
+	}
+
+	#[test]
+	fn a_blow_prints_the_husk_four_frames_and_stops_it_three_or_five() {
+		let scene = Scene::new(leptoskit::scene3d::SceneId(41));
+		let nft = market_listings()[0];
+		for fps in [60.0, 120.0] {
+			for (frames, stopped) in [(3, 3), (5, 5)] {
+				let mut rig = HuskRig::spawn(&scene, nft.collection.vessel(), &nft);
+				rig.place(&HuskPose::new(
+					nft.collection.vessel(),
+					reapers_rules::Vec3::new(0.0, 0.0, -2.0),
+					std::f64::consts::PI,
+				));
+				let step = |rig: &mut HuskRig| {
+					rig.animate(
+						&scene,
+						1.0 / fps,
+						HuskMood::default(),
+						HuskPlight::default(),
+					);
+				};
+				step(&mut rig);
+				rig.reaction.hit(0.0, 1.0, 1.0, false);
+				rig.print([0.9, 0.6, 0.2]);
+				rig.stop(frames);
+				let mut printed = 0;
+				let mut held = 0;
+				for _ in 0..(fps as usize / 4) {
+					// The reaction to the blow is what a stop holds still.
+					let before = format!("{:?}", rig.reaction);
+					step(&mut rig);
+					printed += usize::from(rig.print.is_some());
+					held += usize::from(format!("{:?}", rig.reaction) == before);
+				}
+				let per = fps as usize / 60;
+				assert_eq!(printed, 4 * per, "{fps} fps: four sixtieths in ink");
+				assert_eq!(held, stopped * per, "{fps} fps: held {frames} frames");
+			}
+		}
+		let _ = scene.take_ops();
+	}
+
+	/// A blow prints the husk flat in its ink: the colour, lit as the
+	/// husk is lit, with its rim put out and no glow; its mouth stays key and
+	/// its eyes and seals their own. Shot after shot at the pistol's fastest
+	/// it prints at most every 21 frames, under three times a second, and
+	/// never for a player who asks for less motion.
+	#[test]
+	fn a_print_is_flat_ink_at_most_every_twenty_one_frames_and_none_with_less_motion() {
+		let scene = Scene::new(leptoskit::scene3d::SceneId(43));
+		let nft = market_listings()[0];
+		let spot = [0.9, 0.6, 0.2];
+		let spawned = || {
+			let mut rig = HuskRig::spawn(&scene, nft.collection.vessel(), &nft);
+			rig.place(&HuskPose::new(
+				nft.collection.vessel(),
+				reapers_rules::Vec3::new(0.0, 0.0, -2.0),
+				std::f64::consts::PI,
+			));
+			rig
+		};
+		let step = |rig: &mut HuskRig| {
+			rig.animate(
+				&scene,
+				1.0 / 60.0,
+				HuskMood::default(),
+				HuskPlight::default(),
+			);
+		};
+		let mut rig = spawned();
+		step(&mut rig);
+		let at_rest = rig.surface("dark", 1.0);
+		rig.print(spot);
+		for material in ["body", "trim", "detail"] {
+			let printed = rig.surface(material, 1.0);
+			assert_eq!(printed.color, Some([0.9, 0.6, 0.2, 1.0]), "{material}");
+			assert_eq!(printed.emissive, Some([0.0; 3]), "{material}: no glow");
+			assert_eq!(printed.emissive_strength, Some(0.0));
+			assert_eq!(printed.rim.map(|rim| rim.strength), Some(0.0));
+		}
+		assert_eq!(rig.surface("dark", 1.0), at_rest, "its mouth stays key");
+		assert_eq!(
+			rig.surface("accent", 1.0).emissive,
+			Some(rig.light),
+			"its eyes keep their own light"
+		);
+		// The pistol fires every 18 ticks: every other shot prints.
+		for (every, prints) in [(18, [0, 36, 72, 108]), (21, [0, 21, 42, 63])] {
+			let mut rig = spawned();
+			let mut began = Vec::new();
+			for frame in 0..=prints[3] {
+				if frame % every == 0 {
+					rig.print(spot);
+					if rig.printed_ago == 0.0 {
+						began.push(frame);
+					}
+				}
+				step(&mut rig);
+			}
+			assert_eq!(began, prints, "a shot every {every} frames");
+		}
+		crate::platform::set_reduced_motion(true);
+		let mut steady = spawned();
+		steady.print(spot);
+		let printed = steady.print.is_some();
+		crate::platform::set_reduced_motion(false);
+		assert!(!printed, "with less motion the husk keeps its colours");
+		let _ = scene.take_ops();
+	}
+
+	/// A blow holds what the husk is doing, never where it is: one on the
+	/// move goes on being carried with the rules through the hold, so it
+	/// neither stands still nor pops forward when the hold ends, and its
+	/// splat, pinned where the rules put it, stays on it.
+	#[test]
+	fn a_husk_held_by_a_blow_keeps_its_place_with_the_rules() {
+		let scene = Scene::new(leptoskit::scene3d::SceneId(42));
+		let nft = market_listings()[0];
+		let vessel = nft.collection.vessel();
+		// Metres a second: under a bolting husk's 3.2.
+		let speed = 3.0;
+		for fps in [60.0, 120.0] {
+			let mut rig = HuskRig::spawn(&scene, vessel, &nft);
+			let place = |rig: &mut HuskRig, x: f64| {
+				rig.place(&HuskPose::new(
+					vessel,
+					reapers_rules::Vec3::new(x, 0.0, -2.0),
+					std::f64::consts::PI,
+				));
+			};
+			let mut x = 0.0;
+			place(&mut rig, x);
+			let mut drawn = Vec::new();
+			let mut behind: f64 = 0.0;
+			let per_tick = fps / 60.0;
+			for frame in 0..(24.0 * per_tick) as usize {
+				// The rules move the husk once a tick.
+				if frame % per_tick as usize == 0 {
+					x += speed / 60.0;
+					place(&mut rig, x);
+				}
+				if frame == (8.0 * per_tick) as usize {
+					rig.print([0.9, 0.6, 0.2]);
+					rig.stop(5);
+				}
+				rig.animate(
+					&scene,
+					1.0 / fps,
+					HuskMood::default(),
+					HuskPlight::default(),
+				);
+				let at = f64::from(rig.drawn_place().0[0]);
+				behind = behind.max(x - at);
+				drawn.push(at);
+			}
+			let steps: Vec<f64> = drawn.windows(2).map(|pair| pair[1] - pair[0]).collect();
+			let normal = speed / fps;
+			let biggest = steps.iter().copied().fold(0.0, f64::max);
+			let least = steps.iter().copied().fold(f64::MAX, f64::min);
+			assert!(
+				biggest < 1.5 * normal,
+				"{fps} fps: the husk pops {biggest} m in one frame: {steps:.3?}"
+			);
+			assert!(
+				least > 0.5 * normal,
+				"{fps} fps: the husk stands still: {steps:.3?}"
+			);
+			assert!(
+				behind <= speed / 60.0 + 1.0e-6,
+				"{fps} fps: the husk trails the rules by {behind} m"
+			);
+		}
+		let _ = scene.take_ops();
 	}
 
 	#[test]

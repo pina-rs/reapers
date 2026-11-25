@@ -27,8 +27,11 @@ const DIVE_DISTANCE: f32 = 1.0;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Jolt {
 	Shot,
-	/// A shot that struck an open seal.
+	/// A shot that struck an open seal. Its impact frame is the husk's
+	/// alone (art bible §11.2): the arms never hold for it.
 	SealShot,
+	/// An art that struck the husk.
+	ArtHit,
 	Stab,
 	/// A heavy swing with the class weapon. The harder the rules say it
 	/// strikes, the harder it lands.
@@ -47,7 +50,7 @@ impl Jolt {
 	pub const fn trauma(self) -> f32 {
 		match self {
 			Self::Shot => 0.1,
-			Self::SealShot => 0.2,
+			Self::SealShot | Self::ArtHit => 0.2,
 			Self::Stab | Self::OrbImpact => 0.4,
 			Self::Heavy(kind) if heft(kind) == 0 => 0.45,
 			Self::Heavy(_) => 0.55,
@@ -60,8 +63,8 @@ impl Jolt {
 	/// How many frames, at sixty a second, the arms hold still.
 	pub const fn stop_frames(self) -> i64 {
 		match self {
-			Self::Shot | Self::Struck | Self::OrbImpact => 0,
-			Self::SealShot => 2,
+			Self::Shot | Self::SealShot | Self::Struck | Self::OrbImpact => 0,
+			Self::ArtHit => 2,
 			Self::Stab => 5,
 			Self::Heavy(kind) => 6 + heft(kind),
 			Self::Parry => 4,
@@ -225,6 +228,24 @@ mod tests {
 		);
 		juice.land(Jolt::Kill, 104);
 		assert_eq!(juice.motion_tick(120.0), 106.0);
+		// A shot's impact frame is the husk's: the arms go on.
+		assert_eq!(Jolt::Shot.stop_frames(), 0);
+		assert_eq!(Jolt::SealShot.stop_frames(), 0);
+	}
+
+	#[test]
+	fn each_jolt_holds_the_arms_its_frames() {
+		// A shot never holds the arms, and a landed art holds them two frames.
+		for (jolt, frames) in [
+			(Jolt::Shot, 0),
+			(Jolt::SealShot, 0),
+			(Jolt::ArtHit, 2),
+			(Jolt::Parry, 4),
+			(Jolt::Stab, 5),
+			(Jolt::Kill, 10),
+		] {
+			assert_eq!(jolt.stop_frames(), frames, "{jolt:?}");
+		}
 	}
 
 	#[test]

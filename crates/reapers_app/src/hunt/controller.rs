@@ -5,12 +5,14 @@
 //! advance at their own fixed rate, so the same play gives the same hunt
 //! on a 30 Hz guest and a 120 Hz screen.
 
+use reapers_rules::Archetype;
 use reapers_rules::Arsenal;
 use reapers_rules::Eye;
 use reapers_rules::HuntBot;
 use reapers_rules::HuntEvent;
 use reapers_rules::HuntInput;
 use reapers_rules::HuntLog;
+use reapers_rules::HuntPhase;
 use reapers_rules::HuntRules;
 use reapers_rules::HuntSim;
 use reapers_rules::RiftSeat;
@@ -66,6 +68,65 @@ impl Fight {
 	}
 }
 
+/// The most ticks a press of FIRE waits for a busy weapon
+/// (`docs/gameplay.md`, "The fight").
+pub const FIRE_BUFFER_TICKS: i64 = 8;
+
+/// What a press of FIRE on the coming tick would meet.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FireWait {
+	/// The weapon takes a press on this tick, or its timing is the player's:
+	/// a reload, a dive, an art with nothing left to throw.
+	Now,
+	/// The weapon in hand takes a press in this many ticks.
+	Ticks(i64),
+	/// The husk shrieks from this tick: a press now is a flinch.
+	Shriek,
+	/// Nothing takes a press: the husk is broken, caught or gone.
+	Idle,
+}
+
+impl FireWait {
+	/// What a press on the coming tick of `sim` meets, with `slot` in hand.
+	/// It reads the rules and decides nothing for them: a press it lets
+	/// through is judged by the rules on that tick.
+	fn of(sim: &HuntSim, slot: usize) -> Self {
+		let phase = sim.phase();
+		// On the tick a warning ends the shriek begins, and a press on it
+		// would be one fired into a shriek.
+		let shrieks = phase == HuntPhase::Shriek
+			|| (phase == HuntPhase::Windup && sim.shriek_progress() >= 1.0 && !sim.leaping());
+		if shrieks {
+			return Self::Shriek;
+		}
+		if !matches!(
+			phase,
+			HuntPhase::Stalk | HuntPhase::Fight | HuntPhase::Windup | HuntPhase::Charge
+		) {
+			return Self::Idle;
+		}
+		if sim.diving() {
+			return Self::Now;
+		}
+		if slot != sim.selected_slot() {
+			// The press comes with a new weapon, drawn from this tick.
+			return Self::Ticks(Arsenal::SWITCH_TICKS);
+		}
+		let ticks = match Arsenal::archetype_of(slot) {
+			Some(Archetype::Gun) if sim.reloading() => 0,
+			// An empty drum is reloaded on the press, once the gun is drawn.
+			Some(Archetype::Gun) if sim.rounds() == 0 => sim.draw_ticks_left(),
+			Some(Archetype::Art) | None if sim.art_charges() == 0 => 0,
+			_ => sim.cooldown_ticks(),
+		};
+		if ticks > 0 {
+			Self::Ticks(ticks)
+		} else {
+			Self::Now
+		}
+	}
+}
+
 /// One fight, and its record.
 #[derive(Clone, Debug)]
 pub struct HuntController {
@@ -74,6 +135,9 @@ pub struct HuntController {
 	recorded: Vec<HuntInput>,
 	/// Whether FIRE was pressed since the last tick: one press, one shot.
 	fire_pending: bool,
+	/// A press waiting for the weapon in hand, and the last tick it may be
+	/// played on.
+	fire_held: Option<i64>,
 	orb: OrbInput,
 	pause: PauseStatus,
 	/// The weapon slot in hand.
@@ -98,6 +162,7 @@ impl HuntController {
 			fight,
 			recorded: Vec::new(),
 			fire_pending: false,
+			fire_held: None,
 			orb: OrbInput {
 				held: false,
 				pressed: false,
@@ -180,7 +245,20 @@ impl HuntController {
 		}
 	}
 
-	/// Presses FIRE once. Holding it down does not fire again.
+	/// Presses FIRE once. Holding it down does not fire again. A press the
+	/// weapon in hand is too busy to take, but will take within
+	/// [`FIRE_BUFFER_TICKS`], waits for it and is played on the first tick it
+	/// would be taken; one still waiting when the husk begins to shriek is
+	/// dropped, never played into it, and so is one waiting when the room is
+	/// lost. Every other press is played on the next tick, as it always was,
+	/// and the rules judge it there. A new press starts the wait again.
+	///
+	/// A press that waits is played with the aim of the tick it goes on, not
+	/// the one it was made on: the shot goes where the phone points when it
+	/// fires, so one made on a seal can miss if the phone swings off it. The
+	/// wait is counted in the rules' ticks, not in real time, so across a
+	/// frame the hunt drops time on, a press can go a little later than
+	/// [`FIRE_BUFFER_TICKS`] of real time after it was made.
 	pub fn press(&mut self) {
 		if self.pause == PauseStatus::Playing {
 			self.fire_pending = true;
@@ -255,6 +333,7 @@ impl HuntController {
 				self.pause = reason;
 				self.unspent = 0.0;
 				self.fire_pending = false;
+				self.fire_held = None;
 				self.orb.held = false;
 				self.orb.pressed = false;
 				return Vec::new();
@@ -308,6 +387,7 @@ impl HuntController {
 			let mut input = bot.decide(self.fight.sim());
 			self.bot_turn_speed = input.turn_radians_per_second();
 			self.fire_pending = false;
+			self.fire_held = None;
 			// The rules' player reaches for whatever the moment calls for;
 			// it only has what this fight carries.
 			if !self.carries(usize::from(input.slot)) {
@@ -316,9 +396,46 @@ impl HuntController {
 			self.slot = usize::from(input.slot);
 			return input;
 		}
-		let fire = std::mem::take(&mut self.fire_pending);
+		let fire = self.fire_this_tick();
 		let orb_held = std::mem::take(&mut self.orb.pressed) || self.orb.held;
 		HuntInput::measured(pose.forward, pose.turn_speed, fire, self.slot, orb_held)
+	}
+
+	/// Whether the coming tick's input presses FIRE: a press made since the
+	/// last tick that the weapon in hand takes now, or one that has waited
+	/// for it and is taken now. The record holds the tick a press is played
+	/// on, not the one it was made on.
+	fn fire_this_tick(&mut self) -> bool {
+		let tick = self.sim().tick();
+		let wait = FireWait::of(self.sim(), self.slot);
+		if std::mem::take(&mut self.fire_pending) {
+			self.fire_held = None;
+			// Played as it always was unless the weapon will take it within
+			// the buffer: in a shriek a press is the player's own, and a
+			// flinch; one too long to wait for the rules hear now, and let go.
+			if let FireWait::Ticks(ticks) = wait
+				&& ticks <= FIRE_BUFFER_TICKS
+			{
+				self.fire_held = Some(tick + FIRE_BUFFER_TICKS);
+				return false;
+			}
+			return true;
+		}
+		let Some(last) = self.fire_held else {
+			return false;
+		};
+		match wait {
+			FireWait::Now => {
+				self.fire_held = None;
+				true
+			}
+			FireWait::Ticks(ticks) if tick + ticks <= last => false,
+			// Waited too long, or the husk shrieks, or nothing would take it.
+			FireWait::Ticks(_) | FireWait::Shriek | FireWait::Idle => {
+				self.fire_held = None;
+				false
+			}
+		}
 	}
 }
 
@@ -678,6 +795,218 @@ mod tests {
 			FrameEye::Origin,
 		);
 		assert!(!controller.log().inputs[2].orb_held);
+	}
+
+	/// Plays one tick of `controller`, aimed ahead, and answers what happened.
+	fn tick(controller: &mut HuntController) -> Vec<(i64, HuntEvent)> {
+		controller.frame(
+			HuntController::TICK_SECONDS,
+			&ArPose::AHEAD,
+			FrameEye::Origin,
+		)
+	}
+
+	/// The ticks the record presses FIRE on, from `from` on.
+	fn fired_on(controller: &HuntController, from: usize) -> Vec<usize> {
+		controller.log().inputs[from..]
+			.iter()
+			.enumerate()
+			.filter(|(_, input)| input.fire)
+			.map(|(index, _)| from + index)
+			.collect()
+	}
+
+	fn shots(events: &[(i64, HuntEvent)]) -> Vec<i64> {
+		events
+			.iter()
+			.filter(|(_, event)| matches!(event, HuntEvent::ShotFired { .. }))
+			.map(|(tick, _)| *tick)
+			.collect()
+	}
+
+	#[test]
+	fn a_press_while_the_pistol_recovers_is_fired_the_tick_it_can_be() {
+		let mut controller = HuntController::new(Fight::Hunt(sim(3)));
+		controller.press();
+		assert_eq!(shots(&tick(&mut controller)), [0]);
+		for _ in 1..12 {
+			tick(&mut controller);
+		}
+		// Six ticks before the pistol can fire again: the press waits for it,
+		// and the record presses FIRE on the tick the shot goes.
+		assert_eq!(controller.sim().cooldown_ticks(), 6);
+		controller.press();
+		let mut heard = Vec::new();
+		for _ in 0..10 {
+			heard.extend(tick(&mut controller));
+		}
+		assert_eq!(shots(&heard), [18]);
+		assert_eq!(fired_on(&controller, 1), [18]);
+		// Fourteen ticks away is longer than a press waits: it is played at
+		// once, as it always was, the rules let it go, and it is never played
+		// late.
+		assert_eq!(controller.sim().cooldown_ticks(), 14);
+		let pressed = controller.ticks();
+		controller.press();
+		let mut heard = Vec::new();
+		for _ in 0..30 {
+			heard.extend(tick(&mut controller));
+		}
+		assert_eq!(shots(&heard), Vec::<i64>::new());
+		assert_eq!(fired_on(&controller, 19), [pressed]);
+	}
+
+	#[test]
+	fn a_press_waits_at_most_eight_ticks() {
+		for wait in [1, 8] {
+			let mut controller = HuntController::new(Fight::Hunt(sim(3)));
+			controller.press();
+			tick(&mut controller);
+			while controller.sim().cooldown_ticks() > wait {
+				tick(&mut controller);
+			}
+			let pressed = controller.ticks();
+			controller.press();
+			for _ in 0..=FIRE_BUFFER_TICKS {
+				tick(&mut controller);
+			}
+			assert_eq!(
+				fired_on(&controller, pressed),
+				[pressed + wait as usize],
+				"waiting {wait}"
+			);
+		}
+		let mut controller = HuntController::new(Fight::Hunt(sim(3)));
+		controller.press();
+		tick(&mut controller);
+		while controller.sim().cooldown_ticks() > FIRE_BUFFER_TICKS + 1 {
+			tick(&mut controller);
+		}
+		let pressed = controller.ticks();
+		controller.press();
+		let mut heard = Vec::new();
+		for _ in 0..20 {
+			heard.extend(tick(&mut controller));
+		}
+		// Nine is one too many: played at once and let go.
+		assert_eq!(fired_on(&controller, pressed), [pressed]);
+		assert_eq!(shots(&heard), Vec::<i64>::new());
+	}
+
+	#[test]
+	fn a_press_waiting_for_the_pistol_is_dropped_when_tracking_is_lost() {
+		let mut controller = HuntController::new(Fight::Hunt(sim(3)));
+		controller.press();
+		tick(&mut controller);
+		while controller.sim().cooldown_ticks() > 4 {
+			tick(&mut controller);
+		}
+		let pressed = controller.ticks();
+		controller.press();
+		tick(&mut controller);
+		// The press waits for the pistol; the room is lost before it can fire,
+		// and found again.
+		controller.frame(1.0, &ArPose::AHEAD, FrameEye::Unavailable);
+		let mut heard = Vec::new();
+		for _ in 0..20 {
+			heard.extend(tick(&mut controller));
+		}
+		assert_eq!(shots(&heard), Vec::<i64>::new());
+		assert_eq!(fired_on(&controller, pressed), Vec::<usize>::new());
+	}
+
+	#[test]
+	fn a_press_in_a_reload_is_played_at_once() {
+		let mut controller = HuntController::new(Fight::Hunt(sim(3)));
+		while controller.sim().rounds() > 0 {
+			controller.press();
+			tick(&mut controller);
+		}
+		controller.press();
+		let started = controller.ticks();
+		assert!(
+			tick(&mut controller)
+				.iter()
+				.any(|(_, event)| *event == HuntEvent::ReloadStarted)
+		);
+		tick(&mut controller);
+		// Pressed too early in the reload, it jams: on the very tick.
+		controller.press();
+		let jammed = controller.ticks();
+		assert!(controller.sim().reloading());
+		assert!(
+			tick(&mut controller)
+				.iter()
+				.any(|(at, event)| *at == jammed as i64 && *event == HuntEvent::ReloadJammed)
+		);
+		assert_eq!(fired_on(&controller, started), [started, jammed]);
+	}
+
+	#[test]
+	fn a_press_in_a_dive_is_played_at_once() {
+		let mut dived = None;
+		for seed in [2, 4, 3] {
+			let mut sim = sim(seed);
+			let mut bot = HuntBot::human(&sim);
+			while !sim.diving() && !sim.is_over() && sim.tick() < 20_000 {
+				let input = bot.decide(&sim);
+				sim.step(&input);
+			}
+			if sim.diving() {
+				dived = Some(sim);
+				break;
+			}
+		}
+		let sim = dived.expect("the rules' player dives");
+		let mut controller = HuntController::new(Fight::Hunt(sim));
+		controller.press();
+		tick(&mut controller);
+		assert_eq!(fired_on(&controller, 0), [0]);
+	}
+
+	#[test]
+	fn a_waiting_press_is_dropped_when_the_husk_shrieks() {
+		let mut controller = HuntController::new(Fight::Hunt(sim(3)));
+		// The first shot gives up the ambush, and the fight begins.
+		controller.press();
+		tick(&mut controller);
+		let windup_left = |controller: &HuntController| {
+			((1.0 - controller.sim().shriek_progress()) * HuntRules::WINDUP_TICKS as f64).round()
+				as i64
+		};
+		while controller.sim().phase() != HuntPhase::Windup || windup_left(&controller) > 16 {
+			assert!(controller.ticks() < 5_000, "it draws breath");
+			tick(&mut controller);
+		}
+		assert_eq!(windup_left(&controller), 16);
+		controller.press();
+		tick(&mut controller);
+		while windup_left(&controller) > 6 {
+			tick(&mut controller);
+		}
+		// Eight ticks from a shot, which is as long as a press waits, but the
+		// husk shrieks in six.
+		assert_eq!(controller.sim().cooldown_ticks(), 8);
+		let pressed = controller.ticks();
+		controller.press();
+		let mut heard = Vec::new();
+		while controller.sim().phase() != HuntPhase::Fight {
+			assert!(controller.ticks() < pressed + 200);
+			heard.extend(tick(&mut controller));
+		}
+		assert!(
+			heard
+				.iter()
+				.any(|(_, event)| *event == HuntEvent::ShriekBegan)
+		);
+		assert_eq!(shots(&heard), Vec::<i64>::new());
+		assert!(
+			!heard
+				.iter()
+				.any(|(_, event)| matches!(event, HuntEvent::Flinched { .. })),
+			"{heard:?}"
+		);
+		assert_eq!(fired_on(&controller, pressed), Vec::<usize>::new());
 	}
 
 	/// A rift is fought with the pistol and the art alone: the player cannot

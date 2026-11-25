@@ -46,5 +46,6 @@ pub use viewmodel::ViewmodelProps;
 pub use viewmodel::WorldView;
 pub use viewmodel::dive;
 pub use viewmodel::shake_turn;
+pub use viewmodel::viewmodel_marks;
 pub use viewmodel::viewmodel_show;
 pub use viewmodel::viewmodel_view;

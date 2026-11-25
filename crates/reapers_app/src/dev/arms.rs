@@ -28,6 +28,7 @@ use reapers_rules::OrbView;
 use reapers_rules::Vec3;
 use reapers_rules::WeaponKind;
 
+use crate::hunt::overlay::Sight;
 use crate::l10n::use_l10n;
 use crate::render::arms::CONTACT_TICKS;
 use crate::render::arms::THROW_RELEASE;
@@ -52,11 +53,13 @@ use crate::seams::ViewmodelProps;
 use crate::seams::WorldView;
 use crate::seams::dive;
 use crate::seams::shake_turn;
+use crate::seams::viewmodel_marks;
 use crate::seams::viewmodel_show;
 use crate::seams::viewmodel_view;
 use crate::theme::ASH;
 use crate::theme::BONE;
 use crate::theme::INK;
+use crate::theme::Rgb;
 use crate::ui::body;
 use crate::ui::display;
 use crate::ui::gap;
@@ -67,9 +70,13 @@ use crate::ui::margin;
 
 /// The bench's world: the husk, and the orb and effects around it.
 pub const WORLD: Key = Key::Fixed("arms-bench");
-/// The view's size, in CSS pixels: a phone held upright.
-pub const VIEW_WIDTH: f32 = 360.0;
-pub const VIEW_HEIGHT: f32 = 480.0;
+/// The view's size, in CSS pixels: a phone held upright, as the art bible
+/// lays the hunt out (390 × 844 pt).
+pub const VIEW_WIDTH: f32 = 390.0;
+pub const VIEW_HEIGHT: f32 = 844.0;
+/// The size the bright room is drawn at, stretched to fill the view.
+const ROOM_WIDTH: f32 = 360.0;
+const ROOM_HEIGHT: f32 = 480.0;
 /// The world's lens: the hunt's.
 const FOV: f32 = 62.0 * std::f32::consts::PI / 180.0;
 /// Where the husk stands, in the hunt's space: metres from the eye, z
@@ -82,10 +89,10 @@ const ORB_REST: f32 = 0.126;
 /// Where a throw that misses comes down, in the hunt's space: on the floor,
 /// past the husk and to its right.
 const MISS_AT: [f64; 3] = [1.1, -1.32, 4.6];
-/// Every fourth blow is a critical one.
-const CRIT_EVERY: u32 = 4;
 /// The class weapon in the bench's heavy slot.
 const HEAVY: WeaponKind = WeaponKind::Scythe;
+/// The spot the bench's marks print in: the Ferryman's lantern.
+const SPOT: Rgb = crate::ink::LANTERN;
 
 /// How a throw on the bench ends. In a hunt, the rules decide.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -96,6 +103,28 @@ pub enum Ending {
 	BreaksOn(i64),
 	/// It misses the husk.
 	Misses,
+}
+
+/// What a blow on the bench strikes. In a hunt, the rules decide.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Outcome {
+	/// An open seal, for twice the harm.
+	Seal,
+	/// The body.
+	#[default]
+	Body,
+	/// Nothing.
+	Miss,
+}
+
+/// How the husk feels a blow on the bench, on the tick it lands.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Felt {
+	/// It flashes in its own light, this hard.
+	Flash(f64),
+	/// A shot: it is held still and printed in the reaper's spot, longer on
+	/// a seal.
+	Shot { seal: bool },
 }
 
 /// What the arms are drawn over.
@@ -116,6 +145,12 @@ pub struct Bench {
 	pub looking: bool,
 	look_clock: f64,
 	pub ground: Ground,
+	/// What the next blow strikes.
+	pub outcome: Outcome,
+	/// While the clock is held, the single ticks it is still to step: a
+	/// debug build's way to look at a blow frame by frame. `None` while it
+	/// runs.
+	pub held: Option<u32>,
 	/// What the selected slot holds.
 	pub archetype: Archetype,
 	pub action: ViewAction,
@@ -124,8 +159,8 @@ pub struct Bench {
 	blows: u32,
 	juice: Juice,
 	hit: Option<HitView>,
-	/// A blow the husk will feel: the tick, and how hard.
-	flash: Option<(i64, f64)>,
+	/// A blow the husk will feel: the tick, and how.
+	felt: Option<(i64, Felt)>,
 	/// The orb: the tick it leaves the hand, and how it ends.
 	pub orb: Option<(i64, Ending)>,
 	/// Whether the orb's blows have landed.
@@ -158,6 +193,8 @@ pub fn bench() -> Rc<RefCell<Bench>> {
 					looking: false,
 					look_clock: 0.0,
 					ground: Ground::Dark,
+					outcome: Outcome::Body,
+					held: None,
 					archetype: Archetype::Gun,
 					action: ViewAction::Draw,
 					action_tick: 0,
@@ -165,7 +202,7 @@ pub fn bench() -> Rc<RefCell<Bench>> {
 					blows: 0,
 					juice: Juice::default(),
 					hit: None,
-					flash: None,
+					felt: None,
 					orb: None,
 					orb_jolts: (false, false),
 					husk: None,
@@ -218,9 +255,12 @@ impl Bench {
 		self.tick.floor() as i64
 	}
 
-	/// How many of the hunt's ticks pass each second.
+	/// How many of the hunt's ticks pass each second: none while the clock
+	/// is held.
 	fn rate(&self) -> f32 {
-		if self.quarter {
+		if self.held.is_some() {
+			0.0
+		} else if self.quarter {
 			TICKS_PER_SECOND / 4.0
 		} else {
 			TICKS_PER_SECOND
@@ -250,18 +290,24 @@ impl Bench {
 		self.version.update(|version| *version += 1);
 	}
 
-	/// A blow that strikes the husk at `tick`.
+	/// A blow that strikes what [`Outcome`] says at `tick`: an open seal for
+	/// twice `damage`, the body, or nothing.
 	fn blow(&mut self, tick: i64, damage: i64, jolt: Jolt) {
 		self.blows += 1;
-		let crit = self.blows.is_multiple_of(CRIT_EVERY);
+		let seal = self.outcome == Outcome::Seal;
+		let shot = jolt == Jolt::Shot;
 		let jolt = match jolt {
-			Jolt::Shot if crit => Jolt::SealShot,
+			Jolt::Shot if seal => Jolt::SealShot,
 			jolt => jolt,
 		};
 		self.juice.land(jolt, tick);
+		if self.outcome == Outcome::Miss {
+			return;
+		}
 		let (husk, _) = Self::husk_at();
 		// Each blow lands a little apart from the last, on the husk's near
-		// side.
+		// side just under the sight, where a hunt's shots are aimed: its
+		// splat and tag then stand where they would in a hunt.
 		let spread = (f64::from(self.blows) * 2.4).sin() as f32;
 		let color = self
 			.husk
@@ -271,14 +317,21 @@ impl Bench {
 			tick,
 			at: [
 				husk[0] + 0.12 * spread,
-				husk[1] + 0.08 * spread.abs(),
+				0.08 * spread.abs() - 0.1,
 				husk[2] + 0.32,
 			],
-			damage: if crit { damage * 5 / 2 } else { damage },
-			crit,
+			damage: if seal { damage * 2 } else { damage },
+			crit: seal,
+			seal,
+			cadence: 1,
 			color,
 		});
-		self.flash = Some((tick, if crit { 1.0 } else { 0.6 }));
+		let felt = if shot {
+			Felt::Shot { seal }
+		} else {
+			Felt::Flash(if seal { 1.0 } else { 0.6 })
+		};
+		self.felt = Some((tick, felt));
 	}
 
 	/// Whether the weapon is in a dive: lunged in and not yet back out.
@@ -358,15 +411,36 @@ const REFORM: f64 = 30.0;
 impl Bench {
 	/// Moves the bench's clock on by `delta` seconds and shows the moment.
 	fn advance(&mut self, delta: f64) {
-		let speed = if self.quarter { 0.25 } else { 1.0 };
-		self.tick += delta * f64::from(TICKS_PER_SECOND) * speed;
+		let speed = if self.held.is_some() {
+			0.0
+		} else if self.quarter {
+			0.25
+		} else {
+			1.0
+		};
+		// The hunt's time this frame: a held clock moves only a tick at a
+		// time, when asked.
+		let mut moved = delta * speed;
+		if let Some(steps) = &mut self.held
+			&& *steps > 0
+		{
+			*steps -= 1;
+			moved = 1.0 / f64::from(TICKS_PER_SECOND);
+		}
+		self.tick += moved * f64::from(TICKS_PER_SECOND);
 		let now = self.now();
-		if let Some((at, strength)) = self.flash
+		if let Some((at, felt)) = self.felt
 			&& now >= at
 		{
-			self.flash = None;
+			self.felt = None;
 			if let Some(husk) = &mut self.husk {
-				husk.flash(strength);
+				match felt {
+					Felt::Flash(strength) => husk.flash(strength),
+					Felt::Shot { seal } => {
+						husk.print(crate::render::husk::struck_ink());
+						husk.stop(if seal { 5 } else { 3 });
+					}
+				}
 			}
 		}
 		self.land_orb_jolts(now);
@@ -386,7 +460,7 @@ impl Bench {
 		}
 		let world = scene(WORLD);
 		let ops = world.ops();
-		let (camera, fov) = self.aim(delta * speed);
+		let (camera, fov) = self.aim(moved);
 		self.camera = (camera, fov);
 		ops.push(Op::SetCamera {
 			transform: camera,
@@ -397,15 +471,10 @@ impl Bench {
 		if let Some(husk) = &mut self.husk {
 			// A soul let go gathers itself again; it is never there at once.
 			let taken = orb.map_or(0.0, |orb| soul_taken(&orb, self.tick));
-			let gathered = delta * speed * f64::from(TICKS_PER_SECOND) / REFORM;
+			let gathered = moved * f64::from(TICKS_PER_SECOND) / REFORM;
 			self.taken = taken.max(self.taken - gathered);
 			husk.dissolve(self.taken);
-			husk.animate(
-				ops,
-				delta * speed,
-				HuskMood::default(),
-				HuskPlight::default(),
-			);
+			husk.animate(ops, moved, HuskMood::default(), HuskPlight::default());
 		}
 		world.flush();
 		let props = self.props();
@@ -424,7 +493,7 @@ impl Bench {
 		if !self.orb_jolts.0 && ending != Ending::Misses && now >= impact {
 			self.orb_jolts.0 = true;
 			self.juice.land(Jolt::OrbImpact, impact);
-			self.flash = Some((impact, 0.8));
+			self.felt = Some((impact, Felt::Flash(0.8)));
 		}
 		if let Ending::BreaksOn(pulse) = ending {
 			let broke = release + CaptureRules::PULSE_TICKS[pulse.clamp(1, 3) as usize - 1];
@@ -487,10 +556,17 @@ impl Bench {
 				camera: self.camera.0,
 				fov_y: self.camera.1,
 				aspect: VIEW_WIDTH / VIEW_HEIGHT,
+				height: VIEW_HEIGHT,
 				husk,
 				ground,
 			}),
 			hit: self.hit,
+			spot: SPOT,
+			sight: Some(match self.outcome {
+				Outcome::Seal => Sight::Seal,
+				Outcome::Body => Sight::On,
+				Outcome::Miss => Sight::Off,
+			}),
 		}
 	}
 }
@@ -499,7 +575,10 @@ impl Bench {
 /// seam keeps, and the camera's shake.
 fn still(props: &ViewmodelProps) -> ViewmodelProps {
 	let mut props = *props;
-	props.now = 0;
+	// A held clock is stepped by hand: each step is news.
+	if props.rate > 0.0 {
+		props.now = 0;
+	}
 	if let Some(orb) = &mut props.orb {
 		orb.ticks = 0;
 	}
@@ -553,10 +632,10 @@ enum Shape {
 
 /// The bright room as a drawing filling the view.
 fn bright_room() -> Element {
-	let Ok(view_box) = ViewBox::new(0.0, 0.0, VIEW_WIDTH, VIEW_HEIGHT) else {
+	let Ok(view_box) = ViewBox::new(0.0, 0.0, ROOM_WIDTH, ROOM_HEIGHT) else {
 		return View();
 	};
-	let mut room = Vector(view_box);
+	let mut room = Vector(view_box).scaling(VectorScaling::Stretch);
 	for &(shape, colour) in BRIGHT_ROOM {
 		let path = match shape {
 			Shape::Path(data) => PathData::parse(data),
@@ -589,7 +668,8 @@ pub fn page() -> Element {
 				.class("absolute inset-0 w-full h-full")
 				.aria_hidden(true),
 		)
-		.child(viewmodel_view(&props));
+		.child(viewmodel_view(&props))
+		.child(viewmodel_marks());
 	let column = View()
 		.class("w-full max-w-[520px] self-center px-5 pt-2 pb-10")
 		.test_id("arms-bench")
@@ -757,7 +837,39 @@ fn controls(state: &Bench) -> Element {
 			bench.version.update(|version| *version += 1);
 		})
 	});
-	let clock = [
+	let outcomes = outcomes(state);
+	let clock = clock(state);
+	View()
+		.class("w-full gap-[6px] pt-3")
+		.child(section(words.arms_bench_weapon(), weapons))
+		.child(section(words.arms_bench_motion(), motions))
+		.child(section(words.arms_bench_blow(), outcomes))
+		.child(section(words.arms_bench_orb(), throws))
+		.child(section(words.arms_bench_behind(), grounds))
+		.child(section(words.arms_bench_clock(), clock))
+}
+
+/// What a blow strikes: a quiet chip for each.
+fn outcomes(state: &Bench) -> [Element; 3] {
+	let words = use_l10n();
+	[
+		(Outcome::Seal, "arms-blow-seal", words.arms_bench_seal()),
+		(Outcome::Body, "arms-blow-body", words.arms_bench_body()),
+		(Outcome::Miss, "arms-blow-miss", words.arms_bench_miss()),
+	]
+	.map(|(outcome, id, name)| {
+		quiet_chip(id, name, state.outcome == outcome, move |bench| {
+			bench.outcome = outcome;
+			bench.version.update(|version| *version += 1);
+		})
+	})
+}
+
+/// The clock's buttons: its speed and the look around, and in a debug build
+/// a hold and a step.
+fn clock(state: &Bench) -> Vec<Element> {
+	let words = use_l10n();
+	let speeds = [
 		chip(
 			"arms-full-speed",
 			words.arms_bench_full_speed(),
@@ -784,13 +896,30 @@ fn controls(state: &Bench) -> Element {
 			},
 		),
 	];
-	View()
-		.class("w-full gap-[6px] pt-3")
-		.child(section(words.arms_bench_weapon(), weapons))
-		.child(section(words.arms_bench_motion(), motions))
-		.child(section(words.arms_bench_orb(), throws))
-		.child(section(words.arms_bench_behind(), grounds))
-		.child(section(words.arms_bench_clock(), clock))
+	let mut clock = Vec::from(speeds);
+	if cfg!(debug_assertions) {
+		// A debug build can hold the clock and step it a tick at a time.
+		clock.push(quiet_chip(
+			"arms-hold",
+			words.arms_bench_hold(),
+			state.held.is_some(),
+			|bench| {
+				bench.held = if bench.held.is_some() { None } else { Some(0) };
+				bench.version.update(|version| *version += 1);
+			},
+		));
+		clock.push(quiet_chip(
+			"arms-step",
+			words.arms_bench_step(),
+			false,
+			|bench| {
+				if let Some(steps) = &mut bench.held {
+					*steps += 1;
+				}
+			},
+		));
+	}
+	clock
 }
 
 /// The orb's buttons: a throw to each ending.
@@ -849,6 +978,27 @@ fn chip(
 	chosen: bool,
 	press: impl Fn(&mut Bench) + Send + Sync + 'static,
 ) -> Element {
+	pressable_chip(id, text, chosen, true, press)
+}
+
+/// A chip that only sets the bench up, pressed without a tap: what a blow
+/// strikes, and the held clock.
+fn quiet_chip(
+	id: &str,
+	text: &str,
+	chosen: bool,
+	press: impl Fn(&mut Bench) + Send + Sync + 'static,
+) -> Element {
+	pressable_chip(id, text, chosen, false, press)
+}
+
+fn pressable_chip(
+	id: &str,
+	text: &str,
+	chosen: bool,
+	tap: bool,
+	press: impl Fn(&mut Bench) + Send + Sync + 'static,
+) -> Element {
 	let (colour, filled) = if chosen {
 		(INK, "bg-[#e9e4d4]")
 	} else {
@@ -861,7 +1011,9 @@ fn chip(
 		.aria_pressed(chosen)
 		.test_id(id)
 		.on_press(move || {
-			crate::platform::tap();
+			if tap {
+				crate::platform::tap();
+			}
 			let bench = bench();
 			press(&mut bench.borrow_mut());
 		})

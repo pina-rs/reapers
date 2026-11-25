@@ -110,13 +110,30 @@ pub const fn weapon_part(archetype: Archetype) -> Option<&'static str> {
 
 const fn hold(archetype: Archetype) -> Hold {
 	match archetype {
-		Archetype::Gun | Archetype::Art => {
+		// The pistol is held further out than the arm's rest, a little up and
+		// right, its muzzle tipped down: the hand on its grip sits near where
+		// the bible's proof has it, about (300, 640) on a phone, clear of
+		// FIRE; the barrel is still seen from its side, so it reads as a
+		// barrel; and the whole of it, flared mouth and all, stays right of
+		// the column under the sight at the height of a kick (§6.5).
+		Archetype::Gun => {
 			Hold {
 				lean: 0.0,
 				twist: 0.0,
 				scale: 1.0,
-				rest: [0.0; 3],
-				turn: [0.0; 3],
+				rest: [0.02, 0.04, 0.22],
+				turn: [0.0, -0.25, 0.0],
+				wrist: [0.0; 3],
+			}
+		}
+		// The art is thrown from an empty hand, held as the pistol once was.
+		Archetype::Art => {
+			Hold {
+				lean: 0.0,
+				twist: 0.0,
+				scale: 1.0,
+				rest: [0.0, 0.04, 0.06],
+				turn: [0.0, -0.1, 0.0],
 				wrist: [0.0; 3],
 			}
 		}
@@ -136,7 +153,7 @@ const fn hold(archetype: Archetype) -> Hold {
 				twist: -0.4,
 				scale: 0.42,
 				rest: [0.01, -0.03, 0.0],
-				turn: [0.0, -0.05, 0.0],
+				turn: [0.0, -0.1, 0.0],
 				wrist: [0.0; 3],
 			}
 		}
@@ -213,6 +230,9 @@ pub struct Placed {
 	/// `vm_right` and `vm_wrist_r`'s offsets.
 	pub arm: Frame,
 	pub wrist: [f32; 4],
+	/// The held weapon's own frame, in the view: where any point of its
+	/// model is.
+	pub weapon: Frame,
 	/// The weapon's grip, the pistol's muzzle and a heavy weapon's head,
 	/// in the view.
 	pub grip: Point,
@@ -282,6 +302,7 @@ pub fn place(archetype: Archetype, pose: &Pose) -> Placed {
 	Placed {
 		arm,
 		wrist,
+		weapon: weapon_frame,
 		grip: socket.at,
 		muzzle: weapon_frame.point(MUZZLE),
 		head: weapon_frame.point(SCYTHE_HEAD),
@@ -302,7 +323,8 @@ fn held(hold: Hold) -> Frame {
 	}
 }
 
-/// The muzzle flash's three frames.
+/// The muzzle flash's three frames, in the model. They are never shown: a
+/// shot's burst is printed flat over the view instead (`hunt::marks`).
 const FLASHES: [&str; 3] = ["vm_flash_0", "vm_flash_1", "vm_flash_2"];
 
 /// Every part the rig shows or hides, and whether it shows for `pose`, with
@@ -316,9 +338,9 @@ pub fn visibility(archetype: Archetype, pose: &Pose) -> [(&'static str, bool); 1
 		(KNIFE, held == Some(KNIFE)),
 		(SCYTHE, held == Some(SCYTHE)),
 		("pistol_drum", pose.drum_drop < DRUM_GONE),
-		(FLASHES[0], pose.flash == Some(0)),
-		(FLASHES[1], pose.flash == Some(1)),
-		(FLASHES[2], pose.flash == Some(2)),
+		(FLASHES[0], false),
+		(FLASHES[1], false),
+		(FLASHES[2], false),
 		("vm_left", pose.left.is_some()),
 		("viewmodel_soul_cylinder", holds == LeftHolds::Drum),
 		("viewmodel_orb_held", holds == LeftHolds::Orb),
@@ -350,16 +372,14 @@ impl ViewmodelRig {
 		}));
 		scene.push(Op::SetBackdrop(Backdrop::Transparent));
 		let mut puppet = Puppet::spawn(scene, VIEWMODEL_MODEL, None);
-		// The flash and the trail are light: added to what is behind them,
-		// in the soul's colour.
-		for part in FLASHES.into_iter().chain(["vm_trail"]) {
-			scene.push(Op::SetBlend {
-				node: puppet.node,
-				part: Some(part.to_owned()),
-				blend: Blend::Additive,
-			});
-			puppet.material(scene, part, glow(1.0));
-		}
+		// A heavy swing's trail is light: added to what is behind it, in the
+		// soul's colour.
+		scene.push(Op::SetBlend {
+			node: puppet.node,
+			part: Some("vm_trail".to_owned()),
+			blend: Blend::Additive,
+		});
+		puppet.material(scene, "vm_trail", glow(1.0));
 		Self { puppet }
 	}
 
@@ -457,7 +477,9 @@ mod tests {
 	use reapers_rules::WeaponKind;
 
 	use super::*;
+	use crate::render::arms::Cut;
 	use crate::render::arms::ViewAction;
+	use crate::render::arms::flowing;
 	use crate::render::arms::manner;
 	use crate::render::arms::pose;
 
@@ -473,6 +495,179 @@ mod tests {
 	/// its top.
 	fn height(point: Point) -> f32 {
 		point[1] / (-point[2] * (VIEWMODEL_FOV / 2.0).tan())
+	}
+
+	/// Where `point` is drawn on a phone held upright, 390 by 844 points, in
+	/// points from its top left.
+	fn on_phone(point: Point) -> (f32, f32) {
+		let per = 422.0 / (VIEWMODEL_FOV / 2.0).tan();
+		(
+			195.0 + per * point[0] / -point[2],
+			422.0 - per * point[1] / -point[2],
+		)
+	}
+
+	/// The sight on a phone held upright, and how far round it the arms stay
+	/// clear (the art bible, §6.5).
+	const SIGHT: (f32, f32) = (195.0, 422.0);
+	const CLEAR: f32 = 60.0;
+
+	/// Where the pistol's grip and muzzle are drawn on the phone for `pose`.
+	fn pistol(pose: &Pose) -> [(f32, f32); 2] {
+		let placed = place(Archetype::Gun, pose);
+		[on_phone(placed.grip), on_phone(placed.muzzle)]
+	}
+
+	/// The pistol `seconds` from a first shot, with a second shot fired
+	/// `second` seconds after it, if any, and the arms at rest before both.
+	fn shooting(seconds: f32, second: Option<f32>) -> Pose {
+		let manner = manner(Archetype::Gun, WeaponKind::Scythe);
+		let rest = Cut {
+			from: ViewAction::Idle,
+			played: 1.0,
+		};
+		match second {
+			_ if seconds < 0.0 => flowing(manner, ViewAction::Idle, 1.0, 0.0, None, true),
+			Some(second) if seconds >= second => {
+				let cut = Cut {
+					from: ViewAction::Fire,
+					played: second,
+				};
+				flowing(
+					manner,
+					ViewAction::Fire,
+					seconds - second,
+					0.0,
+					Some(cut),
+					true,
+				)
+			}
+			_ => flowing(manner, ViewAction::Fire, seconds, 0.0, Some(rest), true),
+		}
+	}
+
+	#[test]
+	fn the_pistol_rests_in_the_frame_and_kicks_clear_of_the_sight() {
+		let at_rest = posed(Archetype::Gun, ViewAction::Idle, 0.0);
+		let [grip, muzzle] = pistol(&at_rest);
+		// The hand is near where the bible's proof has it, about (300, 640),
+		// above FIRE, and the muzzle near its (232, 574), low and right of the
+		// sight. The barrel is seen from its side, drawn at least 45 pt long,
+		// not end on, where it hides behind the drum.
+		assert!(
+			(grip.0 - 300.0).hypot(grip.1 - 640.0) < 30.0,
+			"the grip rests at {grip:?}"
+		);
+		assert!(
+			(muzzle.0 - 232.0).hypot(muzzle.1 - 574.0) < 35.0,
+			"the muzzle rests at {muzzle:?}"
+		);
+		let placed = place(Archetype::Gun, &at_rest);
+		let back = on_phone(placed.weapon.point([0.0, MUZZLE[1], 0.064]));
+		let length = (back.0 - muzzle.0).hypot(back.1 - muzzle.1);
+		assert!(length > 45.0, "the barrel is drawn {length} pt long");
+		// At rest, at the height of a kick, and of a second fired as the first
+		// recovers, and everywhere between, the hand and the whole barrel as
+		// it is drawn are in the frame, clear of the sight's circle and right
+		// of the column under it, x 175 to 215. (The rules fire the pistol no
+		// faster than every 0.3 s, by when a kick is over: only a bench stacks
+		// two.)
+		for second in [None, Some(0.09)] {
+			for step in 0..=400 {
+				let seconds = step as f32 / 1000.0;
+				let placed = place(Archetype::Gun, &shooting(seconds, second));
+				let drawn = barrel()
+					.into_iter()
+					.map(|point| ("barrel", placed.weapon.point(point)))
+					.chain([("grip", placed.grip)]);
+				for (part, point) in drawn {
+					let point = on_phone(point);
+					let from_sight = (point.0 - SIGHT.0).hypot(point.1 - SIGHT.1);
+					assert!(
+						from_sight > CLEAR,
+						"{seconds} s in ({second:?}) the {part} is {from_sight} pt from the sight"
+					);
+					assert!(
+						point.0 > 215.0 && point.0 < 390.0 && point.1 > 0.0 && point.1 < 844.0,
+						"{seconds} s in ({second:?}) the {part} is at {point:?}"
+					);
+				}
+			}
+		}
+	}
+
+	/// Points round the pistol's barrel as its model is built
+	/// (`art/blender/viewmodel_parts/grave_pistol.py`), in the pistol's own
+	/// frame: the rim of its flared mouth, the teeth round the bore, and the
+	/// bands along it.
+	fn barrel() -> Vec<Point> {
+		let bore = MUZZLE[1];
+		let rings = [
+			(0.0162, 0.236),
+			(0.0155, 0.2385),
+			(0.0128, 0.241),
+			(0.0139, 0.19),
+			(0.0139, 0.128),
+			(0.0139, 0.072),
+		];
+		(0..16)
+			.flat_map(|step| {
+				let angle = step as f32 / 16.0 * std::f32::consts::TAU;
+				rings.map(|(radius, along)| {
+					[radius * angle.cos(), bore + radius * angle.sin(), along]
+				})
+			})
+			.collect()
+	}
+
+	#[test]
+	fn a_shot_moves_the_pistol_without_a_jump_at_sixty_and_a_hundred_and_twenty_frames() {
+		// From rest, through a shot, a second fired in its recovery and back to
+		// rest. The kick snaps up on each shot's own frame, the sixtieth of a
+		// second the burst and the smear print over (the art bible, §11.4),
+		// shown in one step at sixty frames a second and two at a hundred and
+		// twenty: that is the kick, and no more. Every other step halves when
+		// the frame does, so nothing else jumps.
+		let steps = |rate: f32, second: Option<f32>| {
+			let frames = (0.55 * rate) as i32;
+			let shots = [Some(0.0), second];
+			let (mut snap, mut flow) = (0.0_f32, 0.0_f32);
+			for frame in 0..frames {
+				let at = |frame: i32| frame as f32 / rate - 0.05;
+				let [grip, muzzle] = pistol(&shooting(at(frame), second));
+				let [grip_next, muzzle_next] = pistol(&shooting(at(frame + 1), second));
+				let step = (muzzle_next.0 - muzzle.0)
+					.hypot(muzzle_next.1 - muzzle.1)
+					.max((grip_next.0 - grip.0).hypot(grip_next.1 - grip.1));
+				// A step onto a frame inside the shot's own sixtieth of a
+				// second, as the seam samples it (a frame on, so never on the
+				// shot itself).
+				let fired = shots.iter().flatten().any(|shot| {
+					let shot = shot + 1.0e-4;
+					at(frame + 1) > shot && at(frame + 1) <= shot + 1.0 / 60.0
+				});
+				if fired {
+					snap = snap.max(step);
+				} else {
+					flow = flow.max(step);
+				}
+			}
+			(snap, flow)
+		};
+		for second in [None, Some(0.05), Some(0.09)] {
+			let (snap, sixty) = steps(60.0, second);
+			let (_, hundred_and_twenty) = steps(120.0, second);
+			// About 55 pt: nearly the whole kick, which the smear spans.
+			assert!(
+				(30.0..70.0).contains(&snap),
+				"{second:?}: the kick snaps {snap} pt"
+			);
+			assert!(sixty < 30.0, "{second:?}: a {sixty} pt step at 60 fps");
+			assert!(
+				hundred_and_twenty < 0.7 * sixty,
+				"{second:?}: {hundred_and_twenty} pt at 120 fps against {sixty} at 60"
+			);
+		}
 	}
 
 	#[test]

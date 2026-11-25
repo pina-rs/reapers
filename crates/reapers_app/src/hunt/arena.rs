@@ -10,6 +10,7 @@ use std::rc::Rc;
 
 use leptoskit::scene3d::Op;
 use leptoskit::scene3d::Transform;
+use reapers_rules::Archetype;
 use reapers_rules::HuntEvent;
 use reapers_rules::HuntPhase;
 use reapers_rules::HuntSim;
@@ -27,6 +28,7 @@ use super::arms::HuskMarks;
 use super::controller::FrameEye;
 use super::controller::HuntController;
 use super::controller::PauseStatus;
+use super::overlay::Sight;
 use crate::render::camera::look_at;
 use crate::render::husk::HuskMood;
 use crate::render::husk::HuskRig;
@@ -44,6 +46,7 @@ use crate::seams::ViewmodelProps;
 use crate::seams::WorldView;
 use crate::seams::dive;
 use crate::seams::shake_turn;
+use crate::theme::Rgb;
 
 /// The vertical field of view the hunt is drawn with when there is no
 /// camera picture to match: a browser, a simulator, a refused permission.
@@ -100,6 +103,10 @@ pub struct Arena {
 	pub fov: f64,
 	/// The view's width over its height.
 	pub aspect: f64,
+	/// The reaper's spot, the second ink its blows print in.
+	pub spot: Rgb,
+	/// Where the phone pointed last tick, for the sight.
+	forward: Option<Vec3>,
 	/// The camera last sent, so a still view sends nothing, and its turn.
 	camera: Option<([i32; 10], i32)>,
 	turned: [f32; 4],
@@ -166,6 +173,8 @@ impl Arena {
 			over_for: 0.0,
 			fov: HUNT_FOV,
 			aspect,
+			spot: crate::ink::CHAFF,
+			forward: None,
 			camera: None,
 			turned: [0.0, 0.0, 0.0, 1.0],
 			room_frame: None,
@@ -394,6 +403,7 @@ impl Arena {
 			},
 			fov_y: self.view_fov() as f32,
 			aspect: self.aspect as f32,
+			height: self.height as f32,
 			husk: marks.scene_point(husk.position),
 			ground: marks.scene_point(Vec3::new(
 				husk.position.x,
@@ -402,7 +412,17 @@ impl Arena {
 			)),
 		};
 		let turn = self.turn_rate.map(|rate| rate as f32);
-		Some(arms.props(sim, Some(world), turn))
+		let mut props = arms.props(sim, Some(world), turn, self.spot);
+		// The sight, while a press can strike and the fight runs.
+		let aiming = matches!(
+			sim.phase(),
+			HuntPhase::Fight | HuntPhase::Windup | HuntPhase::Charge | HuntPhase::Broken
+		) && controller.pause_status() == PauseStatus::Playing;
+		props.sight = self
+			.forward
+			.filter(|_| aiming)
+			.map(|forward| Sight::of(sim, forward));
+		Some(props)
 	}
 
 	fn marks(&self) -> HuskMarks {
@@ -463,40 +483,32 @@ impl Arena {
 		}
 	}
 
-	/// Advances the fight and everything drawn from it, with the player at
-	/// `live`, and returns what happened, each on the rules' tick it happened
-	/// on. Before a fight is engaged this only idles.
-	pub fn advance(
-		&mut self,
-		delta: f64,
-		live: ArPose,
-		world: Option<bool>,
-	) -> Vec<(i64, HuntEvent)> {
-		let eye = self.eye();
-		let Some(controller) = self.controller.as_mut() else {
-			self.idle(delta, live);
-			return Vec::new();
-		};
-		let pose = controller.pose(live);
-		let frame_eye = match world {
-			None => FrameEye::Origin,
-			Some(true) => FrameEye::World(eye),
-			Some(false) => FrameEye::Unavailable,
-		};
-		let was_paused = controller.pause_status() != PauseStatus::Playing;
-		let events = controller.frame(delta, &pose, frame_eye);
-		let delta = if (was_paused || controller.pause_status() != PauseStatus::Playing)
-			&& !controller.sim().is_over()
-		{
-			0.0
-		} else {
-			delta
-		};
-		self.environment.borrow_mut().advance(delta);
-		self.hear_events(&events, &pose, eye);
-		self.follow_turn(delta, &pose);
-		for (_, event) in &events {
+	/// The husk's reactions to what happened this frame: its flashes and
+	/// flinches, and a shot's impact frame.
+	fn react(&mut self, events: &[(i64, HuntEvent)]) {
+		for (_, event) in events {
 			match event {
+				HuntEvent::HitLanded {
+					weapon: Archetype::Gun,
+					empowered,
+					seal,
+					critical,
+					..
+				} => {
+					// A shot's impact frame (art bible §11.2): the husk alone
+					// is held, three frames on the body and five on a seal, and
+					// printed flat in key, no more often than it may without
+					// flashing, so the splat in the reaper's spot reads on it.
+					// Its reaction is never held again on top, so the hold is
+					// the frames it says.
+					self.rig.print(crate::render::husk::struck_ink());
+					self.rig.stop(if seal.is_some() { 5 } else { 3 });
+					self.rig.hit(
+						*seal,
+						if *empowered || *critical { 1.0 } else { 0.75 },
+						false,
+					);
+				}
 				HuntEvent::HitLanded {
 					empowered,
 					seal,
@@ -528,6 +540,42 @@ impl Arena {
 				_ => {}
 			}
 		}
+	}
+
+	/// Advances the fight and everything drawn from it, with the player at
+	/// `live`, and returns what happened, each on the rules' tick it happened
+	/// on. Before a fight is engaged this only idles.
+	pub fn advance(
+		&mut self,
+		delta: f64,
+		live: ArPose,
+		world: Option<bool>,
+	) -> Vec<(i64, HuntEvent)> {
+		let eye = self.eye();
+		let Some(controller) = self.controller.as_mut() else {
+			self.idle(delta, live);
+			return Vec::new();
+		};
+		let pose = controller.pose(live);
+		let frame_eye = match world {
+			None => FrameEye::Origin,
+			Some(true) => FrameEye::World(eye),
+			Some(false) => FrameEye::Unavailable,
+		};
+		let was_paused = controller.pause_status() != PauseStatus::Playing;
+		let events = controller.frame(delta, &pose, frame_eye);
+		self.forward = Some(pose.forward);
+		let delta = if (was_paused || controller.pause_status() != PauseStatus::Playing)
+			&& !controller.sim().is_over()
+		{
+			0.0
+		} else {
+			delta
+		};
+		self.environment.borrow_mut().advance(delta);
+		self.hear_events(&events, &pose, eye);
+		self.follow_turn(delta, &pose);
+		self.react(&events);
 		let Some(controller) = self.controller.as_ref() else {
 			return events;
 		};
@@ -789,6 +837,79 @@ mod tests {
 		arena.advance(10.0, live.pose(), live.world_tracking());
 		assert_eq!(arena.controller.as_ref().unwrap().ticks(), ticks);
 		assert_eq!(live.world_tracking(), Some(false));
+	}
+
+	#[test]
+	fn a_shot_that_lands_holds_the_husk_three_frames_and_five_on_a_seal() {
+		let nft = penguin();
+		for (seal, frames) in [(None, 3.0), (Some(0), 5.0)] {
+			let mut arena = Arena::new(HUNT, nft.collection.vessel(), &nft, 0.5, true);
+			arena.react(&[(
+				10,
+				HuntEvent::HitLanded {
+					weapon: Archetype::Gun,
+					damage: 14.0,
+					cadence: 1,
+					critical: seal.is_some(),
+					empowered: false,
+					seal,
+					cleaved: Vec::new(),
+				},
+			)]);
+			let held = arena.rig.held_frames();
+			assert!((held - frames).abs() < 1.0e-9, "{seal:?}: {held} frames");
+			// Printed flat in key, the ground the splat in the spot reads on.
+			assert_eq!(
+				arena.rig.printed_in(),
+				Some(crate::render::husk::struck_ink())
+			);
+		}
+	}
+
+	#[test]
+	fn the_sight_is_shown_only_while_the_fight_runs() {
+		use reapers_rules::Difficulty;
+		use reapers_rules::HuntBot;
+		use reapers_rules::HuntLoadout;
+		use reapers_rules::HuntPhase;
+		use reapers_rules::HuntPlan;
+		use reapers_rules::HuntStats;
+
+		let nft = penguin();
+		let stats = HuntStats::derive(&HuntLoadout::BORROWED, 1.0).unwrap();
+		let mut sim = HuntSim::new(
+			7,
+			nft.collection.vessel(),
+			nft.rarity(),
+			nft.rarity().ward(),
+			&stats,
+			HuntPlan::OPEN,
+			Difficulty::default(),
+		)
+		.unwrap();
+		let mut bot = HuntBot::careful(&sim);
+		while sim.phase() != HuntPhase::Fight {
+			assert!(sim.tick() < 10000 && !sim.is_over());
+			bot.step_once(&mut sim);
+		}
+		let mut arena = Arena::new(HUNT, nft.collection.vessel(), &nft, 0.5, true);
+		arena.ground_in_room([1.0, 1.5, -2.0]);
+		arena.anchor([1.0, 1.5, -2.0]);
+		arena.engage(
+			HuntController::new(super::super::controller::Fight::Hunt(sim)),
+			WeaponKind::Scythe,
+		);
+		arena.advance(HuntController::TICK_SECONDS, ArPose::AHEAD, Some(true));
+		assert!(arena.viewmodel().unwrap().sight.is_some(), "fighting");
+		arena.advance(HuntController::TICK_SECONDS, ArPose::AHEAD, Some(false));
+		assert_eq!(
+			arena.controller.as_ref().unwrap().pause_status(),
+			PauseStatus::Tracking
+		);
+		assert!(
+			arena.viewmodel().unwrap().sight.is_none(),
+			"paused while the room is lost"
+		);
 	}
 
 	#[test]
