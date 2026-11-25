@@ -23,6 +23,7 @@ pub mod orb;
 pub mod parts;
 pub mod playback;
 pub mod pointer;
+pub mod print;
 pub mod puppet;
 pub mod reaction;
 pub mod rig;

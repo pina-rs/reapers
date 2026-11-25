@@ -701,6 +701,51 @@ pub const WEAPONS: Parts = &[
 	("cloth_alt", &["spear_threads"]),
 ];
 
+/// `models/viewmodel.glb`.
+pub const VIEWMODEL: Parts = &[
+	(
+		"fx_glow",
+		&["vm_trail", "vm_flash_0", "vm_flash_1", "vm_flash_2"],
+	),
+	(
+		"viewmodel",
+		&[
+			"arm_l",
+			"arm_r_forearm",
+			"arm_r",
+			"orb_held",
+			"soul_cylinder",
+			"knife",
+			"pistol",
+			"scythe",
+			"pistol_drum",
+		],
+	),
+];
+
+/// `models/viewmodel_fx.glb`.
+pub const VIEWMODEL_FX: Parts = &[
+	(
+		"fx_glow",
+		&[
+			"fx_flare",
+			"fx_halo",
+			"fx_ring",
+			"fx_sparks_0",
+			"fx_sparks_1",
+			"fx_stream",
+			"fx_tracer",
+		],
+	),
+	("fx_shade", &["fx_shade"]),
+];
+
+/// `models/viewmodel_orb.glb`.
+pub const VIEWMODEL_ORB: Parts = &[
+	("viewmodel", &["orb_body", "orb_sigil_ring"]),
+	("fx_light", &["orb_core_light"]),
+];
+
 /// The parts of the model at `path`, under `assets/`.
 pub fn parts(path: &str) -> Parts {
 	match path {
@@ -716,31 +761,56 @@ pub fn parts(path: &str) -> Parts {
 		"models/reaper_hollow.glb" => REAPER_HOLLOW,
 		"models/reaper_mourner.glb" => REAPER_MOURNER,
 		"models/reaper_weigher.glb" => REAPER_WEIGHER,
+		"models/viewmodel.glb" => VIEWMODEL,
+		"models/viewmodel_fx.glb" => VIEWMODEL_FX,
+		"models/viewmodel_orb.glb" => VIEWMODEL_ORB,
 		"models/weapons.glb" => WEAPONS,
 		_ => &[],
 	}
 }
+
+/// Every model the game ships.
+#[cfg(test)]
+pub const MODELS: [&str; 16] = [
+	"models/husk_ape.glb",
+	"models/husk_bird.glb",
+	"models/husk_llama.glb",
+	"models/husk_penguin.glb",
+	"models/husk_reliquaryStack.glb",
+	"models/husk_robot.glb",
+	"models/reaper_chooser.glb",
+	"models/reaper_ferryman.glb",
+	"models/reaper_harvester.glb",
+	"models/reaper_hollow.glb",
+	"models/reaper_mourner.glb",
+	"models/reaper_weigher.glb",
+	"models/viewmodel.glb",
+	"models/viewmodel_fx.glb",
+	"models/viewmodel_orb.glb",
+	"models/weapons.glb",
+];
 
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use crate::render::model::parts_by_material;
 
-	const MODELS: [&str; 13] = [
-		"models/husk_ape.glb",
-		"models/husk_bird.glb",
-		"models/husk_llama.glb",
-		"models/husk_penguin.glb",
-		"models/husk_reliquaryStack.glb",
-		"models/husk_robot.glb",
-		"models/reaper_chooser.glb",
-		"models/reaper_ferryman.glb",
-		"models/reaper_harvester.glb",
-		"models/reaper_hollow.glb",
-		"models/reaper_mourner.glb",
-		"models/reaper_weigher.glb",
-		"models/weapons.glb",
-	];
+	#[test]
+	fn every_shipped_model_is_listed() {
+		let directory = format!("{}/../../assets/models", env!("CARGO_MANIFEST_DIR"));
+		let mut shipped: Vec<String> = std::fs::read_dir(&directory)
+			.unwrap_or_else(|error| panic!("{directory}: {error}"))
+			.filter_map(|entry| entry.ok()?.file_name().into_string().ok())
+			.filter(|name| {
+				std::path::Path::new(name)
+					.extension()
+					.is_some_and(|extension| extension.eq_ignore_ascii_case("glb"))
+			})
+			.map(|name| format!("models/{name}"))
+			.collect();
+		shipped.sort();
+		assert_eq!(shipped, MODELS, "list a new model's parts here");
+	}
 
 	#[test]
 	fn every_model_s_parts_are_listed() {
