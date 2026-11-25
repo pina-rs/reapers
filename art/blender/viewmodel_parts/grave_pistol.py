@@ -1,32 +1,52 @@
-"""The grave pistol: a reaper's flintlock revolver, iron on a bone grip.
+"""The grave pistol: an open-topped revolver whose barrel is a coffin, nailed
+shut, on a grip of four iron vertebrae.
 
 It is held like every weapon: the grip at the origin running up +Z, so any
 hand closed around a haft holds it. The muzzle points toward -Y, and +X is
-across the body.
+across the body (the left side, where the thumb lies).
 
-The drum that turns a chamber with every shot is the pivot
-`pistol_cylinder`, on the drum's own axis, which the game turns and drops
-out; its six souls are the one light on the pistol. `muzzle` is where a
-shot leaves the barrel, and holds the three frames of its flash,
-`vm_flash_0` to `vm_flash_2`, which the game shows one after another.
+The barrel's shroud is a coffin in plan and in section (art bible 6.5): an
+irregular six-sided profile, widest a third of the way along and tapering to
+a muzzle of bone, with three bone nails down its lid right of centre and a
+band of the reaper's light (`gold`) round its widest ring.
 
-Everything else is one mesh, `pistol`, and the drum another, `pistol_drum`:
-two draws.
+The drum is the pivot `pistol_cylinder`, on the drum's own axis, which the
+game turns a sixth with each shot and drops out to reload. It is one mesh,
+`pistol_drum`, and it holds the ammunition count: its six chambers face the
+eye, each lit while loaded, and each has a morph target, `spent_<n>`, that
+puts its light out and leaves the void, with an empty, `pistol_chamber_<n>`,
+where the game hangs its halo. Chamber 0 is under the bore.
+
+`muzzle` is where a shot leaves the barrel, and holds the three frames of
+its flash, `vm_flash_0` to `vm_flash_2`, which the game shows one after
+another.
+
+Everything else is one mesh, `pistol`: with the drum, two draws.
 """
 
 import math
-
-from mathutils import Matrix, Vector
 
 from lib import core
 
 from . import common, effects
 
-# Heights above the grip's origin: the drum's axis, and the bore, which
-# lines up with the drum's top chamber.
+# The drum's axis, from the grip; the bore, which lines up with the drum's
+# top chamber; and the muzzle (`viewmodel.rs` DRUM and MUZZLE, which a test
+# reads back out of the model).
+DRUM_Y = -0.027
 AXIS_Z = 0.058
-BORE_Z = 0.0752
+BORE_Z = AXIS_Z + common.CHAMBER_RING
 MUZZLE_Y = -0.236
+
+# The coffin in section, (across, up) in its own size: narrow at the lid,
+# widest at the shoulders a little below it, then running in to the base.
+COFFIN = [(-0.55, 0.80), (0.55, 0.80), (1.0, 0.20), (0.66, -1.0), (-0.66, -1.0), (-1.0, 0.20)]
+
+# The coffin in plan: its size at points along the barrel, from just clear
+# of the drum's front to the muzzle (art bible 6.5), widest a third along.
+SHROUD = ((-0.051, 0.021), (-0.087, 0.030), (-0.126, 0.027), (-0.170, 0.021), (-0.207, 0.017))
+WIDEST = -0.087
+SHROUD_Z = 0.0735
 
 
 def build(parent):
@@ -34,157 +54,25 @@ def build(parent):
     metal = core.material("metal")
     bone = core.material("bone")
 
-    # The grip: a carved bone, deeper than it is wide, its butt swept back
-    # under the heel of the hand and swelling where the little finger sits.
-    grip_path = core.bezier(
-        [(0, 0.034, -0.07), (0, 0.017, -0.042), (0, 0.004, -0.006), (0, -0.002, 0.036)],
-        samples=5,
-    )
-    core.tube(
-        "pistol_grip",
-        grip_path,
-        lambda t: 0.0142 * (1.22 - 0.36 * t + 0.06 * math.sin(t * math.pi * 3) ** 2),
-        bone,
-        root,
-        sides=10,
-        flatten=1.3,
-    )
+    _shroud(root, metal, bone)
+    _frame(root, metal, bone)
 
-    # An iron cap on the butt, like the knuckle at the end of a bone.
-    cap = core.revolve(
-        "pistol_cap",
-        [(0.0, -0.012), (0.008, -0.0115), (0.0145, -0.008), (0.017, -0.002), (0.0155, 0.004), (0.0, 0.006)],
+    # The grip: four vertebrae raked back down from under the frame, and an
+    # iron knob for a butt.
+    common.vertebrae("pistol_grip", root, top=0.016, bottom=-0.070, rake=0.12)
+    common.section(
+        "pistol_butt",
+        [((0, 0.0105, -0.071), 0.0135, 0.0145), ((0, 0.0112, -0.080), 0.0145, 0.0155), ((0, 0.0118, -0.088), 0.0095, 0.010)],
+        common.polygon(6, math.pi / 6),
         metal,
         root,
-        segments=16,
+        across=(1, 0, 0),
+        up=(0, 1, 0),
     )
-    cap.data.transform(_at((0, 0.036, -0.073)) @ Matrix.Rotation(math.radians(-24), 4, "X"))
-
-    # The frame: a recoil shield behind the drum, straps above and below it
-    # and a post in front that carries the barrel.
-    for name, outline, width in (
-        ("pistol_shield", [(0.026, 0.033), (0.026, 0.084), (0.012, 0.093), (-0.004, 0.093), (-0.004, 0.033)], 0.031),
-        ("pistol_topstrap", [(-0.004, 0.0905), (-0.066, 0.0905), (-0.066, 0.0815), (-0.004, 0.0815)], 0.016),
-        ("pistol_post", [(-0.05, 0.034), (-0.05, 0.091), (-0.068, 0.088), (-0.07, 0.04)], 0.027),
-        ("pistol_bottomstrap", [(-0.004, 0.0325), (-0.06, 0.034), (-0.06, 0.0375), (-0.004, 0.037)], 0.022),
-    ):
-        common.side_plate(name, outline, width, metal, root)
 
     # The drum, on a pivot at its own middle so the game can turn it.
-    cylinder = core.empty("pistol_cylinder", root, location=(0, -0.027, AXIS_Z))
-    common.soul_drum("pistol_drum", cylinder)
-
-    # An octagonal barrel, flaring at the mouth like a blunderbuss, with a
-    # crown of teeth round the bore.
-    barrel = core.tube(
-        "pistol_barrel",
-        [(0, -0.064, BORE_Z), (0, -0.15, BORE_Z), (0, -0.215, BORE_Z)],
-        0.0112,
-        metal,
-        root,
-        sides=8,
-    )
-
-    # Iron bands round the barrel, where a gunsmith would have shrunk them on.
-    for index, y in enumerate((-0.072, -0.128, -0.19)):
-        band = core.revolve(
-            f"pistol_band_{index}",
-            [(0.0118, -0.004), (0.0136, -0.003), (0.0139, 0.0), (0.0136, 0.003), (0.0118, 0.004)],
-            metal,
-            root,
-            segments=10,
-        )
-        band.data.transform(_axis_forward((0, y, BORE_Z)))
-
-    flare = core.revolve(
-        "pistol_flare",
-        [(0.0099, 0.0), (0.0112, 0.008), (0.0138, 0.016), (0.0162, 0.021), (0.0155, 0.0235), (0.0085, 0.022)],
-        metal,
-        root,
-        segments=16,
-    )
-    flare.data.transform(_axis_forward((0, -0.215, BORE_Z)))
-
-    for tooth in range(6):
-        angle = math.tau * tooth / 6 + 0.26
-        across = Vector((math.cos(angle), 0, math.sin(angle)))
-        base = Vector((0, MUZZLE_Y + 0.004, BORE_Z)) + across * 0.0128
-        core.tube(
-            f"pistol_tooth_{tooth}",
-            [base, base + Vector((0, -0.009, 0)) - across * 0.002],
-            lambda t: 0.0028 * (1 - 0.8 * t),
-            bone,
-            root,
-            sides=4,
-        )
-
-    # A jawbone slung under the barrel, from the frame to near the mouth.
-    core.tube(
-        "pistol_jaw",
-        core.bezier(
-            [(0, -0.064, 0.052), (0, -0.11, 0.054), (0, -0.165, 0.061), (0, -0.196, 0.0655)],
-            samples=4,
-        ),
-        lambda t: 0.0068 * (1 - 0.45 * t) * (1 + 0.15 * math.sin(t * math.pi * 6) ** 2),
-        bone,
-        root,
-        sides=8,
-        flatten=0.75,
-    )
-
-    # A bone tooth for a front sight.
-    core.tube(
-        "pistol_sight",
-        [(0, -0.198, BORE_Z + 0.009), (0, -0.201, BORE_Z + 0.017)],
-        lambda t: 0.0026 * (1 - 0.7 * t),
-        bone,
-        root,
-        sides=6,
-    )
-
-    # The flintlock's cock, curled up behind the drum, its jaws closed on
-    # a flint.
-    core.tube(
-        "pistol_cock",
-        core.bezier(
-            [(0, 0.017, 0.088), (0, 0.032, 0.098), (0, 0.03, 0.114), (0, 0.016, 0.118), (0, 0.006, 0.109)],
-            samples=3,
-        ),
-        lambda t: 0.0048 * (1 - 0.25 * t),
-        metal,
-        root,
-        sides=7,
-    )
-    flint = core.plate(
-        "pistol_flint",
-        [(-0.004, 0.103), (0.004, 0.104), (0.0045, 0.112), (-0.0035, 0.113)],
-        0.009,
-        metal,
-        root,
-    )
-    flint.data.transform(Matrix.Translation((0, 0.004, 0)))
-
-    # A trigger in a guard of bent iron.
-    core.tube(
-        "pistol_guard",
-        core.bezier(
-            [(0, 0.0, 0.034), (0, -0.006, 0.014), (0, -0.026, 0.009), (0, -0.046, 0.018), (0, -0.052, 0.034)],
-            samples=3,
-        ),
-        0.0026,
-        metal,
-        root,
-        sides=5,
-    )
-    core.tube(
-        "pistol_trigger",
-        core.bezier([(0, -0.024, 0.034), (0, -0.02, 0.024), (0, -0.013, 0.017)], samples=4),
-        lambda t: 0.0032 * (1 - 0.4 * t),
-        metal,
-        root,
-        sides=6,
-        flatten=0.6,
-    )
+    cylinder = core.empty("pistol_cylinder", root, location=(0, DRUM_Y, AXIS_Z))
+    common.drum("pistol_drum", cylinder, chambers="pistol_chamber")
 
     muzzle = core.empty("muzzle", root, location=(0, MUZZLE_Y, BORE_Z))
     effects.muzzle_flashes(muzzle)
@@ -193,12 +81,129 @@ def build(parent):
     return root
 
 
-def _at(offset):
-    return Matrix.Translation(offset)
+def _shroud_size(y):
+    """The shroud's size `y` along the barrel, between its stations."""
+
+    for (near, a), (far, b) in zip(SHROUD, SHROUD[1:]):
+        if far <= y <= near:
+            return a + (b - a) * (near - y) / (near - far)
+
+    return SHROUD[0][1] if y > SHROUD[0][0] else SHROUD[-1][1]
 
 
-def _axis_forward(offset):
-    """Turns a part revolved about +Z onto the bore, pointing toward -Y, and
-    moves it to `offset`."""
+def _shroud(root, metal, bone):
+    """The coffin, its band, its lid's nails, its sight and its muzzle."""
 
-    return Matrix.Translation(offset) @ Matrix.Rotation(math.radians(90), 4, "X")
+    common.section("pistol_shroud", [((0, y, SHROUD_Z), size, size) for y, size in SHROUD], COFFIN, metal, root)
+
+    # The reaper's light round the coffin's widest ring: a band a little
+    # proud of it, its edges turned.
+    band = []
+
+    for offset, proud in ((0.0075, 0.0004), (0.006, 0.0019), (-0.006, 0.0019), (-0.0075, 0.0004)):
+        y = WIDEST + offset
+        size = _shroud_size(y) + proud
+        band.append(((0, y, SHROUD_Z), size, size))
+
+    common.section("pistol_band", band, COFFIN, core.material("gold"), root)
+
+    # Three bone nails down the lid, right of centre.
+    for index, y in enumerate((-0.108, -0.140, -0.170)):
+        lid = SHROUD_Z + 0.8 * _shroud_size(y) - 0.0006
+        common.section(
+            f"pistol_nail_{index}",
+            [((-0.0075, y, lid), 0.0048, 0.0048), ((-0.0075, y, lid + 0.0024), 0.0044, 0.0044), ((-0.0075, y, lid + 0.0036), 0.0022, 0.0022)],
+            common.polygon(6),
+            bone,
+            root,
+            across=(1, 0, 0),
+            up=(0, 1, 0),
+            smooth=True,
+        )
+
+    # A bone tooth for a sight.
+    lid = SHROUD_Z + 0.8 * _shroud_size(-0.199) - 0.0006
+    common.section(
+        "pistol_sight",
+        [((0, -0.199, lid), 0.0034, 0.0062), ((0, -0.200, lid + 0.0062), 0.0022, 0.0040), ((0, -0.201, lid + 0.0098), 0.0007, 0.0014)],
+        common.polygon(4, math.pi / 4),
+        bone,
+        root,
+        across=(1, 0, 0),
+        up=(0, 1, 0),
+    )
+
+    # The muzzle: a lip of bone round the bore, the coffin's foot.
+    common.section(
+        "pistol_muzzle",
+        [((0, y, BORE_Z), size, size) for y, size in ((-0.203, 0.0132), (-0.209, 0.0150), (-0.2335, 0.0150), (-0.2362, 0.0136))],
+        common.polygon(10, math.pi / 10),
+        bone,
+        root,
+        smooth=True,
+    )
+    common.section("pistol_bore", [((0, -0.2350, BORE_Z), 0.0088, 0.0088), ((0, -0.2366, BORE_Z), 0.0088, 0.0088)], common.polygon(10, math.pi / 10), core.material("void"), root)
+
+
+def _frame(root, metal, bone):
+    """The open frame under the drum, the post that carries the barrel, the
+    hammer curled up behind the drum's right, the trigger and a bone guard."""
+
+    # The frame's flat side, (y, z): up the back of the grip, under the drum
+    # and up the post in front of it, under the coffin.
+    common.side_plate(
+        "pistol_frame",
+        [
+            (0.021, 0.002),
+            (0.023, 0.028),
+            (0.015, 0.040),
+            (0.004, 0.037),
+            (-0.004, 0.0305),
+            (-0.050, 0.0305),
+            (-0.051, 0.047),
+            (-0.064, 0.052),
+            (-0.069, 0.032),
+            (-0.062, 0.019),
+            (-0.014, 0.0185),
+            (0.002, 0.006),
+        ],
+        0.020,
+        metal,
+        root,
+        bevel=0.0,
+    )
+
+    # The hammer: up behind the drum's right edge, clear of its chambers as
+    # the eye sees them, over its top corner and curled back into a spur.
+    core.tube(
+        "pistol_hammer",
+        core.bezier(
+            [(-0.010, 0.016, 0.040), (-0.022, 0.010, 0.058), (-0.023, 0.008, 0.076), (-0.015, 0.011, 0.088), (-0.010, 0.021, 0.092), (-0.010, 0.030, 0.087)],
+            samples=2,
+        ),
+        lambda t: 0.0064 - 0.0026 * t,
+        metal,
+        root,
+        sides=6,
+        flatten=0.75,
+    )
+
+    core.tube(
+        "pistol_trigger",
+        core.bezier([(0, -0.019, 0.020), (0, -0.023, 0.011), (0, -0.021, 0.002)], samples=2),
+        lambda t: 0.0034 - 0.001 * t,
+        metal,
+        root,
+        sides=5,
+        flatten=0.6,
+    )
+
+    # The guard: a hook of bone in front of the index finger.
+    core.tube(
+        "pistol_guard",
+        core.bezier([(0, -0.060, 0.022), (0, -0.069, 0.008), (0, -0.064, -0.007), (0, -0.050, -0.011)], samples=2),
+        lambda t: 0.0038 - 0.0012 * t,
+        bone,
+        root,
+        sides=6,
+    )
