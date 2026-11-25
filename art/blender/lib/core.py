@@ -14,8 +14,9 @@ Conventions used throughout:
     G  char: how soon this spot burns as an outfit darkens (1 burns first)
     B  wear: raised edges that catch the light
     A  hollow: how soon this spot vanishes as an outfit hollows (0 goes first)
-- Every mesh carries two UV channels that are not texture coordinates: they
-  hold each vertex's rest position, which the material uses for surface grain.
+- Every finished mesh carries one UV channel, `UVMap` (`TEXCOORD_0`): a box
+  projection of each vertex's object-space position at 3.5 per metre, which
+  the procedural surface textures are laid on (`textures.write_box_uvs`).
 """
 
 import math

@@ -6,7 +6,9 @@ Every 3D model in the game is built by the scripts in this folder. There are no 
 cargo xtask build-art                 # build every model into assets/models, and every portrait into assets/nfts
 cargo xtask build-art husks           # build one script: reapers, weapons, husks or viewmodel
 cargo xtask build-art --preview       # also render review sheets into art/build/previews
+cargo xtask build-art --preview --cel # and every sheet again in the cel look (cel.toml)
 cargo xtask build-art --specs-only    # write art/build/vessels.json and motions.json, and stop
+cargo xtask build-art --report        # what every shipped model costs, against its budget
 ```
 
 Blender's authoring API is Python, so these scripts are Python. They only ever run inside Blender; `cargo xtask build-art` (`crates/xtask/src/art.rs`) is what runs them.
@@ -15,8 +17,9 @@ Blender's authoring API is Python, so these scripts are Python. They only ever r
 
 1. It writes the numbers the scripts shape the models to, from `reapers_rules`: every vessel's gait, half-width, half-height, seals and the look of every NFT that wears it (`art/build/vessels.json`), and every reaper clip's name and timing (`art/build/motions.json`).
 2. It runs Blender 5.1 on each script. Blender writes full-size models into `art/build/models`, and the husks script renders every NFT's portrait into `art/build/portraits`.
-3. It compresses each model with gltfpack 0.25 into `assets/models`: `gltfpack -i <model> -o <packed> -cc -kn -km -ke`, which is meshopt compression with quantized attributes, keeping every named node (`-kn`), material (`-km`) and extra (`-ke`) the game looks things up by. All of them together went from 72 MB to 12 MB, with every node, morph target and clip kept. The build checks that each packed model names gltfpack 0.25 as its generator.
+3. It compresses each model with gltfpack 0.25 into `assets/models`: `gltfpack -i <model> -o <packed> -cc -kn -km -ke`, which is meshopt compression with quantized attributes, keeping every named node (`-kn`), material (`-km`) and extra (`-ke`) the game looks things up by. The sixteen shipped models come to about 77 MiB as Blender writes them and 16 MiB packed (`--report` prints today's numbers), with every node, morph target and clip kept. The build checks that each packed model names gltfpack 0.25 as its generator.
 4. It turns each portrait into WebP in `assets/nfts`, with ImageMagick (`magick`, quality 80).
+5. It holds every shipped model to its budget (see [Budgets](#budgets)), and fails if one is over.
 
 Nothing under `art/build` is committed: it is the full-size, rebuildable output, and what the review scripts read.
 
@@ -39,9 +42,14 @@ The versions are pinned in `crates/xtask/src/art.rs` (`BLENDER_RELEASE`, `GLTFPA
 | `lib/anatomy.py` | Skeletal hands and forearms. |
 | `lib/figure.py` | What every reaper shares: landmarks, the hidden face, both arms. |
 | `lib/motion.py` | The 32 shared performances, class adaptations and NLA baking. |
-| `review_motions.py` | Renders poses from the exported clips for visual review. |
 | `lib/armoury.py` | Parts every weapon is assembled from. |
-| `lib/preview.py` | Review sheets: front, three-quarter, back and silhouette. |
+| `lib/preview.py` | Renders a review sheet: rows of views, each row framed on what it shows, with a silhouette and its phone-thumbnail. |
+| `lib/review.py` | What each kind of model's sheets show, shared by the drivers and `review.py`. |
+| `lib/cel.py`, `cel.toml` | The cel look a sheet can be rendered in, and its palette. |
+| `review.py` | Renders every sheet again from the built models, without rebuilding. |
+| `review_motions.py` | One pose of an exported clip, from three angles. |
+| `review_catalogue.py` | Every clip of a class in five timed poses. |
+| `review_trail.py` | One clip's weapon tip and wrist paths over ghosted poses. |
 | `lib/creature.py` | What every husk creature shares: pivots, seals, the shadow, and the checks a creature must pass. |
 | `reaper_classes/<class>.py` | One module per reaper class. `build()` returns the model's root. |
 | `creature_kinds/<vessel>.py` | One module per husk creature. `build(spec)` returns the model's root. |
@@ -61,17 +69,80 @@ blender --background --python-exit-code 1 --python art/blender/weapons.py -- \
   --out art/build/models --preview art/build/previews --only scythe
 ```
 
-A class's review sheets are `art/build/previews/reaper_<class>_0.png` to `_2.png`, one for each variant, with the class's own weapon in hand when that weapon exists. A weapon's sheet is `art/build/previews/weapon_<kind>.png`.
+Add `--preview art/build/previews` to any driver for its review sheets (see [Reviewing a model](#reviewing-a-model)), and `--cel` for the cel look as well.
+
+## Reviewing a model
+
+A model is judged by eye, from its review sheets. Every sheet is a grid: a row for each thing to compare, framed on what that row shows so nothing leaves the frame, at one scale across the row. Most rows show the front, three-quarter, side and back, then the model in black with the same silhouette beside it at the size a phone shows it in a list (96 pixels tall), since that is where a shape is hardest to read.
+
+| Sheet | What it shows |
+| --- | --- |
+| `reaper_<class>_spirit.png`, `reaper_<class>_humanoid.png` | The class at rest (every clip stopped, frame 0), holding its own weapon: a row for each robe, with the matching head and mantle (the last head and mantle again with the fourth robe). |
+| `reaper_<class>_armoury.png` | The class holding each of the eight weapons, then each in silhouette, so a weapon is judged in a hand at its true size. |
+| `weapon_<kind>.png` | One weapon alone, framed on itself. |
+| `weapons.png` | All eight side by side at one scale, and in silhouette. |
+| `viewmodel.png` | A row for each moment of the first-person view (fire, reload, throw, throw with the scythe, stab, swing), showing what that moment shows, lit by the palette it is painted from. Each view is framed on its own: an arm seen from its end is a fraction of its length. |
+| `viewmodel_orb.png`, `viewmodel_fx.png` | The capture orb, glowing, and every light the room shows. |
+| `husk_<vessel>.png` | A row for each thing the creature can wear, in an NFT's look. |
+
+The drivers render them with `--preview`, after building. To render them again from the models already in `art/build/models`, without rebuilding (a minute rather than fifteen for the reapers):
+
+```sh
+blender --background --python-exit-code 1 --python art/blender/review.py -- \
+  --out art/build/previews [--cel] [--only reaper_harvester,weapons,husk_ape]
+```
+
+`--only` takes model names without `.glb`; `--models` and `--specs` read from somewhere other than `art/build/models` and `art/build/vessels.json`.
+
+### The cel look
+
+`--cel`, on `cargo xtask build-art --preview`, on any driver and on `review.py`, renders every sheet a second time in the look the game is moving to, beside the first, as `<sheet>_cel.png`:
+
+- flat colour bands from one key light, fixed to the camera so every view is lit alike, with the darkest band the colour multiplied by a cool shade tint;
+- an ink outline drawn as an inverted hull: each mesh is welded by position and pushed out along the welded, smooth normals, so the line never tears where the shading normals split at a hard edge, and its width wobbles along the model as a drawn line does.
+
+The look is a preview for judging shapes in that style before the game's renderer draws them; nothing it does reaches a model. Its art direction is all in [`cel.toml`](cel.toml): the ink's colour, width (in pixels of a sheet) and wobble, the number of bands, the shade tint, the key light's direction, the paper, and each material's flat colour. Change it and run `review.py --cel` to see the result.
+
+### Motion
+
+These read the built reapers in `art/build/models` and the clip timings in `art/build/motions.json` (`cargo xtask build-art --specs-only`), and take `--cel`, `--models` and `--motions`.
+
+```sh
+# One pose of a clip, from three angles; --phase runs from 0 (its start) to 1 (its end).
+blender --background --python-exit-code 1 --python art/blender/review_motions.py -- \
+  --class harvester --clip finisherReap --phase 0.52 --out art/build/previews/finisher_reap.png
+# Add --face for the face close-up, --humanoid, --clothing tunic|none, --weapon <kind>, --variant <n>.
+
+# Every clip of a class in five timed poses, eight clips to a page.
+blender --background --python-exit-code 1 --python art/blender/review_catalogue.py -- \
+  --class harvester --form humanoid --out art/build/motion-review [--only slash,thrust]
+
+# How fluid a clip is, in a still: the weapon tip's and both wrists' paths over ghosted poses.
+blender --background --python-exit-code 1 --python art/blender/review_trail.py -- \
+  --class harvester --clip finisherReap --out art/build/previews/trail_harvester_finisherReap.png
+```
+
+On a trail sheet (front, side and top), the pose at the clip's contact is solid and the ghosts before and after it run from cold to warm. The tip (orange; the point of the weapon farthest from its grip), the right wrist (cyan) and the left wrist (pink) each have a dot at every frame, so the gaps are the speed. A green dot is a dead stop in the middle of the clip, a red one a flap: a point turning back on itself while still moving fast. A fluid arc is smooth, opens its gaps into the strike and bunches them only where it means to hold. It also prints each path's length, top speed, stops and flaps.
+
+### Budgets
+
+```sh
+cargo xtask build-art --report
+```
+
+prints, for every model in `assets/models`, its triangles, vertices, draw calls, materials, morph targets and clips (counted as if every node were shown), its size as Blender wrote it (when a build has left it in `art/build/models`) and packed, and the triangles of each weapon in it. It fails when a model is over its budget, and so do every build and `cargo xtask check` (a test in `crates/xtask`).
+
+The budgets are in `crates/xtask/src/art/report.rs`. Triangles follow the guidelines above where today's models meet them: 6,000 a weapon, 14,000 a creature, 3,000 for the orb and 1,500 for the lights. Where a model was already over when the budgets were set (every reaper class, at 129,000 to 142,000 against 110,000; the lantern pole, at 6,328; the whole first-person file, which has no guideline beyond the 6,000 a moment `viewmodel.py` holds it to), its ceiling is what it measured, so it can only get better. Each packed file's size ceiling is what it measured, rounded up to the next 8 KiB. Lower a ceiling when a model slims; raise one only on purpose.
 
 ## Conventions
 
 - **Units and axes.** Metres, Z up. A reaper faces -Y, so its right hand (the weapon hand) is at -X. The exporter converts to glTF's Y up.
 - **Two forms share one character.** Spirits float with quiet arms and trailing cloth. Humanoids have articulated legs and planted walking steps; their long robes hang outside the hips and stride, while short tunics expose the knees.
 - **Landmarks.** `lib/figure.py` holds the shared heights: shoulders 1.64, neck 1.73, head centre 1.88. A class that hunches carries all of them forward (toward -Y) by the same amount.
-- **Masks, not colours.** Every mesh that should react to an outfit must be passed through `finish()`. It paints the four mask channels the game's shader reads (grime, char, wear, hollow) and stores each vertex's rest position in the two UV channels. Parts that are pure light (`accent`) or pure dark (`void`) are not finished.
+- **Masks, not colours.** Every mesh that should react to an outfit must be passed through `finish()`. It paints four mask channels (grime, char, wear, hollow) into the `Color` attribute, exported as `COLOR_0`, and writes one UV channel, `UVMap` (`TEXCOORD_0`): a box projection of each vertex's object-space position at 3.5 per metre, which the procedural surface textures are laid on. The app's build strips `COLOR_0` from every model today (`crates/reapers_app/build.rs`), so the masks show only on the review sheets. Image-bearing parts keep their own UVs (`finish(..., rest_position=False)`), and the first-person parts point theirs at a palette instead (`viewmodel_parts/common.py`). Parts that are pure light (`accent`) or pure dark (`void`) are not finished.
 - **Materials are names.** The game throws the Blender material away and keeps its name, which picks a surface in the renderer's reaper look. Use only these: `cloth`, `cloth_alt`, `bone`, `metal`, `wood`, `rope`, `feather`, `gold`, `paper`, `accent`, `void`.
 - **One light per reaper.** `accent` is the only thing that glows: eyes, a blade edge, a lantern flame, a bell's mouth. Keep it small.
-- **Triangles.** About 110,000 for a whole class file, with all its variants. About 6,000 for a weapon.
+- **Triangles.** About 110,000 for a whole class file, with all its variants. About 6,000 for a weapon. The build enforces what each model may cost: see [Budgets](#budgets).
 
 ## The node layout of a class
 
@@ -135,10 +206,9 @@ blender --background --python-exit-code 1 --python art/blender/husks.py -- \
   --preview art/build/previews --portraits art/build/portraits --only penguin
 ```
 
-That leaves three things to look at:
+That leaves two things to look at:
 
-- `art/build/previews/husk_<vessel>.png`: front, three-quarter, side, back and silhouette, wearing the first thing it can wear.
-- `art/build/previews/husk_<vessel>_trait2.png`: the same creature wearing the second.
+- `art/build/previews/husk_<vessel>.png`: a row for each thing it can wear, each in one NFT's look: front, three-quarter, side, back, and the silhouette with its phone-size thumbnail.
 - `art/build/portraits/<collection>_<n>.png`: the eight NFTs' portraits, each in its own colours. These are the pictures the game shows, so they have to read at thumbnail size.
 
 The build fails, with a list of what to fix, if a creature breaks any rule below. `creature_kinds/penguin.py` is the reference: start by reading it.

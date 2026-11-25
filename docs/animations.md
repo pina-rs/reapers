@@ -130,11 +130,22 @@ blender --background --python-exit-code 1 --python art/blender/reapers.py -- \
 blender --background --python-exit-code 1 --python art/blender/review_motions.py -- \
   --class harvester --clip finisherReap --phase 0.52 \
   --out art/build/previews/finisher_reap.png
+
+# Every clip of a class in five timed poses, eight clips to a page.
+blender --background --python-exit-code 1 --python art/blender/review_catalogue.py -- \
+  --class harvester --form humanoid --out art/build/motion-review
+
+# How fluid a clip is: the weapon tip's and both wrists' paths over ghosted poses.
+blender --background --python-exit-code 1 --python art/blender/review_trail.py -- \
+  --class harvester --clip finisherReap \
+  --out art/build/previews/trail_harvester_finisherReap.png
 ```
+
+`--phase` runs from 0, the clip's first frame, to 1, its last. All three read the models in `art/build/models` and take `--humanoid` (`--form humanoid` for the catalogue) and `--cel`. On a trail sheet each path has a dot at every frame, so bunched dots are slow and spread ones fast; a green dot marks a dead stop mid-clip and a red one a flap, a point snapping back on itself at speed. The script prints each path's length, top speed, stops and flaps. [The art README](../art/blender/README.md#motion) has every option.
 
 Only `cargo xtask build-art` writes `assets/models`, compressed; a model built by hand into `art/build/models` is for review. Commit the source and all rebuilt models together, and rebuild the app after changing one: its `build.rs` mirrors `assets/models` into the bundle. Reduced-motion settings stop automatic character motion as well as rotation; manual timeline scrubbing remains available.
 
-`cargo xtask check` checks that every shipped model comes from a script and was packed by the pinned gltfpack. The checks of the clip catalogue itself (every clip, its joint tracks, durations, finite samples and loop seams) and of playback (one-shot completion, replay, pause, seeking and speed) come back with the renderer on `leptoskit_3d`.
+`cargo xtask check` checks that every shipped model comes from a script, was packed by the pinned gltfpack and is within its budget (`cargo xtask build-art --report`). The checks of the clip catalogue itself (every clip, its joint tracks, durations, finite samples and loop seams) and of playback (one-shot completion, replay, pause, seeking and speed) come back with the renderer on `leptoskit_3d`.
 
 ## Gesture references
 
