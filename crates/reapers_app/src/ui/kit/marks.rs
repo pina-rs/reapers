@@ -314,7 +314,8 @@ pub fn meter(
 			.class("relative")
 			.child(figure(figure_text.to_owned(), Step::S2.size(), PAPER));
 	let mut row = View()
-		.class("flex-row items-center gap-3")
+		// The warning goes under the bar when the line is too short for it.
+		.class("flex-row flex-wrap items-center gap-x-3 gap-y-2")
 		.role(leptoskit::native::Role::Meter)
 		.aria_value_now(fraction * 100.0)
 		.aria_value_min(0.0)

@@ -829,6 +829,124 @@ pub trait Messages: Send + Sync {
 	fn hunt_tracking_pause(&self) -> &'static str;
 	/// `Ward`
 	fn hunt_ward(&self) -> &'static str;
+	/// `This build of the page drew {drawn} strokes and asked for {asked}. {total} have been drawn since the game started.`
+	fn kit_ink(&self, drawn: i64, asked: i64, total: i64) -> String;
+	/// `Every control and mark of the interface, in every state it can be in, on the vigil page. Debug builds only.`
+	fn kit_intro(&self) -> &'static str;
+	/// `Second Ink`
+	fn kit_overline(&self) -> &'static str;
+	/// `Keep it`
+	fn kit_sample_cancel(&self) -> &'static str;
+	/// `Haptics`
+	fn kit_sample_checkbox(&self) -> &'static str;
+	/// `The keeper could not be reached.`
+	fn kit_sample_error(&self) -> &'static str;
+	/// `Name`
+	fn kit_sample_field(&self) -> &'static str;
+	/// `A name needs at least one letter.`
+	fn kit_sample_field_error(&self) -> &'static str;
+	/// `Umbra of the Slow Water`
+	fn kit_sample_field_value(&self) -> &'static str;
+	/// `2 nearby`
+	fn kit_sample_nearby(&self) -> &'static str;
+	/// `Go hunting`
+	fn kit_sample_primary(&self) -> &'static str;
+	/// `Night`
+	fn kit_sample_radio(&self) -> &'static str;
+	/// `Needs 40 soul`
+	fn kit_sample_reason(&self) -> &'static str;
+	/// `Resolve 1 of 6`
+	fn kit_sample_resolve(&self) -> &'static str;
+	/// `Back to the sanctum`
+	fn kit_sample_secondary(&self) -> &'static str;
+	/// `Release Penguin #1 into the veil? It becomes a husk, and you will have to hunt it down.`
+	fn kit_sample_sheet(&self) -> &'static str;
+	/// `Sworn to the Ferryman. This light is borrowed.`
+	fn kit_sample_slip(&self) -> &'static str;
+	/// `Loose`
+	fn kit_sample_status(&self) -> &'static str;
+	/// `Steady print`
+	fn kit_sample_switch(&self) -> &'static str;
+	/// `Soul dial`
+	fn kit_section_dial(&self) -> &'static str;
+	/// `Fields`
+	fn kit_section_fields(&self) -> &'static str;
+	/// `Ink`
+	fn kit_section_ink(&self) -> &'static str;
+	/// `Lamp`
+	fn kit_section_lamp(&self) -> &'static str;
+	/// `Meter`
+	fn kit_section_meter(&self) -> &'static str;
+	/// `Primary`
+	fn kit_section_primary(&self) -> &'static str;
+	/// `Quiet`
+	fn kit_section_quiet(&self) -> &'static str;
+	/// `Rows`
+	fn kit_section_rows(&self) -> &'static str;
+	/// `Secondary and destructive`
+	fn kit_section_secondary(&self) -> &'static str;
+	/// `Sheet`
+	fn kit_section_sheet(&self) -> &'static str;
+	/// `Slips and notices`
+	fn kit_section_slips(&self) -> &'static str;
+	/// `Stamps and marks`
+	fn kit_section_stamps(&self) -> &'static str;
+	/// `Tabs`
+	fn kit_section_tabs(&self) -> &'static str;
+	/// `Tally`
+	fn kit_section_tally(&self) -> &'static str;
+	/// `Switches, checkboxes and radios`
+	fn kit_section_toggles(&self) -> &'static str;
+	/// `Type`
+	fn kit_section_type(&self) -> &'static str;
+	/// `Active`
+	fn kit_state_active(&self) -> &'static str;
+	/// `Busy`
+	fn kit_state_busy(&self) -> &'static str;
+	/// `Critical, a loss`
+	fn kit_state_critical(&self) -> &'static str;
+	/// `Destructive`
+	fn kit_state_destructive(&self) -> &'static str;
+	/// `Disabled`
+	fn kit_state_disabled(&self) -> &'static str;
+	/// `Draining`
+	fn kit_state_draining(&self) -> &'static str;
+	/// `Empty`
+	fn kit_state_empty(&self) -> &'static str;
+	/// `Entering`
+	fn kit_state_entering(&self) -> &'static str;
+	/// `Error`
+	fn kit_state_error(&self) -> &'static str;
+	/// `Filled`
+	fn kit_state_filled(&self) -> &'static str;
+	/// `Focused`
+	fn kit_state_focused(&self) -> &'static str;
+	/// `Full`
+	fn kit_state_full(&self) -> &'static str;
+	/// `Leaving`
+	fn kit_state_leaving(&self) -> &'static str;
+	/// `The newest in the spot`
+	fn kit_state_newest(&self) -> &'static str;
+	/// `Off`
+	fn kit_state_off(&self) -> &'static str;
+	/// `On`
+	fn kit_state_on(&self) -> &'static str;
+	/// `Open`
+	fn kit_state_open(&self) -> &'static str;
+	/// `Pressed`
+	fn kit_state_pressed(&self) -> &'static str;
+	/// `Ready`
+	fn kit_state_ready(&self) -> &'static str;
+	/// `Rest`
+	fn kit_state_rest(&self) -> &'static str;
+	/// `Under 40`
+	fn kit_state_under(&self) -> &'static str;
+	/// `Critical, a ward`
+	fn kit_state_ward(&self) -> &'static str;
+	/// `Waxing`
+	fn kit_state_waxing(&self) -> &'static str;
+	/// `The kit`
+	fn kit_title(&self) -> &'static str;
 	/// `The hunt began with an ambush`
 	fn ledger_ambush(&self) -> &'static str;
 	/// `Expected XP for this scenario: {xp}. Anima: {anima}. Expectation uses each rounded reward and its weight.`
@@ -3424,6 +3542,244 @@ impl Messages for En {
 
 	fn hunt_ward(&self) -> &'static str {
 		"Ward"
+	}
+
+	fn kit_ink(&self, drawn: i64, asked: i64, total: i64) -> String {
+		format!(
+			"This build of the page drew {drawn} strokes and asked for {asked}. {total} have been drawn since the game started."
+		)
+	}
+
+	fn kit_intro(&self) -> &'static str {
+		"Every control and mark of the interface, in every state it can be in, on the vigil page. Debug builds only."
+	}
+
+	fn kit_overline(&self) -> &'static str {
+		"Second Ink"
+	}
+
+	fn kit_sample_cancel(&self) -> &'static str {
+		"Keep it"
+	}
+
+	fn kit_sample_checkbox(&self) -> &'static str {
+		"Haptics"
+	}
+
+	fn kit_sample_error(&self) -> &'static str {
+		"The keeper could not be reached."
+	}
+
+	fn kit_sample_field(&self) -> &'static str {
+		"Name"
+	}
+
+	fn kit_sample_field_error(&self) -> &'static str {
+		"A name needs at least one letter."
+	}
+
+	fn kit_sample_field_value(&self) -> &'static str {
+		"Umbra of the Slow Water"
+	}
+
+	fn kit_sample_nearby(&self) -> &'static str {
+		"2 nearby"
+	}
+
+	fn kit_sample_primary(&self) -> &'static str {
+		"Go hunting"
+	}
+
+	fn kit_sample_radio(&self) -> &'static str {
+		"Night"
+	}
+
+	fn kit_sample_reason(&self) -> &'static str {
+		"Needs 40 soul"
+	}
+
+	fn kit_sample_resolve(&self) -> &'static str {
+		"Resolve 1 of 6"
+	}
+
+	fn kit_sample_secondary(&self) -> &'static str {
+		"Back to the sanctum"
+	}
+
+	fn kit_sample_sheet(&self) -> &'static str {
+		"Release Penguin #1 into the veil? It becomes a husk, and you will have to hunt it down."
+	}
+
+	fn kit_sample_slip(&self) -> &'static str {
+		"Sworn to the Ferryman. This light is borrowed."
+	}
+
+	fn kit_sample_status(&self) -> &'static str {
+		"Loose"
+	}
+
+	fn kit_sample_switch(&self) -> &'static str {
+		"Steady print"
+	}
+
+	fn kit_section_dial(&self) -> &'static str {
+		"Soul dial"
+	}
+
+	fn kit_section_fields(&self) -> &'static str {
+		"Fields"
+	}
+
+	fn kit_section_ink(&self) -> &'static str {
+		"Ink"
+	}
+
+	fn kit_section_lamp(&self) -> &'static str {
+		"Lamp"
+	}
+
+	fn kit_section_meter(&self) -> &'static str {
+		"Meter"
+	}
+
+	fn kit_section_primary(&self) -> &'static str {
+		"Primary"
+	}
+
+	fn kit_section_quiet(&self) -> &'static str {
+		"Quiet"
+	}
+
+	fn kit_section_rows(&self) -> &'static str {
+		"Rows"
+	}
+
+	fn kit_section_secondary(&self) -> &'static str {
+		"Secondary and destructive"
+	}
+
+	fn kit_section_sheet(&self) -> &'static str {
+		"Sheet"
+	}
+
+	fn kit_section_slips(&self) -> &'static str {
+		"Slips and notices"
+	}
+
+	fn kit_section_stamps(&self) -> &'static str {
+		"Stamps and marks"
+	}
+
+	fn kit_section_tabs(&self) -> &'static str {
+		"Tabs"
+	}
+
+	fn kit_section_tally(&self) -> &'static str {
+		"Tally"
+	}
+
+	fn kit_section_toggles(&self) -> &'static str {
+		"Switches, checkboxes and radios"
+	}
+
+	fn kit_section_type(&self) -> &'static str {
+		"Type"
+	}
+
+	fn kit_state_active(&self) -> &'static str {
+		"Active"
+	}
+
+	fn kit_state_busy(&self) -> &'static str {
+		"Busy"
+	}
+
+	fn kit_state_critical(&self) -> &'static str {
+		"Critical, a loss"
+	}
+
+	fn kit_state_destructive(&self) -> &'static str {
+		"Destructive"
+	}
+
+	fn kit_state_disabled(&self) -> &'static str {
+		"Disabled"
+	}
+
+	fn kit_state_draining(&self) -> &'static str {
+		"Draining"
+	}
+
+	fn kit_state_empty(&self) -> &'static str {
+		"Empty"
+	}
+
+	fn kit_state_entering(&self) -> &'static str {
+		"Entering"
+	}
+
+	fn kit_state_error(&self) -> &'static str {
+		"Error"
+	}
+
+	fn kit_state_filled(&self) -> &'static str {
+		"Filled"
+	}
+
+	fn kit_state_focused(&self) -> &'static str {
+		"Focused"
+	}
+
+	fn kit_state_full(&self) -> &'static str {
+		"Full"
+	}
+
+	fn kit_state_leaving(&self) -> &'static str {
+		"Leaving"
+	}
+
+	fn kit_state_newest(&self) -> &'static str {
+		"The newest in the spot"
+	}
+
+	fn kit_state_off(&self) -> &'static str {
+		"Off"
+	}
+
+	fn kit_state_on(&self) -> &'static str {
+		"On"
+	}
+
+	fn kit_state_open(&self) -> &'static str {
+		"Open"
+	}
+
+	fn kit_state_pressed(&self) -> &'static str {
+		"Pressed"
+	}
+
+	fn kit_state_ready(&self) -> &'static str {
+		"Ready"
+	}
+
+	fn kit_state_rest(&self) -> &'static str {
+		"Rest"
+	}
+
+	fn kit_state_under(&self) -> &'static str {
+		"Under 40"
+	}
+
+	fn kit_state_ward(&self) -> &'static str {
+		"Critical, a ward"
+	}
+
+	fn kit_state_waxing(&self) -> &'static str {
+		"Waxing"
+	}
+
+	fn kit_title(&self) -> &'static str {
+		"The kit"
 	}
 
 	fn ledger_ambush(&self) -> &'static str {

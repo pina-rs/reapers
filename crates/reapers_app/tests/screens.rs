@@ -296,7 +296,13 @@ fn a_screen_built_again_draws_no_new_ink() {
 
 	let mut harness = Harness::offline();
 	harness.take_oath();
-	let rounds = [Route::Index, Route::Colophon, Route::Vault, Route::Index];
+	let rounds = [
+		Route::Index,
+		Route::Colophon,
+		Route::Vault,
+		Route::Kit,
+		Route::Index,
+	];
 	let before = ink::drawn();
 	for route in rounds.clone() {
 		harness.open(route);
@@ -317,6 +323,52 @@ fn a_screen_built_again_draws_no_new_ink() {
 		ink::asked() > asked,
 		"the second build asked for its strokes"
 	);
+}
+
+/// The kit page prints every section of the kit, with a live control of
+/// each kind a test can press, and says what its build drew.
+#[test]
+fn the_kit_page_prints_every_component_in_every_state() {
+	let mut harness = Harness::offline();
+	harness.take_oath();
+	harness.open(Route::Kit);
+	assert!(harness.has("kit"), "{}", harness.tester.tree());
+	// A screen tall enough to show the whole page at once.
+	harness.tester.resize(390.0, 24_000.0).unwrap();
+	harness.settle();
+	for section in [
+		"type",
+		"primary",
+		"secondary",
+		"quiet",
+		"rows",
+		"tabs",
+		"slips",
+		"stamps",
+		"dial",
+		"lamp",
+		"meter",
+		"tally",
+		"sheet",
+		"fields",
+		"toggles",
+		"ink",
+	] {
+		assert!(harness.has(&format!("kit-section-{section}")), "{section}");
+	}
+	for live in [
+		"kit-live-primary",
+		"kit-live-secondary",
+		"kit-live-quiet",
+		"kit-live-row",
+		"kit-live-tab",
+		"field-kit-live",
+		"kit-ink",
+	] {
+		assert!(harness.has(live), "{live}");
+	}
+	harness.tap("kit-live-primary");
+	assert!(harness.has("kit"), "a press on the kit stays on the kit");
 }
 
 #[test]
