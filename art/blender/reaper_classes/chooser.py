@@ -6,8 +6,8 @@ already given. The outline reads as a tall "Y" with one hard vertical
 beside it: the wings are the head and shoulder line, the spear is the
 weapon side, and the spear is the figure's one asymmetry.
 
-Three families show: the robe (`cloth`, with `cloth_alt` at the throat),
-the wings (`feather`) and the helm and hands (`bone`). Cobalt is the
+Three families show: the robe and the cloth at the throat (`cloth`), the
+wings (`feather`) and the helm and hands (`bone`). Cobalt is the
 darkest light, so the bone helm carries the figure's value (docs/art-
 bible.md 6.2). Each wing has seven large primaries, and every mantle is a
 pair of wings, so the class reads as winged whatever it wears.
@@ -480,11 +480,12 @@ def _beak(name, root_height, length=0.3, drop=0.13, width=0.105, height=0.075):
 
 def _aventail(name, parent, seed, top=HEAD_HEIGHT - 0.035):
     """Cloth hung from a helm's rim to the shoulders and drawn up over the
-    throat: the light band between the bone and the robe."""
+    throat. It is the robe's own cloth, so that the figure shows three
+    families: the cloth, the feathers and the bone of the helm."""
 
     curtain = cloth.robe(
         name,
-        core.material("cloth_alt"),
+        core.material("cloth"),
         None,
         top=top,
         hem=SHOULDER_HEIGHT - 0.05,
