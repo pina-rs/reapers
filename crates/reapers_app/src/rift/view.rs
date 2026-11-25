@@ -557,23 +557,12 @@ pub fn rift_view(props: &RiftViewProps) -> Element {
 		.is_some_and(|frame| frame.phase.is_over());
 	match (&state.arena.controller, &props.frame) {
 		(Some(controller), Some(frame)) if !over => {
-			if let Some(arms) = state.arena.viewmodel() {
-				root = root.child(viewmodel_view(&arms));
+			let arms = state.arena.viewmodel();
+			if let Some(arms) = &arms {
+				root = root.child(viewmodel_view(arms));
 			}
-			let mut marks = state
-				.arena
-				.room_marks(&lens, state.shared.live.borrow().position);
-			fight(
-				&mut marks,
-				&lens,
-				controller.sim(),
-				state.light,
-				state.arena.wound,
-				state.loadout.reaper_class.perk() == ClassPerk::Measure,
-				false,
-			);
-			root = root.child(marks.into_view(state.size.0, state.size.1));
-			if state.arena.viewmodel().is_some() {
+			root = root.child(fight_marks(&state, &lens, controller.sim()));
+			if arms.is_some() {
 				// The marks of the reaper's blows, printed over the room's.
 				root = root.child(viewmodel_marks());
 			}
@@ -615,6 +604,24 @@ pub fn rift_view(props: &RiftViewProps) -> Element {
 		_ => root = root.child(lobby(props, &state)),
 	}
 	root
+}
+
+/// The room's marks and the fight's over it, seen through `lens`, for the
+/// hunt `sim`.
+fn fight_marks(state: &RiftState, lens: &Lens, sim: &HuntSim) -> Element {
+	let mut marks = state
+		.arena
+		.room_marks(lens, state.shared.live.borrow().position);
+	fight(
+		&mut marks,
+		lens,
+		sim,
+		state.light,
+		state.arena.wound,
+		state.loadout.reaper_class.perk() == ClassPerk::Measure,
+		false,
+	);
+	marks.into_view(state.size.0, state.size.1)
 }
 
 /// The circle during the fight: who is in it, how much of the ward each

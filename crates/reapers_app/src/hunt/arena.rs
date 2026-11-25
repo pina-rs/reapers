@@ -486,40 +486,10 @@ impl Arena {
 		}
 	}
 
-	/// Advances the fight and everything drawn from it, with the player at
-	/// `live`, and returns what happened, each on the rules' tick it happened
-	/// on. Before a fight is engaged this only idles.
-	pub fn advance(
-		&mut self,
-		delta: f64,
-		live: ArPose,
-		world: Option<bool>,
-	) -> Vec<(i64, HuntEvent)> {
-		let eye = self.eye();
-		let Some(controller) = self.controller.as_mut() else {
-			self.idle(delta, live);
-			return Vec::new();
-		};
-		let pose = controller.pose(live);
-		let frame_eye = match world {
-			None => FrameEye::Origin,
-			Some(true) => FrameEye::World(eye),
-			Some(false) => FrameEye::Unavailable,
-		};
-		let was_paused = controller.pause_status() != PauseStatus::Playing;
-		let events = controller.frame(delta, &pose, frame_eye);
-		self.forward = Some(pose.forward);
-		let delta = if (was_paused || controller.pause_status() != PauseStatus::Playing)
-			&& !controller.sim().is_over()
-		{
-			0.0
-		} else {
-			delta
-		};
-		self.environment.borrow_mut().advance(delta);
-		self.hear_events(&events, &pose, eye);
-		self.follow_turn(delta, &pose);
-		for (_, event) in &events {
+	/// The husk's reactions to what happened this frame: its flashes and
+	/// flinches, and a shot's impact frame.
+	fn react(&mut self, events: &[(i64, HuntEvent)]) {
+		for (_, event) in events {
 			match event {
 				HuntEvent::HitLanded {
 					weapon: Archetype::Gun,
@@ -573,6 +543,42 @@ impl Arena {
 				_ => {}
 			}
 		}
+	}
+
+	/// Advances the fight and everything drawn from it, with the player at
+	/// `live`, and returns what happened, each on the rules' tick it happened
+	/// on. Before a fight is engaged this only idles.
+	pub fn advance(
+		&mut self,
+		delta: f64,
+		live: ArPose,
+		world: Option<bool>,
+	) -> Vec<(i64, HuntEvent)> {
+		let eye = self.eye();
+		let Some(controller) = self.controller.as_mut() else {
+			self.idle(delta, live);
+			return Vec::new();
+		};
+		let pose = controller.pose(live);
+		let frame_eye = match world {
+			None => FrameEye::Origin,
+			Some(true) => FrameEye::World(eye),
+			Some(false) => FrameEye::Unavailable,
+		};
+		let was_paused = controller.pause_status() != PauseStatus::Playing;
+		let events = controller.frame(delta, &pose, frame_eye);
+		self.forward = Some(pose.forward);
+		let delta = if (was_paused || controller.pause_status() != PauseStatus::Playing)
+			&& !controller.sim().is_over()
+		{
+			0.0
+		} else {
+			delta
+		};
+		self.environment.borrow_mut().advance(delta);
+		self.hear_events(&events, &pose, eye);
+		self.follow_turn(delta, &pose);
+		self.react(&events);
 		let Some(controller) = self.controller.as_ref() else {
 			return events;
 		};

@@ -592,6 +592,21 @@ impl HuskRig {
 		self.stopped = self.stopped.max(f64::from(frames) / 60.0);
 	}
 
+	/// Counts a blow's hold and print down by `delta` seconds, and returns
+	/// the time the husk's own motion moves on: none through an impact frame.
+	/// The print counts down through the hold, so it shows for its frames
+	/// whatever the hold. Each is counted in whole frames: one with less than
+	/// half a frame left is over.
+	fn hold(&mut self, delta: f64) -> f64 {
+		let stopping = self.stopped > delta / 2.0;
+		self.stopped = (self.stopped - delta).max(0.0);
+		self.print = self
+			.print
+			.map(|(spot, left)| (spot, left - delta))
+			.filter(|(_, left)| *left > -delta / 2.0);
+		if stopping { 0.0 } else { delta }
+	}
+
 	/// How much of the husk has come apart, from 0 (whole) to 1 (gone).
 	pub fn dissolve(&mut self, amount: f64) {
 		self.dissolved = amount.clamp(0.0, 1.0);
@@ -648,17 +663,7 @@ impl HuskRig {
 		// The seals are drawn where the rules put them: while the ward
 		// holds, nothing that moves the body under them may play.
 		self.gait.set_bouncy(!plight.ward_holds());
-		// A blow's impact frame holds the husk's own time still; the print
-		// counts down through it, so it shows for its frames whatever the hold.
-		// Each is counted in whole frames: one that has less than half a frame
-		// left is over.
-		let stopping = self.stopped > delta / 2.0;
-		self.stopped = (self.stopped - delta).max(0.0);
-		self.print = self
-			.print
-			.map(|(spot, left)| (spot, left - delta))
-			.filter(|(_, left)| *left > -delta / 2.0);
-		let delta = if stopping { 0.0 } else { delta };
+		let delta = self.hold(delta);
 		let reaction = &mut self.reaction;
 		reaction.step(delta, plight);
 		let played = delta * reaction.time_scale();

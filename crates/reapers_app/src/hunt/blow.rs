@@ -428,11 +428,20 @@ pub fn splat(plates: &mut Plates, splat: &Splat) {
 	};
 	plates.spot.extend(shapes((0.0, 0.0)));
 	plates.edge.extend(shapes(misregistration(beat, lively)));
-	if !scrawl_shows(beat, lively) {
-		return;
+	if scrawl_shows(beat, lively) {
+		scrawl(&mut plates.scrawl, &strokes, along, cut);
 	}
-	let commands = &mut plates.scrawl;
-	for line in &strokes {
+}
+
+/// The scrawl's `strokes`, added to `commands`, each cut where the wipe has
+/// reached: past `cut` along the shot, as `along` measures it.
+fn scrawl(
+	commands: &mut Vec<PathCommand>,
+	strokes: &[[At; 3]],
+	along: impl Fn(At) -> f64,
+	cut: f64,
+) {
+	for line in strokes {
 		// Each stroke is cut where the wipe has reached.
 		let mut drawn: Vec<At> = Vec::new();
 		for pair in line.windows(2) {
@@ -547,7 +556,7 @@ pub fn tag_view(look: TagLook) -> Element {
 					line + lift + jitter(0.8),
 				),
 				(
-					(width + text) / 2.0 + jitter(2.0),
+					f64::midpoint(width, text) + jitter(2.0),
 					line + lift + jitter(0.8),
 				),
 			],
@@ -663,14 +672,8 @@ mod tests {
 		assert_eq!(beat(0), 1, "the splat lands on the shot's own frame");
 		let left: Vec<f64> = (0..40).map(|beat| coverage(beat, false)).collect();
 		assert_eq!(left[0], 0.0);
-		assert!(
-			left[1..34].iter().all(|left| *left == 1.0),
-			"held: {left:?}"
-		);
-		assert!(
-			left[34..].iter().all(|left| *left == 0.0),
-			"then gone at once"
-		);
+		assert_eq!(left[1..34], [1.0; 33], "held");
+		assert_eq!(left[34..], [0.0; 6], "then gone at once");
 		assert!((1..40).all(|beat| misregistration(beat, false) == (0.0, 0.0)));
 		let scrawl: Vec<i64> = (0..40).filter(|beat| scrawl_shows(*beat, false)).collect();
 		assert_eq!(scrawl, (2..34).collect::<Vec<_>>());

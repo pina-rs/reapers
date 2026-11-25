@@ -150,10 +150,10 @@ pub struct Bench {
 	pub ground: Ground,
 	/// What the next blow strikes.
 	pub outcome: Outcome,
-	/// Whether the clock is held, and how many single ticks it is to step:
-	/// a debug build's way to look at a blow frame by frame.
-	pub held: bool,
-	steps: u32,
+	/// While the clock is held, the single ticks it is still to step: a
+	/// debug build's way to look at a blow frame by frame. `None` while it
+	/// runs.
+	pub held: Option<u32>,
 	/// What the selected slot holds.
 	pub archetype: Archetype,
 	pub action: ViewAction,
@@ -197,8 +197,7 @@ pub fn bench() -> Rc<RefCell<Bench>> {
 					look_clock: 0.0,
 					ground: Ground::Dark,
 					outcome: Outcome::Body,
-					held: false,
-					steps: 0,
+					held: None,
 					archetype: Archetype::Gun,
 					action: ViewAction::Draw,
 					action_tick: 0,
@@ -262,7 +261,7 @@ impl Bench {
 	/// How many of the hunt's ticks pass each second: none while the clock
 	/// is held.
 	fn rate(&self) -> f32 {
-		if self.held {
+		if self.held.is_some() {
 			0.0
 		} else if self.quarter {
 			TICKS_PER_SECOND / 4.0
@@ -415,7 +414,7 @@ const REFORM: f64 = 30.0;
 impl Bench {
 	/// Moves the bench's clock on by `delta` seconds and shows the moment.
 	fn advance(&mut self, delta: f64) {
-		let speed = if self.held {
+		let speed = if self.held.is_some() {
 			0.0
 		} else if self.quarter {
 			0.25
@@ -425,8 +424,10 @@ impl Bench {
 		// The hunt's time this frame: a held clock moves only a tick at a
 		// time, when asked.
 		let mut moved = delta * speed;
-		if self.held && self.steps > 0 {
-			self.steps -= 1;
+		if let Some(steps) = &mut self.held
+			&& *steps > 0
+		{
+			*steps -= 1;
 			moved = 1.0 / f64::from(TICKS_PER_SECOND);
 		}
 		self.tick += moved * f64::from(TICKS_PER_SECOND);
@@ -843,7 +844,39 @@ fn controls(state: &Bench) -> Element {
 			bench.version.update(|version| *version += 1);
 		})
 	});
-	let clock = [
+	let outcomes = outcomes(state);
+	let clock = clock(state);
+	View()
+		.class("w-full gap-[6px] pt-3")
+		.child(section(words.arms_bench_weapon(), weapons))
+		.child(section(words.arms_bench_motion(), motions))
+		.child(section(words.arms_bench_blow(), outcomes))
+		.child(section(words.arms_bench_orb(), throws))
+		.child(section(words.arms_bench_behind(), grounds))
+		.child(section(words.arms_bench_clock(), clock))
+}
+
+/// What a blow strikes: a quiet chip for each.
+fn outcomes(state: &Bench) -> [Element; 3] {
+	let words = use_l10n();
+	[
+		(Outcome::Seal, "arms-blow-seal", words.arms_bench_seal()),
+		(Outcome::Body, "arms-blow-body", words.arms_bench_body()),
+		(Outcome::Miss, "arms-blow-miss", words.arms_bench_miss()),
+	]
+	.map(|(outcome, id, name)| {
+		quiet_chip(id, name, state.outcome == outcome, move |bench| {
+			bench.outcome = outcome;
+			bench.version.update(|version| *version += 1);
+		})
+	})
+}
+
+/// The clock's buttons: its speed and the look around, and in a debug build
+/// a hold and a step.
+fn clock(state: &Bench) -> Vec<Element> {
+	let words = use_l10n();
+	let speeds = [
 		chip(
 			"arms-full-speed",
 			words.arms_bench_full_speed(),
@@ -870,26 +903,15 @@ fn controls(state: &Bench) -> Element {
 			},
 		),
 	];
-	let outcomes = [
-		(Outcome::Seal, "arms-blow-seal", words.arms_bench_seal()),
-		(Outcome::Body, "arms-blow-body", words.arms_bench_body()),
-		(Outcome::Miss, "arms-blow-miss", words.arms_bench_miss()),
-	]
-	.map(|(outcome, id, name)| {
-		quiet_chip(id, name, state.outcome == outcome, move |bench| {
-			bench.outcome = outcome;
-			bench.version.update(|version| *version += 1);
-		})
-	});
-	let mut clock = Vec::from(clock);
+	let mut clock = Vec::from(speeds);
 	if cfg!(debug_assertions) {
 		// A debug build can hold the clock and step it a tick at a time.
 		clock.push(quiet_chip(
 			"arms-hold",
 			words.arms_bench_hold(),
-			state.held,
+			state.held.is_some(),
 			|bench| {
-				bench.held = !bench.held;
+				bench.held = if bench.held.is_some() { None } else { Some(0) };
 				bench.version.update(|version| *version += 1);
 			},
 		));
@@ -898,20 +920,13 @@ fn controls(state: &Bench) -> Element {
 			words.arms_bench_step(),
 			false,
 			|bench| {
-				if bench.held {
-					bench.steps += 1;
+				if let Some(steps) = &mut bench.held {
+					*steps += 1;
 				}
 			},
 		));
 	}
-	View()
-		.class("w-full gap-[6px] pt-3")
-		.child(section(words.arms_bench_weapon(), weapons))
-		.child(section(words.arms_bench_motion(), motions))
-		.child(section(words.arms_bench_blow(), outcomes))
-		.child(section(words.arms_bench_orb(), throws))
-		.child(section(words.arms_bench_behind(), grounds))
-		.child(section(words.arms_bench_clock(), clock))
+	clock
 }
 
 /// The orb's buttons: a throw to each ending.
