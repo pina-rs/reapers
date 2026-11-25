@@ -2,8 +2,10 @@
 
 A heavy iron handbell on a short wooden haft, carried mouth down below the
 hand that holds it (art bible 6.4). Its clapper is the one light on it: a
-coal on a rod, hanging out past the lip where it came to rest, so it shows
-from every side. A band of the owner's gold rings the haft at the hand.
+small coal (`bell_light`) on an iron stem (`bell_clapper`), hanging out past
+the lip where it came to rest, so it shows from every side as one small,
+deliberate point. A band of the owner's gold stands proud of the haft at the
+hand, square at both edges, so it prints as a ring.
 """
 
 import math
@@ -29,38 +31,32 @@ def build():
     metal = core.material("metal")
     wood = core.material("wood")
 
-    # A turned handle: a pommel, a waist for the fingers and a foot.
+    # A turned handle: a cut knob, a waist for the fingers, and a straight
+    # foot the band stands proud of.
     finish(
         core.revolve(
             "bell_handle",
             [
-                (0.0, 0.122),
-                (0.01, 0.121),
-                (0.019, 0.118),
-                (0.027, 0.112),
-                (0.032, 0.104),
-                (0.034, 0.095),
-                (0.033, 0.087),
-                (0.029, 0.08),
-                (0.024, 0.075),
-                (0.02, 0.071),
-                (0.019, 0.064),
-                (0.025, 0.054),
-                (0.029, 0.03),
-                (0.03, 0.0),
-                (0.028, -0.03),
-                (0.023, -0.05),
-                (0.02, -0.058),
+                (0.0, 0.124),
+                (0.022, 0.12),
+                (0.031, 0.108),
+                (0.031, 0.088),
+                (0.022, 0.078),
+                (0.018, 0.068),
+                (0.024, 0.056),
+                (0.026, 0.03),
+                (0.025, 0.0),
+                (0.025, -0.058),
                 (0.0, -0.058),
             ],
             wood,
             root,
-            segments=28,
+            segments=10,
         ),
         wear_boost=1.4,
     )
 
-    band("bell_band", root, -0.047, -0.031, radius=0.0305)
+    band("bell_band", root, -0.05, -0.024, radius=0.035)
 
     # The yoke that fixes the handle to the crown of the bell.
     finish(
@@ -133,18 +129,30 @@ def build():
     body.data.transform(GROWN)
     finish(core.shade_smooth(body, angle=50), wear_boost=2.0)
 
-    # The clapper hangs to one side, where it came to rest, its ball out
-    # past the lip: the mourner's one light.
-    rest = Vector((0.036, 0.008, LIP - 0.07))
-    clapper = core.tube(
+    # The clapper hangs to one side, where it came to rest: an iron stem
+    # out past the lip, and on its end a small coal, the mourner's one light.
+    rest = Vector((0.03, 0.006, LIP - 0.03))
+    stem = core.tube(
         "bell_clapper",
-        core.bezier([(0, 0, -0.11), (0.006, 0.002, -0.22), (0.022, 0.006, -0.33), rest], samples=6),
-        # A thin rod that ends in a ball.
-        lambda t: 0.006 + 0.026 * math.sqrt(max(0.0, 1 - ((t - 0.86) / 0.135) ** 2)),
+        core.bezier([(0, 0, -0.11), (0.006, 0.002, -0.22), (0.02, 0.005, -0.32), rest], samples=4),
+        lambda t: 0.0068 - 0.0012 * t,
+        metal,
+        root,
+        sides=6,
+    )
+    stem.data.transform(GROWN)
+    finish(stem, wear_boost=1.6)
+
+    drop = Vector((0.006, 0.001, -0.052))
+    light = core.tube(
+        "bell_light",
+        [rest - drop * 0.08 + drop * step / 7 for step in range(8)],
+        # A tear: drawn to the stem at its top, round at its foot.
+        lambda t: 0.0035 + 0.0145 * math.sin(math.pi * min(1.0, t**0.7)) ** 0.75,
         core.material("accent"),
         root,
-        sides=10,
+        sides=8,
     )
-    clapper.data.transform(GROWN)
+    light.data.transform(GROWN)
 
     return root
