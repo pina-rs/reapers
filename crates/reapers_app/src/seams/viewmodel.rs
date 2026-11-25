@@ -6,6 +6,12 @@
 //! and the orb as its rules see it ([`OrbView`]), all in the hunt's own
 //! ticks. The weapon and the orb are the rules' own types.
 //!
+//! The seam shows the arms once for every frame the display draws, one
+//! frame ahead: each pose is sampled where the hunt will be when the frame
+//! is shown and eased into over it, so it is reached when it is due. The
+//! hunt's tick it shows runs on with the display between the rules' ticks,
+//! never back, and never more than one of them ahead.
+//!
 //! The rules' events say when an action begins: `WeaponDrawn` is
 //! [`ViewAction::Draw`]; `ShotFired` is [`ViewAction::Fire`];
 //! `ReloadStarted` and `ReloadJammed` are [`ViewAction::Reload`] and
@@ -220,8 +226,9 @@ struct Number {
 /// The seam's state between renders.
 struct Seam {
 	props: Option<ViewmodelProps>,
-	/// Seconds since the props arrived.
-	elapsed: f64,
+	/// The hunt's tick the arms were last shown at: the rules' tick, and as
+	/// far past it as the display has run since.
+	shown: Option<f64>,
 	rig: Option<ViewmodelRig>,
 	/// The effects, and the scene they were spawned in: a world scene that
 	/// was forgotten and made afresh needs them again.
@@ -246,7 +253,7 @@ fn seam() -> Rc<RefCell<Seam>> {
 		seam.get_or_insert_with(|| {
 			Rc::new(RefCell::new(Seam {
 				props: None,
-				elapsed: 0.0,
+				shown: None,
 				rig: None,
 				world: None,
 				sway: [0.0; 2],
@@ -269,7 +276,18 @@ pub fn viewmodel_show(props: &ViewmodelProps) {
 		return;
 	}
 	seam.props = Some(*props);
-	seam.elapsed = 0.0;
+}
+
+/// The hunt's tick to show after `shown` once `delta` more seconds have
+/// passed, for props at the rules' tick `now`, passing at `rate` a second:
+/// on with the display, but never behind the rules nor more than one of
+/// their ticks ahead of them. A clock that does not run shows its tick.
+fn shown_tick(shown: Option<f64>, delta: f64, now: i64, rate: f32) -> f64 {
+	let now = now as f64;
+	match shown {
+		Some(shown) if rate > 0.0 => (shown + delta * f64::from(rate)).clamp(now, now + 1.0),
+		_ => now,
+	}
 }
 
 /// Keeps the seam ticking while it is on screen: from this render until
@@ -306,13 +324,15 @@ fn mount(seam: &Rc<RefCell<Seam>>) {
 
 impl Seam {
 	fn tick(&mut self, delta: f64) {
-		self.elapsed += delta;
 		let Some(props) = self.props else {
 			return;
 		};
-		let tick = (self.elapsed * f64::from(props.rate)) + props.now as f64;
-		// Each pose is eased into over the time to the next tick.
-		let seconds = (delta as f32).clamp(0.016, 0.1);
+		let shown = shown_tick(self.shown, delta, props.now, props.rate);
+		self.shown = Some(shown);
+		// Each pose is sampled where the hunt will be one frame from now, and
+		// eased into over that frame, so it arrives when it is due.
+		let seconds = (delta as f32).clamp(1.0 / 240.0, 0.1);
+		let tick = shown + f64::from(seconds) * f64::from(props.rate);
 		let since = props.action_seconds(tick);
 		let clock = (props.juice.motion_tick(tick) / f64::from(TICKS_PER_SECOND)) as f32;
 		let mut pose = arms::pose(props.manner(), props.action, since, clock);
@@ -706,6 +726,32 @@ mod tests {
 			"and back out as the rules' dive comes out"
 		);
 		assert_eq!(dive(ViewAction::Strike, 0.0), 0.0);
+	}
+
+	#[test]
+	fn the_shown_tick_runs_with_the_display_and_never_back() {
+		// A hundred and twenty frames a second over rules at sixty: half a
+		// tick a frame, on through the rules' ticks.
+		let mut shown = None;
+		let mut ticks = Vec::new();
+		for frame in 0..8 {
+			let now = 100 + frame / 2;
+			let next = shown_tick(shown, 1.0 / 120.0, now, TICKS_PER_SECOND);
+			shown = Some(next);
+			ticks.push(next);
+		}
+		assert!(ticks.windows(2).all(|pair| pair[1] > pair[0]), "{ticks:?}");
+		let steps: Vec<f64> = ticks.windows(2).map(|pair| pair[1] - pair[0]).collect();
+		assert!(
+			steps[1..].iter().all(|step| (step - 0.5).abs() < 1e-9),
+			"even steps: {steps:?}"
+		);
+		// A rules clock that ran ahead is caught up with; one that stalled is
+		// waited for, never run away from.
+		assert_eq!(shown_tick(Some(100.2), 1.0 / 60.0, 104, 60.0), 104.0);
+		assert_eq!(shown_tick(Some(100.2), 1.0, 100, 60.0), 101.0);
+		// A clock held still, as the bench's frozen frames are, shows its tick.
+		assert_eq!(shown_tick(Some(55.5), 1.0 / 60.0, 12, 0.0), 12.0);
 	}
 
 	#[test]

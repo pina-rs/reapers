@@ -239,6 +239,9 @@ const REACH_SHARE: f64 = 0.3;
 /// A move longer than this between two frames is the husk set down
 /// somewhere new, not a step.
 const TELEPORT: f64 = 0.5;
+/// Left where it is for longer than this, in seconds, by rules that move it
+/// sixty times a second, a body is standing.
+const STILL_AFTER: f64 = 0.05;
 
 /// A smooth step from 0 to 1.
 fn smooth(t: f64) -> f64 {
@@ -271,9 +274,14 @@ pub struct Footwork {
 	phase: f64,
 	/// How much the body is walking, from 0 (standing) to 1.
 	stride: f64,
-	/// Where the body was last frame, and which way it faced.
+	/// Where the rules last put the body, and which way it faced.
 	last: Option<(Vec3, f64)>,
-	/// How fast it rose last frame, in metres a second.
+	/// How long the rules have left it where it is, in seconds: a display
+	/// drawing faster than they move it sees it still between their ticks.
+	unmoved: f64,
+	/// How fast the body went and rose the last time the rules moved it, in
+	/// metres a second.
+	speed: f64,
 	rising: f64,
 	/// The highest the body rose in the leap under way, and how far the
 	/// last leap fell.
@@ -291,6 +299,8 @@ impl Footwork {
 			phase: 0.0,
 			stride: 0.0,
 			last: None,
+			unmoved: 0.0,
+			speed: 0.0,
 			rising: 0.0,
 			apex: f64::NEG_INFINITY,
 			fall: 0.0,
@@ -322,8 +332,8 @@ impl Footwork {
 			return Carriage::REST;
 		};
 		let delta = delta.max(0.0);
-		let (covered, rising) = self.travel(pose, delta);
-		let speed = if delta > 0.0 { covered / delta } else { 0.0 };
+		let covered = self.travel(pose, delta);
+		let speed = self.speed;
 		let state = pose.locomotion.map(|locomotion| locomotion.state);
 		let airborne =
 			matches!(state, Some(HuskMotionState::Air)) || pose.leaping && state.is_none();
@@ -337,7 +347,6 @@ impl Footwork {
 			SETTLE_RATE,
 			delta,
 		);
-		self.rising = rising;
 		let mut carriage = self.walk(build, pose, stride_length);
 		if let Some(locomotion) = pose.locomotion {
 			self.act(
@@ -358,20 +367,39 @@ impl Footwork {
 	}
 
 	/// How far the body covered over the ground since last frame, counting
-	/// a turn on the spot as the steps it takes, and how fast it rose.
-	fn travel(&mut self, pose: &HuskPose, delta: f64) -> (f64, f64) {
+	/// a turn on the spot as the steps it takes, and how fast it went and
+	/// rose over the time the rules took to move it. Between the rules' ticks
+	/// the body is not standing still, only not yet moved again: its speed is
+	/// held until it has been left where it is for longer than a tick or two.
+	fn travel(&mut self, pose: &HuskPose, delta: f64) -> f64 {
 		let now = (pose.position, pose.heading);
 		let Some((was, heading)) = self.last.replace(now) else {
-			return (0.0, 0.0);
+			return 0.0;
 		};
+		if now == (was, heading) {
+			self.unmoved += delta;
+			if self.unmoved > STILL_AFTER {
+				self.speed = 0.0;
+				self.rising = 0.0;
+			}
+			return 0.0;
+		}
+		let span = self.unmoved + delta;
+		self.unmoved = 0.0;
 		let moved = pose.position - was;
 		let flat = moved.x.hypot(moved.z);
 		if flat > TELEPORT {
-			return (0.0, 0.0);
+			self.speed = 0.0;
+			self.rising = 0.0;
+			return 0.0;
 		}
 		let turned = reapers_rules::wrap_angle(pose.heading - heading).abs() * pose.half_width();
-		let rising = if delta > 0.0 { moved.y / delta } else { 0.0 };
-		(flat + 0.5 * turned, rising)
+		let covered = flat + 0.5 * turned;
+		if span > 0.0 {
+			self.speed = covered / span;
+			self.rising = moved.y / span;
+		}
+		covered
 	}
 
 	/// The legs in step with the ground, the waddle and the bob of each

@@ -23,6 +23,7 @@ use leptoskit::scene3d::Rim;
 use leptoskit::scene3d::Transform;
 use leptoskit::scene3d::client::Scene;
 use reapers_rules::Gait;
+use reapers_rules::HuntRules;
 use reapers_rules::HuskPose;
 use reapers_rules::Nft;
 use reapers_rules::NftLook;
@@ -78,6 +79,11 @@ const SHADOW_TIGHTEST: f64 = 0.9;
 const SHADOW_WIDEST: f64 = 1.5;
 const SHADOW_FADE_HEIGHT: f64 = 0.8;
 
+/// A move longer than this, in metres, from where the body is drawn to where
+/// the rules put it is the husk set down somewhere new: it is drawn there at
+/// once, not carried.
+const CARRY_TELEPORT: f32 = 0.5;
+
 /// No turn at all.
 const IDENTITY: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
 
@@ -122,6 +128,11 @@ pub struct HuskRig {
 	shadow_fade: f64,
 	/// Where the rules last put it, and which way it faces.
 	placed: Option<([f32; 3], f32)>,
+	/// Where it was drawn when the rules last moved it, and how far it has
+	/// been carried since toward where they put it, from 0 to 1: the rules
+	/// move it sixty times a second, and the display draws it in between.
+	carried_from: Option<([f32; 3], f32)>,
+	carried: f64,
 	/// What the rules last said of it.
 	pose: Option<HuskPose>,
 	/// Its walk, its leaps and its gaze.
@@ -212,6 +223,8 @@ impl HuskRig {
 			dissolved: 0.0,
 			shadow_fade: 1.0,
 			placed: None,
+			carried_from: None,
+			carried: 1.0,
 			pose: None,
 			gait: Footwork::new(vessel),
 			carriage: Carriage::REST,
@@ -362,12 +375,45 @@ impl HuskRig {
 			let (x, z) = (away.0 / length, away.1 / length);
 			self.away = (x * cos + z * sin, -x * sin + z * cos);
 		}
-		self.placed = Some((
+		let placed = (
 			// The hunt's space has z ahead of the player; the scene's, as
 			// glTF's, has the viewer looking down −Z.
 			[at.x as f32, at.y as f32, -at.z as f32],
 			heading_yaw(pose.heading),
-		));
+		);
+		if let Some(before) = self.placed
+			&& before != placed
+		{
+			// Carried on from wherever it is drawn now, unless it was set down
+			// somewhere new.
+			let drawn = self.drawn_place();
+			let jumped = (0..3)
+				.map(|axis| (placed.0[axis] - drawn.0[axis]).powi(2))
+				.sum::<f32>()
+				.sqrt()
+				> CARRY_TELEPORT;
+			self.carried_from = (!jumped).then_some(drawn);
+			self.carried = if jumped { 1.0 } else { 0.0 };
+		}
+		self.placed = Some(placed);
+	}
+
+	/// Where the body is drawn and which way it faces: on its way from where
+	/// it was drawn when the rules last moved it to where they put it, over
+	/// one of their ticks.
+	fn drawn_place(&self) -> ([f32; 3], f32) {
+		let Some(placed) = self.placed else {
+			return ([0.0; 3], 0.0);
+		};
+		let Some(from) = self.carried_from else {
+			return placed;
+		};
+		let share = self.carried.clamp(0.0, 1.0) as f32;
+		let turn = wrap_angle(f64::from(placed.1 - from.1)) as f32;
+		(
+			[0, 1, 2].map(|axis| from.0[axis] + (placed.0[axis] - from.0[axis]) * share),
+			from.1 + turn * share,
+		)
 	}
 
 	/// Stands the player at `origin` in the scene's space. The rules place a
@@ -511,7 +557,10 @@ impl HuskRig {
 		// The rules' size for the body: a husk on a room's grid is the
 		// smaller creature of the v2 table.
 		let size = self.pose.map_or(1.0, |pose| pose.scale) * (1.0 + self.punch * 0.06);
-		let placed = self.placed.unwrap_or(([0.0; 3], 0.0));
+		// Carried toward where the rules put it over one of their ticks, so a
+		// display faster than the rules draws it moving, not stepping.
+		self.carried = (self.carried + delta * HuntRules::TICK_RATE as f64).min(1.0);
+		let placed = self.drawn_place();
 		let root = Transform::from_translation(
 			self.origin[0] + placed.0[0],
 			self.origin[1] + placed.0[1],
@@ -1488,6 +1537,86 @@ mod tests {
 				.all(|op| !matches!(op, Op::SetPartOffset { .. })),
 			"a husk standing still sends no part"
 		);
+	}
+
+	/// A llama walking for two seconds, the rules moving it sixty times a
+	/// second and the display drawing it `rate` times: where its root and
+	/// lift are, and how its legs and gaze are carried, every tenth of a
+	/// second once its stride has faded in from when it was first seen.
+	fn walked_at(rate: u32) -> Vec<(Transform, Transform, Carriage)> {
+		let scene = Scene::new(leptoskit::scene3d::SceneId(45));
+		let nft = market_listings()
+			.into_iter()
+			.find(|nft| nft.collection.vessel() == Vessel::Llama)
+			.unwrap();
+		let mut rig = HuskRig::spawn(&scene, Vessel::Llama, &nft);
+		let mut shown = Vec::new();
+		let walking = HuskMood {
+			speed: 0.6,
+			..HuskMood::default()
+		};
+		// Seen first where it starts, at the rules' first tick.
+		rig.place(&llama_walking(2.2));
+		rig.animate(&scene, 0.0, walking, HuskPlight::default());
+		for frame in 1..=2 * rate {
+			let seconds = f64::from(frame) / f64::from(rate);
+			// The rules' latest tick by now, as the controller plays them.
+			let tick = (seconds * 60.0 + 1e-9).floor();
+			rig.place(&llama_walking(2.2 + 0.6 * tick / 60.0));
+			rig.animate(
+				&scene,
+				1.0 / f64::from(rate),
+				walking,
+				HuskPlight::default(),
+			);
+			scene.take_ops();
+			if frame > rate && frame % (rate / 10) == 0 {
+				let (root, lift, _) = rig.sent.unwrap();
+				shown.push((root, lift, rig.carriage));
+			}
+		}
+		shown
+	}
+
+	#[cfg(not(target_arch = "wasm32"))]
+	#[test]
+	fn a_husk_moves_the_same_at_any_frame_rate() {
+		let sixty = walked_at(60);
+		let near =
+			|a: &[f32], b: &[f32], by: f32| a.iter().zip(b).all(|(a, b)| (a - b).abs() <= by);
+		for rate in [30, 120] {
+			let other = walked_at(rate);
+			assert_eq!(other.len(), sixty.len());
+			for (at, (one, two)) in sixty.iter().zip(&other).enumerate() {
+				// The root is carried toward the rules' place over one of their
+				// ticks: at most that tick's walk behind it.
+				assert!(
+					near(&one.0.translation, &two.0.translation, 0.6 / 60.0),
+					"{rate} Hz root at {at}: {:?} {:?}",
+					one.0.translation,
+					two.0.translation
+				);
+				assert!(
+					near(&one.1.translation, &two.1.translation, 1e-3),
+					"{rate} Hz lift at {at}: {:?} {:?} {:?} {:?}",
+					one.1.translation,
+					two.1.translation,
+					one.2,
+					two.2
+				);
+				assert!(near(&one.1.rotation, &two.1.rotation, 1e-3));
+				for (a, b) in one.2.limbs.iter().zip(two.2.limbs) {
+					assert!(
+						(a.0 - b.0).abs() < 1e-3 && (a.1 - b.1).abs() < 1e-3,
+						"{rate} Hz limbs at {at}: {:?} {:?}",
+						one.2.limbs,
+						two.2.limbs
+					);
+				}
+				assert!((one.2.look.0 - two.2.look.0).abs() < 1e-3);
+				assert!((one.2.look.1 - two.2.look.1).abs() < 1e-3);
+			}
+		}
 	}
 
 	#[test]

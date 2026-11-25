@@ -355,6 +355,136 @@ impl HuskMarks {
 mod tests {
 	use super::*;
 
+	/// What a fought hunt showed: every event on the rules' tick it happened,
+	/// the tick each action that strikes something began, and every blow's
+	/// landing.
+	struct Fought {
+		events: Vec<(i64, String)>,
+		actions: Vec<(ViewAction, i64)>,
+		blows: Vec<i64>,
+	}
+
+	/// Fights a hunt the rules' own player plays, drawn `rate` frames a
+	/// second.
+	fn fought_at(rate: f64, seed: i64) -> Fought {
+		use reapers_rules::Difficulty;
+		use reapers_rules::HuntLoadout;
+		use reapers_rules::HuntPlan;
+		use reapers_rules::HuntStats;
+		use reapers_rules::market_listings;
+		use reapers_world::ArPose;
+
+		use crate::hunt::controller::Fight;
+		use crate::hunt::controller::FrameEye;
+		use crate::hunt::controller::HuntController;
+
+		let nft = market_listings()[seed as usize % 8];
+		let stats = HuntStats::derive(&HuntLoadout::BORROWED, 1.0).unwrap();
+		let sim = HuntSim::new(
+			seed,
+			nft.collection.vessel(),
+			nft.rarity(),
+			nft.rarity().ward(),
+			&stats,
+			HuntPlan::OPEN,
+			Difficulty::default(),
+		)
+		.unwrap();
+		let mut controller = HuntController::autoplay(Fight::Hunt(sim));
+		let mut arms = Arms::new(controller.sim(), WeaponKind::Scythe);
+		let marks = HuskMarks {
+			origin: [0.0; 3],
+			eye: Vec3::ZERO,
+			light: [1.0; 3],
+		};
+		let (mut events, mut actions, mut blows) = (Vec::new(), Vec::new(), Vec::new());
+		let mut last = arms.action();
+		let mut note = |arms: &Arms, actions: &mut Vec<(ViewAction, i64)>| {
+			let now = arms.action();
+			if now != last
+				&& !matches!(
+					now.0,
+					ViewAction::Idle | ViewAction::Raise | ViewAction::Draw
+				) {
+				actions.push(now);
+			}
+			last = now;
+		};
+		let frames = (40.0 * rate) as usize;
+		for _ in 0..frames {
+			if controller.sim().is_over() {
+				break;
+			}
+			let heard = controller.frame(1.0 / rate, &ArPose::AHEAD, FrameEye::Origin);
+			for (tick, event) in &heard {
+				arms.hear(controller.sim(), *tick, event, &marks);
+				events.push((*tick, format!("{event:?}")));
+				note(&arms, &mut actions);
+				if let Some(hit) = arms.hit
+					&& blows.last() != Some(&hit.tick)
+				{
+					blows.push(hit.tick);
+				}
+			}
+			arms.follow(controller.sim());
+			note(&arms, &mut actions);
+		}
+		Fought {
+			events,
+			actions,
+			blows,
+		}
+	}
+
+	#[test]
+	fn the_rules_and_every_blow_land_on_the_same_tick_at_any_frame_rate() {
+		// Two hunts the rules' player fights with the pistol, the knife's
+		// dives and its parries, and the orb.
+		for seed in [2, 4] {
+			let sixty = fought_at(60.0, seed);
+			assert!(
+				sixty.blows.len() > 20,
+				"the hunt landed blows: {:?}",
+				sixty.blows
+			);
+			for wanted in ["Fire", "Stab", "Parry", "Throw"] {
+				assert!(
+					sixty
+						.actions
+						.iter()
+						.any(|(action, _)| format!("{action:?}").starts_with(wanted)),
+					"seed {seed} played no {wanted}"
+				);
+			}
+			// The knife's thrust is seen to land the moment it reaches the husk.
+			for (action, tick) in &sixty.actions {
+				if matches!(action, ViewAction::Stab { .. })
+					&& sixty
+						.events
+						.iter()
+						.any(|(at, event)| at == tick && event.starts_with("HitLanded"))
+				{
+					assert!(sixty.blows.contains(&(tick + STAB_CONTACT_TICKS)));
+				}
+			}
+			for rate in [30.0, 120.0, 144.0] {
+				let other = fought_at(rate, seed);
+				assert_eq!(
+					other.events, sixty.events,
+					"the rules' events moved at {rate} Hz"
+				);
+				assert_eq!(
+					other.actions, sixty.actions,
+					"an action's start moved at {rate} Hz"
+				);
+				assert_eq!(
+					other.blows, sixty.blows,
+					"a blow's landing moved at {rate} Hz"
+				);
+			}
+		}
+	}
+
 	#[test]
 	fn impact_is_on_the_side_facing_the_moved_eye() {
 		let marks = HuskMarks {

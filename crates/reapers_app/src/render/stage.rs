@@ -37,8 +37,6 @@ use super::scene::scene;
 const TURN_SPEED: f32 = 0.25;
 /// How far a drag turns it, in radians per CSS pixel.
 const DRAG_TURN: f32 = 0.012;
-/// How often the robe's sway is sent to the host, in ticks.
-const STIR_EVERY: u32 = 2;
 
 /// What a stage shows, beyond the seam's props: the studio's controls.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -75,7 +73,6 @@ pub struct Stage {
 	dragging: bool,
 	mounted: u32,
 	ticking: bool,
-	ticks: u32,
 	listening: bool,
 	loading: RwSignal<Loading>,
 }
@@ -101,7 +98,6 @@ pub fn stage(key: Key) -> Rc<RefCell<Stage>> {
 					dragging: false,
 					mounted: 0,
 					ticking: false,
-					ticks: 0,
 					listening: false,
 					loading: crate::ui::lasting(|| RwSignal::new(Loading::Waiting)),
 				}))
@@ -231,10 +227,11 @@ impl Stage {
 			self.turn += delta as f32 * TURN_SPEED;
 			self.aim();
 		}
-		self.ticks = self.ticks.wrapping_add(1);
+		// The robe's morphs are set at once, not eased by the host, so they
+		// are sent every frame the ticker runs; the rig sends only the
+		// weights that moved.
 		if !still
 			&& self.playback.playing()
-			&& self.ticks.is_multiple_of(STIR_EVERY)
 			&& let Some(rig) = self.rig.as_mut()
 		{
 			rig.stir(self.scene.ops(), self.playback.seconds());
