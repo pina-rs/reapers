@@ -193,8 +193,9 @@ Every 6.5 to 10 seconds the husk stops where it is, turns on you and draws breat
 
 - Move faster than your flinch speed, press FIRE, or let go of an orb, and you flinch: you lose one resolve and your cadence. The first 7 ticks are forgiven. Holding ORB down is not a flinch.
 - Out of resolve, the husk escapes.
+- Every open seal shuts when the shriek begins.
 - Hold still through the whole shriek and every seal in view opens for 170 ticks, and your soul gains 10. It is facing you, so that is its front.
-- Two or three seconds after a shriek it bolts again.
+- Between 110 and 200 ticks (1.8 to 3.3 seconds) after a shriek it bolts again.
 
 The warning is a darkening of the edges of the screen and a line of text. It is deliberately not a flash: see the safety notes below.
 
@@ -416,7 +417,7 @@ skips or second spell bar. The studio's Soul view shows their exact current
 and future effects, temperament costs, marks and original lore. Studio memory
 buttons are explicitly illustrative and never write the saved player.
 
-Combat log version **10** (or **11** with a room grid, **12** with a recorded moving eye) identifies these rules, including swings into empty space: it carries the room's cover in the plan, and each tick's crosshair, turn speed, FIRE, ORB and weapon slot. Older logs are refused with
+Combat log version **10** (or **11** with a room grid, **12** with a recorded moving eye, **13** the same inputs written as deltas and runs) identifies these rules, including swings into empty space: it carries the room's cover in the plan, and each tick's crosshair, turn speed, FIRE, ORB and weapon slot. Older logs are refused with
 an update message, never silently reinterpreted. Staging and production refuse
 the simulated acquire, release, settlement and rift endpoints until real husk
 acquisition, escrow and confirmed burning replace them. Practice remains
