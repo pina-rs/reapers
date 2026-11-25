@@ -249,9 +249,16 @@ impl HuntController {
 	/// weapon in hand is too busy to take, but will take within
 	/// [`FIRE_BUFFER_TICKS`], waits for it and is played on the first tick it
 	/// would be taken; one still waiting when the husk begins to shriek is
-	/// dropped, never played into it. Every other press is played on the next
-	/// tick, as it always was, and the rules judge it there. A new press starts
-	/// the wait again.
+	/// dropped, never played into it, and so is one waiting when the room is
+	/// lost. Every other press is played on the next tick, as it always was,
+	/// and the rules judge it there. A new press starts the wait again.
+	///
+	/// A press that waits is played with the aim of the tick it goes on, not
+	/// the one it was made on: the shot goes where the phone points when it
+	/// fires, so one made on a seal can miss if the phone swings off it. The
+	/// wait is counted in the rules' ticks, not in real time, so across a
+	/// frame the hunt drops time on, a press can go a little later than
+	/// [`FIRE_BUFFER_TICKS`] of real time after it was made.
 	pub fn press(&mut self) {
 		if self.pause == PauseStatus::Playing {
 			self.fire_pending = true;
