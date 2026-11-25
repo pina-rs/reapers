@@ -26,6 +26,13 @@ def smooth(t):
     return t * t * (3 - 2 * t)
 
 
+def weight_shift(p):
+    """Where a standing humanoid's weight is through its idle, from -1 over
+    the right foot to 1 over the left: it lingers on each foot and passes
+    between them, once a loop."""
+    return math.tanh(2.2 * math.sin(math.tau * p)) / math.tanh(2.2)
+
+
 def envelope(p, start, peak, end):
     """A deliberate rise and slower release with no discontinuity."""
     return smooth((p - start) / (peak - start)) if p < peak else 1 - smooth((p - peak) / (end - peak))
@@ -123,11 +130,13 @@ def grounded(name, phase, performance):
         root.y = 0.07 * energy
         root.z -= 0.07 * energy
         step = 0.45 * energy
+    elif name == "idle":
+        # Weight from foot to foot, the pelvis dipping as it passes over.
+        shift = weight_shift(p)
+        root.x = 0.022 * shift
+        root.z -= 0.005 * (1 - shift * shift)
     else:
         root.z -= 0.018 * energy
-        if name == "idle":
-            root.x = 0.008 * math.sin(math.tau * p)
-            root.z += 0.004 * math.sin(math.tau * p)
 
     for side, sign in (("l", 1), ("r", -1)):
         position = Vector((sign * (HIP_X + step * 0.055), -sign * step * 0.17, ANKLE_Z)) + travel
