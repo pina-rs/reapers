@@ -287,6 +287,38 @@ fn every_screen_renders_for_a_bound_player() {
 	assert!(harness.shows(En.soul_marks().to_uppercase().as_str()));
 }
 
+/// Second Ink's strokes are generated once and kept (`ui::ink`): a screen
+/// built a second time, after the player has been elsewhere, draws no new
+/// stroke. The counts are printed so a run with `--nocapture` shows them.
+#[test]
+fn a_screen_built_again_draws_no_new_ink() {
+	use reapers_app::ui::ink;
+
+	let mut harness = Harness::offline();
+	harness.take_oath();
+	let rounds = [Route::Index, Route::Colophon, Route::Vault, Route::Index];
+	let before = ink::drawn();
+	for route in rounds.clone() {
+		harness.open(route);
+	}
+	let cold = ink::drawn() - before;
+	let asked = ink::asked();
+	for route in rounds {
+		harness.open(route);
+	}
+	let again = ink::drawn() - before - cold;
+	println!(
+		"ink: {cold} strokes generated on the first build, {again} on the second ({} asked for again)",
+		ink::asked() - asked
+	);
+	assert!(cold > 0, "the screens print some ink");
+	assert_eq!(again, 0, "a second build must not regenerate a stroke");
+	assert!(
+		ink::asked() > asked,
+		"the second build asked for its strokes"
+	);
+}
+
 #[test]
 fn a_hunt_for_an_unknown_husk_says_so() {
 	let mut harness = Harness::offline();

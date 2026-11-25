@@ -80,6 +80,9 @@ leptoskit_l10n = { workspace = true }
 leptoskit_plugin_audio = { workspace = true }
 leptoskit_plugin_crypto = { workspace = true }
 leptoskit_router = { workspace = true }
+# Second Ink's rough strokes: every box, rule and mark is drawn by
+# Skribble's own generator and kept per recipe in `ui::ink`.
+leptoskit_skribble = { workspace = true }
 reactive_graph = { workspace = true }
 reapers_api = { workspace = true }
 reapers_program_client = { workspace = true }

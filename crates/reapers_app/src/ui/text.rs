@@ -16,8 +16,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use leptoskit::native::vector::PathCommand;
-use leptoskit::native::vector::Point;
 use leptoskit::prelude::*;
 
 use crate::theme::ASH;
@@ -27,6 +25,9 @@ use crate::theme::Rgb;
 use crate::theme::Step;
 use crate::theme::WOUND;
 use crate::theme::fit_display;
+use crate::ui::ink::Mark;
+use crate::ui::ink::Plate;
+use crate::ui::ink::Recipe;
 
 /// What a run of words is set as.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -157,26 +158,26 @@ pub fn wound_words(words: Element, size: u32) -> Element {
 		.child(View().class("flex-1 min-w-0").child(words))
 }
 
-/// A small drawn cross in wound, the height of a line of `size` type.
+/// A small drawn cross in wound, the height of a line of `size` type: two
+/// strokes of the hand.
 fn wound_cross(size: u32) -> Element {
 	let side = size.max(11) as f32 * 0.8;
-	let path = PathData::from_commands([
-		PathCommand::MoveTo(Point::new(2.0, 2.0)),
-		PathCommand::LineTo(Point::new(10.0, 10.0)),
-		PathCommand::MoveTo(Point::new(10.4, 1.6)),
-		PathCommand::LineTo(Point::new(1.8, 10.2)),
-	])
-	.expect("a cross is finite");
-	Vector(ViewBox::new(0.0, 0.0, 12.0, 12.0).expect("a positive size"))
-		.path(
-			VectorPath::new(path).stroke(
-				Stroke::new(WOUND.color(), 2.2)
-					.expect("a positive width")
-					.round(),
-			),
-		)
+	View()
 		.class(format!("w-[{side:.0}px] h-[{side:.0}px] mt-[3px]"))
-		.aria_hidden(true)
+		.child(
+			Plate::new(12.0, 12.0)
+				.stroke(
+					&Recipe::once(Mark::line(2.0, 2.0, 10.0, 10.0), 901),
+					WOUND,
+					2.2,
+				)
+				.stroke(
+					&Recipe::once(Mark::line(10.4, 1.6, 1.8, 10.2), 902),
+					WOUND,
+					2.2,
+				)
+				.over(),
+		)
 }
 
 #[cfg(test)]

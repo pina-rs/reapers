@@ -3,8 +3,8 @@
 
 use leptoskit::prelude::*;
 
+use super::ink::sketch;
 use super::light;
-use super::sketch::sketch;
 use super::text::body;
 use super::text::display;
 use super::text::figure;

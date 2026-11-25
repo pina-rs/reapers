@@ -1,11 +1,12 @@
 //! The interface kit: Second Ink's printed controls, rows and marks, in
 //! paper on a dark page, lit by the bound reaper's own light.
 
+pub mod ink;
 mod ledger;
 mod overlay;
-mod sketch;
 mod text;
 
+pub use ink::sketch;
 pub use ledger::LedgerButton;
 pub use ledger::gap;
 pub use ledger::ledger_back;
@@ -17,7 +18,6 @@ pub use ledger::ledger_pip;
 pub use ledger::ledger_row;
 pub use overlay::dialog;
 pub use overlay::sheet;
-pub use sketch::sketch;
 pub use text::aside;
 pub use text::body;
 pub use text::display;

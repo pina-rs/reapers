@@ -5,7 +5,7 @@
 use leptoskit::native::Role;
 use leptoskit::prelude::*;
 
-use super::sketch::sketch;
+use super::ink::sketch;
 use crate::state::Game;
 use crate::theme::BONE;
 use crate::theme::CONTENT_WIDTH;
