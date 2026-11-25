@@ -57,7 +57,7 @@ def main():
         if review.base(node).startswith("robe_") and node.type == "MESH":
             node.data.shape_keys.key_blocks["gaunt"].value = options.gaunt
 
-    _stage(options.rear)
+    _stage(options.rear, options.calling)
     label = _label()
     rows = []
 
@@ -86,7 +86,7 @@ def main():
                 bpy.ops.render.render()
 
             bpy.ops.render.render(write_still=True)
-            tiles.append((path, None))
+            tiles.append((path, None, None))
 
         rows.append(tiles)
 
@@ -96,8 +96,9 @@ def main():
     print(f"REVIEWED {len(rows)} clips in {options.out}")
 
 
-def _stage(rear):
-    """Workbench, a floor, a camera, and every surface in its flat colour."""
+def _stage(rear, calling):
+    """Workbench, a floor, a camera, and every surface in its flat colour: its
+    lit band in the class's light (cel.toml)."""
 
     scene = bpy.context.scene
     scene.render.engine = "BLENDER_WORKBENCH"
@@ -114,10 +115,10 @@ def _stage(rear):
     scene.world.color = (0.045, 0.055, 0.07)
 
     palette = cel.load()
+    light = cel.class_light(palette, calling)
 
     for mat in bpy.data.materials:
-        name = cel.base_name(mat)
-        mat.diffuse_color = (*palette["surfaces"].get(name, palette["surfaces"]["fallback"]), 1)
+        mat.diffuse_color = (*cel.flat_colour(palette, cel.base_name(mat), light), 1)
 
     bpy.ops.mesh.primitive_plane_add(size=200)
     floor = bpy.context.object

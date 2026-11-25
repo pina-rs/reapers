@@ -47,11 +47,20 @@ STANCES = {"spirit": "idle", "humanoid": "humanoid_idle"}
 FORMS = ("spirit", "humanoid")
 
 
-def looks(with_cel):
-    """The looks a review renders: always the normal one, and the cel look
-    from `art/blender/cel.toml` as well when asked for."""
+# The sheets of a reaper class, by name: `--sheets` picks some.
+REAPER_SHEETS = ("spirit", "humanoid", "armoury")
 
-    return [None, cel.load()] if with_cel else [None]
+
+def looks(with_cel, only_cel=False, scene=None):
+    """The looks a review renders: the normal one, and Second Ink from
+    `art/blender/cel.toml` as well when asked for (or alone, `only_cel`),
+    every sheet in `scene` when one is named. Each is the palette; a sheet
+    narrows it to its kind with `cel.look`."""
+
+    if only_cel:
+        return [cel.with_scene(cel.load(), scene)]
+
+    return [None, cel.with_scene(cel.load(), scene)] if with_cel else [None]
 
 
 def import_glb(path):
@@ -241,27 +250,50 @@ def dress(root, variant, form, weapons=None, weapon=None, clothing="robe"):
         hide_tree(held, kind != weapon)
 
 
-def stand(root, variant, form, weapons=None, weapon=None):
-    """`dress`es a reaper and puts it in its stance for `form` (`STANCES`)."""
+def play_stance(form):
+    """Puts an imported reaper in the first key of its idle clip for `form`."""
 
-    dress(root, variant, form, weapons, weapon)
     play(STANCES[form], 0.0)
 
 
-def reaper(glb, calling, out, cel_look=None):
-    """The sheets of one reaper class, from its built model in its idle
-    stance (`STANCES`):
+def stand(root, variant, form, weapons=None, weapon=None, stance=play_stance):
+    """`dress`es a reaper and puts it in its stance for `form` (`STANCES`):
+    `stance(form)` poses it, from its clips by default."""
+
+    dress(root, variant, form, weapons, weapon)
+    stance(form)
+
+
+def reaper(glb, calling, out, cel_look=None, sheets=REAPER_SHEETS):
+    """The sheets of one reaper class, from its built model: see
+    `reaper_sheets`."""
+
+    core.reset_scene()
+    import_glb(glb)
+    reaper_sheets(bpy.data.objects["reaper"], calling, out, cel_look, sheets=sheets)
+
+
+def reaper_sheets(root, calling, out, cel_look=None, stance=play_stance, sheets=REAPER_SHEETS):
+    """The sheets of one reaper class under `root`, in its idle stance
+    (`stance(form)` poses it: from its clips for a built model, or directly
+    for one only just built, `motion.hold`):
 
     - `reaper_<class>_spirit.png` and `reaper_<class>_humanoid.png`: a row
       for each variant (robe, head and mantle), holding the class's weapon,
       from the front, three-quarter, side and back, and in silhouette.
     - `reaper_<class>_armoury.png`: the class holding each of the eight
       weapons, then each in silhouette.
+
+    `sheets` names which (`REAPER_SHEETS`). In the cel look a reaper prints
+    in its class's light.
     """
 
-    core.reset_scene()
-    import_glb(glb)
-    root = bpy.data.objects["reaper"]
+    unknown = set(sheets) - set(REAPER_SHEETS)
+
+    if unknown:
+        raise ValueError(f"no reaper sheet called {', '.join(sorted(unknown))}; there are {', '.join(REAPER_SHEETS)}")
+
+    cel_look = cel.look(cel_look, "reaper", cel.class_light(cel_look, calling)) if cel_look else None
     weapons = hold_weapons(root)
     own = CLASS_WEAPONS[calling]
     counts = variant_counts(root)
@@ -272,15 +304,21 @@ def reaper(glb, calling, out, cel_look=None):
         return f"{calling} {form}, robe {variant}, head {head}, mantle {mantle}"
 
     for form in FORMS:
-        rows = [preview.row(label(form, variant), lambda variant=variant, form=form: stand(root, variant, form, weapons, own)) for variant in range(VARIANTS)]
+        if form not in sheets:
+            continue
+
+        rows = [preview.row(label(form, variant), lambda variant=variant, form=form: stand(root, variant, form, weapons, own, stance)) for variant in range(VARIANTS)]
         preview.render_grid(preview.sheet_path(out, f"reaper_{calling}_{form}", cel_look), rows, tile=(400, 600), cel_look=cel_look)
+
+    if "armoury" not in sheets:
+        return
 
     armoury = []
 
     for view in ("threequarter", "silhouette"):
         armoury.append(
             [
-                {"label": f"{kind} {view}", "setup": lambda kind=kind: stand(root, 0, "spirit", weapons, kind), "view": view, "look": None}
+                {"label": f"{kind} {view}", "setup": lambda kind=kind: stand(root, 0, "spirit", weapons, kind, stance), "view": view, "look": None}
                 for kind in WEAPON_KINDS
             ]
         )
@@ -306,13 +344,20 @@ def weapons(roots, out, cel_look=None, lineup=True, singles=True):
         for weapon in roots:
             hide_tree(weapon, weapon is not chosen)
 
+    # Each weapon prints in its owner's light (cel.toml [weapons]).
+    for weapon in roots:
+        kind = snake(base(weapon).removeprefix("weapon_"))
+
+        if cel_look and kind in cel_look["weapons"]:
+            weapon[cel.LIGHT_PROPERTY] = cel.weapon_light(cel_look, kind)
+
     for weapon in roots if singles else ():
         kind = snake(base(weapon).removeprefix("weapon_"))
         preview.render_grid(
             preview.sheet_path(out, f"weapon_{kind}", cel_look),
             [preview.row(kind, lambda weapon=weapon: alone(weapon))],
             tile=(320, 640),
-            cel_look=cel_look,
+            cel_look=cel.look(cel_look, "weapon", cel.weapon_light(cel_look, kind)) if cel_look else None,
         )
 
     if not lineup or len(roots) < 2:
@@ -330,8 +375,13 @@ def weapons(roots, out, cel_look=None, lineup=True, singles=True):
 
     gap = max(widths) * 0.25
     x = 0.0
+    heights = []
 
     for weapon, width in zip(roots, widths):
+        alone(weapon)
+        bpy.context.view_layer.update()
+        corners = preview.visible_corners(())
+        heights.append(max(corner.z for corner in corners) - min(corner.z for corner in corners))
         weapon.location.x = x + width / 2
         x += width + gap
 
@@ -343,7 +393,8 @@ def weapons(roots, out, cel_look=None, lineup=True, singles=True):
             preview.sheet_path(out, "weapons", cel_look),
             [preview.row("all eight", None, ("front",)), preview.row("all eight", None, ("silhouette",))],
             tile=(1800, 700),
-            cel_look=cel_look,
+            cel_look=cel.look(cel_look, "weapon", cel.weapon_light(cel_look, "scythe")) if cel_look else None,
+            figure_size=max(heights),
         )
     finally:
         for weapon, location in zip(roots, placed):
@@ -521,6 +572,7 @@ def first_person(moments, out, name="viewmodel", cel_look=None):
 
     numbers = rig()
     stages = moment_stages(numbers)
+    cel_look = cel.look(cel_look, "first_person", cel.class_light(cel_look, cel_look["sheets"]["first_person_class"])) if cel_look else None
     unstaged = sorted(set(moments) - set(stages))
 
     if unstaged:
@@ -593,6 +645,7 @@ def effects(out, name="viewmodel_fx", cel_look=None):
     # read. The halos and the flare are cards the game turns to face the
     # camera, so they are lines from the side and above.
     dusk = (0.05, 0.055, 0.07)
+    cel_look = cel.look(cel_look, "first_person", cel.class_light(cel_look, cel_look["sheets"]["first_person_class"])) if cel_look else None
 
     try:
         # Each effect is built at a unit size, and some are a flat card or a
@@ -603,8 +656,12 @@ def effects(out, name="viewmodel_fx", cel_look=None):
             obj.hide_render = False
 
 
-def whole(out, name, cel_look=None, tile=(420, 420)):
-    """A one-row sheet of everything in the scene."""
+def whole(out, name, cel_look=None, tile=(420, 420), kind="first_person"):
+    """A one-row sheet of everything in the scene, a model of `kind`."""
+
+    if cel_look:
+        calling = cel_look["sheets"]["first_person_class"]
+        cel_look = cel.look(cel_look, kind, cel.class_light(cel_look, calling) if kind != "husk" else None)
 
     preview.render_grid(preview.sheet_path(out, name, cel_look), [preview.row(name, None)], tile=tile, elevation=12.0, cel_look=cel_look)
 
@@ -621,6 +678,7 @@ def husk(name, looks, out, traits, cel_look=None):
     else:
         rows = [preview.row(name, None)]
 
+    cel_look = cel.look(cel_look, "husk") if cel_look else None
     preview.render_grid(preview.sheet_path(out, f"husk_{name}", cel_look), rows, tile=(460, 460), cel_look=cel_look, skip=("shadow",))
 
 
@@ -697,3 +755,125 @@ def motion_spec(motions, clip):
         raise SystemExit(f"No clip called {clip!r} in {motions}; the clips are {', '.join(spec['name'] for spec in specs)}")
 
     return found
+
+
+# Lineups -------------------------------------------------------------------
+
+# What `review.py --lineup` sets side by side, by name.
+LINEUPS = {
+    "reapers": tuple(f"reaper_{calling}" for calling in CLASS_WEAPONS),
+    "husks": ("husk_ape", "husk_bird", "husk_penguin", "husk_llama", "husk_robot", "husk_reliquaryStack"),
+}
+
+# The suffix a lineup gives every object of a figure already placed, so the
+# next import's names are its own (`rest_pose` finds nodes by name).
+PLACED = ".lineup"
+
+
+def lineup(models, names, out, palette, scene=None, specs=None, stem="lineup"):
+    """`<stem>.png`: several built models side by side at one scale, in
+    Second Ink, then in key-only silhouette with the 64-point strip beside
+    it: the figures compared as a phone shows them together.
+
+    `names` are models in `models` (without `.glb`), all reapers or all
+    husks. A reaper stands in its idle stance in robe 0, holding its own
+    weapon, in its class's light; a husk wears its collection's first look.
+    `scene` is cel.toml's scene to light them in (the kind's own when None).
+    """
+
+    kinds = {"reaper" if name.startswith("reaper_") else "husk" if name.startswith("husk_") else None for name in names}
+
+    if len(kinds) != 1 or None in kinds:
+        raise SystemExit(f"a lineup is all reapers or all husks: {', '.join(names)}")
+
+    kind = kinds.pop()
+    core.reset_scene()
+    figures = []
+
+    for index, name in enumerate(names):
+        # Earlier figures step aside, by name, for this one's import.
+        for obj in bpy.data.objects:
+            if PLACED not in obj.name:
+                obj.name = f"{obj.name}{PLACED}{index}"
+
+        before = set(bpy.data.objects)
+        import_glb(os.path.join(models, f"{name}.glb"))
+        added = [obj for obj in bpy.data.objects if obj not in before]
+        root = next(obj for obj in added if obj.parent is None and base(obj) in ("reaper", "husk"))
+
+        if kind == "reaper":
+            calling = name.removeprefix("reaper_")
+            weapons = hold_weapons(root, (CLASS_WEAPONS[calling],))
+            stand(root, 0, "spirit", weapons, CLASS_WEAPONS[calling])
+            root[cel.LIGHT_PROPERTY] = cel.class_light(palette, calling)
+        else:
+            vessel = name.removeprefix("husk_")
+            looks = (specs or {}).get(vessel, {}).get("looks", [])
+            _wear(root, looks[0] if looks else None)
+
+        _freeze(root)
+        figures.append((name, root))
+
+    sizes = []
+    x = 0.0
+    gap = None
+
+    for name, root in figures:
+        # Each turned to its three-quarter view, seen from the front, so the
+        # row does not recede.
+        root.rotation_mode = "XYZ"
+        root.rotation_euler.z -= math.radians(preview.ANGLES["threequarter"])
+        low, high = _bounds(root)
+        width = high.x - low.x
+        sizes.append(high.z - low.z)
+        gap = gap if gap is not None else max(width, 0.4) * 0.35
+        root.location.x += x - low.x
+        x += width + gap
+        bpy.context.view_layer.update()
+
+    sheet = cel.look(palette, kind, None, scene)
+    order = ", ".join(name.split("_", 1)[1] for name, _ in figures)
+    rows = [preview.row(f"three-quarter  {order}", None, ("front",)), preview.row(f"{order}", None, ("silhouette",))]
+    width = max(1600, min(3200, round(len(figures) * 420)))
+    preview.render_grid(os.path.join(out, f"{stem}.png"), rows, tile=(width, 720), cel_look=sheet, figure_size=max(sizes), skip=("shadow", "seal_"))
+
+
+def _wear(root, look):
+    """Dresses a husk in an NFT's `look` for a lineup: its trait shown and
+    the rest hidden, and its colours carried for the print."""
+
+    for node in root.children_recursive:
+        holder = node
+
+        while holder is not None and not base(holder).startswith("trait_"):
+            holder = holder.parent
+
+        if holder is not None:
+            node.hide_render = look is None or base(holder) != f"trait_{look['trait']}"
+
+    if look is not None:
+        root[cel.LOOK_PROPERTY] = {name: look[name] for name in ("body", "trim", "detail")}
+
+
+def _freeze(root):
+    """Keeps a figure in the pose its clips left it in, and takes its clips
+    away, so posing the next figure leaves it still."""
+
+    for node in [root, *root.children_recursive]:
+        if node.animation_data is not None:
+            node.animation_data_clear()
+
+        if node.type == "MESH" and node.data.shape_keys is not None and node.data.shape_keys.animation_data is not None:
+            node.data.shape_keys.animation_data_clear()
+
+
+def _bounds(root):
+    bpy.context.view_layer.update()
+    corners = [
+        node.matrix_world @ Vector(corner)
+        for node in [root, *root.children_recursive]
+        if node.type == "MESH" and not node.hide_render and not base(node).startswith(("shadow", "seal_"))
+        for corner in node.bound_box
+    ]
+
+    return Vector(map(min, *corners)), Vector(map(max, *corners))

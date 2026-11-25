@@ -22,7 +22,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(HERE)
 
-from lib import core, review  # noqa: E402
+from lib import core, ink, review  # noqa: E402
 
 KINDS = review.WEAPON_KINDS
 
@@ -35,7 +35,13 @@ def main():
     parser.add_argument("--cel", action="store_true", help="also render each review sheet in the cel look")
     parser.add_argument("--specs")
     parser.add_argument("--only")
+    parser.add_argument("--fast", action="store_true", help="build and render the sheets: no export")
+    parser.add_argument("--cel-only", action="store_true", help="render the sheets in the cel look alone")
+    parser.add_argument("--scene", help="draw every cel sheet in this scene of cel.toml")
     options = parser.parse_args(arguments)
+
+    if options.fast and not options.preview:
+        parser.error("--fast renders sheets instead of writing a model: give it --preview")
 
     os.makedirs(options.out, exist_ok=True)
     core.reset_scene()
@@ -54,14 +60,21 @@ def main():
         weapon.parent = root
         built.append(weapon)
 
-    path = os.path.join(options.out, f"weapon_{options.only}.glb" if options.only else "weapons.glb")
-    core.export_glb(path, root)
-    print(f"BUILT {path} triangles={core.triangle_count(root)}")
+    for weapon in built:
+        print(f"WEAPON {weapon.name} triangles={core.triangle_count(weapon)}")
+
+    if options.fast:
+        ink.weigh(root, "weapon")
+        print(f"BUILT weapons (fast: not exported) triangles={core.triangle_count(root)}")
+    else:
+        path = os.path.join(options.out, f"weapon_{options.only}.glb" if options.only else "weapons.glb")
+        core.export_glb(path, root)
+        print(f"BUILT {path} triangles={core.triangle_count(root)}")
 
     if options.preview:
         os.makedirs(options.preview, exist_ok=True)
 
-        for look in review.looks(options.cel):
+        for look in review.looks(options.cel, options.cel_only, options.scene):
             review.weapons(built, options.preview, look, lineup=not options.only)
 
 

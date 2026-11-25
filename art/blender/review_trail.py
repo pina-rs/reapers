@@ -165,7 +165,7 @@ def main():
             _draw(name, paths[name], colour, seconds_per_frame, sorted(marks[name]))
 
     review.play(clip, key)
-    look = cel.load() if options.cel else None
+    look = cel.look(cel.load(), "reaper", cel.class_light(cel.load(), options.calling)) if options.cel else None
     os.makedirs(os.path.dirname(os.path.abspath(options.out)), exist_ok=True)
     title = f"{options.calling} {clip}, solid at {key:.0%}\norange tip, cyan right wrist, pink left wrist\ngreen: dead stop, red: flap"
     preview.render_grid(options.out, [preview.row(title, None, ("front", "side", "top"))], tile=(560, 640), cel_look=look, elevation=4.0, margin=1.2)

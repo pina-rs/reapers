@@ -8,8 +8,17 @@ It reads the full-size models a build leaves in `art/build/models` (or
 `--models`), and for creatures the looks in `art/build/vessels.json` (or
 `--specs`), which `cargo xtask build-art --specs-only` writes. The sheets are
 the ones the drivers render with `--preview`; `--cel` adds each sheet in the
-cel look of `art/blender/cel.toml`, so the art direction can be changed and
-judged in a minute rather than a rebuild. See art/blender/README.md.
+cel look of `art/blender/cel.toml` (`--cel-only` draws that alone, and
+`--scene` picks the scene of cel.toml it is lit in), so the art direction
+can be changed and judged in a minute rather than a rebuild.
+
+    blender --background --python-exit-code 1 --python art/blender/review.py -- \
+      --out art/build/previews --lineup reapers [--scene stage]
+
+`--lineup` sets several models side by side at one scale instead, in the
+cel look and in key-only silhouette: `reapers`, `husks`, or a
+comma-separated list of models that are all reapers or all husks. See
+art/blender/README.md.
 """
 
 import argparse
@@ -22,7 +31,7 @@ sys.path.append(HERE)
 
 import bpy  # noqa: E402
 
-from lib import core, creature, review  # noqa: E402
+from lib import cel, core, creature, review  # noqa: E402
 from viewmodel import MOMENTS  # noqa: E402
 
 
@@ -33,16 +42,35 @@ def main():
     parser.add_argument("--specs", default="art/build/vessels.json")
     parser.add_argument("--out", required=True)
     parser.add_argument("--cel", action="store_true", help="also render each sheet in the cel look")
+    parser.add_argument("--cel-only", action="store_true", help="render each sheet in the cel look alone")
+    parser.add_argument("--scene", help="draw every cel sheet in this scene of cel.toml")
     parser.add_argument("--only", help="comma-separated model names, without .glb")
+    parser.add_argument("--sheets", default=",".join(review.REAPER_SHEETS), help="which sheets of a reaper: spirit, humanoid, armoury")
+    parser.add_argument("--lineup", help="reapers, husks, or comma-separated models to set side by side")
     options = parser.parse_args(arguments)
 
     names = sorted(file[: -len(".glb")] for file in os.listdir(options.models) if file.endswith(".glb"))
-    wanted = set(options.only.split(",")) if options.only else None
 
-    if wanted is not None and wanted - set(names):
-        raise SystemExit(f"No built model called {', '.join(sorted(wanted - set(names)))} in {options.models}")
+    if options.lineup:
+        wanted = review.LINEUPS.get(options.lineup) or tuple(options.lineup.split(","))
+    else:
+        wanted = tuple(options.only.split(",")) if options.only else None
+
+    if wanted is not None and set(wanted) - set(names):
+        raise SystemExit(f"No built model called {', '.join(sorted(set(wanted) - set(names)))} in {options.models}")
 
     os.makedirs(options.out, exist_ok=True)
+
+    if options.lineup:
+        with open(options.specs, encoding="utf-8") as source:
+            specs = json.load(source)
+
+        stem = options.lineup if options.lineup in review.LINEUPS else "lineup"
+        stem = f"lineup_{stem}" + (f"_{options.scene}" if options.scene else "")
+        review.lineup(options.models, wanted, options.out, cel.load(), options.scene, specs, stem)
+        return
+
+    options.sheets = tuple(sheet for sheet in options.sheets.split(",") if sheet)
 
     for name in names:
         if wanted is not None and name not in wanted:
@@ -50,13 +78,13 @@ def main():
 
         path = os.path.join(options.models, f"{name}.glb")
 
-        for look in review.looks(options.cel):
+        for look in review.looks(options.cel, options.cel_only, options.scene):
             sheet(name, path, options, look)
 
 
 def sheet(name, path, options, look):
     if name.startswith("reaper_"):
-        review.reaper(path, name.removeprefix("reaper_"), options.out, look)
+        review.reaper(path, name.removeprefix("reaper_"), options.out, look, options.sheets)
         return
 
     core.reset_scene()

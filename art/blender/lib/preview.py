@@ -11,7 +11,7 @@ import bpy
 from mathutils import Matrix, Vector
 
 from . import cel
-from .core import COLOR_ATTRIBUTE
+from .core import COLOR_ATTRIBUTE, SURFACE_PROPERTY
 
 # Roughly what the game's palette does to each material slot, so that a
 # preview reads the way the model will.
@@ -114,7 +114,7 @@ def _style_materials(silhouette, look=None, review=False):
             tree.links.new(emission.outputs["Emission"], output.inputs["Surface"])
             continue
 
-        if review and cel.effect(tree, output, mat, cel.load()["surfaces"]["glow"], strength=2.0):
+        if review and cel.effect(tree, output, mat, ACCENT, strength=2.0):
             continue
 
         if mat.name.startswith(("accent", "glow")):
@@ -146,7 +146,7 @@ def _style_materials(silhouette, look=None, review=False):
             continue
 
         name = mat.name.split(".")[0]
-        pbr_kind = mat.get("_pina_pbr_kind")
+        pbr_kind = mat.get(SURFACE_PROPERTY)
         base = colours.get(name, PREVIEW_COLORS.get(name, (0.3, 0.3, 0.3)))
         shader = tree.nodes.new("ShaderNodeBsdfPrincipled")
         masks = tree.nodes.new("ShaderNodeVertexColor")
@@ -175,16 +175,6 @@ def _style_materials(silhouette, look=None, review=False):
         tree.links.new(shader.outputs["BSDF"], output.inputs["Surface"])
 
         metal = mat.name.startswith(("metal", "gold"))
-        if pbr_kind:
-            from . import textures
-
-            normal_img, _, _, strength = textures.get_maps(pbr_kind)
-            tex_norm = tree.nodes.new("ShaderNodeTexImage")
-            tex_norm.image = normal_img
-            norm_map = tree.nodes.new("ShaderNodeNormalMap")
-            norm_map.inputs["Strength"].default_value = strength * 0.85
-            tree.links.new(tex_norm.outputs["Color"], norm_map.inputs["Color"])
-            tree.links.new(norm_map.outputs["Normal"], shader.inputs["Normal"])
 
         if metal or pbr_kind in ("gold", "metal"):
             shader.inputs["Metallic"].default_value = max(authored_metallic, 0.90)
@@ -265,13 +255,18 @@ ANGLES = {"front": 0.0, "threequarter": 32.0, "side": 90.0, "back": 180.0, "silh
 # Every view a model sheet shows.
 VIEWS = ("front", "threequarter", "side", "back", "silhouette")
 
-# How tall, in pixels, a silhouette is shown at the size a phone shows a
-# model in a list or a card, so it can be judged where it is hardest to read.
-THUMBNAIL = 96
+# How tall, in pixels, a silhouette is shown beside its tile, at the size a
+# phone shows a figure in a list or a card, so it can be judged where it is
+# hardest to read: the art bible's 64 pt test (6.1). A cel sheet takes it
+# from cel.toml ([sheets] silhouette_px).
+THUMBNAIL = 64
 
 # A portrait phone's screen, width over height: an `eye` tile is this shape,
 # so it shows what the game's camera shows on a phone.
 PHONE = 9 / 19.5
+
+# The phone the art bible measures in: 390 x 844 points.
+PHONE_PT = 844
 
 # The lights of the normal look, about the model's middle, for a camera
 # `REFERENCE` metres away at the front. They turn with the camera.
@@ -320,7 +315,7 @@ def render_sheet(path, centre=(0, 0, 1.4), distance=7.4, width=560, height=840, 
     )
 
 
-def render_grid(path, rows, tile=(400, 600), cel_look=None, lens=70, elevation=-2.0, margin=1.15, framing=None, view_rotation=None, labels=True, skip=("shadow",), same_scale=True, ground=None):
+def render_grid(path, rows, tile=(400, 600), cel_look=None, lens=70, elevation=-2.0, margin=1.15, framing=None, view_rotation=None, labels=True, skip=("shadow",), same_scale=True, ground=None, figure_size=None, knockout=True):
     """Renders a sheet: rows of tiles, each a view of the scene as a tile's
     `setup()` leaves it, and stitches them into one image at `path`.
 
@@ -332,11 +327,15 @@ def render_grid(path, rows, tile=(400, 600), cel_look=None, lens=70, elevation=-
     `(centre, distance, eye_height)` to place the camera by hand instead.
 
     A tile's `look` dresses a creature in one NFT's colours and trait. A
-    `silhouette` tile is the model in black, with the same silhouette at
-    phone-thumbnail size in its corner. `cel_look` is a palette from
-    `cel.load()`: the sheet is drawn in that look. `ground` is the colour
-    behind every tile but a silhouette, in place of the look's own: the
-    night sky behind light, which would not show on paper.
+    `silhouette` tile is the model in black (key on paper in the cel look),
+    with the same silhouette at `THUMBNAIL` pixels beside it. `cel_look` is
+    a sheet's look from `cel.look()`: the sheet is drawn in Second Ink, on
+    the vigil ground, with a paper knockout round each figure unless
+    `knockout` is False. `ground` is the colour behind every tile but a
+    silhouette, in place of the look's own: the night sky behind light,
+    which would not show on paper. `figure_size` is how big, in metres, the
+    figure a tile is sized by is (the tallest of a lineup); by default each
+    row's bounds say.
     """
 
     width, height = tile
@@ -347,6 +346,7 @@ def render_grid(path, rows, tile=(400, 600), cel_look=None, lens=70, elevation=-
     scene.render.resolution_percentage = 100
     scene.render.film_transparent = False
     scene.render.image_settings.file_format = "PNG"
+    scene.render.image_settings.color_mode = "RGBA"
     scene.eevee.taa_render_samples = 16
     if hasattr(scene.eevee, "use_raytracing"):
         scene.eevee.use_raytracing = False
@@ -361,6 +361,7 @@ def render_grid(path, rows, tile=(400, 600), cel_look=None, lens=70, elevation=-
 
     lights = [_light(name, "AREA", (0, 0, 0), energy, colour, size=size) for name, _, energy, colour, size in LIGHTS]
     label = _label() if labels else None
+    thumbnail = cel_look["sheets"]["silhouette_px"] if cel_look else THUMBNAIL
 
     if cel_look:
         cel.add_ink(cel_look)
@@ -373,11 +374,13 @@ def render_grid(path, rows, tile=(400, 600), cel_look=None, lens=70, elevation=-
         for tiles in rows:
             placed = [_place(tile, lens, half_wide, half_high, elevation, margin, framing, skip) for tile in tiles]
             # An eye tile stands where its eye is, so it sets no row's scale.
-            framed = [distance for tile, (_, distance, _) in zip(tiles, placed) if tile.get("eye") is None]
+            framed = [distance for tile, (_, distance, _, _) in zip(tiles, placed) if tile.get("eye") is None]
             widest = max(framed, default=0.0)
+            sizes = [size for tile, (_, _, _, size) in zip(tiles, placed) if tile.get("eye") is None and size]
+            row_size = figure_size or max(sizes, default=0.0)
             paths = []
 
-            for tile, (centre, own, eye_height) in zip(tiles, placed):
+            for tile, (centre, own, eye_height, size) in zip(tiles, placed):
                 distance = widest if same_scale and tile.get("eye") is None else own
                 if tile["setup"] is not None:
                     tile["setup"]()
@@ -398,24 +401,43 @@ def render_grid(path, rows, tile=(400, 600), cel_look=None, lens=70, elevation=-
                     _style(silhouette, tile["look"], cel_look)
                     styled = mode
 
-                behind = SILHOUETTE_GROUND if silhouette else ground or (cel_look["paper"] if cel_look else BACKGROUND)
+                printed = bool(cel_look) and not silhouette
+                cut_out = printed and knockout and ground is None
+                if cel_look:
+                    behind = cel_look["paper"] if silhouette else ground or cel_look["vigil"]
+                else:
+                    behind = SILHOUETTE_GROUND if silhouette else ground or BACKGROUND
                 background.inputs["Color"].default_value = (*behind, 1)
+                scene.render.film_transparent = cut_out
                 if tile.get("eye") is None:
                     camera = _aim(centre, distance, tile["view"], elevation, eye_height, lens, view_rotation)
                 else:
                     camera = _eye(tile.get("eye"))
                     distance = (Vector(centre) - camera.location).length
 
-                for (_, offset, energy, _, size), light in zip(LIGHTS, lights):
-                    _place_light(light, centre, distance, tile["view"], offset, energy, size)
+                for (_, offset, energy, _, size_light), light in zip(LIGHTS, lights):
+                    _place_light(light, centre, distance, tile["view"], offset, energy, size_light)
                     light.hide_render = silhouette or bool(cel_look)
 
+                # How many sheet pixels a point of the phone is, here: an eye
+                # tile is the phone's own view; any other is the figure at
+                # the height its scene stands it (cel.toml `figure_pt`).
+                focal = height / (2 * tile_high)
+                if tile.get("eye") is not None:
+                    px_per_pt = height / PHONE_PT
+                else:
+                    sized = row_size if same_scale else (size or row_size)
+                    px_per_pt = max(sized, 1e-3) * focal / max(distance, 1e-3) / cel_look["scene"]["figure_pt"] if cel_look else 1.0
+
                 if cel_look:
-                    cel.aim_key(cel_look, camera)
-                    cel.set_ink(cel_look["width"] * 2 * tile_high * distance / height, shown=not silhouette)
+                    cel.aim(cel_look, camera, focal, px_per_pt, cel.hatch_per_metre(cel_look, row_size or size or 1.0))
+                    cel.set_ink(cel_look, camera, focal, px_per_pt, shown=not silhouette)
 
                 if label is not None:
-                    ink = (0.1, 0.1, 0.12) if silhouette or (cel_look and ground is None) else (0.6, 0.62, 0.66)
+                    if cel_look:
+                        ink = cel_look["key"] if silhouette or ground is not None else cel_look["ash"]
+                    else:
+                        ink = (0.1, 0.1, 0.12) if silhouette else (0.6, 0.62, 0.66)
                     _caption(label, camera, tile["label"], ink, tile_wide, tile_high, height)
 
                 tile_path = f"{path}.{len(grid)}.{len(paths)}.png"
@@ -423,12 +445,12 @@ def render_grid(path, rows, tile=(400, 600), cel_look=None, lens=70, elevation=-
                 bpy.ops.render.render(write_still=True)
                 inset = None
 
-                if silhouette and THUMBNAIL < height:
+                if silhouette and thumbnail < height:
                     if label is not None:
                         label.hide_render = True
                     inset = f"{tile_path}.thumb.png"
-                    scene.render.resolution_x = round(THUMBNAIL * tile_width / height)
-                    scene.render.resolution_y = THUMBNAIL
+                    scene.render.resolution_x = round(thumbnail * tile_width / height)
+                    scene.render.resolution_y = thumbnail
                     scene.render.filepath = inset
                     bpy.ops.render.render(write_still=True)
                     scene.render.resolution_x = tile_width
@@ -439,13 +461,22 @@ def render_grid(path, rows, tile=(400, 600), cel_look=None, lens=70, elevation=-
                 for obj in unshaped:
                     obj.hide_render = False
 
-                paths.append((tile_path, inset))
+                composite = None
+
+                if cut_out:
+                    # The caption's rows, descenders and all, get no margin.
+                    caption = math.ceil(0.04 * height + 2 * CAPTION_PIXELS) if label is not None else 0
+                    composite = {"ground": behind, "knockout": cel_look["line"]["knockout_pt"] * px_per_pt, "paper": cel_look["paper"], "caption": caption}
+
+                paths.append((tile_path, inset, composite))
                 bpy.data.objects.remove(camera, do_unlink=True)
 
             grid.append(paths)
     finally:
+        scene.render.film_transparent = False
         if cel_look:
             cel.remove_ink()
+            cel.restore()
         for light in lights:
             bpy.data.objects.remove(light, do_unlink=True)
         if label is not None:
@@ -455,9 +486,11 @@ def render_grid(path, rows, tile=(400, 600), cel_look=None, lens=70, elevation=-
 
 
 def _style(silhouette, look, cel_look):
-    if cel_look and not silhouette:
-        colours, accent = _dress(look)
-        cel.style(cel_look, colours, accent if look is not None else None)
+    if cel_look and silhouette:
+        cel.silhouette(cel_look)
+    elif cel_look:
+        _dress(look)
+        cel.style(cel_look, {name: look[name] for name in ("body", "trim", "detail")} if look is not None else None)
     else:
         _style_materials(silhouette, look, review=True)
 
@@ -518,7 +551,7 @@ def _place(tile, lens, half_wide, half_high, elevation, margin, framing, skip):
     visible mesh to fit, with `margin` to spare."""
 
     if framing is not None:
-        return framing
+        return (*framing, None)
 
     if tile["setup"] is not None:
         tile["setup"]()
@@ -547,7 +580,12 @@ def _place(tile, lens, half_wide, half_high, elevation, margin, framing, skip):
             toward + abs(offset.dot(up)) * margin / half_high,
         )
 
-    return centre, distance, None
+    # How big the figure is: its height, or its span across where it is
+    # wider than it is tall (a bird's wings, a weapon lying down).
+    extent = high - low
+    size = max(extent.z, max(extent.x, extent.y) * 0.75)
+
+    return centre, distance, None, size
 
 
 def visible_corners(skip):
@@ -627,7 +665,11 @@ def _label():
     return label
 
 
-def _caption(label, camera, text, colour, half_wide, half_high, height, depth=0.05, pixels=15):
+# A caption's height in pixels.
+CAPTION_PIXELS = 15
+
+
+def _caption(label, camera, text, colour, half_wide, half_high, height, depth=0.05, pixels=CAPTION_PIXELS):
     label.data.body = text
     label.data.materials[0].node_tree.nodes["Emission"].inputs["Color"].default_value = (*colour, 1)
     label.data.size = 2 * half_high * depth * pixels / height
@@ -735,7 +777,9 @@ def render_portrait(path, look, size=384):
 def compose(grid, path, width, height):
     """Places rendered tiles in rows, top row first, and removes them. A
     silhouette's thumbnail goes in a narrow panel of its own beside it, at
-    its own size, so it never covers the silhouette."""
+    its own size, so it never covers the silhouette. A tile rendered see-
+    through for the cel look gets its paper knockout and its ground here
+    (`cel.knockout`)."""
 
     import numpy
 
@@ -754,8 +798,12 @@ def compose(grid, path, width, height):
     for paths in grid:
         pieces = []
 
-        for tile, inset in paths:
+        for tile, inset, composite in paths:
             pixels = load(tile)
+
+            if composite is not None:
+                pixels = cel.knockout(pixels, composite["knockout"], composite["ground"], composite["paper"], composite["caption"])
+
             pieces.append(pixels)
 
             if inset is not None:
@@ -765,10 +813,10 @@ def compose(grid, path, width, height):
                 panel = numpy.empty((height, w + 2 * gap, 4), dtype=numpy.float32)
                 # The silhouette's own ground, as it was rendered.
                 panel[:] = pixels[-1, -1]
-                # A thin light frame round the thumbnail, at the bottom of
-                # the panel, so it reads as the picture a phone shows.
+                # A thin frame round the thumbnail, at the bottom of the
+                # panel, so it reads as the picture a phone shows.
                 y = gap
-                panel[y - 2 : y + h + 2, gap - 2 : gap + w + 2] = (0.85, 0.85, 0.85, 1.0)
+                panel[y - 2 : y + h + 2, gap - 2 : gap + w + 2] = (0.5, 0.5, 0.5, 1.0)
                 panel[y : y + h, gap : gap + w] = small
                 pieces.append(panel)
 
@@ -784,6 +832,7 @@ def compose(grid, path, width, height):
         sheet[bottom : bottom + height] = pixels[-1, -1]
         sheet[bottom : bottom + height, : pixels.shape[1]] = pixels
 
+    sheet[:, :, 3] = 1.0
     result = bpy.data.images.new("Sheet", sheet_width, height * len(rows), alpha=False)
     result.pixels.foreach_set(sheet.ravel())
     result.filepath_raw = path

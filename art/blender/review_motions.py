@@ -56,7 +56,7 @@ def main():
 
     review.play(("humanoid_" if options.humanoid else "") + options.clip, options.phase)
     os.makedirs(os.path.dirname(os.path.abspath(options.out)), exist_ok=True)
-    look = cel.load() if options.cel else None
+    look = cel.look(cel.load(), "reaper", cel.class_light(cel.load(), options.calling)) if options.cel else None
     tiles = [preview.row(f"{options.calling} {options.clip} {options.phase:.0%}", None, ("front", "threequarter", "side"))]
 
     if options.face:

@@ -31,7 +31,7 @@ import bmesh  # noqa: E402
 import bpy  # noqa: E402
 from mathutils import Vector  # noqa: E402
 
-from lib import core, creature, preview, review  # noqa: E402
+from lib import core, creature, ink, preview, review  # noqa: E402
 
 # Vessels built by a module in creature_kinds/, in build order.
 CREATURES = ("ape", "bird", "penguin", "llama", "robot")
@@ -214,7 +214,13 @@ def main():
     parser.add_argument("--cel", action="store_true", help="also render each review sheet in the cel look")
     parser.add_argument("--portraits")
     parser.add_argument("--only")
+    parser.add_argument("--fast", action="store_true", help="build and render the sheets: no export, no portraits")
+    parser.add_argument("--cel-only", action="store_true", help="render the sheets in the cel look alone")
+    parser.add_argument("--scene", help="draw every cel sheet in this scene of cel.toml")
     options = parser.parse_args(arguments)
+
+    if options.fast and not options.preview:
+        parser.error("--fast renders sheets instead of writing a model: give it --preview")
 
     with open(options.specs, encoding="utf-8") as source:
         specs = json.load(source)
@@ -229,19 +235,24 @@ def main():
 
         core.reset_scene()
         root = reliquary_stack(spec) if name == "reliquaryStack" else build_creature(name, spec)
-        path = os.path.join(options.out, f"husk_{name}.glb")
-        core.export_glb(path, root)
-        print(f"BUILT {path} triangles={core.triangle_count(root)}")
+
+        if options.fast:
+            ink.weigh(root, "husk")
+            print(f"BUILT husk_{name} (fast: not exported) triangles={core.triangle_count(root)}")
+        else:
+            path = os.path.join(options.out, f"husk_{name}.glb")
+            core.export_glb(path, root)
+            print(f"BUILT {path} triangles={core.triangle_count(root)}")
 
         looks = spec.get("looks", [])
 
         if options.preview:
             os.makedirs(options.preview, exist_ok=True)
 
-            for look in review.looks(options.cel):
+            for look in review.looks(options.cel, options.cel_only, options.scene):
                 review.husk(name, looks, options.preview, creature.TRAITS, cel_look=look)
 
-        if options.portraits and looks:
+        if options.portraits and looks and not options.fast:
             os.makedirs(options.portraits, exist_ok=True)
 
             for look in looks:

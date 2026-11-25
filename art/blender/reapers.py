@@ -2,6 +2,10 @@
 
     cargo xtask build-art reapers --preview
 
+With `--fast` it builds each class's geometry and renders its review
+sheets straight from it, without baking the 64 clips or exporting: a
+minute or two rather than fifteen (art/blender/README.md, "The fast path").
+
 Each class lives in its own module under `reaper_classes/` and exposes
 `build()`, which returns the model's root. Every model has the same node
 layout, which is what lets the game assemble any genome from it:
@@ -35,7 +39,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(HERE)
 
-from lib import body, core, face, motion, review  # noqa: E402
+from lib import body, core, face, ink, motion, review  # noqa: E402
 
 # The classes, in build order.
 CLASSES = tuple(review.CLASS_WEAPONS)
@@ -50,7 +54,16 @@ def main():
     parser.add_argument("--specs")
     parser.add_argument("--only")
     parser.add_argument("--motions", default="art/build/motions.json")
+    parser.add_argument("--fast", action="store_true", help="build the geometry and render the sheets from it: no clips, no export")
+    parser.add_argument("--cel-only", action="store_true", help="render the sheets in the cel look alone")
+    parser.add_argument("--scene", help="draw every cel sheet in this scene of cel.toml")
+    parser.add_argument("--sheets", default=",".join(review.REAPER_SHEETS), help="which sheets: spirit, humanoid, armoury")
     options = parser.parse_args(arguments)
+    sheets = tuple(sheet for sheet in options.sheets.split(",") if sheet)
+
+    if options.fast and not options.preview:
+        parser.error("--fast renders sheets instead of writing a model: give it --preview")
+
     with open(options.motions) as source:
         motions = motion.variants(json.load(source))
 
@@ -67,6 +80,23 @@ def main():
         root = importlib.import_module(f"reaper_classes.{name}").build()
         body.build(root, name)
         faces = face.build(root, name)
+
+        if options.fast:
+            # The geometry as it would ship, posed in each form's first idle
+            # key by hand rather than baked into 64 clips and exported.
+            joints, rest = motion.rig(root)
+            ink.weigh(root, "reaper")
+            print(f"BUILT reaper_{name} (fast: no clips, not exported) triangles={core.triangle_count(root)}")
+            os.makedirs(options.preview, exist_ok=True)
+
+            def stance(form, joints=joints, rest=rest, name=name):
+                motion.hold(joints, rest, name, "idle", 0.0, form == "humanoid")
+
+            for look in review.looks(options.cel, options.cel_only, options.scene):
+                review.reaper_sheets(root, name, options.preview, look, stance, sheets)
+
+            continue
+
         motion.build(root, name, motions)
         face.bake(faces, motions)
         path = os.path.join(options.out, f"reaper_{name}.glb")
@@ -78,8 +108,8 @@ def main():
             # left wherever the clip bake ended.
             os.makedirs(options.preview, exist_ok=True)
 
-            for look in review.looks(options.cel):
-                review.reaper(path, name, options.preview, look)
+            for look in review.looks(options.cel, options.cel_only, options.scene):
+                review.reaper(path, name, options.preview, look, sheets)
 
 
 if __name__ == "__main__":

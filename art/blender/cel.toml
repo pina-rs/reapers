@@ -1,66 +1,313 @@
-# The look the review sheets judge a model in when they are rendered with
-# `--cel`: flat colour bands from one key light, a tinted shade, and an ink
-# outline drawn as an inverted hull.
+# Second Ink: the art direction of every model, in one file.
 #
-# This is the art direction in one place. Change it here and re-render the
-# sheets (`art/blender/review.py`, see art/blender/README.md); no model is
-# rebuilt. It is a preview of the target look, not the game's renderer: the
-# game does not read this file.
+# The look is a two-plate relief print (docs/art-bible.md): near-black key
+# ink on bone paper, plus one spot colour, the reaper's own light. Every
+# colour here is an overprint of key at coverage k and spot at coverage s on
+# paper, written as [k, s].
 #
-# Colours are sRGB hex, as a paint program shows them.
+# Two things read this file:
+#
+# - The model build reads [weight] only, to bake each vertex's ink weight
+#   into the models it writes (art/blender/lib/ink.py). Change [weight] and
+#   the models change.
+# - The review sheets (`--cel`, lib/cel.py) read all of it, to draw a model
+#   as the game's renderer will: bands, hatching, specular, rim, the key line
+#   and the paper knockout. Change anything else and re-render the sheets
+#   (art/blender/review.py); no model is rebuilt.
+#
+# Colours are sRGB hex. Section numbers are the art bible's.
 
-[ink]
-# The outline's colour.
-colour = "#1b1620"
-# How thick the outline is, in pixels of a sheet's tile, measured at the
-# middle of the model. Parts nearer the camera draw a little thicker.
-width = 2.4
-# How much the width swings along the line, so it reads drawn by hand:
-# 0 is a ruled line, 1 lets it swing from nothing to twice the width.
-wobble = 0.45
-# How many swings per metre of model.
-wobble_scale = 7.0
+# 3.1 Inks and grounds ---------------------------------------------------
 
-[bands]
-# How many flat steps the light falls in, from shade to full light.
-count = 3
-# The shade is the surface colour multiplied by this, so shadows lean cool
-# instead of going grey.
-shade_tint = "#5d5683"
-# Where the key light comes from, in the camera's frame: x to the right,
-# y up, z toward the viewer. Fixed to the camera, so every view of a sheet
-# is lit the same way.
-key = [-0.55, 0.62, 0.56]
+[inks]
+paper = "#ECE3CF"
+key = "#16121A"
+# The page every figure stands on, and the ground of every cel sheet.
+vigil = "#342F33"
+ash = "#A39C93"
+raised = "#454042"
+scrim = "#2B272C"
+# Loss and error only. No model prints it.
+wound = "#B92A20"
 
-[paper]
-# The ground behind the model.
-colour = "#efe7d6"
+# 3.2 The six lights: one spot per class --------------------------------
 
-# The flat colour of each surface, by material name. A creature's `body`,
-# `trim`, `detail` and `accent` come from the NFT look it is dressed in when
-# it has one; these are what they fall back to.
-[surfaces]
-cloth = "#3b3650"
-cloth_alt = "#6b4a32"
-bone = "#d8ceb2"
-metal = "#6e7584"
-gold = "#d9a441"
-wood = "#7a5136"
-rope = "#a88d60"
-feather = "#2c2c3c"
-paper = "#d4c6a4"
-void = "#08070b"
-spirit = "#2f6170"
-frame = "#8c7656"
-canvas = "#9a9a9a"
-body = "#5f8f8c"
-trim = "#ece6d8"
-detail = "#e19b4c"
-dark = "#0d0b10"
-shadow = "#1b1620"
-# The one colour that glows: eyes, a blade's edge, soul light. Drawn flat,
-# with no shade and no ink.
-accent = "#a6fff0"
-glow = "#a6fff0"
-# Any material this table does not name.
-fallback = "#8a8a8a"
+[lights]
+chaff = "#F4CD50"
+lantern = "#F07428"
+verdigris = "#2FBD9F"
+cobalt = "#477FE4"
+wisp = "#A8F2D8"
+mauve = "#CDB2F6"
+
+[classes]
+harvester = "chaff"
+ferryman = "lantern"
+weigher = "verdigris"
+chooser = "cobalt"
+hollow = "wisp"
+mourner = "mauve"
+
+# The class whose light a weapon is shown in on its own sheet (6.4). The
+# bought ones print in whoever holds them; alone they borrow the Ferryman's.
+[weapons]
+scythe = "harvester"
+lantern_pole = "ferryman"
+balance_flail = "weigher"
+spear = "chooser"
+chain_whip = "hollow"
+bell = "mourner"
+greatsword = "ferryman"
+axe = "ferryman"
+
+# 3.3 Families: (k, s) for the lit, shade and deep bands ----------------
+#
+# A family is a material's name in the model (`cloth.001` is `cloth`). An
+# unknown name falls back to `fallback`. `hatch` inks the deep band;
+# `spec` is the N.H a paper highlight needs, on turning edges only; `line`
+# multiplies the key line's weight, and 0 draws none; `flat` prints one
+# coverage with no bands.
+
+[families]
+fallback = "cloth"
+# Names that print as another family.
+aliases = { frame = "metal", shroud = "cloth", core = "void", canvas = "image", paper_image = "image", shard = "image", ribbon = "image" }
+
+[families.cloth]
+lit = [0.46, 0.84]
+shade = [0.80, 0.50]
+deep = [0.93, 0.16]
+hatch = true
+
+[families.cloth_alt]
+lit = [0.32, 0.92]
+shade = [0.70, 0.60]
+deep = [0.90, 0.20]
+hatch = true
+
+[families.feather]
+lit = [0.56, 0.74]
+shade = [0.84, 0.36]
+deep = [0.95, 0.10]
+hatch = true
+
+[families.bone]
+lit = [0.0, 0.0]
+shade = [0.24, 0.10]
+deep = [0.55, 0.08]
+spec = 0.95
+
+[families.metal]
+lit = [0.34, 0.0]
+shade = [0.64, 0.06]
+deep = [0.86, 0.05]
+hatch = true
+spec = 0.90
+
+[families.gold]
+lit = [0.0, 1.0]
+shade = [0.34, 1.0]
+deep = [0.66, 0.90]
+spec = 0.92
+line = 0.75
+
+[families.wood]
+lit = [0.46, 0.55]
+shade = [0.72, 0.40]
+deep = [0.90, 0.18]
+hatch = true
+
+[families.rope]
+lit = [0.08, 0.42]
+shade = [0.38, 0.46]
+deep = [0.74, 0.26]
+
+[families.paper]
+lit = [0.04, 0.08]
+shade = [0.24, 0.12]
+deep = [0.50, 0.10]
+
+[families.spirit]
+flat = [0.94, 0.10]
+
+[families.void]
+flat = [1.0, 0.0]
+line = 0.0
+
+[families.dark]
+flat = [1.0, 0.0]
+line = 0.0
+
+# Light: flat spot, no line. On a husk, `accent` (its eyes) prints paper
+# and `glow` (its seals) key: the dead have no light (3.6).
+[families.accent]
+light = true
+line = 0.0
+
+[families.glow]
+light = true
+line = 0.0
+
+# 3.5 The robe's colourway on the sheets: night (cloth), ember (cloth_alt)
+# or ash (key only, the light kept on trim, rim and eyes).
+[colourway]
+robe = "night"
+ash = { lit = [0.52, 0.10], shade = [0.82, 0.06], deep = [0.94, 0.0] }
+
+# 3.6 Husks: the ghost wash ---------------------------------------------
+#
+# A husk's body, trim and detail are its NFT's colours, washed: hue kept,
+# chroma capped, value clamped, with key printed over for shade and deep.
+
+[ghost]
+chroma = 16.0
+lightness = [34.0, 90.0]
+# The dead never wear your light: near the player's hue the cap is lower.
+clash_degrees = 20.0
+clash_chroma = 8.0
+# Whose eyes the sheets see a husk through: a class, or "" for no one.
+player = ""
+shade_k = 0.36
+deep_k = 0.60
+deep_floor = 16.0
+# A paper highlight only where the lit band is this light, at this N.H.
+spec_lightness = 70.0
+spec = 0.96
+hatch_min = 0.30
+# What `body`, `trim` and `detail` print as on a model with no NFT look.
+fallback = { body = "#808a86", trim = "#d8d2c4", detail = "#a08a6a" }
+
+# 4.3 Ink weight: baked into every model by the build ------------------
+#
+# A vertex's weight is part x contact x paint, clamped by thickness. The
+# game multiplies it by the light-side term and a wobble of its own and by
+# the line's width on screen (art/blender/lib/ink.py).
+
+[weight]
+# A part (a connected piece of a mesh) is fine under the first size and
+# interior under the second, by its largest dimension in metres.
+part = { fine = 0.45, interior = 0.70, silhouette = 1.0 }
+# The heavier line where a figure meets the floor, and how near it must be.
+contact = 1.2
+contact_reach = 0.08
+# The push may never be more than this share of the local thickness, found
+# by a ray cast inward. `headroom` is the heaviest the game's side term
+# makes a line (1.30), so the clamp holds on the shadow side too.
+clamp = 0.40
+headroom = 1.30
+# The thinnest a part's line may be, in points, before the clamp.
+minimum_pt = 1.3
+
+# Per kind of model: the size thresholds, the line's width in points at
+# its usual framing, and how far that line pushes in metres there (the
+# clamp's scale). A reaper's 2.4 pt line on a 300 pt, 2.2 m figure is
+# 0.0176 m; a husk's 2.25 pt on a 250 pt, 0.9 m one is 0.0081 m; the
+# first-person 3.3 pt line on the hand, 0.47 m from an eye with a 55 degree
+# view (1725 pt a metre), is 0.0019 m.
+[weight.kinds.reaper]
+sizes = [0.05, 0.12]
+line_pt = 2.4
+push_m = 0.0176
+
+[weight.kinds.weapon]
+sizes = [0.05, 0.12]
+line_pt = 2.4
+push_m = 0.0176
+
+[weight.kinds.husk]
+sizes = [0.05, 0.12]
+line_pt = 2.25
+push_m = 0.0081
+
+[weight.kinds.first_person]
+sizes = [0.02, 0.06]
+line_pt = 3.3
+push_m = 0.0019
+
+# 4 Line, as the sheets draw it ------------------------------------------
+
+[line]
+# The game's own terms, which the build leaves to it: heavy (x1.30) on the
+# side away from the light, fine (x0.68) where it is lit...
+side = { heavy = 1.30, drop = 0.62, from = -0.35, to = 0.75 }
+# ...and a wobble fixed to the surface: 1 + amount x noise(P x frequency).
+wobble = { amount = 0.22, frequency = 5.0 }
+# Weld before pushing, and smooth the push normals over this many rings.
+weld = 0.0012
+rings = { reaper = 2, weapon = 2, husk = 3, first_person = 2 }
+# The paper knockout round each whole figure, outside the key line.
+knockout_pt = 1.75
+
+# 5.2 Hatch ----------------------------------------------------------------
+
+[hatch]
+direction = [0.70, 0.30, -0.70]
+cross_direction = [0.55, -0.20, 0.80]
+# duty = min(maximum, minimum + gain x (t_deep - N.L))
+duty = { minimum = 0.24, gain = 0.55, maximum = 0.55 }
+cross_duty = 0.30
+cross_scale = 1.1
+# Fade the hatch to its mean tone as its pitch falls under these device
+# pixels, so it never moires.
+fade_px = [2.5, 4.0]
+
+# 5.4 Light per scene ------------------------------------------------------
+#
+# One light fixed to the camera: (right, up, toward the viewer). `figure_pt`
+# is how tall the framed model stands on a 390 x 844 pt phone, which sets
+# the line's and the hatch's sizes on a sheet. `hatch_pt` is the hatch's
+# pitch at that framing, or `hatch_per_m` fixes it on the model.
+
+[scenes.stage]
+light = [-0.80, 0.50, -0.32]
+t_lit = 0.25
+t_deep = -0.12
+t_cross = -0.55
+rim = 0.34
+hatch_pt = 2.6
+line_pt = 2.6
+figure_pt = 400
+
+[scenes.roster]
+light = [-0.86, 0.40, 0.32]
+t_lit = 0.30
+t_deep = -0.10
+t_cross = -0.55
+rim = 0.30
+hatch_pt = 2.7
+line_pt = 2.4
+figure_pt = 300
+
+[scenes.hunt]
+light = [-0.78, 0.48, 0.40]
+t_lit = 0.38
+t_deep = 0.0
+# No crosshatch and no rim on the dead.
+t_cross = -2.0
+rim = 0.0
+hatch_pt = 2.6
+line_pt = 2.25
+figure_pt = 250
+
+[scenes.first_person]
+light = [-0.55, 0.75, 0.35]
+t_lit = 0.30
+t_deep = -0.12
+t_cross = -0.55
+rim = 0.30
+hatch_per_m = 480
+line_pt = 3.3
+figure_pt = 400
+# 4.6: over the camera nothing prints darker than L* 16 but the line.
+families = { cloth = { deep = [0.85, 0.16] } }
+
+# Which scene and light each kind of sheet is drawn in.
+[sheets]
+reaper = "roster"
+weapon = "roster"
+husk = "hunt"
+first_person = "first_person"
+# The class whose light the first-person view is shown in.
+first_person_class = "ferryman"
+# The silhouette strip: every figure key-only, this many pixels tall.
+silhouette_px = 64

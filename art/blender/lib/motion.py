@@ -271,8 +271,9 @@ def performance(name, phase, humanoid, calling):
     return positions, rotations
 
 
-def build(root, calling, specs):
-    """Bake form-specific clips onto one hierarchy with a chest and pelvis."""
+def rig(root):
+    """Inserts the waist (`motion`) and chest (`spine`) pivots, keeping every
+    part where it is. Returns the joints by name and their rest locations."""
     children = list(root.children)
     pivot = core.empty("motion", root, location=(0, 0, 1.05))
     for child in children:
@@ -286,6 +287,23 @@ def build(root, calling, specs):
     nodes = {node.name: node for node in root.children_recursive}
     joints = {name: nodes[name] for name in JOINTS}
     rest = {name: node.location.copy() for name, node in joints.items()}
+    return joints, rest
+
+
+def hold(joints, rest, calling, name, phase, humanoid):
+    """Poses the joints at `phase` of the performance `name` without baking
+    a clip: what the clip's key there would show. For the fast review."""
+    positions, rotations = performance(name, phase, humanoid, calling)
+    for joint, node in joints.items():
+        node.rotation_mode = "QUATERNION"
+        node.rotation_quaternion = rotations[joint]
+        node.location = rest[joint] + positions[joint]
+    bpy.context.view_layer.update()
+
+
+def build(root, calling, specs):
+    """Bake form-specific clips onto one hierarchy with a chest and pelvis."""
+    joints, rest = rig(root)
     bpy.context.scene.render.fps = 30
     offset = 1
     for spec in specs:

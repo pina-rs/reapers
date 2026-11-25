@@ -35,7 +35,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(HERE)
 
-from lib import core, review  # noqa: E402
+from lib import core, ink, review  # noqa: E402
 
 # The most triangles the first-person view may show at once.
 TRIANGLE_BUDGET = 6000
@@ -61,7 +61,13 @@ def main():
     parser.add_argument("--preview")
     parser.add_argument("--cel", action="store_true", help="also render each review sheet in the cel look")
     parser.add_argument("--specs")
+    parser.add_argument("--fast", action="store_true", help="build and render the sheets: no export")
+    parser.add_argument("--cel-only", action="store_true", help="render the sheets in the cel look alone")
+    parser.add_argument("--scene", help="draw every cel sheet in this scene of cel.toml")
     options = parser.parse_args(arguments)
+
+    if options.fast and not options.preview:
+        parser.error("--fast renders sheets instead of writing a model: give it --preview")
 
     os.makedirs(options.out, exist_ok=True)
     _build_viewmodel(options)
@@ -107,7 +113,7 @@ def _build_viewmodel(options):
     if options.preview:
         os.makedirs(options.preview, exist_ok=True)
 
-        for look in review.looks(options.cel):
+        for look in review.looks(options.cel, options.cel_only, options.scene):
             review.first_person(MOMENTS, options.preview, cel_look=look)
 
 
@@ -141,7 +147,7 @@ def _build_fx(options):
     if options.preview:
         os.makedirs(options.preview, exist_ok=True)
 
-        for look in review.looks(options.cel):
+        for look in review.looks(options.cel, options.cel_only, options.scene):
             review.effects(options.preview, cel_look=look)
 
 
@@ -163,11 +169,16 @@ def _triangles(root):
 def _sheet(options, name):
     os.makedirs(options.preview, exist_ok=True)
 
-    for look in review.looks(options.cel):
+    for look in review.looks(options.cel, options.cel_only, options.scene):
         review.whole(options.preview, name, cel_look=look)
 
 
 def _export(options, root, file):
+    if options.fast:
+        ink.weigh(root, "first_person")
+        print(f"BUILT {file} (fast: not exported) triangles={core.triangle_count(root)}")
+        return
+
     path = os.path.join(options.out, file)
     core.export_glb(path, root)
     print(f"BUILT {path} triangles={core.triangle_count(root)}")

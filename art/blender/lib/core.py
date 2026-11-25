@@ -15,8 +15,10 @@ Conventions used throughout:
     B  wear: raised edges that catch the light
     A  hollow: how soon this spot vanishes as an outfit hollows (0 goes first)
 - Every finished mesh carries one UV channel, `UVMap` (`TEXCOORD_0`): a box
-  projection of each vertex's object-space position at 3.5 per metre, which
-  the procedural surface textures are laid on (`textures.write_box_uvs`).
+  projection of each vertex's object-space position at 3.5 per metre
+  (`box_uvs`). No model carries a surface texture: Second Ink draws every
+  material in flat bands (docs/art-bible.md, 5.6). Each vertex's ink weight
+  rides in a second UV channel (`TEXCOORD_1`, lib/ink.py).
 """
 
 import math
@@ -27,6 +29,10 @@ import bpy
 from mathutils import Vector, noise
 
 COLOR_ATTRIBUTE = "Color"
+
+# The surface a material stands for, which the normal review sheets shade by
+# (`material(..., pbr=)`).
+SURFACE_PROPERTY = "_pina_pbr_kind"
 
 
 def reset_scene():
@@ -50,24 +56,13 @@ def empty(name, parent=None, location=(0, 0, 0)):
     return node
 
 
-_AUTO_PBR_SURFACES = {
-    "cloth": (1.0, 0.0),
-    "cloth_alt": (1.0, 0.0),
-    "metal": (1.0, 1.0),
-    "gold": (1.0, 1.0),
-    "wood": (1.0, 0.0),
-    "bone": (1.0, 0.0),
-    "rope": (1.0, 0.0),
-    "feather": (1.0, 0.0),
-}
-
-
-def material(name, color=(0.5, 0.5, 0.5), roughness=0.85, metallic=0.0, emission=None, strength=0.0, pbr=None, use_albedo=True):
+def material(name, color=(0.5, 0.5, 0.5), roughness=0.85, metallic=0.0, emission=None, strength=0.0, pbr=None):
     """Returns the shared material called `name`, creating it on first use.
 
-    Standard reaper/weapon surfaces automatically receive deterministic
-    procedural PBR normal, ORM, and subtle albedo textures; husks may pass
-    `pbr="<preset>"` with explicit `color`, `roughness`, and `metallic`.
+    `pbr` names the surface a husk's material stands for (`fur`, `machined`,
+    `stone`...); the normal review sheets shade by it. It makes no texture:
+    the models carry none, because Second Ink draws every material in flat
+    bands (docs/art-bible.md, 5.6).
     """
 
     existing = bpy.data.materials.get(name)
@@ -87,13 +82,8 @@ def material(name, color=(0.5, 0.5, 0.5), roughness=0.85, metallic=0.0, emission
         shader.inputs["Emission Color"].default_value = (*emission, 1)
         shader.inputs["Emission Strength"].default_value = strength
 
-    from . import textures
-
     if pbr is not None:
-        textures.apply_pbr(result, pbr, roughness=roughness, metallic=metallic, use_albedo=use_albedo)
-    elif name in _AUTO_PBR_SURFACES:
-        auto_rough, auto_metal = _AUTO_PBR_SURFACES[name]
-        textures.apply_pbr(result, name, roughness=auto_rough, metallic=auto_metal, use_albedo=True)
+        result[SURFACE_PROPERTY] = pbr
 
     return result
 
@@ -452,16 +442,30 @@ def paint_masks(obj, char=None, hollow=None, wear_boost=1.0, ao_samples=24, seed
 
 
 def _write_rest_position(obj, scale=3.5):
-    """Writes clean world-scale box-projected UVs into `TEXCOORD_0`.
+    box_uvs(obj, scale)
 
-    `leptoskit_3d` computes tangent frames from screen-space derivatives of
-    `TEXCOORD_0`, so box-projected coordinates avoid vertical smearing and give
-    every procedural normal/roughness/AO map consistent scale across folds.
-    """
 
-    from . import textures
+def box_uvs(obj, scale=3.5):
+    """Writes `obj`'s only UV channel, `UVMap` (`TEXCOORD_0`): each face's
+    vertices projected along the axis it faces most, at `scale` per metre,
+    in object space. Replaces any UV channel the mesh had."""
 
-    textures.write_box_uvs(obj, scale=scale)
+    mesh = obj.data
+
+    for layer in list(mesh.uv_layers):
+        mesh.uv_layers.remove(layer)
+
+    corners = mesh.uv_layers.new(name="UVMap").data
+    vertices = mesh.vertices
+
+    for polygon in mesh.polygons:
+        x, y, z = (abs(component) for component in polygon.normal)
+        # The two axes the face is projected onto.
+        first, second = (0, 1) if z >= x and z >= y else (0, 2) if y >= x else (1, 2)
+
+        for loop in polygon.loop_indices:
+            position = vertices[mesh.loops[loop].vertex_index].co
+            corners[loop].uv = (position[first] * scale, position[second] * scale)
 
 
 # What a class or weapon module calls on each finished part.
@@ -567,7 +571,13 @@ def add_shape_key(obj, name, move):
 
 
 def export_glb(path, root, animations=False):
-    """Exports `root` and everything under it as one binary glTF file."""
+    """Exports `root` and everything under it as one binary glTF file, with
+    each vertex's ink weight in `ink.CARRIER` (lib/ink.py: the one place
+    that decides how the weight reaches the game)."""
+
+    from . import ink
+
+    carried = ink.carry(root)
 
     for obj in bpy.context.scene.objects:
         obj.select_set(False)
@@ -600,6 +610,7 @@ def export_glb(path, root, animations=False):
         export_optimize_animation_size=False,
         export_optimize_animation_keep_anim_object=True,
         export_materials="EXPORT",
+        **carried,
     )
 
 

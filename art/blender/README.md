@@ -2,11 +2,13 @@
 
 Every 3D model in the game is built by the scripts in this folder. There are no hand-edited model files: change a script, rebuild, and commit the script together with the models it produced.
 
+The look every model is built for is **Second Ink**: a two-plate relief print, near-black key ink on bone paper plus one spot colour, the reaper's own light. [The art bible](../../docs/art-bible.md) is the authority on it; [`cel.toml`](cel.toml) holds its numbers, and the review sheets draw every model in it (see [Second Ink on the sheets](#second-ink-on-the-sheets)).
+
 ```sh
 cargo xtask build-art                 # build every model into assets/models, and every portrait into assets/nfts
 cargo xtask build-art husks           # build one script: reapers, weapons, husks or viewmodel
 cargo xtask build-art --preview       # also render review sheets into art/build/previews
-cargo xtask build-art --preview --cel # and every sheet again in the cel look (cel.toml)
+cargo xtask build-art --preview --cel # and every sheet again in Second Ink (cel.toml)
 cargo xtask build-art --specs-only    # write art/build/vessels.json and motions.json, and stop
 cargo xtask build-art --report        # what every shipped model costs, against its budget
 ```
@@ -43,9 +45,10 @@ The versions are pinned in `crates/xtask/src/art.rs` (`BLENDER_RELEASE`, `GLTFPA
 | `lib/figure.py` | What every reaper shares: landmarks, the hidden face, both arms. |
 | `lib/motion.py` | The 32 shared performances, class adaptations and NLA baking. |
 | `lib/armoury.py` | Parts every weapon is assembled from. |
+| `lib/ink.py` | The ink weight every vertex carries, and the one function that writes it into an exported model. |
 | `lib/preview.py` | Renders a review sheet: rows of views, each row framed on what it shows, with a silhouette and its phone-thumbnail. |
-| `lib/review.py` | What each kind of model's sheets show, shared by the drivers and `review.py`. |
-| `lib/cel.py`, `cel.toml` | The cel look a sheet can be rendered in, and its palette. |
+| `lib/review.py` | What each kind of model's sheets show, and the lineups, shared by the drivers and `review.py`. |
+| `lib/cel.py`, `cel.toml` | Second Ink on the review sheets, and every number of the look. |
 | `review.py` | Renders every sheet again from the built models, without rebuilding. |
 | `review_motions.py` | One pose of an exported clip, from three angles. |
 | `review_catalogue.py` | Every clip of a class in five timed poses. |
@@ -57,6 +60,16 @@ The versions are pinned in `crates/xtask/src/art.rs` (`BLENDER_RELEASE`, `GLTFPA
 | `weapon_kinds/<kind>.py` | One module per weapon kind. `build()` returns the weapon's root. |
 | `viewmodel_parts/<part>.py` | What the reaper sees of itself: its arms, the grave pistol, the bone knife, the scythe in hand, the capture orb, and the light they throw, painted from one palette (`common.py`). |
 | `reapers.py`, `weapons.py`, `husks.py`, `viewmodel.py` | The drivers `cargo xtask build-art` runs. |
+
+### Who owns what
+
+| Files | Owner | A change there |
+| --- | --- | --- |
+| [`docs/art-bible.md`](../../docs/art-bible.md) | Art direction | Changes the look. `cel.toml` and the sheets follow it. |
+| `lib/**`, `cel.toml`, the four drivers, `review*.py`, this README | The art foundation | Changes every model at once: rebuild them all and look at every sheet before landing it. |
+| `reaper_classes/<class>.py`, `creature_kinds/<vessel>.py`, `weapon_kinds/<kind>.py`, `viewmodel_parts/<part>.py` | The team making that model | Changes that model alone. Anything a second model would need belongs in `lib`: ask for it there rather than copying it. |
+
+The contracts in this README (node names and layout, reserved pivots and their ranges, material names, axes and units, the creature spec, the ink weight's carrier) bind both sides: a model module keeps them, and the foundation changes one only with every model that relies on it.
 
 ## Building one thing while you work
 
@@ -70,11 +83,37 @@ blender --background --python-exit-code 1 --python art/blender/weapons.py -- \
   --out art/build/models --preview art/build/previews --only scythe
 ```
 
-Add `--preview art/build/previews` to any driver for its review sheets (see [Reviewing a model](#reviewing-a-model)), and `--cel` for the cel look as well.
+Add `--preview art/build/previews` to any driver for its review sheets (see [Reviewing a model](#reviewing-a-model)), and `--cel` for Second Ink as well (`--cel-only` for Second Ink alone).
+
+### The fast path
+
+`--fast` on any driver builds the geometry and renders its review sheets straight from it, and stops there: no clips are baked, no faces baked, nothing is exported and no portrait is rendered. It needs `--preview`. A reaper class takes about half a minute instead of fifteen, a husk or all eight weapons a quarter of a minute, so the build-look-fix loop is one command:
+
+```sh
+cargo xtask build-art --specs-only    # once: vessels.json and motions.json
+
+blender --background --python-exit-code 1 --python art/blender/reapers.py -- \
+  --out art/build/models --preview art/build/previews --fast --cel-only --only harvester --sheets spirit
+
+blender --background --python-exit-code 1 --python art/blender/husks.py -- \
+  --out art/build/models --specs art/build/vessels.json --preview art/build/previews --fast --cel --only ape
+
+blender --background --python-exit-code 1 --python art/blender/weapons.py -- \
+  --out art/build/models --preview art/build/previews --fast --cel --only scythe
+
+blender --background --python-exit-code 1 --python art/blender/viewmodel.py -- \
+  --out art/build/models --preview art/build/previews --fast --cel-only
+```
+
+- A reaper on the fast path is posed by hand in the first key of each form's idle performance (`motion.hold`), the pose the default path's sheets show from the baked clip; the two can differ by a hair where a clip's bake smooths a key.
+- `--sheets spirit,humanoid,armoury` picks a reaper's sheets (all three by default), on the drivers and on `review.py`.
+- `--scene stage|roster|hunt|first_person` draws every Second Ink sheet in that scene of `cel.toml` instead of the one `[sheets]` names.
+- The ink weight is computed just as an export would compute it, so the line on a fast sheet is the line the model will ship with.
+- Without `--fast` every driver does exactly what it did: builds, bakes, exports, then renders the sheets from the exported file. Use that before committing, and for anything `review.py`, the lineups and the motion reviews read, since they read exported models.
 
 ## Reviewing a model
 
-A model is judged by eye, from its review sheets. Every sheet is a grid: a row for each thing to compare, framed on what that row shows so nothing leaves the frame, at one scale across the row. Most rows show the front, three-quarter, side and back, then the model in black with the same silhouette beside it at the size a phone shows it in a list (96 pixels tall), since that is where a shape is hardest to read. A silhouette leaves out the floor shadow, which is not the model's shape.
+A model is judged by eye, from its review sheets. Every sheet is a grid: a row for each thing to compare, framed on what that row shows so nothing leaves the frame, at one scale across the row. Most rows show the front, three-quarter, side and back, then the model in key ink with the same silhouette beside it 64 pixels tall, the art bible's 64 pt test (6.1): the size a phone shows a figure in a list, where a shape is hardest to read. Judge that strip first. A silhouette leaves out the floor shadow, which is not the model's shape.
 
 The glTF importer leaves each node at the first frame of whichever clip it reads first, so the review puts every node a clip moves back at the transform and morph weights the file exported (its bind pose), and then plays any pose it shows on purpose. A reaper is shown in the first key of its idle clip, `idle` for the spirit and `humanoid_idle` for the humanoid (`review.STANCES`): a reaper file's own rest transforms put every joint at its parent's origin, which is no pose at all, and the game always plays a clip. Every other model has no clips and is shown as exported.
 
@@ -89,6 +128,7 @@ The glTF importer leaves each node at the first frame of whichever clip it reads
 | `viewmodel_orb.png` | The capture orb, its core glowing in the palette's `glow`. |
 | `viewmodel_fx.png` | Every light the room shows, a row each, drawn unlit and added to a dusk ground as the game draws it, from the front, three-quarter, side and above. The halos and the flare are cards the game turns to the camera, so they are lines from the side. |
 | `husk_<vessel>.png` | A row for each thing the creature can wear, in an NFT's look. |
+| `lineup_reapers.png`, `lineup_husks.png` | Several models side by side at one scale, in Second Ink and then in silhouette (`review.py --lineup`). |
 
 The drivers render them with `--preview`, after building. To render them again from the models already in `art/build/models`, without rebuilding (a minute rather than fifteen for the reapers):
 
@@ -99,6 +139,14 @@ blender --background --python-exit-code 1 --python art/blender/review.py -- \
 
 `--only` takes model names without `.glb`; `--models` and `--specs` read from somewhere other than `art/build/models` and `art/build/vessels.json`.
 
+A lineup sets models side by side at one scale, each turned to its three-quarter view, in Second Ink and then in key-only silhouette with the 64-pixel strip: every reaper in its class's light, in robe 0, holding its own weapon, or every husk in its collection's first look. It reads exported models, so build them first without `--fast`:
+
+```sh
+blender --background --python-exit-code 1 --python art/blender/review.py -- \
+  --out art/build/previews --lineup reapers [--scene stage]
+# --lineup husks, or a comma-separated list: --lineup reaper_harvester,reaper_hollow
+```
+
 The first-person sheets are staged from the rig itself: `lib/review.py` reads the arms' rest place and turn, each weapon's hold, the camera's field of view and the reload and throw constants out of `crates/reapers_app/src/render/viewmodel.rs` and `arms.rs`, so they follow the game. The few numbers a pose works out inside a function (where the left hand is at the top of a reload and while a throw is held) are copied into `review.moment_stages`, which says where each comes from. If the rig's source changes shape, the review stops and names the constant it could not find.
 
 `review_check.py` checks the harness itself against the built models: every reaper imported at exactly its bind pose whatever clip the importer read first, and shown in the first key of its form's idle clip, the trail finding the off-hand flaps in thrust, slash and parry and none in idle or a walk, the first-person moments staged where the game puts them, and a face found for every variant. It prints a `CHECK` line for each and fails if any did, in about three minutes:
@@ -107,14 +155,54 @@ The first-person sheets are staged from the rig itself: `lib/review.py` reads th
 blender --background --python-exit-code 1 --python art/blender/review_check.py [-- --models art/build/models]
 ```
 
-### The cel look
+### Second Ink on the sheets
 
-`--cel`, on `cargo xtask build-art --preview`, on any driver and on `review.py`, renders every sheet a second time in the look the game is moving to, beside the first, as `<sheet>_cel.png`:
+`--cel`, on `cargo xtask build-art --preview`, on any driver and on `review.py`, renders every sheet a second time in Second Ink, beside the first, as `<sheet>_cel.png` (`--cel-only` renders that alone). It draws a model as the game's renderer will (art bible, sections 3 to 5), so a shape can be judged in the look before the renderer exists:
 
-- flat colour bands from one key light, fixed to the camera so every view is lit alike, with the darkest band the colour multiplied by a cool shade tint;
-- an ink outline drawn as an inverted hull: each mesh is welded by position and pushed out along the welded, smooth normals, so the line never tears where the shading normals split at a hard edge, and its width wobbles along the model as a drawn line does.
+- **Colour** is an overprint: key at coverage k and the spot at coverage s on paper, per family (`[families]`). A reaper prints in its class's light, a weapon alone in its owner's (`[weapons]`), the first-person view in the Ferryman's. A husk's `body`, `trim` and `detail` are its NFT's colours in the ghost wash (`[ghost]`): hue kept, chroma capped at 16, value clamped, key over it for shade and deep; its eyes print paper and its seals key.
+- **Three hard bands** from N·L against each scene's thresholds (`[scenes]`), one light fixed to the camera.
+- **Hatching** in the deep band, in object space so it turns with the form, thickening as the form darkens, with a crosshatch below `t_cross` on reapers. Its pitch is set so lines land the scene's `hatch_pt` apart at the scene's framing, and it fades to its mean tone where the pitch falls under 2.5 to 4 device pixels, so it never moirés.
+- **Paper specular** on turning edges of bone, metal and gold, and the **spot rim** on a reaper's far edge.
+- **The key line**, an inverted hull pushed out by the vertex's [ink weight](#the-ink-weight) times the two terms the game adds (heavier on the side away from the light, and a wobble fixed to the surface), at the scene's `line_pt` on a phone. Families with `line = 0` draw none.
+- **The paper knockout**, a margin of paper round each whole figure outside the key line, so it stands off the vigil ground.
+- A floor shadow prints as key hatching.
 
-The look is a preview for judging shapes in that style before the game's renderer draws them; nothing it does reaches a model. Its art direction is all in [`cel.toml`](cel.toml): the ink's colour, width (in pixels of a sheet) and wobble, the number of bands, the shade tint, the key light's direction, the paper, and each material's flat colour. Change it and run `review.py --cel` to see the result.
+Everything is in [`cel.toml`](cel.toml): inks, lights, the class of each light, families, the robe's colourway, the ghost wash, the line, the hatch, the scenes and which scene each kind of sheet is drawn in. The model build reads only its `[weight]`. Change anything else and run `review.py --cel-only` (or a driver with `--fast`) to see it; no model is rebuilt.
+
+A sheet's sizes are a phone's: each scene's `figure_pt` is how tall the framed figure stands on a 390 x 844 pt screen, and the line and hatch are drawn at their sizes in points at that height. The eye tile of `viewmodel_cel.png` is the phone's own view.
+
+### The ink weight
+
+Every vertex of every model carries an ink weight: how heavy the key line is there, as a multiple of the line's width (art bible, 4.3). `lib/ink.py` bakes it at build time (`ink.weigh`) from four terms, numbered in `cel.toml` `[weight]`:
+
+| Term | From | Value |
+| --- | --- | --- |
+| Part | The largest dimension of the connected piece the vertex is on | 0.45 (fine) under `sizes[0]`, 0.70 (interior) under `sizes[1]`, 1.0 (silhouette) above, per kind of model; never under `minimum_pt` |
+| Contact | How near the floor (a reaper's z = 0, a walking husk's lowest point) | x1.2 within 8 cm |
+| Paint | The vertex group `ink_weight`, which a model script may paint (`ink.paint(obj, multiplier)`) | x2 the group's weight: 0.5 leaves it, 0 draws no line, 1 doubles it |
+| Clamp | A ray cast inward along the normal | never more than 40% of the local thickness, at the heaviest the game's side term makes it |
+
+A mesh drawn only in families whose `line` is 0 (`void`, `dark`, `accent`, `glow`) weighs 0. The game multiplies the weight by the terms the build leaves to it: the side (x1.30 away from the light, down to x0.62 where it is lit), the wobble, and the line's width on screen. The review sheets draw with the same weights: a fast sheet reads them from the build, a sheet of an exported model from the file.
+
+**How it reaches the game.** `core.export_glb` calls `ink.carry`, the one function that writes the weight into a model, and `ink.CARRIER` names where:
+
+```python
+CARRIER = "TEXCOORD_1"
+```
+
+| `CARRIER` | Where the weight is |
+| --- | --- |
+| `"TEXCOORD_1"` (today) | U of the second UV set, `ink` (V is 0). A mesh with no UV set gets an empty first one, so the weight is always `TEXCOORD_1`. |
+| `"COLOR_0.r"` | Red of `COLOR_0`, as weight / 2.5, over the grime mask. The app's build strips `COLOR_0` today (`crates/reapers_app/build.rs`), so it would have to keep it. |
+| `"_INK_W"` | A custom attribute, `_INK_W`, written by the exporter's `export_attributes`. gltfpack drops it. |
+
+gltfpack drops a UV set no material reads. With the flags in `crates/xtask/src/art.rs` today, line 64,
+
+```rust
+pub const GLTFPACK_FLAGS: [&str; 4] = ["-cc", "-kn", "-km", "-ke"];
+```
+
+the packed models in `assets/models` carry `TEXCOORD_0` only; the full-size ones in `art/build/models` carry the weight. When the game's renderer reads it, add `"-kv"` (keep vertex attributes) to that line, making it `[&str; 5]`, and rebuild every model. Measured on the penguin with gltfpack 0.25: `TEXCOORD_1` kept, 235 KiB packed becoming 244 KiB, so the size ceilings in `crates/xtask/src/art/report.rs` rise by about 4%.
 
 ### Motion
 
@@ -152,8 +240,9 @@ The budgets are in `crates/xtask/src/art/report.rs`. Triangles follow the guidel
 - **Units and axes.** Metres, Z up. A reaper faces -Y, so its right hand (the weapon hand) is at -X. The exporter converts to glTF's Y up.
 - **Two forms share one character.** Spirits float with quiet arms and trailing cloth. Humanoids have articulated legs and planted walking steps; their long robes hang outside the hips and stride, while short tunics expose the knees.
 - **Landmarks.** `lib/figure.py` holds the shared heights: shoulders 1.64, neck 1.73, head centre 1.88. A class that hunches carries all of them forward (toward -Y) by the same amount.
-- **Masks, not colours.** Every mesh that should react to an outfit must be passed through `finish()`. It paints four mask channels (grime, char, wear, hollow) into the `Color` attribute, exported as `COLOR_0`, and writes one UV channel, `UVMap` (`TEXCOORD_0`): a box projection of each vertex's object-space position at 3.5 per metre, which the procedural surface textures are laid on. The app's build strips `COLOR_0` from every model today (`crates/reapers_app/build.rs`), so the masks show only on the review sheets. Image-bearing parts keep their own UVs (`finish(..., rest_position=False)`), and the first-person parts point theirs at a palette instead (`viewmodel_parts/common.py`). Parts that are pure light (`accent`) or pure dark (`void`) are not finished.
-- **Materials are names.** The game throws the Blender material away and keeps its name, which picks a surface in the renderer's reaper look. Use only these: `cloth`, `cloth_alt`, `bone`, `metal`, `wood`, `rope`, `feather`, `gold`, `paper`, `accent`, `void`.
+- **Masks, not colours.** Every mesh that should react to an outfit must be passed through `finish()`. It paints four mask channels (grime, char, wear, hollow) into the `Color` attribute, exported as `COLOR_0`, and writes one UV channel, `UVMap` (`TEXCOORD_0`): a box projection of each vertex's object-space position at 3.5 per metre (`core.box_uvs`). The ink weight follows it as `TEXCOORD_1`. The app's build strips `COLOR_0` from every model today (`crates/reapers_app/build.rs`), so the masks show only on the review sheets. Image-bearing parts keep their own UVs (`finish(..., rest_position=False)`), and the first-person parts point theirs at a palette instead (`viewmodel_parts/common.py`). Parts that are pure light (`accent`) or pure dark (`void`) are not finished.
+- **Materials are names.** The game throws the Blender material away and keeps its name, which picks a surface in the renderer's reaper look and a family in Second Ink (`cel.toml` `[families]`). Use only these: `cloth`, `cloth_alt`, `bone`, `metal`, `wood`, `rope`, `feather`, `gold`, `paper`, `accent`, `void`.
+- **No surface textures.** Second Ink draws every material in flat bands, so no model carries a texture (art bible, 5.6). The procedural normal, ORM and albedo maps every material once had are gone, and so is `lib/textures.py`. What is kept: `TEXCOORD_0` on every finished mesh, the reliquary's portraits (the one exception the bible makes), and the first-person palette (`viewmodel_parts/common.py`), whose cells are how the game colours those parts.
 - **One light per reaper.** `accent` is the only thing that glows: eyes, a blade edge, a lantern flame, a bell's mouth. Keep it small.
 - **Triangles.** About 110,000 for a whole class file, with all its variants. About 6,000 for a weapon. The build enforces what each model may cost: see [Budgets](#budgets).
 
