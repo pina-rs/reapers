@@ -7,9 +7,9 @@ for everything the six classes have in common, so they stay one family.
 import math
 
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
-from . import anatomy, cloth, core
+from . import anatomy, cloth, core, motion
 from .core import finish
 
 # The classes share one skeleton of landmarks, in metres. A class that
@@ -122,6 +122,79 @@ def grow_hands(root, factor=HAND_GROWTH):
         anatomy.grow(hand, factor)
 
     return hands
+
+
+def idle_path(calling, side, shoulder, elbow, grip, hand_scale=1.45):
+    """An arm's path for `arms` (shoulder, elbow, wrist) that puts the
+    middle of its hand's grip at `grip` (world) in the first key of the idle
+    clip, the shoulder and elbow where they are given at rest. The idle clip
+    turns the arm about both, so a grip placed at rest drifts; this places
+    it where the pose is seen, to plant a staff's foot on the floor or close
+    a hand on a haft."""
+
+    # The first idle key leaves the waist and chest where they are, so only
+    # the shoulder and elbow move the hand.
+    _, turns = motion.performance("idle", 0.0, False, calling)
+    shoulder, elbow, grip = Vector(shoulder), Vector(elbow), Vector(grip)
+    upper = turns[f"arm_{side}"]
+    seen = shoulder + upper @ (elbow - shoulder)
+    # Back through the elbow's turn, then the shoulder's, to the rest pose.
+    lower = upper @ turns[f"elbow_{side}"]
+    reach = lower.inverted() @ (grip - seen)
+    wrist = elbow + reach * (1 - 0.1 * hand_scale / reach.length)
+
+    # `arms` sets the hand along the curve's last stretch, which a bent arm
+    # turns away from the straight reach: settle the wrist until the grip it
+    # makes lands where it was asked for.
+    for _ in range(8):
+        curve = core.bezier([shoulder, elbow, wrist], samples=8)
+        made = wrist + (curve[-1] - curve[-4]).normalized() * 0.1 * hand_scale
+        wrist += lower.inverted() @ (grip - (seen + lower @ (made - elbow)))
+
+    return [tuple(shoulder), tuple(elbow), tuple(wrist)]
+
+
+def aim_hold(root, calling, haft, across=None, side="r"):
+    """Turns what a hand holds at rest so that, in the first key of the idle
+    clip (`motion.performance`), the haft it closes on points along `haft`
+    (world) and the hand runs back along the forearm, wrist toward the
+    elbow. `across`, when given, is where the held thing's +X (a blade, a
+    hanging lantern, a beam) points instead, the hand following.
+
+    On the weapon side (`side="r"`) that is `socket_weapon`, which carries
+    the weapon and the hand closed on it. On the other (`side="l"`) it is
+    the hand itself, `arm_l_hand`, so a class can close it on the same
+    staff (build that hand with `arms(..., off_curl=1.0)`).
+
+    The idle clip turns the arm about the shoulder and elbow, which tips a
+    haft held at rest; this is how a class plants a pole upright or holds a
+    beam level in the pose it is seen in. Only the socket or the hand turns:
+    the arm's pivots keep no rest turn, as every clip assumes, and the haft
+    still runs along the socket's own Z (README, "The node layout of a
+    class")."""
+
+    nodes = {node.name: node for node in root.children_recursive}
+    held = nodes["socket_weapon" if side == "r" else "arm_l_hand"]
+    _, turns = motion.performance("idle", 0.0, False, calling)
+    arm = turns["motion"] @ turns["spine"] @ turns[f"arm_{side}"] @ turns[f"elbow_{side}"]
+    forearm = arm @ Vector(nodes[f"wrist_{side}"].location)
+    hand = arm @ turns[f"wrist_{side}"]
+    up = Vector(haft).normalized()
+
+    if across is None:
+        back = -(forearm - up * forearm.dot(up))
+        back.normalize()
+        out = back.cross(up)
+    else:
+        out = Vector(across)
+        out = (out - up * out.dot(up)).normalized()
+        back = up.cross(out)
+
+    frame = Matrix((out, back, up)).transposed()
+    held.rotation_mode = "QUATERNION"
+    held.rotation_quaternion = hand.inverted() @ frame.to_quaternion()
+
+    return held
 
 
 def arms(

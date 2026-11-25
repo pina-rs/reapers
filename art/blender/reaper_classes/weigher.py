@@ -1,26 +1,50 @@
 """The weigher: the judge who measures a spirit before taking it.
 
-Silhouette: a tall, narrow two-pronged crest on a smooth, faceless mask, over
-a straight column of a body. The balance is held upright before the body, so
-its pans hang to either side like a second pair of shoulders.
+Silhouette: the figure is a balance. A tall, narrow column of a body with
+square, level shoulders is the post; the beam crosses it just below the
+shoulders, well clear of the head, with a pan hanging out past each side; a
+faceless gilt mask in a long hood, under two tall gilt ears, is its finial.
+Both hands rest on the staff, planted before the body. Everything is level
+and symmetrical but the beam, which has already tipped.
 """
 
 import math
 
+import bpy
 from mathutils import Vector
 
 from lib import cloth, core
-from lib.figure import HEAD_HEIGHT, NECK_HEIGHT, SHOULDER_HEIGHT, arms, finish
+from lib.figure import aim_hold, arms, finish, idle_path
+
+# The weigher stands taller than the other classes, the head lifted on a
+# long cowl so the beam, which the planted staff holds 1.65 m up at its
+# high end, clears the chin by 0.29 m: about 15% of a reaper's standing
+# height (docs/art-bible.md 6.2).
+SHOULDER = 1.68
+NECK = 1.92
+HEAD = NECK + 0.15
 
 # The mask is longer than a face: it runs from the collar to above the brow.
-MASK_CHIN = NECK_HEIGHT + 0.01
-MASK_CROWN = HEAD_HEIGHT + 0.17
-MASK_HALF_WIDTH = 0.1
-MASK_BULGE = 0.07
+MASK_CHIN = NECK + 0.02
+MASK_CROWN = HEAD + 0.15
+MASK_HALF_WIDTH = 0.096
+MASK_BULGE = 0.075
 
-# The hood the mask floats in, and where the crest stands in front of it.
-HOOD_CENTRE = Vector((0, 0.015, HEAD_HEIGHT + 0.02))
-CREST_DEPTH = -0.085
+# The hood the mask sits in.
+HOOD_CENTRE = Vector((0, 0.02, HEAD + 0.02))
+HOOD_RADII = (0.15, 0.165, 0.205)
+
+# The robe: a straight column, square at the shoulder.
+ROBE_TOP = SHOULDER + 0.07
+ROBE_HEM = 0.05
+ROBE_PROFILE = ((0.0, 0.13, 0.11), (0.022, 0.29, 0.155), (0.1, 0.29, 0.165), (0.3, 0.255, 0.16), (1.0, 0.27, 0.185))
+
+# Where the staff stands in the idle stance: on the figure's centre line,
+# upright, its foot on the floor (the balance-flail's runs 0.95 below its
+# grip), the beam turned a little toward the three-quarter view so it reads
+# at full length there and from the front.
+STAFF_GRIP = Vector((-0.02, -0.36, 0.975))
+STAFF_ACROSS = (1.0, 0.35, 0.0)
 
 
 def build():
@@ -29,13 +53,12 @@ def build():
     root = core.empty("reaper")
     cloth_mat = core.material("cloth")
 
-    # A straight column, fluted like a pillar, with a hem that has barely
-    # frayed.
+    # A fluted column that has barely frayed: regular flutes, a level hem.
     hems = [
-        dict(tatter=0.1, tears=3, slits=3, fold_depth=0.2, seed=31),
-        dict(tatter=0.2, tears=6, slits=7, fold_depth=0.24, seed=32),
-        dict(tatter=0.04, tears=2, slits=0, fold_depth=0.16, seed=33),
-        dict(tatter=0.14, tears=4, slits=4, fold_depth=0.28, seed=34),
+        dict(folds=(9, 18, 27), fold_depth=0.12, tatter=0.06, tears=2, slits=0, seed=31),
+        dict(folds=(7, 14, 21), fold_depth=0.15, tatter=0.12, tears=4, slits=2, seed=32),
+        dict(folds=(11, 22, 33), fold_depth=0.09, tatter=0.03, tears=0, slits=0, seed=33),
+        dict(folds=(8, 16, 24), fold_depth=0.14, tatter=0.16, tears=3, slits=3, seed=34),
     ]
 
     for index, hem in enumerate(hems):
@@ -44,26 +67,33 @@ def build():
                 f"robe_{index}",
                 cloth_mat,
                 root,
-                top=SHOULDER_HEIGHT + 0.06,
-                hem=0.08,
-                profile=((0.0, 0.11, 0.1), (0.05, 0.21, 0.125), (0.14, 0.225, 0.135), (0.5, 0.2, 0.15), (1.0, 0.25, 0.21)),
-                folds=(12, 6, 18),
+                top=ROBE_TOP,
+                hem=ROBE_HEM,
+                profile=ROBE_PROFILE,
+                rings=40,
+                segments=96,
                 **hem,
             ),
             seed=index,
         )
 
-    # The weapon hand comes to the middle of the waist, so the staff stands
-    # on the figure's centre line and the beam crosses just under the mask.
+    # Both hands close on the staff, planted on the centre line before the
+    # body: the weapon hand at the hip, the other a fist above it. The elbows
+    # stay inside the robe's line, so the column runs straight.
     arms(
         root,
-        weapon_side_path=[(-0.2, 0, SHOULDER_HEIGHT - 0.03), (-0.265, -0.02, 1.32), (-0.19, -0.12, 1.12), (-0.14, -0.2, 1.08)],
-        off_side_path=[(0.2, 0, SHOULDER_HEIGHT - 0.03), (0.26, 0.0, 1.3), (0.265, -0.03, 1.0)],
-        sleeve_cuff=0.105,
-        droop=0.2,
+        weapon_side_path=idle_path("weigher", "r", (-0.235, 0, SHOULDER - 0.03), (-0.205, -0.13, 1.31), STAFF_GRIP),
+        off_side_path=idle_path("weigher", "l", (0.235, 0, SHOULDER - 0.03), (0.205, -0.13, 1.31), STAFF_GRIP + Vector((0, 0, 0.19))),
+        sleeve_shoulder=0.078,
+        sleeve_cuff=0.1,
+        droop=0.1,
+        off_curl=1.0,
+        tatter=0.12,
     )
+    aim_hold(root, "weigher", (0, 0, 1), across=STAFF_ACROSS)
+    aim_hold(root, "weigher", (0, 0, 1), across=STAFF_ACROSS, side="l")
 
-    head = core.empty("head", root, location=(0, 0, NECK_HEIGHT))
+    head = core.empty("head", root, location=(0, 0, NECK))
     _heads(head)
     _mantles(root)
 
@@ -75,43 +105,94 @@ def _mask_row(share):
     forward its rim sits, its half-width and how far its face stands proud of
     that rim."""
 
-    egg = share**1.35
-    width = MASK_HALF_WIDTH * math.sqrt(max(0.0, 1 - abs(2 * egg - 1) ** 2.4))
-    rim = -0.09 + 0.03 * (2 * share - 1) ** 2
-    bulge = MASK_BULGE * (0.25 + 0.75 * width / MASK_HALF_WIDTH)
+    # A long shield: widest at the brow, drawn to a blunt point at the chin.
+    width = MASK_HALF_WIDTH * (0.55 + 0.45 * math.sin(min(1.0, share / 0.62) * math.pi / 2)) * math.sqrt(max(0.0, 1 - max(0.0, (share - 0.78) / 0.22) ** 2.2))
+    rim = -0.095 + 0.03 * (2 * share - 1) ** 2
 
-    return MASK_CHIN + (MASK_CROWN - MASK_CHIN) * share, rim, width, bulge
+    return MASK_CHIN + (MASK_CROWN - MASK_CHIN) * share, rim, width, MASK_BULGE * (0.4 + 0.6 * width / MASK_HALF_WIDTH)
 
 
-def _stack(name, rows, mat, parent=None, segments=36, capped=False):
-    """Skins a form from level ovals. Each row is (height, depth, half-width,
-    front, back): an oval centred `depth` along Y that reaches `front` ahead
-    of that centre and `back` behind it."""
+def _mask(name, mat, parent=None, rows=18, segments=28):
+    """A faceless gilt mask cut in planes: two broad cheeks meeting at a
+    ridge down the middle, a brow shelf across the top, the whole of it a
+    blunt shield. Planes take a band edge cleanly; relief would print as
+    mud."""
 
     rings = []
 
-    for height, depth, width, front, back in rows:
+    for row in range(rows + 1):
+        share = 0.01 + 0.98 * row / rows
+        height, rim, width, bulge = _mask_row(share)
+        # The brow: a shelf that juts over the eye line.
+        shelf = 0.012 * math.exp(-(((share - 0.7) / 0.05) ** 2))
         ring = []
 
         for segment in range(segments):
             angle = math.tau * segment / segments
-            behind = math.sin(angle)
+            across, depth = math.cos(angle), math.sin(angle)
 
-            ring.append((math.cos(angle) * width, depth + behind * (back if behind > 0 else front), height))
+            if depth > 0:
+                # The back: a shallow closed shell inside the hood.
+                ring.append((across * width, rim + depth * 0.016, height))
+            else:
+                # The front: two planes meeting at the ridge, a wedge.
+                front = -depth
+                wedge = 1 - 0.55 * abs(across)
+                ring.append((across * width, rim - front * (bulge * wedge + shelf), height))
 
         rings.append(ring)
 
-    return core.loft(name, rings, mat, parent, cap_start=capped, cap_end=capped)
+    mask = core.loft(name, rings, mat, parent, cap_start=True, cap_end=True)
+
+    return core.shade_smooth(mask, angle=30)
 
 
-def _cowl(name, mat, radii, opening, fall, rings=24, segments=48):
+def _ear(name, side, base, height, width, splay, lean, cup=0.024):
+    """One tall ear: a jackal's, a gilt blade broad at the root and drawn
+    straight to a point, cupped toward the front with its hollow lined in
+    the hood's cloth, standing from the crown at `base`. `splay` turns it
+    out from the middle, `lean` tips it back. Returns the gilt and the
+    lining."""
+
+    # The inner edge runs straight from root to tip; the outer one bellies.
+    outline = [
+        (-width * 0.85, 0.0),
+        (-width * 0.62, height * 0.45),
+        (0.0, height),
+        (width * 0.52, height * 0.62),
+        (width * 0.92, height * 0.3),
+        (width, 0.0),
+    ]
+    lining = [(x * 0.62 + width * 0.06, z * 0.8 + height * 0.06) for x, z in outline]
+    parts = []
+
+    for label, shape, thickness, mat, forward in ((name, outline, 0.024, core.material("gold"), 0.0), (f"{name}_lining", lining, 0.01, core.material("cloth"), 0.012)):
+        plate = core.plate(label, [(side * x, z) for x, z in shape], thickness, mat, bevel=0.0)
+
+        # Cupped: the edges come forward of the middle, so the ear catches a
+        # band edge down its length.
+        for vertex in plate.data.vertices:
+            across = vertex.co.x / width
+            vertex.co.y -= cup * across * across + forward
+
+        plate.data.update()
+        plate.rotation_euler = (-lean, side * splay, 0)
+        plate.location = base
+        core.activate(plate)
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+        parts.append(core.crisp(plate, 0.004 if thickness > 0.02 else 0.002))
+
+    return parts
+
+
+def _cowl(name, mat, opening, fall, rings=20, segments=40):
     """A close hood: an egg around the head, lying fore and aft. The front is
     cut away to `opening`, a share of the egg's width, and the edge is turned
-    in, which is the hole the mask floats in. Behind that the lower half
-    hangs square to `fall` below the centre, in soft folds and to a rounded
-    hem at the back, so the hood drops straight from the temples to the
-    shoulders and there is no neck."""
+    in, which is the hole the mask sits in. Behind that the lower half hangs
+    square to `fall` below the centre, so the hood drops straight from the
+    temples to the shoulders and there is no neck."""
 
+    radii = HOOD_RADII
     start = math.asin(opening)
     loops = []
 
@@ -130,226 +211,99 @@ def _cowl(name, mat, radii, opening, fall, rings=24, segments=48):
             angle = math.tau * segment / segments
             across = math.cos(angle)
             rise = radii[2] * scale * math.sin(angle)
-            fold = 0.0
 
             if rise < 0:
-                square = 1 - 0.6 * hang
+                # Below the middle the hood squares off over the shoulders.
+                square = 1 - 0.7 * hang
                 drop = abs(math.sin(angle)) ** square
-                across = math.copysign(abs(across) ** square, across)
+                across = math.copysign(abs(across) ** square, across) * (1 + 0.35 * hang * drop)
                 rise = -drop * hem
-                fold = 0.007 * hang * drop * math.sin(polar * 14)
 
-            loop.append(HOOD_CENTRE + Vector((radii[0] * scale * across, depth + fold, rise)))
+            loop.append(HOOD_CENTRE + Vector((radii[0] * scale * across, depth, rise)))
 
         loops.append(loop)
 
     return core.loft(name, loops, mat, cap_end=True)
 
 
-def _mask(name, mat, parent=None, rows=32, segments=48):
-    """A sculpted golden funerary mask with brow arches, nose ridge, cheekbones,
-    recessed ocular hollows, and a bevelled rim border."""
-
-    rings = []
-
-    for row in range(rows + 1):
-        share = 0.012 + 0.976 * row / rows
-        height, rim, width, bulge = _mask_row(share)
-        ring = []
-
-        for segment in range(segments):
-            angle = math.tau * segment / segments
-            ca = math.cos(angle)
-            sa = math.sin(angle)
-            if sa > 0:
-                # Smooth closed back shell inside the hood.
-                y = rim + sa * 0.015
-                x = ca * width
-            else:
-                # Front sculpted face planes (`front` is 1 at midline, 0 at rim).
-                front = -sa
-                x = ca * width
-                mid = math.exp(-((ca / 0.16) ** 2))
-                eye_x = abs(abs(ca) - 0.36)
-                brow_ridge = 0.010 * math.exp(-(((share - 0.72) / 0.065) ** 2)) * (0.35 + 0.65 * math.exp(-((eye_x / 0.28) ** 2)))
-                orbit_hollow = -0.011 * math.exp(-(((share - 0.61) / 0.065) ** 2) - ((eye_x / 0.21) ** 2))
-                nose_bridge = 0.017 * mid * max(0.0, 1.0 - ((share - 0.48) / 0.20) ** 2) ** 1.3 * (0.45 + 0.55 * (1.0 - abs(share - 0.39) / 0.25))
-                cheek_plane = 0.008 * math.exp(-(((share - 0.45) / 0.11) ** 2) - (((abs(ca) - 0.48) / 0.22) ** 2))
-                cheek_hollow = -0.006 * math.exp(-(((share - 0.26) / 0.11) ** 2) - (((abs(ca) - 0.46) / 0.20) ** 2))
-                chin_point = 0.007 * mid * math.exp(-(((share - 0.10) / 0.08) ** 2))
-                # Ornate raised rim bezel around the mask edge.
-                edge_bezel = 0.005 * math.exp(-(((front - 0.14) / 0.09) ** 2))
-                relief = brow_ridge + orbit_hollow + nose_bridge + cheek_plane + cheek_hollow + chin_point + edge_bezel
-                y = rim - front * bulge - relief * (front**0.4)
-            ring.append((x, y, height))
-
-        rings.append(ring)
-
-    return core.loft(name, rings, mat, parent, cap_start=True, cap_end=True)
-
-
-def _crest(name, mat, parent, prong, bar=None):
-    """Two fluted blade-like prongs rising from a sculpted diadem clasp on the
-    crown of the mask."""
-
-    knots = [(-x, CREST_DEPTH, z) for x, z in reversed(prong[1:])] + [(x, CREST_DEPTH, z) for x, z in prong]
-    path = core.bezier(knots, samples=8)
-
-    # Fluted diamond-section blade prongs instead of a plain round pipe.
-    rings = []
-    normal = None
-    for idx, point in enumerate(path):
-        ahead = path[min(idx + 1, len(path) - 1)]
-        behind = path[max(idx - 1, 0)]
-        tangent = (ahead - behind).normalized()
-        if normal is None:
-            normal = Vector((0, -1, 0))
-            normal = (normal - tangent * normal.dot(tangent)).normalized()
-        else:
-            normal = (normal - tangent * normal.dot(tangent)).normalized()
-        binormal = tangent.cross(normal).normalized()
-        t = idx / max(len(path) - 1, 1)
-        size = 0.006 + 0.017 * (1.0 - abs(2.0 * t - 1.0)) ** 0.72
-        thick = size * 0.48
-        rings.append(
-            [
-                point + binormal * size,
-                point + binormal * (size * 0.35) + normal * thick,
-                point + normal * (thick * 1.15),
-                point - binormal * (size * 0.35) + normal * thick,
-                point - binormal * size,
-                point - binormal * (size * 0.35) - normal * thick,
-                point - normal * (thick * 1.15),
-                point + binormal * (size * 0.35) - normal * thick,
-            ]
-        )
-
-    parts = [core.loft(name, rings, mat, cap_start=True, cap_end=True)]
-
-    # Sculpted diadem medallion where the two prongs root into the crown.
-    root_z = prong[0][1] + 0.018
-    clasp = core.revolve(
-        f"{name}_clasp",
-        [
-            (0.0, root_z + 0.036),
-            (0.018, root_z + 0.022),
-            (0.030, root_z + 0.004),
-            (0.028, root_z - 0.016),
-            (0.014, root_z - 0.030),
-            (0.0, root_z - 0.034),
-        ],
-        mat,
-        segments=12,
-    )
-    clasp.location = (0, CREST_DEPTH - 0.004, 0)
-    clasp.scale = (1.0, 0.55, 1.0)
-    core.activate(clasp)
-    import bpy
-    bpy.ops.object.transform_apply(location=True, rotation=False, scale=True)
-    parts.append(clasp)
-
-    if bar is not None:
-        reach = max(x for x, z in prong if z <= bar) + 0.055
-
-        parts.append(
-            core.tube(
-                f"{name}_bar",
-                [(-reach, CREST_DEPTH, bar), (0, CREST_DEPTH, bar), (reach, CREST_DEPTH, bar)],
-                lambda t: 0.0085 + 0.0075 * abs(2 * t - 1) ** 5,
-                mat,
-                sides=8,
-                flatten=0.55,
-            )
-        )
-
-    result = core.join(parts, name)
-    result.parent = parent
-
-    return core.shade_smooth(result, angle=38)
-
-
-def _light(name, parent, length):
-    """The weigher's one light: a cold slit in the brow of the mask. It is
-    built around its own origin, so the game can scale it where it sits."""
-
-    return core.tube(
-        name,
-        [(0, 0, length * (step / 6 - 0.5)) for step in range(7)],
-        lambda t: 0.001 + 0.0065 * math.sin(t * math.pi) ** 0.6,
-        core.material("accent"),
-        parent,
-        sides=6,
-    )
-
-
 def _heads(head):
-    """Three crested masks. The mask never changes; the crest does."""
+    """Three gilt heads. The mask never changes; the ears do."""
 
     gold = core.material("gold")
     hood = core.material("cloth")
     offset = Vector(head.location)
 
-    def place(obj):
+    def place(obj, group):
+        obj.parent = group
         obj.location = Vector(obj.location) - offset
 
         return obj
 
+    crown = MASK_CROWN - 0.02
     variants = [
-        # Straight and parallel, like a tuning fork.
-        dict(prong=[(0.0, 1.99), (0.043, 2.08), (0.047, 2.24), (0.047, 2.42), (0.045, 2.6)], brow=0.74, slit=0.06),
-        # Bowed out and drawn back in, like the arms of a lyre.
-        dict(prong=[(0.0, 1.99), (0.06, 2.07), (0.112, 2.2), (0.1, 2.35), (0.052, 2.47), (0.05, 2.6)], brow=0.76, slit=0.016),
-        # Flared, with a rail across them like a beam at rest.
-        dict(prong=[(0.0, 1.99), (0.045, 2.08), (0.075, 2.24), (0.115, 2.42), (0.165, 2.58)], brow=0.72, slit=0.085, bar=2.33),
+        # Tall and pricked, a jackal's on watch.
+        dict(height=0.5, width=0.075, splay=math.radians(9), lean=math.radians(6), apart=0.085),
+        # Broad and splayed wide, laid out like a balance's arms.
+        dict(height=0.42, width=0.095, splay=math.radians(20), lean=math.radians(10), apart=0.095),
+        # Tall and narrow, with the sun held between them: a gilt disc.
+        dict(height=0.48, width=0.065, splay=math.radians(12), lean=math.radians(4), apart=0.1, disc=0.1),
     ]
 
     for index, variant in enumerate(variants):
         group = core.empty(f"head_{index}", head)
 
-        # The mask and its crest outlast the figure: hollowing never eats them.
-        mask = core.shade_smooth(_mask(f"mask_{index}", gold, group), angle=42)
-        place(finish(mask, hollow=lambda co: 1.0, wear_boost=1.4, seed=index))
-        crest = _crest(f"crest_{index}", gold, group, variant["prong"], variant.get("bar"))
-        place(finish(crest, hollow=lambda co: 1.0, wear_boost=1.6, seed=index))
+        # The mask and its ears outlast the figure: hollowing never eats them.
+        mask = _mask(f"mask_{index}", gold)
+        place(finish(mask, hollow=lambda co: 1.0, wear_boost=1.4, seed=index), group)
 
-        # A close hood, and the cloth at the throat that it is tucked into.
-        cowl = _cowl(f"cowl_{index}", hood, (0.15, 0.165, 0.185), opening=0.82, fall=0.265)
-        throat = _stack(
-            f"throat_{index}",
-            [
-                (NECK_HEIGHT + 0.04, HOOD_CENTRE.y, 0.12, 0.085, 0.1),
-                (NECK_HEIGHT, HOOD_CENTRE.y, 0.13, 0.095, 0.105),
-                (NECK_HEIGHT - 0.03, HOOD_CENTRE.y, 0.15, 0.118, 0.112),
-                (NECK_HEIGHT - 0.055, HOOD_CENTRE.y, 0.178, 0.136, 0.118),
-            ],
-            hood,
-            segments=40,
-        )
-        wrap = core.join([cowl, throat], f"wrap_{index}")
-        wrap.parent = group
-        place(finish(core.shade_smooth(wrap), seed=index))
+        # Gilt and lining are separate parts: the game draws a part in one
+        # family, by its name (crates/reapers_app/src/render/parts.rs).
+        parts = []
+        linings = []
 
-        # The darkness that fills the hood, seen in the gap around the mask.
-        levels = [math.radians(-80 + 160 * level / 10) for level in range(11)]
-        void = _stack(
+        for side in (-1, 1):
+            base = Vector((side * variant["apart"], HOOD_CENTRE.y + 0.02, crown))
+            ear, lining = _ear(f"ear_{index}_{side}", side, base, variant["height"], variant["width"], variant["splay"], variant["lean"])
+            parts.append(ear)
+            linings.append(lining)
+
+        if "disc" in variant:
+            disc = core.revolve(
+                f"sun_{index}",
+                [(0.0, 0.012), (variant["disc"] * 0.92, 0.012), (variant["disc"], 0.0), (variant["disc"] * 0.92, -0.012), (0.0, -0.012)],
+                gold,
+                segments=32,
+            )
+            disc.rotation_euler = (math.pi / 2, 0, 0)
+            disc.location = (0, HOOD_CENTRE.y + 0.03, crown + variant["disc"] + 0.03)
+            core.activate(disc)
+            bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+            parts.append(core.crisp(disc, 0.004))
+
+        ears = core.join(parts, f"ears_{index}")
+        place(finish(ears, hollow=lambda co: 1.0, wear_boost=1.6, seed=index), group)
+        place(finish(core.join(linings, f"ear_linings_{index}"), seed=index), group)
+
+        # A close hood, squared over the shoulders: the cloth at the throat
+        # is part of it.
+        cowl = _cowl(f"wrap_{index}", hood, opening=0.8, fall=0.3 + 0.04 * index)
+        place(finish(core.shade_smooth(cowl, angle=50), seed=index), group)
+
+        # The darkness that fills the hood, seen in the gap round the mask.
+        void = core.sculpt(
             f"void_{index}",
-            [(HOOD_CENTRE.z + 0.17 * math.sin(level), HOOD_CENTRE.y, 0.135 * math.cos(level), 0.15 * math.cos(level), 0.15 * math.cos(level)) for level in levels],
+            [("sphere", (0, HOOD_CENTRE.y - 0.02, HEAD + 0.01), (0.125, 0.12, 0.17))],
             core.material("void"),
-            group,
-            segments=24,
-            capped=True,
+            voxel=0.02,
+            smooth=1,
         )
-        place(void)
-
-        height, rim, _, bulge = _mask_row(variant["brow"])
-        light = _light(f"eyes_{index}", group, variant["slit"])
-        light.location = Vector((0, rim - bulge, height)) - offset
+        place(core.decimate(void, 0.5), group)
 
 
-def _band(name, path, across, width, mat, parent=None, thickness=0.012, pleat=0.004, columns=8, closed=False):
-    """A flat strip of cloth laid along `path`. `across` gives, for each
-    point of the path, the direction the strip's width runs in, which is what
-    lets it lie against the body under it. A `closed` strip is a loop."""
+def _band(name, path, across, width, mat, parent=None, thickness=0.014, columns=4, closed=False):
+    """A flat, stiff strip laid along `path`. `across` gives, for each point
+    of the path, the direction the strip's width runs in, which is what lets
+    it lie against the body under it. A `closed` strip is a loop."""
 
     points = [Vector(point) for point in path]
     count = len(points)
@@ -365,9 +319,8 @@ def _band(name, path, across, width, mat, parent=None, thickness=0.012, pleat=0.
         for face in (1, -1):
             for column in range(columns + 1):
                 share = face * (2 * column / columns - 1)
-                fold = pleat * math.cos(share * math.pi * 3)
 
-                ring.append(point + side * share * width / 2 + normal * (fold + face * thickness / 2))
+                ring.append(point + side * share * width / 2 + normal * (face * thickness / 2))
 
         rings.append(ring)
 
@@ -377,74 +330,45 @@ def _band(name, path, across, width, mat, parent=None, thickness=0.012, pleat=0.
     return core.loft(name, rings, mat, parent, cap_start=not closed, cap_end=not closed)
 
 
-def _weight(name, top, mat, drop=0.1, girth=0.02):
-    """A plumb weight hanging from `top`, like the ones a scale is set with."""
+def _plumb(name, top, mat, drop=0.11, girth=0.024):
+    """A plumb weight hanging from `top`, like the ones a scale is set with:
+    a faceted bob, six-sided, so its planes take the bands."""
 
     top = Vector(top)
 
     return core.tube(
         name,
-        [top - Vector((0, 0, drop * step / 8)) for step in range(9)],
-        lambda t: girth * (0.2 + 0.8 * max(0.0, math.sin(t**1.5 * math.pi)) ** 0.8),
+        [top - Vector((0, 0, drop * step / 6)) for step in range(7)],
+        lambda t: girth * (0.25 + 0.75 * max(0.0, math.sin(t**1.4 * math.pi)) ** 0.7),
         mat,
-        sides=8,
+        sides=6,
     )
 
 
 def _mantles(root):
-    """What sits on a weigher's shoulders."""
+    """What sits on a weigher's shoulders. Every one squares them."""
 
-    linen = core.material("cloth_alt")
     gold = core.material("gold")
+    hood = core.material("cloth")
 
-    # A long stole over the off shoulder, held straight by a weight at each
-    # end. The front end hangs lower than the back. Each knot is (y, z, turn),
-    # where the turn keeps the stole flat against the round of the body.
+    # A stiff gilt stole: two bands from behind the neck down the chest,
+    # level and straight, each held plumb by a weight.
     group = core.empty("mantle_0", root)
-    line = 0.135
-    knots = [
-        (-0.135, 0.78, 33),
-        (-0.135, 1.15, 33),
-        (-0.125, 1.48, 30),
-        (-0.088, 1.63, 20),
-        (-0.045, 1.692, 8),
-        (0.0, 1.706, 0),
-        (0.045, 1.692, -8),
-        (0.088, 1.63, -20),
-        (0.125, 1.48, -30),
-        (0.14, 1.25, -33),
-        (0.14, 1.02, -33),
-    ]
-    samples = core.bezier(knots, samples=6)
+    parts = []
 
-    def turned(turn):
-        return Vector((math.cos(math.radians(turn)), math.sin(math.radians(turn)), 0))
+    for side in (-1, 1):
+        x = side * 0.115
+        knots = [(x * 0.6, 0.12, ROBE_TOP + 0.005), (x * 0.92, -0.02, ROBE_TOP - 0.015), (x, -0.135, SHOULDER - 0.07), (x, -0.165, 1.3), (x, -0.17, 0.92)]
+        path = core.bezier(knots, samples=5)
+        parts.append(_band(f"stole_{side}", path, [(1, 0, 0)] * len(path), 0.085, gold))
+        parts.append(_plumb(f"stole_weight_{side}", (x, -0.17, 0.92), gold))
 
-    stole = _band(
-        "stole",
-        [(line, depth, height) for depth, height, _ in samples],
-        [turned(turn) for _, _, turn in samples],
-        0.14,
-        linen,
-        group,
-    )
-    finish(stole, seed=2)
+    mantle = core.join(parts, "stole")
+    mantle.parent = group
+    finish(mantle, wear_boost=1.6, seed=2)
 
-    weights = []
-
-    for end, (depth, height, turn) in enumerate((knots[0], knots[-1])):
-        middle = Vector((line, depth, height))
-        reach = turned(turn) * 0.082
-
-        weights.append(core.tube(f"stole_rod_{end}", [middle - reach, middle, middle + reach], 0.011, gold, sides=8))
-        weights.append(_weight(f"stole_weight_{end}", middle - Vector((0, 0, 0.008)), gold))
-
-    weighting = core.join(weights, "stole_weights")
-    weighting.parent = group
-    finish(core.shade_smooth(weighting, angle=50), wear_boost=1.6)
-
-    # A broad collar plate in three tiers, lying on the shoulders and chest,
-    # with a counterweight down the back to keep it there.
+    # A broad collar plate in three tiers, lying flat on the shoulders and
+    # cut square at the sides, with a counterweight down the back.
     group = core.empty("mantle_1", root)
     profile = [(0.0, -0.004), (0.0, 0.012)]
 
@@ -458,77 +382,57 @@ def _mantles(root):
     profile.extend([(1.0, -0.008), (0.0, -0.004)])
 
     def collar(angle, share, lift):
-        """Lays the plate over the body: its sides run out along the
-        shoulders, its front and back fall steeply down the chest."""
+        """Lays the plate over the body: square over the shoulders, falling
+        down the chest and back."""
 
-        wide = 0.105 + 0.205 * share
-        deep = 0.1 + 0.07 * share
-        radius = wide * deep / math.hypot(deep * math.cos(angle), wide * math.sin(angle))
-        chest = math.sin(angle) ** 2
-        height = NECK_HEIGHT + 0.01 - (0.135 * share**1.8) * (1 - chest) - 0.23 * share * chest
+        wide = 0.12 + 0.22 * share
+        deep = 0.11 + 0.06 * share
+        across, along = math.cos(angle), math.sin(angle)
+        # A superellipse: the sides run straight out over the shoulders.
+        radius = 1 / ((abs(across) / wide) ** 4 + (abs(along) / deep) ** 4) ** 0.25
+        chest = along * along
+        height = ROBE_TOP + 0.01 - (0.03 * share) * (1 - chest) - 0.2 * share**1.4 * chest
 
         return radius, height + lift
 
-    plate = core.revolve("collar", profile, gold, group, segments=72, shape=collar)
+    plate = core.revolve("collar", profile, gold, group, segments=64, shape=collar)
     finish(core.shade_smooth(plate, angle=40), wear_boost=1.6, seed=4)
 
     counterweight = core.plate(
         "collar_counterweight",
-        [(-0.018, 1.53), (0.018, 1.53), (0.022, 1.34), (0.05, 1.22), (0.03, 1.13), (0.0, 1.1), (-0.03, 1.13), (-0.05, 1.22), (-0.022, 1.34)],
-        0.012,
+        [(-0.02, 1.62), (0.02, 1.62), (0.024, 1.42), (0.055, 1.3), (0.032, 1.2), (0.0, 1.17), (-0.032, 1.2), (-0.055, 1.3), (-0.024, 1.42)],
+        0.016,
         gold,
         group,
-        bevel=0.003,
+        bevel=0.004,
     )
-    counterweight.location = (0, 0.172, 0)
+    counterweight.location = (0, 0.18, 0)
     finish(counterweight, wear_boost=1.6)
 
-    # Linen wound across the chest and over both upper arms, binding them in,
-    # with one loose end left hanging.
+    # A short square cape, stiff as board, its hem cut straight across above
+    # the beam: it makes the shoulders a lintel.
     group = core.empty("mantle_2", root)
-    wraps = []
+    rows, columns = 10, 64
+    grid = []
 
-    for wrap in range(6):
-        height = SHOULDER_HEIGHT - wrap * 0.048
-        # The windings widen with the arms under them, and every other one
-        # lies over its neighbours.
-        reach = 0.285 + 0.009 * wrap + 0.007 * (wrap % 2)
-        tilt = (wrap % 2 * 2 - 1) * (0.022 + 0.008 * (wrap % 3))
-        path = []
+    for row in range(rows + 1):
+        share = row / rows
+        line = []
 
-        for step in range(48):
-            angle = math.tau * step / 48
-            across = math.cos(angle)
-            along = math.sin(angle)
+        for column in range(columns):
+            angle = math.tau * column / columns
+            across, along = math.cos(angle), math.sin(angle)
+            # The cape stands out over the shoulders and falls to a flat hem.
+            wide = 0.13 + 0.24 * min(1.0, share * 2.2)
+            deep = 0.12 + 0.07 * min(1.0, share * 2.2)
+            radius = 1 / ((abs(across) / wide) ** 5 + (abs(along) / deep) ** 5) ** 0.2
+            fall = ROBE_TOP + 0.02 - 0.05 * min(1.0, share * 2.2) - 0.24 * max(0.0, share - 0.45) / 0.55
+            # A shallow box pleat at front and back.
+            pleat = 0.012 * max(0.0, math.cos(angle * 4)) ** 8 * share
+            line.append((math.cos(angle) * (radius + pleat), math.sin(angle) * (radius + pleat), fall))
 
-            path.append(
-                (
-                    math.copysign(abs(across) ** 0.75, across) * reach,
-                    math.copysign(abs(along) ** 0.75, along) * (0.15 + 0.007 * (wrap % 2)),
-                    height + tilt * math.cos(angle - wrap * 0.9) + 0.006 * math.sin(angle * 3 + wrap * 2.1),
-                )
-            )
+        grid.append(line)
 
-        wraps.append(_band(f"winding_{wrap}", path, [(0, 0, 1)] * len(path), 0.072, linen, thickness=0.008, pleat=0.0025, columns=4, closed=True))
-
-    winding = core.join(wraps, "winding")
-    winding.parent = group
-    finish(core.shade_smooth(winding, angle=40), seed=6)
-
-    finish(
-        cloth.drape(
-            "winding_tail",
-            linen,
-            group,
-            [(0.1 + 0.075 * step / 8, -0.146 + 0.01 * step / 8, SHOULDER_HEIGHT - 0.25) for step in range(9)],
-            drop=0.52,
-            width_gain=1.0,
-            tatter=0.25,
-            sag=0.01,
-            folds=3,
-            fold_depth=0.008,
-            seed=9,
-            outward=(0, -1, 0),
-        ),
-        seed=7,
-    )
+    cape = core.loft("cape", grid, hood, group)
+    cape = core.apply_modifier(cape, "SOLIDIFY", thickness=0.016, offset=1.0)
+    finish(core.shade_smooth(cape, angle=45), seed=6)
