@@ -33,7 +33,7 @@ from mathutils import Matrix, Quaternion, Vector
 
 from . import body, combat, core, curves, locomotion
 from .combat import trunk
-from .curves import PASS, REST, STOP, over, pose, stance
+from .curves import AUTO, PASS, REST, STOP, over, pose, stab, stance
 
 JOINTS = ("motion", "spine", "head", "arm_r", "arm_l", "elbow_r", "elbow_l", "wrist_r", "wrist_l") + body.LEG_JOINTS
 
@@ -50,6 +50,12 @@ AMPLITUDE = {"harvester": 1.0, "ferryman": 0.85, "weigher": 0.8, "chooser": 1.05
 LEAD = {"pelvis": 0.10, "spine": 0.075, "head": 0.05, "arm": 0.033, "elbow": 0.017, "wrist": 0.0}
 # The most a lead may be of a one-shot, so its time never runs backwards.
 MOST_LEAD = 0.25
+# The links that meet a contact on the impact rather than ahead of it: the
+# hips, the chest and the arm start the blow ahead of the hand, each a
+# little later than the one before (`LEAD`), but drive through it with the
+# hand, so the blade crosses its contact at the top of its speed. Only the
+# head, which turns to watch, still leads it there.
+ON_THE_BLOW = ("pelvis", "spine", "arm", "elbow")
 LINKS = {"head": "head", "arm_r": "arm", "arm_l": "arm", "elbow_r": "elbow", "elbow_l": "elbow", "wrist_r": "wrist", "wrist_l": "wrist"}
 
 LOOPS = ("idle", "creep", "walk", "run", "sprint")
@@ -89,7 +95,7 @@ KEYS = {
         (
             0.82,
             pose(move=(0, 0, -0.04), motion=(12, 0, 0), head=(8, 0, 0), arm_r=(6, 10, 0), arm_l=(10, -10, 0), elbow_r=(-30, 0, 0), elbow_l=(-32, 0, 0)),
-            trunk(over(0.25, 0.06, 0.12)),
+            trunk(stab(0.07, 0.14)),
         ),
         (1, REST, STOP),
     ],
@@ -98,8 +104,10 @@ KEYS = {
         (0, stance(move=(0, 0, 0.2), motion=(-4, 0, 0), arm_r=(-14, 10, 0), arm_l=(-20, -12, 0)), PASS),
         (
             0.26,
-            pose(move=(0, 0, -0.05), motion=(16, 0, 0), head=(10, 0, 0), arm_r=(-10, 14, 0), arm_l=(-25, -22, 0), elbow_r=(-30, 0, 0), elbow_l=(-30, 0, 0)),
-            trunk(over(0.2, 0.05, 0.1)),
+            pose(move=(0, 0, -0.05), motion=(12, 0, 0), head=(10, 0, 0), arm_r=(-10, 14, 0), arm_l=(-25, -22, 0), elbow_r=(-30, 0, 0), elbow_l=(-30, 0, 0)),
+            # The hips give on past the floor; the chest bows through the
+            # key without a stop, or the weapon would turn a corner there.
+            {"*": AUTO, "move": stab(0.08, 0.14)},
         ),
         (0.62, pose(move=(0, 0, 0.04), motion=(-4, 0, 0), head=(-3, 0, 0), arm_r=(0, 6, 0), arm_l=(-6, -8, 0), elbow_r=(-16, 0, 0), elbow_l=(-18, 0, 0))),
         (1, REST, STOP),
@@ -189,7 +197,8 @@ KEYS = {
         (0, REST),
         # Rise a little, hand to the heart, then bow.
         (0.12, pose(motion=(-3, 0, 0), head=(-4, 0, 0), arm_l=(-20, -10, -15), elbow_l=(-40, 0, 0)), STOP),
-        (0.26, pose(arm_l=(-35, -15, -25), elbow_l=(-68, 0, 0), wrist_l=(10, 0, 0))),
+        # The chest is already leaning into the bow as the hand settles.
+        (0.26, pose(motion=(6, 0, 0), head=(3, 0, 0), arm_r=(-6, 8, 0), arm_l=(-35, -15, -25), elbow_l=(-68, 0, 0), wrist_l=(10, 0, 0))),
         (0.40, pose(motion=(26, 0, 0), head=(18, 0, 0)), over(0.08, 0.1, 0.2)),
         # Held, sinking a little further.
         (0.64, pose(motion=(30, 0, 0), head=(24, 0, 0)), STOP),
@@ -258,8 +267,9 @@ KEYS = {
             ),
             over(0.08, 0.1, 0.2),
         ),
-        # Held in awe, still rising.
-        (0.80, pose(move=(0, 0, 0.06), motion=(-6, 0, 0), arm_r=(-14, 130, 0), arm_l=(-14, -130, 0), elbow_r=(-20, 0, 0), elbow_l=(-20, 0, 0), head=(-14, 0, 0))),
+        # Held in awe, still rising: the arms keep opening and the head
+        # tips back to take it in.
+        (0.80, pose(move=(0, 0, 0.10), motion=(-9, 0, 0), arm_r=(-16, 138, 0), arm_l=(-16, -138, 0), elbow_r=(-16, 0, 0), elbow_l=(-16, 0, 0), head=(-22, 0, 0))),
         (1, REST, STOP),
     ],
     "tPose": [
@@ -300,11 +310,12 @@ GLIDE = {"idle": (0, 0, 0.012), "creep": (4, 2, 0.010), "walk": (7, 5, 0.016), "
 STRIDE = {"creep": (9, 9), "walk": (22, 3), "run": (38, 12), "sprint": (48, 19)}
 
 
-def keys(name):
-    """A key-posed clip's keys."""
+def keys(name, calling=None):
+    """A key-posed clip's keys, as the class `calling` performs it
+    (`combat.CLASS_KEYS`)."""
 
     if name in KEYS:
-        return KEYS[name]
+        return combat.for_class(KEYS[name], calling, name)
 
     if name in ("dodgeLeft", "dodgeRight"):
         side = 1 if name == "dodgeLeft" else -1
@@ -318,7 +329,7 @@ def keys(name):
                 trunk(PASS),
             ),
             # Land on the far side, giving into it.
-            (0.70, pose(move=(side * 0.62, 0, -0.02), motion=(6, side * 8, 0), head=(4, side * 4, 0), arm_r=(-30, 14, 0), arm_l=(-44, -16, 0), elbow_r=(-34, 0, 0), elbow_l=(-46, 0, 0)), trunk(over(0.2, 0.05, 0.1))),
+            (0.70, pose(move=(side * 0.62, 0, -0.02), motion=(6, side * 8, 0), head=(4, side * 4, 0), arm_r=(-30, 14, 0), arm_l=(-44, -16, 0), elbow_r=(-34, 0, 0), elbow_l=(-46, 0, 0)), trunk(stab(0.06, 0.12))),
             (1, REST, STOP),
         ]
 
@@ -349,11 +360,25 @@ def keys(name):
 _TRACKS = {}
 
 
-def _tracks(name, seconds):
-    if (name, seconds) not in _TRACKS:
-        _TRACKS[name, seconds] = curves.compile(keys(name), seconds)
+def _tracks(name, seconds, link=None, calling=None):
+    """A clip's compiled keys, as the class `calling` performs it and the
+    link `link` runs through it: a link on the blow (`ON_THE_BLOW`) has each
+    contact key moved as late as its lead, so it reaches the contact pose on
+    the impact itself."""
 
-    return _TRACKS[name, seconds]
+    synced = link in ON_THE_BLOW and name not in LOOPS and any(isinstance(key, combat.Strike) for key in keys(name))
+    cache = (name, seconds, link if synced else None, calling if name in combat.CLASS_KEYS.get(calling, {}) else None)
+
+    if cache not in _TRACKS:
+        clip = keys(name, calling)
+
+        if synced:
+            ahead = min(LEAD[link] / seconds, MOST_LEAD)
+            clip = [combat.Strike((key[0] + ahead * math.sin(math.pi * key[0]) ** 2, *key[1:])) if isinstance(key, combat.Strike) else key for key in clip]
+
+        _TRACKS[cache] = curves.compile(clip, seconds)
+
+    return _TRACKS[cache]
 
 
 def _smooth(t):
@@ -452,15 +477,17 @@ def _loop(name, p, humanoid):
     )
 
 
-def sample(name, phase, seconds, humanoid=False):
-    """Every joint of the performance `name` at `phase`, before overlap: a
-    rotation vector in degrees for a turn (`curves`), metres for `move`."""
+def sample(name, phase, seconds, humanoid=False, link=None, calling=None):
+    """Every joint of the performance `name` at `phase`, as the class
+    `calling` performs it and the link `link` runs through it (`_tracks`),
+    before overlap: a rotation vector in degrees for a turn (`curves`),
+    metres for `move`."""
 
     if name in LOOPS:
         raw = _loop(name, phase, humanoid)
         values = {joint: Vector(value) if joint == curves.TRANSLATION else curves.turn(value) for joint, value in raw.items()}
     else:
-        values = curves.sample(_tracks(name, seconds), phase)
+        values = curves.sample(_tracks(name, seconds, link, calling), phase)
 
     if name in TREMBLE:
         cycles, chest, head = TREMBLE[name]
@@ -494,14 +521,36 @@ def variants(specs):
     return [dict(spec, motion=spec["name"], humanoid=human, name=("humanoid_" if human else "") + spec["name"]) for human in (False, True) for spec in specs]
 
 
+# The clips a class performs with its other hand: the Hollow strikes with
+# its right, the lantern in its left.
+MIRRORED = {"hollow": ("finisherPalm", "finisherSoulCrush")}
+
+
+def _mirrored(values):
+    """A sampled pose as the other hand performs it: left and right swap,
+    and the whole body turns, leans and steps the other way with them."""
+
+    out = {}
+
+    for joint, value in values.items():
+        if joint.endswith(("_l", "_r")):
+            joint = joint[:-1] + ("l" if joint.endswith("_r") else "r")
+
+        out[joint] = Vector((-value.x, value.y, value.z)) if joint == curves.TRANSLATION else Vector((value.x, -value.y, -value.z))
+
+    return out
+
+
 def performance(name, phase, humanoid, calling, seconds):
     """Sample the whole body once, each link at its own time (`lead`)."""
 
     poses = {}
+    mirror = name in MIRRORED.get(calling, ())
 
     def at(link):
         if link not in poses:
-            poses[link] = sample(name, lead(name, phase, seconds, link), seconds, humanoid)
+            values = sample(name, lead(name, phase, seconds, link), seconds, humanoid, link, calling)
+            poses[link] = _mirrored(values) if mirror else values
 
         return poses[link]
 
@@ -536,19 +585,9 @@ def performance(name, phase, humanoid, calling, seconds):
     rotations["motion"] = curves.quaternion(root)
     rotations["spine"] = curves.quaternion(spine)
     positions["motion"] = move
-    mirror = calling == "hollow" and name in ("finisherPalm", "finisherSoulCrush")
 
     for joint, link in LINKS.items():
-        source = joint
-
-        if mirror and joint.endswith(("_l", "_r")):
-            source = joint[:-1] + ("l" if joint.endswith("_r") else "r")
-
-        value = at(link).get(source, zero)
-
-        if mirror and source != joint:
-            value = Vector((value.x, -value.y, -value.z))
-
+        value = at(link).get(joint, zero)
         gain = AMPLITUDE[calling]
 
         if calling == "mourner" and joint == "head":
@@ -643,6 +682,49 @@ def check_contact(spec):
 
     if impact is not None and (len(found) != 1 or abs(found[0] - impact) > 1e-9):
         raise ValueError(f"{name}: its contact key is at {found or 'none'}, but ReaperMotion lands its impact at {impact}")
+
+
+# A strike crosses its contact near the top of its speed: the striking
+# hand, at the impact, at least this share of the fastest it moves in the
+# clip. Below it the blow reads as a hand slowing onto its mark.
+CONTACT_SHARE = 0.6
+
+
+def striking_hand(name, calling):
+    """The wrist that lands the blow in the clip `name`."""
+
+    if name in ("finisherPalm", "finisherSoulCrush"):
+        return "wrist_r" if name in MIRRORED.get(calling, ()) else "wrist_l"
+
+    return "wrist_r"
+
+
+def contact_share(spec, calling, joints, locals_):
+    """The striking hand's speed across the impact as a share of its top
+    speed in the clip (`CONTACT_SHARE`), from the clip's posed frames
+    `locals_`; None for a clip that lands no blow."""
+
+    impact = spec.get("impact")
+
+    if impact is None:
+        return None
+
+    hand = joints[striking_hand(spec["motion"], calling)]
+    points = [_world(hand, local).translation for local in locals_]
+    speeds = [(after - before).length for before, after in zip(points, points[1:])]
+    at = min(round(impact * (len(points) - 1)), len(speeds) - 1)
+
+    return speeds[at] / max(speeds)
+
+
+def check_strike(spec, calling, joints, locals_):
+    """Refuses a strike whose hand is slowing onto its mark at the impact
+    (`contact_share`)."""
+
+    share = contact_share(spec, calling, joints, locals_)
+
+    if share is not None and share < CONTACT_SHARE:
+        raise ValueError(f"{spec['name']} ({calling}): the striking hand crosses the impact at {share:.0%} of its top speed; a strike needs {CONTACT_SHARE:.0%}")
 
 
 def key(owner, id_type, action_name, track, first, channels):
@@ -790,7 +872,10 @@ def swing(name, handles):
         hanging = handle.to_quaternion().inverted() @ (point - handle.translation)
         turn = down.rotation_difference(hanging.normalized())
         axis, angle = turn.to_axis_angle()
-        angle = min(angle, math.radians(SWING_DEGREES)) * fade[frame]
+        # A soft limit: a small swing is left as it is, a wild one eases
+        # toward `SWING_DEGREES` and never meets a wall there.
+        limit = math.radians(SWING_DEGREES)
+        angle = limit * math.tanh(angle / limit) * fade[frame]
         turns.append(Quaternion(axis, angle))
 
     return turns
@@ -841,13 +926,14 @@ def build(root, calling, specs):
             node.location = rest[joint]
             node.rotation_quaternion = Quaternion()
 
-        if not robes and lantern is None:
-            continue
-
         locals_ = [
             {joint: Matrix.Translation(rest[joint] + positions[joint]) @ rotations[joint].to_matrix().to_4x4() for joint in joints}
             for positions, rotations in samples
         ]
+        check_strike(spec, calling, joints, locals_)
+
+        if not robes and lantern is None:
+            continue
 
         if robes:
             weights = robe_weights(name, spec["humanoid"], [_world(joints["motion"], local) for local in locals_])
