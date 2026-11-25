@@ -265,7 +265,7 @@ Check the address twice before using `--skip-new-upgrade-authority-signer-check`
 | Rotate the keeper (a new server secret) | `ops set-keeper --url devnet --authority $DEPLOYER --keeper <NEW_KEEPER>` |
 | Hand the program's authority on | `ops set-authority --url devnet --authority $DEPLOYER --new-authority <NEW_KEYPAIR>` |
 
-Rotating the keeper makes every receipt the old key signed useless at once, including ones a player has not yet posted: the server must sign those again with the new key. If the keeper secret leaks, pause first, rotate, then resume.
+Rotating the keeper makes every receipt the old key signed useless at once, including ones a player has not yet posted: the server must sign those again with the new key. Start the server with the new `receiptSigningKey` and the old keeper's public key in `REAPERS_RETIRED_KEEPERS` (addresses, comma-separated; public keys only). **Finish the burn** then checks a settled husk's kept signature against the current key or a retired one, and signs that same receipt again with the current key; a signature neither verifies is still refused. If the keeper secret leaks, pause first, rotate, then resume.
 
 The program's authority (in the config) and the upgrade authority (in the loader) are different keys that start out the same. Handing one on does not hand on the other. `set-authority` needs both the old and the new key to sign.
 

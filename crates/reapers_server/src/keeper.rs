@@ -710,10 +710,12 @@ impl Keeper {
 	/// hunt was settled with, rebuilt from the absorption kept with its
 	/// escrow binding, in a transaction with a fresh blockhash.
 	///
-	/// The keeper signs exactly what it signed then. Its signature is
-	/// deterministic, so the receipt rebuilt from the same fields must carry
-	/// the signature the codex holds; one that does not (the keeper's key
-	/// has changed) is a server error, never a new receipt.
+	/// The keeper signs exactly what it signed then: the receipt rebuilt
+	/// from the same fields must verify against the signature the codex
+	/// holds, under the keeper's key or a retired keeper's, and is signed
+	/// again with the keeper's key. One that does not (the absorption was
+	/// changed, or signed by a key nobody named) is a server error, never a
+	/// new receipt.
 	async fn absorb_transaction(
 		&self,
 		account: Id<Account>,
@@ -759,13 +761,21 @@ impl Keeper {
 		let Some(receipt) = receipt::of(player, *mint.as_bytes(), &absorption) else {
 			return Err(rpc::Error::server("an absorption does not fit its receipt"));
 		};
-		let signature = self.signer.sign(&receipt.encode());
+		let message = receipt.encode();
+		let settled = absorption
+			.signature
+			.as_deref()
+			.and_then(|signature| STANDARD.decode(signature).ok())
+			.and_then(|bytes| <[u8; 64]>::try_from(bytes).ok())
+			.map(solana_kit_core::Signature::from_bytes);
 
-		if absorption.signature.as_deref() != Some(STANDARD.encode(signature.as_bytes()).as_str()) {
+		if !settled.is_some_and(|settled| self.signer.settled(&message, &settled)) {
 			return Err(rpc::Error::server(
 				"the receipt no longer carries the signature it was settled with",
 			));
 		}
+
+		let signature = self.signer.sign(&message);
 
 		let chain_receipt = self
 			.chain_receipt(

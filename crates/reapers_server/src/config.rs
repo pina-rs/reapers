@@ -509,6 +509,32 @@ pub fn validate_origin(origin: Option<&str>, mode: RunMode) -> Result<Option<Str
 	Ok(Some(raw.trim_end_matches('/').to_owned()))
 }
 
+/// The keepers the program trusted before this one, from
+/// `REAPERS_RETIRED_KEEPERS`: their public keys as Solana addresses,
+/// separated by commas. Public keys only; never a secret.
+///
+/// A husk settled under one of them and not yet burned has its receipt signed
+/// again with the current key, which the program now trusts instead.
+///
+/// # Errors
+///
+/// When an entry is not an address.
+pub fn retired_keepers(value: Option<&str>) -> Result<Vec<Address>, ConfigError> {
+	value
+		.unwrap_or_default()
+		.split(',')
+		.map(str::trim)
+		.filter(|entry| !entry.is_empty())
+		.map(|entry| {
+			entry.parse::<Address>().map_err(|_| {
+				ConfigError(format!(
+					"REAPERS_RETIRED_KEEPERS: not a public key: {entry}"
+				))
+			})
+		})
+		.collect()
+}
+
 /// Every secret a deployed keeper cannot run without: the database's URL
 /// (with its password), the keys sign-in seals and hashes with, and the
 /// secret the receipt signing key is derived from.
@@ -667,6 +693,20 @@ mod tests {
 		for mode in [RunMode::Development, RunMode::Test] {
 			assert_eq!(mode.require_simulation(), Ok(()));
 		}
+	}
+
+	#[test]
+	fn retired_keepers_are_public_keys_separated_by_commas() {
+		let first = ReceiptSigner::development().address();
+		let second = ReceiptSigner::from_secret("another").address();
+
+		assert_eq!(retired_keepers(None).unwrap(), Vec::<Address>::new());
+		assert_eq!(retired_keepers(Some(" ")).unwrap(), Vec::<Address>::new());
+		assert_eq!(
+			retired_keepers(Some(&format!(" {first} ,{second},"))).unwrap(),
+			vec![first, second]
+		);
+		assert!(retired_keepers(Some("not a key")).is_err());
 	}
 
 	#[test]

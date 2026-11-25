@@ -1116,3 +1116,107 @@ async fn release_with_escrow_refuses_arbitrary_mint_when_demo_husk_manifest_is_e
 	assert_eq!(world.stored(player).await, before, "nothing was released");
 	assert_eq!(HuskEscrow::query().count(&world.db).await.unwrap(), 0);
 }
+
+/// The keeper of `world` after `ops set-keeper`: the same books and chain,
+/// a new receipt key, and the program's earlier keepers named as `retired`.
+fn rotated(world: &World, retired: Vec<Address>) -> (World, Address) {
+	let signer = reapers_server::signer::ReceiptSigner::from_secret(
+		"rotated-keeper-secret-0123456789abcdef",
+	)
+	.with_retired(retired);
+	let address = signer.address();
+	let keeper = Arc::new(reapers_server::keeper::Keeper::new(
+		RunMode::Test,
+		&world.db,
+		reapers_server::chain::Gateway::new(with_husks(demo_assets()), world.chain.clone()),
+		signer,
+		quick_hall(),
+	));
+
+	(
+		World {
+			db: world.db.clone(),
+			keeper,
+			chain: world.chain.clone(),
+		},
+		address,
+	)
+}
+
+#[tokio::test]
+async fn absorb_transaction_resigns_settled_husk_after_keeper_key_rotation() {
+	let world = escrowing().await;
+	let wallet = Wallet::new(1);
+	let (player, settled) = absorbed_from_escrow(&world, &wallet).await;
+	let retired = reapers_server::signer::ReceiptSigner::development().address();
+	let (rotated_world, rotated_address) = rotated(&world, vec![retired]);
+
+	let again = rotated_world
+		.call(player, AbsorbTransaction { nft: SAINT.into() })
+		.await
+		.expect("a settled husk is signed again with the rotated key");
+	let first = settled.receipt.expect("the settlement's receipt");
+	let message = STANDARD.decode(&again.message).unwrap();
+	let signature: [u8; 64] = STANDARD
+		.decode(&again.signature)
+		.unwrap()
+		.try_into()
+		.unwrap();
+
+	assert_eq!(again.keeper, rotated_address.to_string());
+	assert_eq!(
+		again.message, first.message,
+		"the same receipt, byte for byte"
+	);
+	assert_ne!(again.signature, first.signature);
+	assert!(
+		solana_kit_core::crypto::verify(
+			&rotated_address,
+			&message,
+			&Signature::from_bytes(signature)
+		)
+		.is_ok()
+	);
+	assert!(again.transaction.is_some());
+}
+
+#[tokio::test]
+async fn a_rotated_keeper_refuses_settlements_no_key_it_trusts_signed() {
+	let world = escrowing().await;
+	let wallet = Wallet::new(1);
+	let (player, _) = absorbed_from_escrow(&world, &wallet).await;
+	let stranger =
+		reapers_server::signer::ReceiptSigner::from_secret("a key nobody named").address();
+	let (rotated_world, _) = rotated(&world, vec![stranger]);
+
+	let error = rotated_world
+		.call(player, AbsorbTransaction { nft: SAINT.into() })
+		.await
+		.expect_err("the settlement's key is neither the keeper's nor a retired one");
+
+	assert_eq!(error.status(), 500, "{error:?}");
+}
+
+#[tokio::test]
+async fn a_rotated_keeper_signs_no_other_numbers_than_the_settlement_did() {
+	let world = escrowing().await;
+	let wallet = Wallet::new(1);
+	let (player, settled) = absorbed_from_escrow(&world, &wallet).await;
+	let mut changed = settled.settlement.state.codex()[0].clone();
+
+	changed.xp += 1;
+	HuskEscrow::update()
+		.set(|row| row.absorption, Some(leptoskit_db::Json(changed)))
+		.run(&world.db)
+		.await
+		.unwrap();
+
+	let retired = reapers_server::signer::ReceiptSigner::development().address();
+	let (rotated_world, _) = rotated(&world, vec![retired]);
+	let error = rotated_world
+		.call(player, AbsorbTransaction { nft: SAINT.into() })
+		.await
+		.expect_err("a receipt the settlement did not sign");
+
+	assert_eq!(error.status(), 500, "{error:?}");
+}

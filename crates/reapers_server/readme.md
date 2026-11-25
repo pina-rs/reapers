@@ -56,6 +56,7 @@ curl -X POST -H "authorization: Bearer <access_token>" -H "content-type: applica
 | `REAPERS_REAPER_COLLECTION`   | none                            | The verified Metaplex Core collection NFT reapers come from. Without it, imports are refused.                          |
 | `REAPERS_REAPER_MARKET_URL`   | none                            | HTTPS page where players buy and trade the collection.                                                                 |
 | `REAPERS_PROGRAM_ID`          | none                            | The Reapers program husks are escrowed with and burned by. Without it, escrowed releases are refused.                  |
+| `REAPERS_RETIRED_KEEPERS`     | none                            | After `ops set-keeper`, the public keys (addresses, comma-separated) of the keepers the program trusted before. A husk settled under one of them and not yet burned is signed again with the current key. Public keys only. |
 
 The secrets, as `REAPERS_SECRET_<name>`:
 

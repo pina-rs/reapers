@@ -29,6 +29,7 @@ use reapers_server::config::ConfigError;
 use reapers_server::config::RunMode;
 use reapers_server::config::Secrets;
 use reapers_server::config::SolanaConfig;
+use reapers_server::config::retired_keepers;
 use reapers_server::config::validate_origin;
 use reapers_server::rift::RiftHall;
 use reapers_server::server::Options;
@@ -92,6 +93,9 @@ async fn run() -> Result<ExitCode, Box<dyn std::error::Error>> {
 		);
 		ReceiptSigner::development()
 	};
+	let signer = signer.with_retired(retired_keepers(
+		std::env::var("REAPERS_RETIRED_KEEPERS").ok().as_deref(),
+	)?);
 
 	if signer.is_development() && !mode.simulates() {
 		return Err(ConfigError(format!(
