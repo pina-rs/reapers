@@ -107,6 +107,10 @@ const BROW_MOST: f64 = 0.59;
 const TAIL_MOST: f64 = 0.47;
 const WING_LOWEST: f64 = -0.34;
 const WING_HIGHEST: f64 = 0.64;
+/// The quickest the wings beat, in beats a second. Each beat swings them
+/// over their whole range, and a slow display draws only thirty frames a
+/// second: a quicker beat would flicker there, as a quicker stride would.
+const WING_MOST_BEATS: f64 = 4.0;
 const LIMB_MOST: f64 = 0.82;
 const HEAD_TURN_MOST: f64 = 0.35;
 const HEAD_TIP_MOST: f64 = 0.24;
@@ -247,7 +251,8 @@ pub struct HuskRig {
 	sent: Option<(Transform, Transform, [i32; 6])>,
 	/// Whether what is only for liveliness moves: the tail's swing, the
 	/// wings' beat, the head's shiver and snap and the limbs' flail. Off for
-	/// a player who asked for less motion.
+	/// a player who asked for less motion, read again every frame so a
+	/// change of the setting mid-hunt takes at once.
 	lively: bool,
 	/// Its face and loose parts, kept while frozen so the ice holds them.
 	expression: Expression,
@@ -327,11 +332,7 @@ impl HuskRig {
 			carried_from: None,
 			carried: 1.0,
 			pose: None,
-			gait: {
-				let mut gait = Footwork::new(vessel);
-				gait.set_lively(!crate::platform::reduced_motion());
-				gait
-			},
+			gait: Footwork::new(vessel),
 			carriage: Carriage::REST,
 			has_shadow,
 			shadow_placed: Transform::IDENTITY,
@@ -614,6 +615,11 @@ impl HuskRig {
 		if self.placed.is_none() {
 			return;
 		}
+		self.lively = !crate::platform::reduced_motion();
+		self.gait.set_lively(self.lively);
+		// The seals are drawn where the rules put them: while the ward
+		// holds, nothing that moves the body under them may play.
+		self.gait.set_bouncy(!plight.ward_holds());
 		let reaction = &mut self.reaction;
 		reaction.step(delta, plight);
 		let played = delta * reaction.time_scale();
@@ -736,7 +742,8 @@ impl HuskRig {
 		self.stride += played * (2.2 + 9.0 * self.effort);
 		// The wingbeat's pace changes with its effort; its place in the beat
 		// is wound on, so a change of pace never skips a beat.
-		let beats = 2.6 + 2.4 * self.effort + 4.0 * self.reaction.flail().abs();
+		let beats =
+			(2.6 + 2.4 * self.effort + 4.0 * self.reaction.flail().abs()).min(WING_MOST_BEATS);
 		self.beat = (self.beat + played * beats).rem_euclid(1.0);
 	}
 
@@ -929,13 +936,6 @@ impl HuskRig {
 			scene.set_transform(self.shadow, place);
 		}
 		true
-	}
-
-	/// Lets what is only for liveliness move, or holds it still for a player
-	/// who asked for less motion.
-	pub fn set_lively(&mut self, lively: bool) {
-		self.lively = lively;
-		self.gait.set_lively(lively);
 	}
 
 	/// Works out the face and loose parts for a body carried as `carriage`,
@@ -1867,7 +1867,6 @@ mod tests {
 	fn a_reaped_husk_screams_and_its_face_shows_it_within_its_ranges() {
 		let scene = Scene::new(leptoskit::scene3d::SceneId(46));
 		let mut rig = rig_of(&scene, Vessel::Penguin);
-		rig.set_lively(true);
 		scene.take_ops();
 		let pose = walker(reapers_rules::HuskMotionState::Idle, 0.0, -1.21, -1.45);
 		let mut sent = Vec::new();
@@ -1929,7 +1928,7 @@ mod tests {
 	fn a_player_who_asked_for_less_motion_sees_the_face_but_not_the_thrashing() {
 		let scene = Scene::new(leptoskit::scene3d::SceneId(47));
 		let mut rig = rig_of(&scene, Vessel::Penguin);
-		rig.set_lively(false);
+		crate::platform::set_reduced_motion(true);
 		scene.take_ops();
 		let pose = walker(reapers_rules::HuskMotionState::Idle, 0.0, -1.21, -1.45);
 		let mut sent = Vec::new();
@@ -1941,6 +1940,7 @@ mod tests {
 			assert_eq!(rig.expression.flail, 0.0);
 			assert_eq!(rig.expression.head, (0.0, 0.0));
 		}
+		crate::platform::set_reduced_motion(false);
 		assert!(
 			sent.iter().all(|(part, _)| part != "tail"),
 			"the tail hangs"
@@ -1949,6 +1949,62 @@ mod tests {
 		assert!(sent.iter().any(|(part, _)| part == "jaw"));
 		assert!(sent.iter().any(|(part, _)| part == "eye_l"));
 		assert!(rig.expression.jaw > 0.5, "{}", rig.expression.jaw);
+	}
+
+	#[test]
+	fn asking_for_less_motion_mid_hunt_stills_a_husk_already_there() {
+		let scene = Scene::new(leptoskit::scene3d::SceneId(50));
+		// Spawned with full motion, and thrashing.
+		let mut rig = rig_of(&scene, Vessel::Penguin);
+		let pose = walker(reapers_rules::HuskMotionState::Idle, 0.0, -1.21, -1.45);
+		for _ in 0..30 {
+			rig.place(&pose);
+			rig.animate(&scene, 1.0 / 60.0, HuskMood::default(), reaped());
+		}
+		assert!(rig.expression.flail.abs() > 1e-3);
+		// The player asks their device for less motion while it struggles:
+		// the very next frame holds it.
+		crate::platform::set_reduced_motion(true);
+		rig.place(&pose);
+		rig.animate(&scene, 1.0 / 60.0, HuskMood::default(), reaped());
+		let held = rig.expression;
+		crate::platform::set_reduced_motion(false);
+		assert_eq!(held.flail, 0.0);
+		assert_eq!(held.tail, 0.0);
+		assert_eq!(held.head, (0.0, 0.0));
+	}
+
+	#[test]
+	fn a_bird_never_beats_its_wings_quicker_than_a_slow_display_can_draw() {
+		let scene = Scene::new(leptoskit::scene3d::SceneId(51));
+		let mut rig = rig_of(&scene, Vessel::Bird);
+		// Bolting and struggling at once: as hard as it ever beats.
+		let mood = HuskMood {
+			speed: 10.0 * Vessel::Bird.bolt_speed(),
+			..HuskMood::default()
+		};
+		let mut pose = HuskPose::new(
+			Vessel::Bird,
+			reapers_rules::Vec3::new(0.0, 0.0, 2.4),
+			std::f64::consts::PI,
+		);
+		let delta = 1.0 / 120.0;
+		let mut wound = 0.0;
+		for frame in 0..240 {
+			pose.position.z += 0.02;
+			rig.place(&pose);
+			let before = rig.beat;
+			rig.animate(&scene, delta, mood, reaped());
+			let beaten = (rig.beat - before).rem_euclid(1.0);
+			if frame >= 120 {
+				wound += beaten;
+			}
+		}
+		assert!(rig.effort > 0.9, "it bolts: {}", rig.effort);
+		assert!(rig.reaction.flail().abs() > 1e-3, "it struggles");
+		// Over the second second, no more than the ceiling's beats.
+		assert!(wound <= WING_MOST_BEATS + 1e-6, "{wound} beats a second");
+		assert!(wound > 0.9 * WING_MOST_BEATS, "{wound} beats a second");
 	}
 
 	/// The model's nodes that hold a seal, from the seal up to the root.
@@ -1977,6 +2033,48 @@ mod tests {
 		holding
 	}
 
+	/// A husk of `vessel` fought under `plight` for two and a half seconds,
+	/// drawn twice: once for a player with full motion and once for one who
+	/// asked for less. It turns, is struck, and then leaps off the room's
+	/// grid (rising and falling a third of a metre over a third of a second)
+	/// and lands. Hands `frame` both rigs and the ops of that frame.
+	fn fought_and_leaping(
+		vessel: Vessel,
+		plight: HuskPlight,
+		mut frame: impl FnMut(u32, &HuskRig, &HuskRig, &[Op]),
+	) {
+		let scene = Scene::new(leptoskit::scene3d::SceneId(48));
+		let mut lively = rig_of(&scene, vessel);
+		let mut still = rig_of(&scene, vessel);
+		scene.take_ops();
+		for at in 0..150 {
+			let mut pose = HuskPose::new(
+				vessel,
+				reapers_rules::Vec3::new(0.3, -0.6, 2.4),
+				std::f64::consts::PI + 0.02 * f64::from(at.min(90)),
+			);
+			pose.position.x += 0.01 * f64::from(at.min(90));
+			if (100..120).contains(&at) {
+				let flight = f64::from(at - 100) / 20.0;
+				pose.leaping = true;
+				pose.position.y += 4.0 * 0.33 * flight * (1.0 - flight);
+				pose.position.z += 0.4 * flight;
+			} else if at >= 120 {
+				pose.position.z += 0.4;
+			}
+			for (rig, reduced) in [(&mut lively, false), (&mut still, true)] {
+				crate::platform::set_reduced_motion(reduced);
+				if at == 20 {
+					rig.hit(Some(2), 1.0, true);
+				}
+				rig.place(&pose);
+				rig.animate(&scene, 1.0 / 60.0, HuskMood::default(), plight);
+			}
+			crate::platform::set_reduced_motion(false);
+			frame(at, &lively, &still, &scene.take_ops());
+		}
+	}
+
 	#[test]
 	fn seals_stay_where_the_rules_put_them_while_the_ward_holds() {
 		for vessel in [
@@ -1988,45 +2086,49 @@ mod tests {
 		] {
 			let holding = holding_a_seal(vessel);
 			assert!(holding.iter().any(|name| name.starts_with("seal_")));
-			let scene = Scene::new(leptoskit::scene3d::SceneId(48));
-			let mut lively = rig_of(&scene, vessel);
-			lively.set_lively(true);
-			let mut still = rig_of(&scene, vessel);
-			still.set_lively(false);
-			scene.take_ops();
-			// Fought, struck and turning while its ward holds.
+			// Fought, struck, turning and leaping while its ward holds.
 			let plight = HuskPlight {
 				fighting: true,
 				ward: 0.6,
 				fury: 0.4,
 				..HuskPlight::default()
 			};
-			for frame in 0..90 {
-				let mut pose = HuskPose::new(
-					vessel,
-					reapers_rules::Vec3::new(0.3, -0.6, 2.4),
-					std::f64::consts::PI + 0.02 * f64::from(frame),
-				);
-				pose.position.x += 0.01 * f64::from(frame);
-				for rig in [&mut lively, &mut still] {
-					if frame == 20 {
-						rig.hit(Some(2), 1.0, true);
-					}
-					rig.place(&pose);
-					rig.animate(&scene, 1.0 / 60.0, HuskMood::default(), plight);
-				}
+			fought_and_leaping(vessel, plight, |_, lively, still, ops| {
 				// The body, and so every seal on it, is placed and carried
-				// alike: the lively parts move nothing that holds a seal.
+				// alike, through the leap and its landing too: the lively
+				// parts move nothing that holds a seal.
 				assert_eq!(lively.sent.unwrap().0, still.sent.unwrap().0, "{vessel:?}");
 				assert_eq!(lively.sent.unwrap().1, still.sent.unwrap().1, "{vessel:?}");
-				for (part, _) in offsets(&scene.take_ops()) {
+				for (part, _) in offsets(ops) {
 					assert!(
 						!holding.contains(&part),
 						"{vessel:?} moved {part}, which holds a seal"
 					);
 				}
-			}
+			});
 		}
+	}
+
+	#[test]
+	fn once_the_ward_breaks_a_leap_off_the_grid_stretches_and_squashes() {
+		// The same fight and leap with its ward broken: nothing is left to
+		// strike, so the body springs about its feet as it takes off and
+		// lands, for a player with full motion only.
+		let plight = HuskPlight {
+			fighting: true,
+			ward: 0.0,
+			broken: true,
+			..HuskPlight::default()
+		};
+		let mut bounced = false;
+		fought_and_leaping(Vessel::Penguin, plight, |at, lively, still, _| {
+			let (lively, still) = (lively.sent.unwrap(), still.sent.unwrap());
+			assert_eq!(lively.0, still.0, "the root the rules place never moves");
+			if at >= 100 && (lively.1.scale[1] - still.1.scale[1]).abs() > 1e-3 {
+				bounced = true;
+			}
+		});
+		assert!(bounced, "the leap's take-off or landing springs the body");
 	}
 
 	/// A llama turning on the spot for half a second and then still, the
@@ -2035,7 +2137,6 @@ mod tests {
 	fn tail_turning(rate: u32) -> Vec<f64> {
 		let scene = Scene::new(leptoskit::scene3d::SceneId(49));
 		let mut rig = rig_of(&scene, Vessel::Llama);
-		rig.set_lively(true);
 		let mut swung = Vec::new();
 		let at = |tick: f64| {
 			let mut pose = llama_walking(2.2);

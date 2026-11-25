@@ -281,13 +281,19 @@ fn approach(value: &mut f64, target: f64, rate: f64, delta: f64) {
 /// and reaches a little past where it plants before it settles back onto
 /// it. A Hermite curve from −1 to 1 whose slopes at both ends match the
 /// planted foot's.
-pub fn foot_reach(phase: f64) -> f64 {
+///
+/// For a player who asked for less motion (`lively` false) the swing does
+/// not follow through: it eases from where the foot lifts to where it
+/// plants and no further.
+pub fn foot_reach(phase: f64, lively: bool) -> f64 {
 	let phase = phase.rem_euclid(1.0);
 	if phase < 0.5 {
 		1.0 - 4.0 * phase
-	} else {
+	} else if lively {
 		let swung = (phase - 0.5) * 2.0;
 		((-8.0 * swung + 12.0) * swung - 2.0) * swung - 1.0
+	} else {
+		-1.0 + 2.0 * smooth((phase - 0.5) * 2.0)
 	}
 }
 
@@ -329,6 +335,9 @@ pub struct Footwork {
 	/// Whether what is only for liveliness moves: off for a player who
 	/// asked for less motion.
 	lively: bool,
+	/// Whether a leap off the grid may spring the body about its feet: off
+	/// while its seals must stay where the rules put them.
+	bouncy: bool,
 }
 
 impl Footwork {
@@ -350,6 +359,7 @@ impl Footwork {
 			change: None,
 			bounce: Spring::new(BOUNCE_FREQUENCY, 0.0),
 			lively: true,
+			bouncy: true,
 		}
 	}
 
@@ -357,6 +367,14 @@ impl Footwork {
 	/// player who asked for less motion.
 	pub fn set_lively(&mut self, lively: bool) {
 		self.lively = lively;
+	}
+
+	/// Lets a leap off the room's grid stretch and squash the body, or
+	/// holds it at the size the rules give it: a husk whose ward holds
+	/// carries its seals where the rules put them, and a squash about its
+	/// feet would carry them off.
+	pub fn set_bouncy(&mut self, bouncy: bool) {
+		self.bouncy = bouncy;
 	}
 
 	/// How the creature is built, if it walks at all.
@@ -430,7 +448,7 @@ impl Footwork {
 		if pose.leaping {
 			self.apex = self.apex.max(pose.position.y);
 		}
-		if !self.lively {
+		if !self.lively || !self.bouncy {
 			self.bounce.settle(0.0);
 			if !pose.leaping {
 				self.apex = f64::NEG_INFINITY;
@@ -554,7 +572,7 @@ impl Footwork {
 					// goes forward half a stride.
 					let leg = limb.length * pose.scale;
 					let reach = (0.25 * stride_length).min(REACH * leg);
-					let along = foot_reach(phase) * reach;
+					let along = foot_reach(phase, self.lively) * reach;
 					-(along / leg).clamp(-1.0, 1.0).asin() * stride
 				}
 				LimbKind::Arm => -0.35 * (TAU * phase).cos() * stride,
@@ -756,23 +774,26 @@ mod tests {
 
 	#[test]
 	fn a_stride_pushes_back_evenly_and_swings_forward() {
-		assert!((foot_reach(0.0) - 1.0).abs() < 1e-12);
-		assert!(foot_reach(0.25).abs() < 1e-12);
-		assert!((foot_reach(0.5) + 1.0).abs() < 1e-12);
-		assert!((foot_reach(0.75)).abs() < 1e-12);
-		assert!((foot_reach(1.0) - 1.0).abs() < 1e-12);
+		for lively in [true, false] {
+			assert!((foot_reach(0.0, lively) - 1.0).abs() < 1e-12);
+			assert!(foot_reach(0.25, lively).abs() < 1e-12);
+			assert!((foot_reach(0.5, lively) + 1.0).abs() < 1e-12);
+			assert!((foot_reach(0.75, lively)).abs() < 1e-12);
+			assert!((foot_reach(1.0, lively) - 1.0).abs() < 1e-12);
+		}
 	}
 
 	#[test]
 	fn a_foot_swings_on_at_the_pace_it_was_planted() {
 		let step = 1e-6;
-		let pace =
-			|phase: f64| (foot_reach(phase + step) - foot_reach(phase - step)) / (2.0 * step);
+		let pace = |phase: f64| {
+			(foot_reach(phase + step, true) - foot_reach(phase - step, true)) / (2.0 * step)
+		};
 		// No stop where it lifts or where it plants: the planted pace, −4
 		// strides' reach a stride, carries through both.
 		for at in [0.5, 1.0] {
-			let before = (foot_reach(at - step) - foot_reach(at - 2.0 * step)) / step;
-			let after = (foot_reach(at + 2.0 * step) - foot_reach(at + step)) / step;
+			let before = (foot_reach(at - step, true) - foot_reach(at - 2.0 * step, true)) / step;
+			let after = (foot_reach(at + 2.0 * step, true) - foot_reach(at + step, true)) / step;
 			assert!(
 				(before - after).abs() < 1e-3,
 				"at {at}: {before} then {after}"
@@ -781,13 +802,38 @@ mod tests {
 		}
 		// It follows through a little past each end, and no further.
 		let swing: Vec<f64> = (0..=1000)
-			.map(|n| foot_reach(0.5 + 0.0005 * f64::from(n)))
+			.map(|n| foot_reach(0.5 + 0.0005 * f64::from(n), true))
 			.collect();
 		let lowest = swing.iter().copied().fold(f64::INFINITY, f64::min);
 		let highest = swing.iter().copied().fold(f64::NEG_INFINITY, f64::max);
 		assert!(lowest < -1.05 && lowest > -1.1, "{lowest}");
 		assert!(highest > 1.05 && highest < 1.1, "{highest}");
 		assert!(pace(0.75) > 4.0, "it sweeps forward fast in the middle");
+	}
+
+	#[test]
+	fn for_less_motion_a_foot_swings_no_further_than_it_plants() {
+		let swing: Vec<f64> = (0..=1000)
+			.map(|n| foot_reach(0.5 + 0.0005 * f64::from(n), false))
+			.collect();
+		assert!(swing.iter().all(|reach| (-1.0..=1.0).contains(reach)));
+		// And a body walked for a player who asked for less motion swings
+		// its legs on that stride, not the one that follows through.
+		let walked = |lively: bool| {
+			let mut footwork = Footwork::new(Vessel::Penguin);
+			footwork.set_lively(lively);
+			let mut z = 2.0;
+			let mut swings = Vec::new();
+			walk(
+				&mut footwork,
+				Vessel::Penguin.walk_speed(),
+				2.0,
+				&mut z,
+				|_, carriage, _| swings.push(carriage.limbs[0].0),
+			);
+			swings
+		};
+		assert_ne!(walked(true), walked(false));
 	}
 
 	#[test]

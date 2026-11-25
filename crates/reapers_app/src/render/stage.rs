@@ -220,6 +220,13 @@ impl Stage {
 			return;
 		};
 		let still = crate::platform::reduced_motion();
+		// The player changed their device's setting while the stage was
+		// shown: the clip is sent again, held or moving as they now ask.
+		if let Some(rig) = self.rig.as_mut()
+			&& rig.held_still() != still
+		{
+			rig.perform(self.scene.ops(), &self.playback);
+		}
 		if !still {
 			self.playback.advance(delta);
 		}
@@ -581,5 +588,45 @@ mod tests {
 				.any(|op| matches!(op, Op::SetMorphWeight { target, .. } if target == "sway_x"))
 		);
 		assert!((stage.turn - 0.25).abs() < 1e-6);
+	}
+
+	#[test]
+	fn asking_for_less_motion_while_the_stage_shows_holds_its_clip_at_once() {
+		let stage = stage(Key::Fixed("test-d"));
+		let mut stage = stage.borrow_mut();
+		let mut turning = show(6);
+		turning.turns_on_its_own = true;
+		stage.show(turning);
+		let speeds = |sent: &[Op]| {
+			sent.iter()
+				.filter_map(|op| {
+					match op {
+						Op::Play { play, .. } => Some(play.speed),
+						_ => None,
+					}
+				})
+				.collect::<Vec<_>>()
+		};
+		// Moving, nothing is sent again.
+		let before = stage.scene.sent().len();
+		stage.tick(0.1);
+		assert_eq!(speeds(&stage.scene.sent()[before..]), Vec::<f32>::new());
+		// The player asks for less motion: the next frame holds the clip,
+		// and the stage stops turning.
+		crate::platform::set_reduced_motion(true);
+		let before = stage.scene.sent().len();
+		let turn = stage.turn;
+		stage.tick(0.1);
+		stage.tick(0.1);
+		let held = speeds(&stage.scene.sent()[before..]);
+		assert_eq!(held, vec![0.0], "held once");
+		assert_eq!(stage.turn, turn);
+		// And back: the clip plays again.
+		crate::platform::set_reduced_motion(false);
+		let before = stage.scene.sent().len();
+		stage.tick(0.1);
+		let moving = speeds(&stage.scene.sent()[before..]);
+		assert_eq!(moving.len(), 1);
+		assert!(moving[0] > 0.0, "{moving:?}");
 	}
 }

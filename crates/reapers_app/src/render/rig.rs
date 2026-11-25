@@ -84,6 +84,9 @@ pub struct ReaperRig {
 	robe_part: String,
 	/// Last quantized sway weights sent to the host, so still frames send none.
 	last_sway: Option<[i32; 3]>,
+	/// Whether the clip last sent was held still for a player who asked for
+	/// less motion.
+	held_still: bool,
 }
 
 impl ReaperRig {
@@ -117,6 +120,7 @@ impl ReaperRig {
 			motion: ReaperMotion::Idle,
 			robe_part,
 			last_sway: None,
+			held_still: false,
 		};
 		// Wearing the outfit dresses the reaper, which puts the weapon in its
 		// hand.
@@ -213,13 +217,17 @@ impl ReaperRig {
 	pub fn perform(&mut self, scene: &Scene, playback: &ReaperPlayback) {
 		let unarmed_before = self.motion.unarmed();
 		self.motion = playback.motion();
-		scene.play(
-			self.body,
-			playback.play(&self.appearance, crate::platform::reduced_motion()),
-		);
+		self.held_still = crate::platform::reduced_motion();
+		scene.play(self.body, playback.play(&self.appearance, self.held_still));
 		if unarmed_before != self.motion.unarmed() {
 			self.show_weapon(scene);
 		}
+	}
+
+	/// Whether the clip last sent by [`perform`](Self::perform) was held
+	/// still for a player who asked for less motion.
+	pub const fn held_still(&self) -> bool {
+		self.held_still
 	}
 
 	/// Sets the robe's sway morphs for `seconds` into the motion, sending only

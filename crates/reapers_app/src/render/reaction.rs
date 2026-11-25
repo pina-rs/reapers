@@ -56,6 +56,14 @@ impl Default for HuskPlight {
 	}
 }
 
+impl HuskPlight {
+	/// Whether its ward still holds, so its seals are there to be struck
+	/// where the rules put them.
+	pub fn ward_holds(&self) -> bool {
+		!self.broken && self.ward > 0.0
+	}
+}
+
 /// A damped spring about zero, stepped in small enough steps to stay steady
 /// at any frame rate.
 #[derive(Clone, Copy, Debug)]

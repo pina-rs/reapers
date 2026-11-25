@@ -784,8 +784,16 @@ mod local {
 		Err(PlatformError::Unavailable("links"))
 	}
 
+	thread_local! {
+		static REDUCED_MOTION: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+	}
+
 	pub fn reduced_motion() -> bool {
-		false
+		REDUCED_MOTION.with(std::cell::Cell::get)
+	}
+
+	pub fn set_reduced_motion(reduced: bool) {
+		REDUCED_MOTION.with(|setting| setting.set(reduced));
 	}
 
 	pub fn log(message: &str) {
@@ -832,6 +840,14 @@ mod local {
 #[cfg(not(all(target_arch = "wasm32", any(feature = "web", feature = "native"))))]
 pub fn run_until_stalled() {
 	local::run_until_stalled();
+}
+
+/// Asks for less motion, or full motion, on this thread, as a player would
+/// in their device's settings. Only the tests' host has a setting to
+/// change; the browser and the app read the device's.
+#[cfg(not(all(target_arch = "wasm32", any(feature = "web", feature = "native"))))]
+pub fn set_reduced_motion(reduced: bool) {
+	local::set_reduced_motion(reduced);
 }
 
 #[cfg(test)]
