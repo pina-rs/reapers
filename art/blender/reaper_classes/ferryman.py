@@ -1,8 +1,10 @@
 """The ferryman: the one who carries the dead across and cannot be moved.
 
-Silhouette: a hunched, heavy cowl on a broad, low body, one shoulder loaded
-with rope, and a pole taller than the figure with a lantern at its top. The
-outline reads as a boulder beside a tall vertical line.
+Silhouette: a hunched, deep cowl on a broad, low body, the off shoulder
+loaded with a heavy coil of rope, and beside it a pole taller than the
+figure, planted upright on the floor, its lantern hung from the crook. The
+outline reads as a boulder beside a tall vertical line. Three families
+only: the cloth, the rope and the bone of the hands.
 """
 
 import math
@@ -10,7 +12,7 @@ import math
 from mathutils import Vector, noise
 
 from lib import cloth, core
-from lib.figure import NECK_HEIGHT, SHOULDER_HEIGHT, arms, finish
+from lib.figure import NECK_HEIGHT, SHOULDER_HEIGHT, aim_hold, arms, finish, idle_path
 
 HUNCH = 0.24
 ROBE_TOP = SHOULDER_HEIGHT + 0.08
@@ -30,13 +32,26 @@ CAPE_PAD = 0.03
 # clear the sleeve under it, as (height, distance) stops.
 SLEEVE_PAD = ((1.67, 0.0), (1.6, 0.045), (1.5, 0.065), (1.4, 0.105), (1.3, 0.16), (1.2, 0.2))
 
+# Where the pole is held in the idle stance: planted upright at the pole
+# side, out past the robe and the humanoid hem, its shoe just off the floor
+# (the lantern pole's runs 1.09 below the grip). The crook turns in toward
+# the bearer and a little forward, so the lantern hangs clear above the cowl.
+GRIP = Vector((-0.56, -0.44, 1.11))
+CROOK = (1.0, -0.35, 0.0)
+
+# The hem hitched up at the front of the pole side, so the robe does not
+# merge with the floor there (docs/art-bible.md 6.2): how far, round which
+# way, and how far up the robe the lift runs out.
+HITCH = 0.3
+HITCH_ANGLE = math.atan2(-0.6, -1.0)
+HITCH_REACH = 0.8
+
 
 def build():
     """The one who carries the dead across: a heavy cowl on a broad body."""
 
     root = core.empty("reaper")
     cloth_mat = core.material("cloth")
-    alt = core.material("cloth_alt")
     forward = HUNCH
 
     hems = [
@@ -51,35 +66,66 @@ def build():
     ]
 
     for index, hem in enumerate(hems):
-        finish(
-            cloth.robe(
-                f"robe_{index}",
-                cloth_mat,
-                root,
-                top=ROBE_TOP,
-                profile=ROBE_PROFILE,
-                folds=(4, 7, 12),
-                hunch=forward,
-                **hem,
-            ),
-            seed=index,
+        robe = cloth.robe(
+            f"robe_{index}",
+            cloth_mat,
+            root,
+            top=ROBE_TOP,
+            profile=ROBE_PROFILE,
+            folds=(4, 7, 12),
+            hunch=forward,
+            rings=40,
+            segments=96,
+            **hem,
         )
+        finish(_hitched(robe), seed=index)
 
+    # The pole hand closed on the planted pole; the other hangs under the
+    # load on its shoulder.
     arms(
         root,
-        weapon_side_path=[(-0.29, -forward, SHOULDER_HEIGHT - 0.1), (-0.47, -forward - 0.02, 1.33), (-0.45, -forward - 0.24, 1.25)],
+        weapon_side_path=idle_path("ferryman", "r", (-0.29, -forward, SHOULDER_HEIGHT - 0.1), (-0.46, -forward + 0.06, 1.38), GRIP, 1.55),
         off_side_path=[(0.29, -forward, SHOULDER_HEIGHT - 0.1), (0.44, -forward + 0.03, 1.25), (0.45, -forward - 0.04, 0.97)],
         sleeve_shoulder=0.1,
         sleeve_cuff=0.14,
         droop=0.22,
         hand_scale=1.55,
     )
+    aim_hold(root, "ferryman", (0, 0, 1), across=CROOK)
 
     head = core.empty("head", root, location=(0, -forward, NECK_HEIGHT))
-    _heads(head, alt, forward)
-    _mantles(root, alt)
+    _heads(head, cloth_mat, forward)
+    _mantles(root)
 
     return root
+
+
+def _hitched(robe):
+    """Lifts the hem at the front of the pole side (`HITCH`), in the rest
+    shape and every shape key alike, so the game's sway keeps it."""
+
+    vertices = robe.data.vertices
+    hem = min(vertex.co.z for vertex in vertices)
+    moves = []
+
+    for vertex in vertices:
+        _, _, middle = _body(vertex.co.z)
+        angle = math.atan2(vertex.co.y - middle, vertex.co.x)
+        turn = (angle - HITCH_ANGLE + math.pi) % math.tau - math.pi
+        reach = max(0.0, 1 - (vertex.co.z - hem) / HITCH_REACH)
+        moves.append(HITCH * math.exp(-((turn / 0.9) ** 2)) * reach**1.3)
+
+    for vertex, lift in zip(vertices, moves):
+        vertex.co.z += lift
+
+    if robe.data.shape_keys:
+        for block in robe.data.shape_keys.key_blocks:
+            for point, lift in zip(block.data, moves):
+                point.co.z += lift
+
+    robe.data.update()
+
+    return robe
 
 
 def _ease(value):
@@ -170,7 +216,7 @@ def _cowl(index, mat, forward, look):
 
     Each ring of it spans from the `bib` line under the jaw to the `crest`
     line over the crown, so the first ring is the opening and the last is
-    the hem. Returns the cowl, the darkness that fills it and its rim.
+    the hem. Returns the cowl and the darkness that fills it.
     """
 
     crest = core.bezier([(wide, reach - forward, height) for wide, reach, height in look["crest"]], samples=6)
@@ -243,10 +289,10 @@ def _cowl(index, mat, forward, look):
         cap_end=True,
     )
 
-    return core.shade_smooth(hood), void, [ring(0, around) for around in arounds]
+    return core.shade_smooth(hood), void
 
 
-def _heads(head, alt, forward):
+def _heads(head, mat, forward):
     """Three cowls. Each is filled with darkness, and none has a face."""
 
     offset = Vector(head.location)
@@ -263,8 +309,8 @@ def _heads(head, alt, forward):
         # A deep, blunt cowl, heavy on the shoulders.
         dict(
             crest=[
-                (0.105, -0.36, 1.94),
-                (0.18, -0.22, 2.07),
+                (0.11, -0.43, 1.91),
+                (0.18, -0.25, 2.07),
                 (0.21, -0.04, 2.09),
                 (0.22, 0.13, 2.01),
                 (0.245, 0.22, 1.88),
@@ -282,8 +328,8 @@ def _heads(head, alt, forward):
         # A narrower cowl whose long peak has fallen down its back.
         dict(
             crest=[
-                (0.1, -0.34, 1.95),
-                (0.17, -0.22, 2.08),
+                (0.105, -0.41, 1.92),
+                (0.17, -0.25, 2.08),
                 (0.19, -0.05, 2.15),
                 (0.205, 0.15, 2.19),
                 (0.23, 0.245, 1.96),
@@ -298,11 +344,10 @@ def _heads(head, alt, forward):
             tatter=0.12,
             fold=0.04,
         ),
-        # A broad cowl whose brow hangs over the opening like a storm flap,
-        # with a string of the fares it took.
+        # A broad cowl whose brow hangs over the opening like a storm flap.
         dict(
             crest=[
-                (0.135, -0.46, 1.86),
+                (0.135, -0.5, 1.84),
                 (0.195, -0.3, 2.02),
                 (0.22, -0.08, 2.06),
                 (0.23, 0.13, 2.0),
@@ -322,19 +367,16 @@ def _heads(head, alt, forward):
 
     for index, look in enumerate(looks):
         group = core.empty(f"head_{index}", head)
-        hood, void, rim = _cowl(index, alt, forward, look)
+        hood, void = _cowl(index, mat, forward, look)
 
         if index == 1:
-            hood = core.join([hood, _fallen_peak(alt, forward)], hood.name)
+            hood = core.join([hood, _fallen_peak(mat, forward)], hood.name)
 
         place(finish(hood, seed=index), group)
         place(void, group)
 
-        if index == 2:
-            place(_fares(rim[COLUMNS - 9]), group)
 
-
-def _fallen_peak(alt, forward):
+def _fallen_peak(mat, forward):
     """The long peak of a hood, fallen off the crown and lying down the back
     of its cape, on the pole side so that it stays clear of the mantle."""
 
@@ -357,35 +399,15 @@ def _fallen_peak(alt, forward):
 
         return 0.004 + 0.05 * (1 - share) ** 1.2 + 0.013 * math.exp(-(((share - 0.88) / 0.035) ** 2))
 
-    return core.tube("fallen_peak", path, girth, alt, sides=10)
+    return core.tube("fallen_peak", path, girth, mat, sides=10)
 
 
-def _fares(top):
-    """A string of coins hung from one corner of a brow: the fares taken."""
-
-    cord = core.tube("fare_cord", [top, top + Vector((0, 0, -0.2))], 0.003, core.material("rope"), sides=4)
-    coins = []
-
-    for fare, (drop, turn) in enumerate(((0.085, 0.3), (0.14, -0.5), (0.2, 0.1))):
-        coin = core.revolve(
-            f"fare_{fare}",
-            [(0.0, 0.004), (0.021, 0.004), (0.026, 0.0), (0.021, -0.004), (0.0, -0.004)],
-            core.material("gold"),
-            segments=14,
-        )
-        coin.location = top + Vector((0, 0, -drop))
-        coin.rotation_euler = (math.pi / 2, 0, turn)
-        coins.append(coin)
-
-    return finish(core.join([cord] + coins, "fares"), wear_boost=1.6)
-
-
-def _mantles(root, alt):
+def _mantles(root):
     """What a ferryman carries on one shoulder: always the off side, so the
     pole arm stays clear."""
 
     _rope_coil(core.empty("mantle_0", root))
-    _half_cape(core.empty("mantle_1", root), alt)
+    _half_cape(core.empty("mantle_1", root), core.material("rope"))
     _net(core.empty("mantle_2", root))
 
 
@@ -394,7 +416,7 @@ def _rope_coil(group):
     fast on the chest with its end left hanging."""
 
     rope = core.material("rope")
-    thickness = 0.02
+    thickness = 0.03
     pitch = thickness * 1.9
     steps = 56
     fast = math.radians(-51)
@@ -419,8 +441,9 @@ def _rope_coil(group):
 
         return here, tangent, across, across.cross(tangent)
 
-    # Nine turns of the line, heaped four, three and two.
-    lay = [(-1.5, 0.0), (-0.5, 0.0), (0.5, 0.0), (1.5, 0.0), (-1.0, 0.87), (0.0, 0.87), (1.0, 0.87), (-0.5, 1.73), (0.5, 1.73)]
+    # Six fat turns of the line, heaped three, two and one: one mass at a
+    # phone's size, not a hatch of strands.
+    lay = [(-1.0, 0.0), (0.0, 0.0), (1.0, 0.0), (-0.5, 0.87), (0.5, 0.87), (0.0, 1.73)]
     parts = []
 
     for turn, (shift, lift) in enumerate(lay):
@@ -434,7 +457,7 @@ def _rope_coil(group):
 
             path.append(here + across * ((shift + wander) * pitch) + out * ((lift + rise) * pitch + thickness))
 
-        parts.append(core.tube(f"coil_{turn}", path, thickness, rope, sides=7, cap=False))
+        parts.append(core.tube(f"coil_{turn}", path, thickness, rope, sides=8, cap=False))
 
     # The hitch that holds the turns together, where they begin and end.
     here, tangent, across, out = frame(0)
@@ -470,9 +493,10 @@ def _rope_coil(group):
     finish(core.shade_smooth(coil), wear_boost=1.4, seed=2)
 
 
-def _half_cape(group, alt):
-    """A tarred cape over the off shoulder: stiff, creased and cut on the
-    slant, held by a line around the body."""
+def _half_cape(group, mat):
+    """A cape of old sailcloth over the off shoulder: stiff, creased and cut
+    on the slant, held by a line around the body. It prints pale, like the
+    rope, so the load on that shoulder is one family whatever it is."""
 
     start, end = math.radians(-64), math.radians(100)
     top = 1.745
@@ -505,11 +529,11 @@ def _half_cape(group, alt):
 
         grid.append(line)
 
-    cape = core.loft("half_cape", grid, alt, closed=False)
+    cape = core.loft("half_cape", grid, mat, closed=False)
 
     # A bound edge, which is what makes it read as cut cloth and not a shell.
     border = [line[0] for line in grid] + grid[-1][1:] + [line[-1] for line in reversed(grid[:-1])]
-    welt = core.tube("half_cape_welt", border, 0.009, alt, sides=6)
+    welt = core.tube("half_cape_welt", border, 0.009, mat, sides=6)
 
     cape = core.join([cape, welt], "half_cape")
     cape.parent = group
@@ -529,57 +553,62 @@ def _half_cape(group, alt):
 
 
 def _net(group):
-    """A net thrown over the off shoulder, weighted with floats."""
+    """A net thrown over the off shoulder, weighted with floats: a coarse
+    mesh of thick cord, a hand's width to a cell, so it reads as a net at a
+    phone's size rather than as a grey film."""
 
     rope = core.material("rope")
     start, end = math.radians(-66), math.radians(150)
     top = 1.73
-    cells = 18
-    rows = 9
+    cells = 10
+    rows = 5
     strands = []
     floats = []
 
     def knot(column, row):
-        """A knot of the net, counted across and down. The hem sags under
-        each float and rises between them."""
+        """A knot of the net, counted across and down. The foot sags between
+        the floats and is drawn up at each."""
 
         along = column / cells
-        hem = 1.4 - 0.24 * math.sin(along * math.pi) ** 0.7 - 0.02 * math.cos(column * math.pi)
+        hem = 1.32 - 0.24 * math.sin(along * math.pi) ** 0.7 - 0.05 * abs(math.sin(along * cells * math.pi / 2))
         height = top - (top - hem) * row / rows
 
-        return _over_shoulder(start + (end - start) * along, height, 0.007 + 0.04 * _ease((1.42 - height) / 0.25))
+        return _over_shoulder(start + (end - start) * along, height, 0.012 + 0.05 * _ease((1.42 - height) / 0.25))
 
-    # Two sets of strands cross on the slant to make the mesh.
+    def strand(points, radius, name):
+        path = core.bezier(points, samples=4)
+
+        return core.tube(name, path, radius, rope, sides=6, cap=False)
+
+    # Two sets of cords cross on the slant to make the mesh.
     for lean in (-1, 1):
-        for strand in range(-rows, cells + 1):
+        for start_column in range(-rows, cells + 1):
             path = []
 
             for row in range(rows + 1):
-                column = strand + row if lean > 0 else strand + rows - row
+                column = start_column + row if lean > 0 else start_column + rows - row
 
                 if 0 <= column <= cells:
                     path.append(knot(column, row))
 
             if len(path) > 1:
-                strands.append(core.tube(f"net_{lean}_{strand}", path, 0.0045, rope, sides=4, cap=False))
+                strands.append(strand(path, 0.011, f"net_{lean}_{start_column}"))
 
-    for line, row in enumerate((0, rows)):
-        path = [knot(column / 2, row) for column in range(cells * 2 + 1)]
-
-        strands.append(core.tube(f"net_line_{line}", path, 0.009, rope, sides=5))
+    for line, (row, radius) in enumerate(((0, 0.014), (rows, 0.017))):
+        strands.append(strand([knot(column / 2, row) for column in range(cells * 2 + 1)], radius, f"net_line_{line}"))
 
     mesh = core.join(strands, "net")
     mesh.parent = group
-    finish(mesh, wear_boost=1.5)
+    finish(core.shade_smooth(mesh), wear_boost=1.5)
 
     for column in range(0, cells + 1, 2):
         cork = core.revolve(
             f"float_{column}",
-            [(0.0, 0.034), (0.018, 0.03), (0.034, 0.009), (0.034, -0.009), (0.018, -0.03), (0.0, -0.034)],
-            core.material("wood"),
+            [(0.0, 0.05), (0.028, 0.044), (0.048, 0.014), (0.048, -0.014), (0.028, -0.044), (0.0, -0.05)],
+            rope,
             segments=10,
         )
-        cork.location = knot(column, rows) + Vector((0, 0, -0.034))
+        cork.location = knot(column, rows) + Vector((0, 0, -0.05))
         floats.append(cork)
 
     corks = core.join(floats, "net_floats")

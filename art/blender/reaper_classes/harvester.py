@@ -1,311 +1,431 @@
 """The harvester: the field hand of death.
 
-Silhouette: a wide hat on a tall, narrow body, with a scythe longer than the
-figure. The outline reads as a "T" crossed by a long diagonal.
+Silhouette: a wide hat on a stooped body, the scythe's crescent standing
+over the brim. Narrow shoulders slope away under the brim, which sits almost
+on them, and the robe spreads below to a heavy hem: the shape of a man bent
+by a lifetime of the same work. The head is thrust out ahead of a rounded
+back. The one asymmetry is the brim, broken down on the left.
 """
 
 import math
-import random
 
 from mathutils import Vector, noise
 
 from lib import cloth, core
-from lib.figure import HEAD_HEIGHT, NECK_HEIGHT, SHOULDER_HEIGHT, arms, eyes, face_wrap, finish, void_head
+from lib.figure import VOID_KEEP, aim_hold, arms, finish, idle_path
 
-HUNCH = 0.06
+# A stooped labourer: the shoulders sit low and are carried ahead of the
+# hips, and the head lower still and further out, on a craned neck.
+SHOULDER = 1.52
+NECK = 1.56
+HEAD = NECK + 0.15
+STOOP = 0.18
+HEAD_FORWARD = 0.32
+
+# The rounded back: how far it rises behind the shoulder blades, and where.
+HUMP = 0.1
+HUMP_HEIGHT = 1.4
+
+# Narrow, sloping shoulders over a hem that spreads wide: weight settling.
+ROBE_TOP = SHOULDER + 0.07
+ROBE_HEM = 0.05
+ROBE_PROFILE = ((0.0, 0.1, 0.1), (0.06, 0.185, 0.13), (0.2, 0.2, 0.15), (0.5, 0.25, 0.19), (1.0, 0.4, 0.33))
+
+# The hat sits low, its brim just over the eyes.
+BRIM = HEAD + 0.065
+CROWN = 0.145
+
+# The dent: the brim on the figure's left (+X) is broken down in a sharp
+# fold, `DENT_SPREAD` radians either side of the crease.
+DENT_SPREAD = 0.55
+
+# Where the scythe is held in the idle stance: the harvester leans on it
+# like a staff, its butt just off the floor at his right side and the snath
+# leaning back past the brim (0.66 m from the hat's middle where it crosses,
+# outside the widest brim), so the crescent stands over the hat.
+GRIP = Vector((-0.56, -0.3, 1.04))
+SNATH = (-0.08, 0.33, 0.94)
+BLADE = (1.0, 0.1, 0.0)
+HAND_SCALE = 1.55
 
 
 def build():
-    """The field hand of death: a wide hat on a tall, narrow body."""
+    """The field hand of death: a wide hat on a body bent by work."""
 
     root = core.empty("reaper")
     cloth_mat = core.material("cloth")
-    alt = core.material("cloth_alt")
-    forward = HUNCH
 
-    # A long, narrow coat that barely widens until it frays.
+    # A heavy smock that spreads to the floor, torn into a few broad tongues.
     hems = [
-        dict(tatter=0.34, tears=8, slits=12, fold_depth=0.15, seed=11),
-        dict(tatter=0.5, tears=13, slits=18, fold_depth=0.18, seed=12),
-        dict(tatter=0.2, tears=5, slits=6, fold_depth=0.12, seed=13),
-        dict(tatter=0.42, tears=7, slits=12, fold_depth=0.2, seed=14, lean=0.18),
+        dict(folds=(5, 9, 14), fold_depth=0.16, tatter=0.3, tears=7, slits=4, seed=11),
+        dict(folds=(6, 11, 17), fold_depth=0.2, tatter=0.42, tears=9, slits=6, seed=12),
+        dict(folds=(4, 8, 13), fold_depth=0.13, tatter=0.18, tears=5, slits=2, seed=13),
+        dict(folds=(5, 10, 15), fold_depth=0.18, tatter=0.36, tears=6, slits=4, seed=14, lean=0.12),
     ]
 
     for index, hem in enumerate(hems):
-        finish(
-            cloth.robe(
-                f"robe_{index}",
-                cloth_mat,
-                root,
-                top=SHOULDER_HEIGHT + 0.06,
-                hem=0.06,
-                profile=((0.0, 0.11, 0.1), (0.05, 0.2, 0.125), (0.14, 0.215, 0.13), (0.42, 0.17, 0.14), (1.0, 0.3, 0.27)),
-                hunch=forward,
-                **hem,
-            ),
-            seed=index,
+        robe = cloth.robe(
+            f"robe_{index}",
+            cloth_mat,
+            root,
+            top=ROBE_TOP,
+            hem=ROBE_HEM,
+            profile=ROBE_PROFILE,
+            hunch=STOOP,
+            rings=40,
+            segments=96,
+            **hem,
         )
+        finish(_hunched(robe), seed=index)
 
+    # Leaning on the scythe at his side; the other hand hangs heavy and open.
     arms(
         root,
-        weapon_side_path=[(-0.2, -forward, SHOULDER_HEIGHT - 0.03), (-0.34, -forward - 0.04, 1.36), (-0.33, -forward - 0.27, 1.3)],
-        off_side_path=[(0.2, -forward, SHOULDER_HEIGHT - 0.03), (0.29, -forward + 0.02, 1.28), (0.31, -forward - 0.05, 0.98)],
+        weapon_side_path=idle_path("harvester", "r", (-0.18, -STOOP, SHOULDER - 0.02), (-0.4, -STOOP + 0.06, 1.3), GRIP, HAND_SCALE),
+        off_side_path=[(0.18, -STOOP, SHOULDER - 0.02), (0.27, -STOOP + 0.03, 1.2), (0.3, -0.17, 0.9)],
+        sleeve_shoulder=0.072,
+        sleeve_cuff=0.115,
+        droop=0.16,
+        off_curl=0.35,
+        hand_scale=HAND_SCALE,
+        tatter=0.3,
     )
+    aim_hold(root, "harvester", SNATH, across=BLADE)
 
-    head = core.empty("head", root, location=(0, -forward, NECK_HEIGHT))
-    _heads(head, alt, forward)
-    _mantles(root, alt)
+    head = core.empty("head", root, location=(0, -STOOP - 0.02, NECK))
+    _heads(head)
+    _mantles(root)
 
     return root
 
 
-def _heads(head, alt, forward):
-    """Three hats. The brim hides the face in every one."""
+def _spine(z):
+    """How far forward the middle of the body is at height `z`: the robe's
+    own hunch (`cloth.robe`), carried from the hips up to the shoulders."""
+
+    reach = max(0.0, (ROBE_TOP - z) / (ROBE_TOP - ROBE_HEM))
+
+    return STOOP * math.sin(min(reach * 2.2, 1.0) * math.pi * 0.5) - STOOP
 
 
+def _hump(co):
+    """How far the back rises at `co`: most behind the shoulder blades, and
+    nothing at the front or below the waist."""
+
+    rise = math.exp(-(((co.z - HUMP_HEIGHT) / 0.16) ** 2))
+    behind = max(0.0, min(1.0, (co.y - _spine(co.z)) / 0.14))
+
+    return Vector((0.0, HUMP * rise * behind**1.5, 0.015 * rise * behind))
+
+
+def _hunched(obj):
+    """Rounds the back of a robe or mantle hung with `hunch=STOOP`, in its
+    rest shape and every shape key alike, so the game's sway and billow keep
+    the hump."""
+
+    moves = [_hump(vertex.co) for vertex in obj.data.vertices]
+
+    for vertex, move in zip(obj.data.vertices, moves):
+        vertex.co += move
+
+    if obj.data.shape_keys:
+        for block in obj.data.shape_keys.key_blocks:
+            for point, move in zip(block.data, moves):
+                point.co += move
+
+    obj.data.update()
+
+    return obj
+
+
+def _hat(name, profile, mat, tip, droop, dent, pinch=0.0, crease=0.0, seed=0.0):
+    """A wide hat revolved from `profile` (radius, height above the brim
+    line) round the head. The brim is tipped down over the eyes by `tip`,
+    sags at the sides by `droop`, and on the left is broken down by `dent` in
+    one sharp fold, the crown crushed in above it. `pinch` squeezes the crown
+    fore and aft, and `crease` presses a groove down its top from front to
+    back."""
+
+    rim = max(radius for radius, _ in profile)
+
+    def shape(angle, radius, height):
+        edge = max(0.0, (radius - CROWN) / (rim - CROWN))
+        crown = max(0.0, 1 - radius / CROWN) * max(0.0, height / 0.2)
+        # The fold: a V along the crease at +X, deepest at the rim.
+        off = abs((angle + math.pi) % math.tau - math.pi)
+        fold = max(0.0, 1 - off / DENT_SPREAD)
+        wobble = noise.noise(Vector((math.cos(angle) * 1.4, math.sin(angle) * 1.4, seed)))
+        front = -math.sin(angle)
+
+        across = radius * math.cos(angle)
+        radius *= 1 + 0.035 * edge * wobble - 0.06 * edge * fold - 0.22 * crown * fold - pinch * crown * math.sin(angle) ** 2
+        height -= crease * crown * math.exp(-((across / 0.035) ** 2))
+        height -= tip * radius * front
+        height -= droop * edge**2 * (0.6 + 0.4 * math.cos(2 * angle))
+        height -= dent * edge**1.2 * fold**1.3
+        height += 0.012 * edge * wobble
+
+        return radius, BRIM + height
+
+    hat = core.revolve(name, profile, mat, segments=96, shape=shape)
+    hat.location = (0, -HEAD_FORWARD, 0)
+
+    return core.shade_smooth(hat, angle=50)
+
+
+def _neck(name, mat):
+    """Cloth wound up a craned neck, from the collar to under the chin, each
+    turn lower at the front, square to the neck."""
+
+    turns = []
+
+    for turn in range(4):
+        share = turn / 3
+        centre_y = -STOOP + (-HEAD_FORWARD + 0.03 + STOOP) * share
+        height = ROBE_TOP - 0.03 + (HEAD - 0.085 - ROBE_TOP + 0.03) * share
+        radius = 0.15 - 0.045 * share
+        path = []
+
+        for step in range(33):
+            angle = math.tau * step / 32
+            path.append((math.cos(angle) * radius * 1.05, centre_y + math.sin(angle) * radius, height + 0.45 * math.sin(angle) * radius))
+
+        turns.append(core.tube(f"{name}_{turn}", path, 0.03 - 0.004 * share, mat, sides=10, cap=False, flatten=0.45))
+
+    return core.shade_smooth(core.join(turns, name))
+
+
+def _heads(head):
+    """Three hats. The brim hides the face in every one, and every one is
+    broken down on the left."""
+
+    hat_mat = core.material("cloth_alt")
+    band_mat = core.material("cloth")
     offset = Vector(head.location)
 
-    def place(obj):
+    def place(obj, group):
+        obj.parent = group
         obj.location = Vector(obj.location) - offset
 
         return obj
 
-    def ragged(angle, radius, height, variant, seed):
-        """Moves a point of the hat's profile: the brim sags, tips forward,
-        carries subtle weathered crown creases, and frays at the outer rim."""
-
-        edge = max(0.0, (radius - 0.16) / 0.36)
-        crown_pinch = max(0.0, 1.0 - radius / 0.15) * max(0.0, (height - brim - 0.05) / 0.18)
-        wobble = noise.noise(Vector((math.cos(angle) * 1.7, math.sin(angle) * 1.7, seed)))
-        nick = noise.noise(Vector((math.cos(angle) * 6.0, math.sin(angle) * 6.0, seed + 4)))
-        sag = variant["droop"] * edge**2 * (0.7 + 0.5 * math.cos(angle * 2 + variant["twist"]))
-        tip = variant["tip"] * radius * -math.sin(angle)
-        crease = -0.016 * crown_pinch * (math.sin(angle) ** 2)
-
-        return (
-            radius * (1 + edge * (0.065 * wobble - variant["tear"] * max(0.0, nick) ** 1.5)),
-            height - sag - tip + crease + 0.018 * edge * wobble,
-        )
-
-    brim = HEAD_HEIGHT + 0.075
     variants = [
-        # A flat, wide brim over a weathered creased crown, tipped down over the eyes.
+        # A flat, wide brim over a low round crown.
         dict(
-            profile=[
-                (0.0, 0.145),
-                (0.075, 0.148),
-                (0.112, 0.132),
-                (0.132, 0.092),
-                (0.140, 0.024),
-                (0.21, 0.011),
-                (0.54, 0.018),
-                (0.548, 0.008),
-                (0.542, -0.002),
-                (0.21, -0.008),
-                (0.1, -0.008),
-            ],
-            droop=0.075,
-            tear=0.22,
-            tip=0.16,
-            twist=0.0,
+            profile=[(0.0, 0.13), (0.08, 0.128), (0.12, 0.11), (0.138, 0.06), (CROWN, 0.012), (0.22, 0.004), (0.57, -0.008), (0.592, -0.026), (0.575, -0.046), (0.22, -0.018), (0.1, -0.014)],
+            tip=0.17,
+            droop=0.05,
+            dent=0.17,
+            band=True,
         ),
-        # A tall, crushed gothic crown and a brim that sags at the sides.
+        # A battered felt crown, creased and pinched, the brim sagging at
+        # the sides.
         dict(
-            profile=[
-                (0.0, 0.34),
-                (0.055, 0.33),
-                (0.095, 0.24),
-                (0.125, 0.12),
-                (0.135, 0.024),
-                (0.20, 0.010),
-                (0.46, 0.014),
-                (0.468, 0.004),
-                (0.462, -0.004),
-                (0.20, -0.008),
-                (0.1, -0.008),
-            ],
-            droop=0.2,
-            tear=0.3,
+            profile=[(0.0, 0.215), (0.06, 0.21), (0.115, 0.17), (0.138, 0.09), (CROWN, 0.012), (0.21, 0.004), (0.52, -0.006), (0.542, -0.024), (0.525, -0.042), (0.21, -0.018), (0.1, -0.014)],
+            tip=0.15,
+            droop=0.13,
+            dent=0.15,
+            pinch=0.22,
+            crease=0.06,
+            band=True,
+        ),
+        # A shallow cone, wider than the shoulders.
+        dict(
+            profile=[(0.0, 0.215), (0.04, 0.205), (0.3, 0.085), (0.6, -0.05), (0.618, -0.064), (0.602, -0.078), (0.3, 0.055), (0.12, 0.1)],
             tip=0.12,
-            twist=math.pi,
-        ),
-        # A shallow woven cone, wider than the shoulders.
-        dict(
-            profile=[(0.0, 0.195), (0.04, 0.185), (0.3, 0.072), (0.6, -0.048), (0.606, -0.056), (0.60, -0.064), (0.3, 0.045), (0.1, 0.02)],
             droop=0.0,
-            tear=0.08,
-            tip=0.1,
-            twist=0.0,
+            dent=0.15,
+            band=False,
         ),
     ]
 
     for index, variant in enumerate(variants):
         group = core.empty(f"head_{index}", head)
-        hat = core.revolve(
+        hat = _hat(
             f"hat_{index}",
-            [(radius, brim + height) for radius, height in variant["profile"]],
-            alt,
-            None,
-            segments=96,
-            shape=lambda angle, radius, height, v=variant, s=index: ragged(angle, radius, height, v, s * 3.1),
+            variant["profile"],
+            hat_mat,
+            variant["tip"],
+            variant["droop"],
+            variant["dent"],
+            variant.get("pinch", 0.0),
+            variant.get("crease", 0.0),
+            seed=index * 3.1,
         )
-        hat.location = (0, -forward, 0)
-        hat.parent = group
-        place(finish(core.shade_smooth(hat, angle=55), seed=index))
+        place(finish(hat, seed=index), group)
 
-        if index == 2:
-            # Ribs under the cone, so it reads as woven rather than turned.
-            ribs = []
-
-            for rib in range(18):
-                angle = math.tau * rib / 18
-                points = []
-
-                for radius, height in ((0.05, 0.175), (0.3, 0.062), (0.595, -0.052)):
-                    r, z = ragged(angle, radius, brim + height, variant, index * 3.1)
-                    points.append((math.cos(angle) * r, math.sin(angle) * r - forward, z + 0.004))
-
-                ribs.append(core.tube(f"rib_{rib}", points, 0.006, core.material("wood"), sides=6))
-
-            ribbing = core.join(ribs, "ribs")
-            ribbing.parent = group
-            place(finish(ribbing))
-        else:
+        if variant["band"]:
             band = core.revolve(
                 f"band_{index}",
-                [(0.14, brim + 0.078), (0.153, brim + 0.068), (0.155, brim + 0.048), (0.152, brim + 0.03), (0.142, brim + 0.022)],
-                core.material("rope"),
-                None,
+                [(CROWN - 0.004, 0.072), (CROWN + 0.01, 0.062), (CROWN + 0.012, 0.04), (CROWN + 0.008, 0.02), (CROWN - 0.004, 0.014)],
+                band_mat,
                 segments=48,
-                shape=lambda angle, radius, height, v=variant: (radius, height - v["tip"] * radius * -math.sin(angle)),
+                shape=lambda angle, radius, height, tip=variant["tip"]: (radius, BRIM + height + tip * radius * math.sin(angle)),
             )
-            band.location = (0, -forward, 0)
-            band.parent = group
-            place(finish(band))
+            band.location = (0, -HEAD_FORWARD, 0)
+            place(finish(band, seed=index), group)
 
-        place(void_head(group, forward, f"void_{index}"))
-        place(face_wrap(group, forward, f"wrap_{index}", seed=index))
-        place(eyes(group, forward, name=f"eyes_{index}"))
-
-
-def _mantles(root, alt):
-    """What sits on a harvester's shoulders."""
+        # The darkness under the brim, where the face would be.
+        void = core.sculpt(f"void_{index}", [("sphere", (0, -HEAD_FORWARD - 0.012, HEAD), (0.105, 0.11, 0.125))], core.material("void"), voxel=0.012)
+        place(core.decimate(void, VOID_KEEP), group)
+        place(finish(_neck(f"wrap_{index}", band_mat), seed=index), group)
 
 
-    forward = HUNCH
+def _robe_radii(z):
+    """The robe's half-width and half-depth at height `z`, blended along
+    `ROBE_PROFILE` as `cloth.robe` blends it."""
 
-    # A draped, pleated capelet over both shoulders, frayed into ragged points.
-    capelet = cloth.robe(
-        "capelet",
-        alt,
-        None,
-        top=NECK_HEIGHT - 0.025,
-        hem=SHOULDER_HEIGHT - 0.42,
-        profile=((0.0, 0.105, 0.105), (0.18, 0.24, 0.145), (0.52, 0.295, 0.18), (1.0, 0.34, 0.22)),
-        folds=(5, 9, 15),
-        fold_depth=0.14,
-        tatter=0.52,
-        tears=9,
-        slits=4,
-        seed=21,
-        rings=24,
-        segments=112,
-    )
-    capelet.shape_key_clear()
-    capelet.location = (0, -forward, 0)
-    group = core.empty("mantle_0", root)
-    capelet.parent = group
-    finish(capelet, seed=3)
+    reach = max(0.0, min(1.0, (ROBE_TOP - z) / (ROBE_TOP - ROBE_HEM)))
 
-    # A sheaf of cut stalks bound across the back, standing over one shoulder.
-    group = core.empty("mantle_1", root)
-    generator = random.Random(5)
-    stalks = []
+    for (d0, w0, t0), (d1, w1, t1) in zip(ROBE_PROFILE, ROBE_PROFILE[1:]):
+        if reach <= d1:
+            blend = (reach - d0) / max(d1 - d0, 1e-6)
+            blend = blend * blend * (3 - 2 * blend)
 
-    for stalk in range(46):
-        spread = generator.uniform(-1, 1)
-        lift = generator.uniform(-1, 1)
-        start = Vector((0.22 + spread * 0.035, 0.13 + lift * 0.025, 1.12 + generator.uniform(-0.05, 0.05)))
-        end = Vector((-0.34 + spread * 0.16, 0.12 + lift * 0.09 - forward, 2.08 + generator.uniform(-0.14, 0.16)))
+            return w0 + (w1 - w0) * blend, t0 + (t1 - t0) * blend
 
-        stalks.append(
-            core.tube(
-                f"stalk_{stalk}",
-                [start, start.lerp(end, 0.5) + Vector((0, 0.035, 0)), end],
-                # Each stalk ends in a heavy ear.
-                lambda t: 0.0042 + 0.011 * max(0.0, 1 - abs(t - 0.93) / 0.07) ** 2,
-                core.material("rope"),
-                sides=5,
-            )
-        )
+    return ROBE_PROFILE[-1][1:]
 
-    sheaf = core.join(stalks, "sheaf")
-    sheaf.parent = group
-    finish(sheaf, wear_boost=1.5)
 
-    strap = core.tube(
-        "strap",
-        core.bezier(
-            [
-                (0.2, -0.11 - forward, 1.62),
-                (0.05, -0.16 - forward * 0.6, 1.47),
-                (-0.17, -0.15, 1.27),
-                (-0.2, 0.06, 1.24),
-                (0.0, 0.16, 1.45),
-                (0.2, 0.1 - forward, 1.66),
-                (0.2, -0.11 - forward, 1.62),
-            ],
-            samples=8,
-        ),
-        0.019,
-        core.material("rope"),
-        group,
-        sides=8,
-        cap=False,
-    )
-    finish(strap)
+def _back(z, x):
+    """How far back the robe's back is at height `z`, `x` across: on the
+    stoop and over the hump, which is what anything laid down the back
+    lies on."""
 
-    # A wound collar that swallows the neck, with two long tails down the
-    # back that the game lets trail.
+    width, depth = _robe_radii(z)
+    across = min(abs(x) / width, 0.95)
+    y = _spine(z) + depth * math.sqrt(1 - across * across)
+
+    return y + _hump(Vector((x, y, z))).y
+
+
+def _hood_down(name, mat):
+    """A hood thrown back: its rim a soft roll round the back of the neck,
+    and the bag of it lying on the hump, drawn down to its point."""
+
+    roll = []
+
+    for step in range(25):
+        angle = math.radians(-20 + 220 * step / 24)
+        roll.append((math.cos(angle) * 0.175, -STOOP + 0.005 + math.sin(angle) * 0.155, ROBE_TOP - 0.005 + 0.025 * math.sin(angle)))
+
+    rim = core.tube(f"{name}_rim", roll, lambda t: 0.03 + 0.018 * math.sin(math.pi * t), mat, sides=10, flatten=0.75)
+    top = ROBE_TOP - 0.03
+    length = 0.42
+    rings = []
+
+    for row in range(13):
+        share = row / 12
+        z = top - length * share
+        half = 0.165 * (1 - share) ** 0.8 + 0.01
+        bulge = 0.07 * math.sin(math.pi * min(1.0, 0.15 + share * 0.95))
+        # Round the outside, from one edge to the other, then back along
+        # the robe on the inside.
+        across = [-1 + 2 * column / 16 for column in range(17)]
+        ring = [(u * half, _back(z, u * half) + 0.025 + bulge * math.sqrt(max(0.0, 1 - u * u)), z) for u in across]
+        ring += [(u * half, _back(z, u * half) + 0.02, z) for u in reversed(across[1:-1])]
+        rings.append(ring)
+
+    bag = core.loft(f"{name}_bag", rings, mat, cap_start=True, cap_end=True)
+
+    return core.shade_smooth(core.join([rim, bag], name), angle=50)
+
+
+def _scarf_end(name, mat, x, width, drop, seed=0.0, rows=16, columns=4):
+    """One end of a scarf, laid down the back over the hump from under the
+    wound collar, widening a little and frayed square at its foot."""
+
+    top = ROBE_TOP - 0.03
+    # Each strand of the fringe ends at its own length.
+    fray = [0.0, 0.1, 0.03, 0.13, 0.05]
+    rings = []
+
+    for row in range(rows + 1):
+        share = row / rows
+        line = []
+
+        for column in range(columns + 1):
+            across = column / columns - 0.5
+            px = x + across * width * (1 + 0.3 * share) + 0.02 * math.sin(share * 4 + seed)
+            z = top - drop * share * (1 - fray[column % len(fray)] * share**6)
+            line.append((px, _back(z, px) + 0.03 + 0.01 * math.sin(across * math.tau + share * 5), z))
+
+        rings.append(line)
+
+    return core.shade_smooth(core.loft(name, rings, mat, closed=False), angle=50)
+
+
+def _straw_cape(name, mat, tongues=9, top=ROBE_TOP + 0.01, hem=1.02, rings=14, segments=90):
+    """A farmer's straw rain cape: bundles of straw tied at the neck and
+    falling over the shoulders in `tongues` big points, each bundle a ridge
+    that runs down to its point. Hung on the stoop, like the robe."""
+
+    length = top - hem
+    # Each tongue's point, a little irregular, so it reads as straw rather
+    # than as a turned edge.
+    phase = 0.4
+    grid = []
+
+    for ring in range(rings + 1):
+        depth = ring / rings
+        loop = []
+
+        for segment in range(segments):
+            angle = math.tau * segment / segments
+            bundle = tongues * angle / 2 + phase
+            notch = abs(math.sin(bundle)) ** 0.75
+            reach = depth * (1 - 0.48 * notch * (0.85 + 0.15 * math.sin(angle * 2 + 1.3)))
+            share = reach * reach * (3 - 2 * reach)
+            width = 0.115 + (0.37 - 0.115) * min(1.0, share * 1.35)
+            thick = 0.115 + (0.3 - 0.115) * min(1.0, share * 1.35)
+            ridge = 1 + 0.07 * reach * math.cos(2 * bundle)
+            z = top - reach * length
+            loop.append((math.cos(angle) * width * ridge, _spine(z) + math.sin(angle) * thick * ridge, z))
+
+        grid.append(loop)
+
+    return core.shade_smooth(core.loft(name, grid, mat), angle=40)
+
+
+def _mantles(root):
+    """What sits on a harvester's shoulders. Each follows the stoop, and none
+    of them breaks the symmetry: the brim is the one thing that does."""
+
+    alt = core.material("cloth_alt")
+    cloth_mat = core.material("cloth")
+
+    # A straw rain cape in nine big tongues, laid over the hump.
+    cape = _straw_cape("straw_cape", alt)
+    cape.parent = core.empty("mantle_0", root)
+    finish(_hunched(cape), seed=3)
+
+    # A hood thrown back, which makes the stoop heavier still.
+    hood = _hood_down("hood_down", cloth_mat)
+    hood.parent = core.empty("mantle_1", root)
+    finish(hood, seed=4)
+
+    # A long scarf wound twice round the neck, its two ends hanging down
+    # the back side by side.
     group = core.empty("mantle_2", root)
     coils = []
 
-    for coil in range(4):
-        height = SHOULDER_HEIGHT - 0.01 + coil * 0.052
-        radius = 0.2 - coil * 0.02
+    for coil in range(3):
+        height = ROBE_TOP - 0.03 + coil * 0.055
+        radius = 0.2 - coil * 0.025
+        centre_y = -STOOP - coil * 0.03
         path = []
 
-        for step in range(49):
-            angle = math.tau * step / 48
-            path.append(
-                (
-                    math.cos(angle) * radius * 1.12,
-                    math.sin(angle) * radius * 0.8 - forward * (0.8 + coil * 0.07),
-                    height + 0.02 * math.sin(angle * 2 + coil * 1.7) + 0.022 * math.cos(angle),
-                )
-            )
+        for step in range(41):
+            angle = math.tau * step / 40
+            path.append((math.cos(angle) * radius * 1.1, centre_y + math.sin(angle) * radius * 0.85, height + 0.03 * math.sin(angle) + 0.012 * math.sin(angle * 2 + coil)))
 
-        coils.append(core.tube(f"coil_{coil}", path, 0.05 - coil * 0.004, alt, sides=10, cap=False, flatten=0.5))
+        coils.append(core.tube(f"coil_{coil}", path, 0.052 - coil * 0.005, alt, sides=10, cap=False, flatten=0.55))
 
-    collar = core.join(coils, "collar")
+    collar = core.join(coils, "scarf")
     collar.parent = group
     finish(core.shade_smooth(collar), seed=5)
 
-    for tail, (start, width, drop) in enumerate(((0.02, 0.16, 0.95), (-0.17, 0.11, 0.7))):
-        finish(
-            cloth.drape(
-                f"collar_tail_{tail}",
-                alt,
-                group,
-                [(start + width * step / 10, 0.13 - forward + 0.012 * math.sin(step), SHOULDER_HEIGHT + 0.02) for step in range(11)],
-                drop=drop,
-                width_gain=1.25,
-                tatter=0.5,
-                sag=0.07,
-                seed=8 + tail,
-                outward=(0, 1, 0),
-            ),
-            seed=tail,
-        )
-
-
+    for tail, side in enumerate((-1, 1)):
+        end = _scarf_end(f"scarf_tail_{tail}", alt, side * 0.075, 0.13, 0.6 - 0.05 * tail, seed=tail * 1.7)
+        end.parent = group
+        finish(end, seed=tail)
