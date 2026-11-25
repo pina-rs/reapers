@@ -150,7 +150,7 @@ blender --background --python-exit-code 1 --python art/blender/review.py -- \
 
 The first-person sheets are staged from the rig itself: `lib/review.py` reads the arms' rest place and turn, each weapon's hold, the camera's field of view and the reload and throw constants out of `crates/reapers_app/src/render/viewmodel.rs` and `arms.rs`, so they follow the game. The few numbers a pose works out inside a function (where the left hand is at the top of a reload and while a throw is held) are copied into `review.moment_stages`, which says where each comes from. If the rig's source changes shape, the review stops and names the constant it could not find.
 
-`review_check.py` checks the harness itself against the built models: every reaper imported at exactly its bind pose whatever clip the importer read first, and shown in the first key of its form's idle clip, the trail finding the off-hand flaps in thrust, slash and parry and none in idle or a walk, the first-person moments staged where the game puts them, and a face found for every variant. It prints a `CHECK` line for each and fails if any did, in about three minutes:
+`review_check.py` checks the harness itself against the built models: every reaper imported at exactly its bind pose whatever clip the importer read first, and shown in the first key of its form's idle clip, the trail's flap detector finding a drop and a jitter made on purpose and no flap in the harvester's thrust, slash, parry, idle or walk, the first-person moments staged where the game puts them, and a face found for every variant. It prints a `CHECK` line for each and fails if any did, in about three minutes:
 
 ```sh
 blender --background --python-exit-code 1 --python art/blender/review_check.py [-- --models art/build/models]
@@ -224,7 +224,7 @@ blender --background --python-exit-code 1 --python art/blender/review_trail.py -
   --class harvester --clip finisherReap --out art/build/previews/trail_harvester_finisherReap.png
 ```
 
-On a trail sheet (front, side and top), the pose at the clip's contact is solid and the ghosts before and after it run from cold to warm. The tip (orange; the point of the weapon farthest from its grip), the right wrist (cyan) and the left wrist (pink) each have a dot at every key: the model is imported at the 30 keys a second the clips are baked at and the game plays, so the gaps are the speed. A green dot is a dead stop in the middle of the clip. A red one is a flap of a joint of that arm (shoulder, elbow or wrist), found from the joint's turn rather than the path: a drop, the joint at least 25° out within the last five keys landing on its bind pose at 15° a key or faster (the snap a key pose that leaves a joint out makes), or a jitter, out by 25° and back to within a third of that inside five keys. A flap of the head or spine is printed but not drawn. A fluid arc is smooth, opens its gaps into the strike and bunches them only where it means to hold. It prints each path's length, top speed, stops and flaps, and a `FLAP` line for each flap, such as `FLAP elbow_l: drops 65° onto its bind pose in 100 ms, keys 8-11` for the harvester's thrust.
+On a trail sheet (front, side and top), the pose at the clip's contact is solid and the ghosts before and after it run from cold to warm. The tip (orange; the point of the weapon farthest from its grip), the right wrist (cyan) and the left wrist (pink) each have a dot at every key: the model is imported at the 60 keys a second the clips are baked at and the game plays (`review.CLIP_RATE`), so the gaps are the speed. A green dot is a dead stop in the middle of the clip. A red one is a flap of a joint of that arm (shoulder, elbow or wrist), found from the joint's turn rather than the path: a drop, the joint at least 25° out within the last 167 ms landing on its bind pose at 450°/s or faster (the snap a key pose that left a joint out once made), or a jitter, out by 25° and back to within a third of that inside 167 ms. A flap of the head or spine is printed but not drawn. A fluid arc is smooth, opens its gaps into the strike and bunches them only where it means to hold. It prints each path's length, top speed, stops and flaps, and a `FLAP` line for each flap, such as `FLAP elbow_l: drops 64° onto its bind pose in 133 ms, keys 8-12`, which the harvester's slash printed before a pose held what it left out.
 
 ### Budgets
 
@@ -265,7 +265,8 @@ The game assembles any genome from a class file by showing some nodes and hiding
 ```text
 reaper                      the root; an empty named "reaper"
   robe_0 .. robe_3          four hems; one is shown. Made with cloth.robe, which adds the
-                            shape keys the game animates: sway_x, sway_y, billow, gaunt, long_hem
+                            shape keys sway_x, sway_y and billow, which every clip keys, and
+                            gaunt, long_hem and the fits, which the game sets by hand
   mantle_0 .. mantle_2      three things worn on the shoulders; one is shown
   head                      an empty at the neck, so the game can turn the head
     head_0 .. head_2        three heads; one is shown. Each is an empty holding its parts
@@ -278,7 +279,16 @@ reaper                      the root; an empty named "reaper"
       wrist_l
 ```
 
-Before export, `lib/motion.py` inserts a `motion` pivot at waist height and a separate `spine` pivot for the chest, preserving rest positions. Each of the 32 states has a spirit clip and a `humanoid_` clip, for 64 clips on fifteen pivots. The exported model uses rigid parts, with overlapping sleeve sections at the elbows. The Hollow's head lantern follows its left wrist. The Mourner's concealed second arm emerges for gestures. See [the animation guide](../../docs/animations.md) for clip names, class differences and review commands.
+Before export, `lib/motion.py` inserts a `motion` pivot at waist height and a separate `spine` pivot for the chest, preserving rest positions. Each of the 32 states has a spirit clip and a `humanoid_` clip, for 64 clips on fifteen pivots. The exported model uses rigid parts, with overlapping sleeve sections at the elbows. The Hollow's head lantern follows its left wrist, and its `lantern` node swings from its handle in every clip.
+
+How a clip is authored and baked (`lib/curves.py`, `lib/combat.py`, `lib/motion.py`):
+
+- **A pose holds what it leaves out.** A `pose` names the joints it moves and every other joint holds where the keys before it left it; a `stance` is a whole pose, and a joint it leaves out goes back to its bind pose. `REST` is the empty stance every one-shot starts and ends on.
+- **A key has a manner.** `AUTO` (the default) flows through a key between its neighbours and eases to a stop where a joint turns back; `PASS` crosses it at speed, as a swing crosses its contact; `STOP` eases in and out, for a held pose or a wind-up; `over(amount, apex, settle)` carries past the key and settles back, as a blade carries through its follow-through. A manner is one for every joint or a dict by joint with `"*"` for the rest.
+- **Turns are rotation vectors**, interpolated by cubic Hermite, so a turn about one axis stays about it and velocity is continuous through every key that is not a stop.
+- **Motion travels through the body.** Each link plays its keys a little ahead of the hand: the pelvis 100 ms, the chest 75, the head 50, the shoulder 33, the elbow 17 and the wrist and weapon on the key, so a strike starts in the hips and lands in the blade. A one-shot's offsets fade to nothing at its ends, which stay on `REST`.
+- **The contact holds.** A combat clip's contact key is a `strike` and must land on the impact `motions.json` gives it; `motion.check_contact` fails the build when it does not.
+- **Clips are baked at 60 keys a second** (`motion.RATE`), every clip, as one NLA track per clip and part. The robe's `sway_x`, `sway_y` and `billow` are keyed in each clip from a damped spring the waist drags its hem with, and the Hollow's lantern from a pendulum on its handle; a one-shot's cloth settles by its end, and a loop's closes on itself. The Mourner's concealed second arm emerges for gestures. See [the animation guide](../../docs/animations.md) for clip names, class differences and review commands.
 
 The reaper driver reads `art/build/motions.json`, written from `ReaperMotion` in `reapers_rules` by `cargo xtask build-art --specs-only`. Rebuild that spec before invoking Blender directly after changing the shared animation catalogue.
 

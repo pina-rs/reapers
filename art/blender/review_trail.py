@@ -7,19 +7,20 @@ wrists take through every frame, over ghosts of the pose along the way.
 The pose at the clip's contact (its middle, when it has none) is drawn
 solid; ghosts of the poses before and after it are tinted from cold (the
 start) to warm (the end). Each path has a dot at every key of the clip, which
-is baked at 30 Hz and played by the game key to key, so the gaps between dots
-are the speed: wide gaps are fast, bunched dots are slow.
+is baked at 60 Hz (`review.CLIP_RATE`) and played by the game key to key, so
+the gaps between dots are the speed: wide gaps are fast, bunched dots are
+slow.
 
 - A green dot is a dead stop: a frame where the point all but stops in the
   middle of the clip (under a tenth of its top speed).
 - A red dot is a flap of a joint of that arm (shoulder, elbow or wrist), of
   either of two kinds:
-  - a drop: the joint was at least 25° out within the last 5 keys (167 ms)
-    and lands on its bind pose at 15° a key (450°/s) or faster: the snap a
-    key pose that leaves a joint out makes, since a joint no key names
-    falls back to its bind pose;
+  - a drop: the joint was at least 25° out within the last 167 ms and
+    lands on its bind pose at 450°/s or faster: the snap a key pose that
+    left a joint out once made, when a joint no key named fell back to its
+    bind pose;
   - a jitter: it swings out by at least 25° and back to within a third of
-    that inside 5 keys.
+    that inside 167 ms.
   The dot is on the wrist's path (and the tip's, for the right arm) at the
   key the drop lands or the jitter is furthest out. A flap of the head or
   spine is printed only.
@@ -57,14 +58,15 @@ STOP = (0.1, 0.8, 0.2)
 FLAP = (1.0, 0.05, 0.05)
 # A dead stop is slower than this share of the path's top speed.
 STOP_SHARE = 0.1
-# A flap: a joint `FLAP_DEGREES` out within `FLAP_KEYS` keys lands on its
-# bind pose (within `REST_DEGREES`) turning `SNAP_DEGREES` a key or more (a
-# drop), or turns out by `FLAP_DEGREES` and comes back to within
-# `FLAP_RETURN` of how far it went inside `FLAP_KEYS` keys (a jitter).
+# A flap: a joint `FLAP_DEGREES` out within `FLAP_SECONDS` lands on its
+# bind pose (within `REST_DEGREES`) turning `SNAP_SPEED` degrees a second or
+# faster (a drop), or turns out by `FLAP_DEGREES` and comes back to within
+# `FLAP_RETURN` of how far it went inside `FLAP_SECONDS` (a jitter). Both
+# are in time, not keys, so they mean the same at any clip rate.
 FLAP_DEGREES = 25.0
-FLAP_KEYS = 5
+FLAP_SECONDS = 1 / 6
 REST_DEGREES = 3.0
-SNAP_DEGREES = 15.0
+SNAP_SPEED = 450.0
 FLAP_RETURN = 1 / 3
 # The joints a flap is looked for in, and the paths it is marked on.
 JOINTS = {
@@ -138,7 +140,9 @@ def main():
     seconds_per_frame = bpy.context.scene.render.fps_base / bpy.context.scene.render.fps
     marks = {name: set() for name, _ in PATHS}
 
-    for joint, found in ((joint, flaps(turns[joint])) for joint in JOINTS):
+    rate = round(1 / seconds_per_frame)
+
+    for joint, found in ((joint, flaps(turns[joint], rate)) for joint in JOINTS):
         for kind, start, key, end, degrees in found:
             milliseconds = (end - start) * seconds_per_frame * 1000
 
@@ -172,11 +176,14 @@ def main():
     print(f"BUILT {options.out}")
 
 
-def flaps(turns):
+def flaps(turns, rate=review.CLIP_RATE):
     """The flaps in one joint's rotations, a quaternion per key from its bind
-    pose: each as `(kind, start, key, end, degrees)`, its kind (`drop` or
-    `jitter`), the keys it starts at, is marked at and ends at, and how far
-    out it was."""
+    pose at `rate` keys a second: each as `(kind, start, key, end, degrees)`,
+    its kind (`drop` or `jitter`), the keys it starts at, is marked at and
+    ends at, and how far out it was."""
+
+    within = max(2, round(FLAP_SECONDS * rate))
+    snap = SNAP_SPEED / rate
 
     def apart(a, b):
         angle = math.degrees(a.rotation_difference(b).angle)
@@ -189,10 +196,10 @@ def flaps(turns):
     found = []
 
     for key in range(2, len(turns)):
-        earlier = range(max(0, key - FLAP_KEYS), key)
+        earlier = range(max(0, key - within), key)
         furthest = max(earlier, key=out.__getitem__)
 
-        if out[key] <= REST_DEGREES < out[key - 1] and out[furthest] >= FLAP_DEGREES and max(steps[key - 1], steps[key]) >= SNAP_DEGREES:
+        if out[key] <= REST_DEGREES < out[key - 1] and out[furthest] >= FLAP_DEGREES and max(steps[key - 1], steps[key]) >= snap:
             found.append(("drop", furthest, key, key, out[furthest]))
 
     start = 0
@@ -200,7 +207,7 @@ def flaps(turns):
     while start < len(turns) - 2:
         jitter = None
 
-        for end in range(start + 2, min(start + FLAP_KEYS, len(turns) - 1) + 1):
+        for end in range(start + 2, min(start + within, len(turns) - 1) + 1):
             away = [apart(turns[start], turns[key]) for key in range(start + 1, end)]
             degrees = max(away)
 
