@@ -977,10 +977,24 @@ mod tests {
 		);
 	}
 
-	/// RPC stub that serves a wallet-owned Core asset and accepts `ReleaseCore`.
+	/// RPC stub that serves a wallet-owned Core asset, a member of
+	/// `collection`, and accepts `ReleaseCore`.
 	struct ReleasingRpc {
 		owner: solana_kit_core::Address,
+		collection: solana_kit_core::Address,
 		calls: RefCell<Vec<String>>,
+	}
+
+	impl ReleasingRpc {
+		/// `owner` holds every asset asked for, each a member of
+		/// [`demo_manifest`]'s collection.
+		fn holding(owner: solana_kit_core::Address) -> Self {
+			Self {
+				owner,
+				collection: solana_kit_core::Address::from_bytes([9; 32]),
+				calls: RefCell::new(Vec::new()),
+			}
+		}
 	}
 
 	#[async_trait(?Send)]
@@ -998,9 +1012,12 @@ mod tests {
 			let request: serde_json::Value = serde_json::from_slice(&body).unwrap();
 			let method = request["method"].as_str().unwrap().to_owned();
 			self.calls.borrow_mut().push(method.clone());
+			// An `AssetV1`: its key, its owner, then its update authority,
+			// which for a member of a collection is `2` and the collection.
 			let mut asset_data = vec![1u8];
 			asset_data.extend_from_slice(self.owner.as_bytes());
-			asset_data.push(0);
+			asset_data.push(2);
+			asset_data.extend_from_slice(self.collection.as_bytes());
 			let result = match method.as_str() {
 				"getMultipleAccounts" => {
 					let count = request["params"][0].as_array().map_or(2, Vec::len);
@@ -1193,10 +1210,7 @@ mod tests {
 		player = player.acquire(fourth).unwrap();
 		assert_eq!(player.sightings().len(), PlayerState::MAX_SIGHTINGS);
 
-		let rpc = Rc::new(ReleasingRpc {
-			owner: address,
-			calls: RefCell::new(Vec::new()),
-		});
+		let rpc = Rc::new(ReleasingRpc::holding(address));
 		let cluster = Rc::new(
 			Cluster::new(
 				crate::chain::ClusterName::Localnet,
@@ -1241,10 +1255,7 @@ mod tests {
 		assert!(!player.oath_taken());
 		let saint = Nft::new(reapers_rules::NftCollection::DegenApes, 1);
 
-		let rpc = Rc::new(ReleasingRpc {
-			owner: address,
-			calls: RefCell::new(Vec::new()),
-		});
+		let rpc = Rc::new(ReleasingRpc::holding(address));
 		let cluster = Rc::new(
 			Cluster::new(
 				crate::chain::ClusterName::Localnet,
@@ -1292,10 +1303,7 @@ mod tests {
 		assert!(!player.vault().contains(&expensive));
 		assert!(player.lamports() < expensive.rarity().lamports());
 
-		let rpc = Rc::new(ReleasingRpc {
-			owner: address,
-			calls: RefCell::new(Vec::new()),
-		});
+		let rpc = Rc::new(ReleasingRpc::holding(address));
 		let cluster = Rc::new(
 			Cluster::new(
 				crate::chain::ClusterName::Localnet,
@@ -1336,10 +1344,7 @@ mod tests {
 			.acquire(saint)
 			.unwrap();
 
-		let rpc = Rc::new(ReleasingRpc {
-			owner: address,
-			calls: RefCell::new(Vec::new()),
-		});
+		let rpc = Rc::new(ReleasingRpc::holding(address));
 		// Client is built for Devnet, but server reports Localnet.
 		let cluster = Rc::new(
 			Cluster::new(crate::chain::ClusterName::Devnet, "http://rpc", rpc.clone())
@@ -1389,10 +1394,7 @@ mod tests {
 
 		let wrong_program = Some(solana_kit_core::Address::from_bytes([88; 32]).to_string());
 		for program in [wrong_program, None] {
-			let rpc = Rc::new(ReleasingRpc {
-				owner: address,
-				calls: RefCell::new(Vec::new()),
-			});
+			let rpc = Rc::new(ReleasingRpc::holding(address));
 			let cluster = Rc::new(
 				Cluster::new(
 					crate::chain::ClusterName::Localnet,
@@ -1475,10 +1477,7 @@ mod tests {
 			.unwrap()
 			.acquire(saint)
 			.unwrap();
-		let rpc = Rc::new(ReleasingRpc {
-			owner: address,
-			calls: RefCell::new(Vec::new()),
-		});
+		let rpc = Rc::new(ReleasingRpc::holding(address));
 		let cluster = Rc::new(
 			Cluster::new(
 				crate::chain::ClusterName::Localnet,
@@ -1531,6 +1530,91 @@ mod tests {
 
 		assert_eq!(block_on(keeper.wallet_husks()), Ok(Vec::new()));
 		assert!(rpc.calls.borrow().is_empty());
+	}
+
+	/// A keeper whose wallet holds every asset `rpc` serves, releasing the
+	/// saint, `degenApes:1`, under `status`; and that wallet.
+	fn releasing_the_saint(
+		rpc: &Rc<ReleasingRpc>,
+		status: ChainStatus,
+	) -> (RemoteBackend<ReleaseStub>, Rc<CountingWallet>) {
+		let saint = Nft::new(reapers_rules::NftCollection::DegenApes, 1);
+		let player = PlayerState::initial()
+			.take_oath(1)
+			.unwrap()
+			.acquire(saint)
+			.unwrap();
+		let cluster = Rc::new(
+			Cluster::new(
+				crate::chain::ClusterName::Localnet,
+				"http://rpc",
+				rpc.clone(),
+			)
+			.with_pause(Rc::new(|_| Box::pin(async { true }))),
+		);
+		let wallet = Rc::new(CountingWallet {
+			keypair: solana_kit_core::crypto::Keypair::from_seed(&[6; 32]),
+			signed: Cell::new(0),
+		});
+		let keeper = RemoteBackend::new(ReleaseStub {
+			player,
+			chain: status,
+			release_refusal: "notInVault",
+		})
+		.with_cluster(cluster, wallet.clone());
+		(keeper, wallet)
+	}
+
+	/// The reaper collection is never a demo collection. A manifest that
+	/// names it as one (here as the degenApes) would have the wallet move a
+	/// reaper into an escrow only a burn lets it out of.
+	#[test]
+	fn release_refuses_the_reaper_collection_named_as_a_demo_collection() {
+		let address = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]).address();
+		let rpc = Rc::new(ReleasingRpc::holding(address));
+		let manifest = demo_manifest();
+		let status = ChainStatus {
+			collection: Some(manifest[0].address.clone()),
+			husks: manifest,
+			..linked_to(&address)
+		};
+		let (keeper, wallet) = releasing_the_saint(&rpc, status);
+
+		let result = block_on(keeper.release(Nft::new(reapers_rules::NftCollection::DegenApes, 1)));
+		assert_eq!(
+			wallet.signed.get(),
+			0,
+			"the wallet signed ReleaseCore for an asset of the reaper collection; rpc={:?}",
+			rpc.calls.borrow()
+		);
+		assert!(!rpc.calls.borrow().iter().any(|m| m == "sendTransaction"));
+		assert!(
+			matches!(result, Err(KeeperError::Chain(ChainFailure::Rejected(_)))),
+			"{result:?}"
+		);
+	}
+
+	/// The asset the manifest names for a husk must be a member of the
+	/// collection the manifest names with it: any other Core asset the
+	/// wallet holds is no demo husk, and the wallet is never asked to
+	/// escrow it.
+	#[test]
+	fn release_refuses_an_asset_outside_the_manifests_collection() {
+		let address = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]).address();
+		let rpc = Rc::new(ReleasingRpc {
+			collection: solana_kit_core::Address::from_bytes([77; 32]),
+			..ReleasingRpc::holding(address)
+		});
+		let (keeper, wallet) = releasing_the_saint(&rpc, linked_to(&address));
+
+		let _ = block_on(keeper.release(Nft::new(reapers_rules::NftCollection::DegenApes, 1)));
+		assert_eq!(
+			wallet.signed.get(),
+			0,
+			"the wallet signed ReleaseCore for an asset of another collection; rpc={:?}",
+			rpc.calls.borrow()
+		);
+		assert!(!rpc.calls.borrow().iter().any(|m| m == "sendTransaction"));
 	}
 
 	struct SequenceHttp {
@@ -1627,10 +1711,7 @@ mod tests {
 			]),
 		});
 
-		let rpc = Rc::new(ReleasingRpc {
-			owner: wallet,
-			calls: RefCell::new(Vec::new()),
-		});
+		let rpc = Rc::new(ReleasingRpc::holding(wallet));
 		let cluster = Rc::new(
 			Cluster::new(
 				crate::chain::ClusterName::Localnet,
@@ -1785,10 +1866,7 @@ mod tests {
 			gate: RefCell::new(Some(gate)),
 			seen: RefCell::new(Vec::new()),
 		});
-		let rpc = Rc::new(ReleasingRpc {
-			owner: wallet,
-			calls: RefCell::new(Vec::new()),
-		});
+		let rpc = Rc::new(ReleasingRpc::holding(wallet));
 		let cluster = Rc::new(
 			Cluster::new(
 				crate::chain::ClusterName::Localnet,

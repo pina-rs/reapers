@@ -300,7 +300,13 @@ impl Cluster {
 			.into_iter()
 			.zip(fetched.into_iter().zip(escrow_accounts))
 			.filter_map(|((nft, asset, collection), (account, escrow))| {
-				let place = place_of(account.as_ref(), escrow.as_ref(), wallet, &asset)?;
+				let place = place_of(
+					account.as_ref(),
+					escrow.as_ref(),
+					wallet,
+					&asset,
+					&collection,
+				)?;
 				Some(WalletHusk {
 					nft,
 					asset,
@@ -328,6 +334,7 @@ impl Cluster {
 			accounts.get(1).and_then(Option::as_ref),
 			wallet,
 			&asset,
+			&collection,
 		);
 		Ok(place.map(|place| {
 			WalletHusk {
@@ -341,6 +348,10 @@ impl Cluster {
 
 	/// Releases `husk` from `wallet` into the program's escrow with
 	/// `ReleaseCore`, signed by `prover`, and waits until it is finalized.
+	///
+	/// A husk of the reaper collection `status` names is refused: that is
+	/// never a demo collection, and a reaper in escrow leaves it only by
+	/// being burned.
 	pub async fn release(
 		&self,
 		status: &ChainStatus,
@@ -349,6 +360,17 @@ impl Cluster {
 		husk: &WalletHusk,
 	) -> ChainResult<SimnetTransaction> {
 		self.check_status(status)?;
+		if status
+			.collection
+			.as_deref()
+			.and_then(|collection| collection.parse::<Address>().ok())
+			== Some(husk.collection)
+		{
+			return Err(ChainFailure::Rejected(format!(
+				"{} is the reaper collection, not a demo collection",
+				husk.collection
+			)));
+		}
 		let instruction = program::release_core(wallet, &husk.asset, Some(&husk.collection));
 		let (blockhash, last_valid_block_height) = self.rpc.latest_blockhash().await?;
 		let message = Message::compile(
@@ -689,6 +711,8 @@ fn custom_code(error: &Value) -> Option<(usize, u32)> {
 }
 
 /// Where a husk is: its asset account and its escrow's, against `wallet`.
+/// An asset that is not a member of `collection`, the collection the
+/// manifest names with it, is no husk at all.
 ///
 /// Any one-byte Core tombstone is reported as [`HuskPlace::Burned`] regardless
 /// of `wallet`, since Metaplex Core tombstones store no prior owner or burner.
@@ -697,17 +721,25 @@ fn place_of(
 	escrow: Option<&AccountData>,
 	wallet: &Address,
 	mint: &Address,
+	collection: &Address,
 ) -> Option<HuskPlace> {
+	/// `UpdateAuthority::Collection`: the asset is a member of the
+	/// collection whose address follows.
+	const MEMBER_OF: u8 = 2;
+
 	let asset = asset.filter(|asset| asset.owner == program::core_program())?;
 	if asset.data == [0] {
 		// Core tombstones keep no prior owner; any burned manifest asset maps here.
 		return Some(HuskPlace::Burned);
 	}
-	// An `AssetV1`: its key, then its owner.
+	// An `AssetV1`: its key, its owner, then its update authority.
 	if asset.data.first() != Some(&1) {
 		return None;
 	}
 	let owner = Address::from_bytes(asset.data.get(1..33)?.try_into().ok()?);
+	if asset.data.get(33) != Some(&MEMBER_OF) || asset.data.get(34..66)? != collection.as_bytes() {
+		return None;
+	}
 	if owner == *wallet {
 		return Some(HuskPlace::InWallet);
 	}
@@ -916,15 +948,19 @@ mod tests {
 	fn a_husk_is_where_its_asset_and_escrow_say() {
 		let wallet = Address::from_bytes([1; 32]);
 		let mint = Address::from_bytes([2; 32]);
-		let asset = |owner: &Address| {
+		let collection = Address::from_bytes([9; 32]);
+		// An `AssetV1` owned by `owner`, with the update authority `authority`.
+		let asset_of = |owner: &Address, authority: &[u8]| {
 			let mut data = vec![1];
 			data.extend_from_slice(owner.as_bytes());
-			data.push(0);
+			data.extend_from_slice(authority);
 			AccountData {
 				owner: program::core_program(),
 				data,
 			}
 		};
+		let member_of = |collection: &Address| [&[2], collection.as_bytes().as_slice()].concat();
+		let asset = |owner: &Address| asset_of(owner, &member_of(&collection));
 		let mut escrow = vec![0; Escrow::LEN];
 		Escrow::initialize(&mut escrow, |account| {
 			account.player = solana_pubkey::Pubkey::new_from_array([1; 32]);
@@ -938,7 +974,7 @@ mod tests {
 		};
 
 		assert_eq!(
-			place_of(Some(&asset(&wallet)), None, &wallet, &mint),
+			place_of(Some(&asset(&wallet)), None, &wallet, &mint, &collection),
 			Some(HuskPlace::InWallet)
 		);
 		assert_eq!(
@@ -946,7 +982,8 @@ mod tests {
 				Some(&asset(&program::escrow(&mint))),
 				Some(&escrow),
 				&wallet,
-				&mint
+				&mint,
+				&collection
 			),
 			Some(HuskPlace::Escrowed)
 		);
@@ -955,7 +992,8 @@ mod tests {
 				Some(&asset(&program::escrow(&mint))),
 				Some(&escrow),
 				&Address::from_bytes([3; 32]),
-				&mint
+				&mint,
+				&collection
 			),
 			None,
 			"another player's escrow"
@@ -968,10 +1006,34 @@ mod tests {
 				}),
 				None,
 				&wallet,
-				&mint
+				&mint,
+				&collection
 			),
 			Some(HuskPlace::Burned)
 		);
+		for (authority, what) in [
+			(
+				member_of(&Address::from_bytes([77; 32])),
+				"a member of another collection",
+			),
+			(
+				[&[1], collection.as_bytes().as_slice()].concat(),
+				"an asset whose update authority is a plain address",
+			),
+			(vec![0], "an asset with no update authority"),
+		] {
+			assert_eq!(
+				place_of(
+					Some(&asset_of(&wallet, &authority)),
+					None,
+					&wallet,
+					&mint,
+					&collection
+				),
+				None,
+				"{what} is no husk of the manifest's collection"
+			);
+		}
 	}
 
 	#[test]
