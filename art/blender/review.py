@@ -68,6 +68,8 @@ def sheet(name, path, options, look):
         review.weapons(roots, options.out, look, lineup=name == "weapons")
     elif name == "viewmodel":
         review.first_person(MOMENTS, options.out, cel_look=look)
+    elif name == "viewmodel_fx":
+        review.effects(options.out, name, cel_look=look)
     elif name.startswith("viewmodel_"):
         review.whole(options.out, name, cel_look=look)
     elif name.startswith("husk_"):

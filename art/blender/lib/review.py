@@ -287,6 +287,33 @@ def first_person(moments, out, name="viewmodel", cel_look=None):
     preview.render_grid(preview.sheet_path(out, name, cel_look), rows, tile=(420, 420), elevation=12.0, cel_look=cel_look, same_scale=False)
 
 
+def effects(out, name="viewmodel_fx", cel_look=None):
+    """`viewmodel_fx.png`: each effect on its own row, alone, drawn as the
+    game draws it (unlit light added to the dark behind it), from the front,
+    three-quarter, side and above. A silhouette of light says nothing, so
+    there is none."""
+
+    meshes = sorted((obj for obj in bpy.data.objects if obj.type == "MESH"), key=base)
+
+    def show(only):
+        for obj in meshes:
+            obj.hide_render = obj is not only
+
+    rows = [preview.row(base(obj), lambda obj=obj: show(obj), ("front", "threequarter", "side", "top")) for obj in meshes]
+    # Dusk, not black: light adds to it and the shade darkens it, so both
+    # read. The halos and the flare are cards the game turns to face the
+    # camera, so they are lines from the side and above.
+    dusk = (0.05, 0.055, 0.07)
+
+    try:
+        # Each effect is built at a unit size, and some are a flat card or a
+        # line: framed on its own, every view fills its tile.
+        preview.render_grid(preview.sheet_path(out, name, cel_look), rows, tile=(360, 360), elevation=12.0, cel_look=cel_look, same_scale=False, ground=dusk)
+    finally:
+        for obj in meshes:
+            obj.hide_render = False
+
+
 def whole(out, name, cel_look=None, tile=(420, 420)):
     """A one-row sheet of everything in the scene."""
 

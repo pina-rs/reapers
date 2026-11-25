@@ -139,7 +139,10 @@ def _build_fx(options):
     _export(options, root, "viewmodel_fx.glb")
 
     if options.preview:
-        _sheet(options, "viewmodel_fx")
+        os.makedirs(options.preview, exist_ok=True)
+
+        for look in review.looks(options.cel):
+            review.effects(options.preview, cel_look=look)
 
 
 def _triangles(root):

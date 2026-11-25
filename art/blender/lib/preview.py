@@ -114,6 +114,9 @@ def _style_materials(silhouette, look=None, review=False):
             tree.links.new(emission.outputs["Emission"], output.inputs["Surface"])
             continue
 
+        if review and cel.effect(tree, output, mat, cel.load()["surfaces"]["glow"], strength=2.0):
+            continue
+
         if mat.name.startswith(("accent", "glow")):
             emission = tree.nodes.new("ShaderNodeEmission")
             emission.inputs["Color"].default_value = (*accent, 1)
@@ -303,7 +306,7 @@ def render_sheet(path, centre=(0, 0, 1.4), distance=7.4, width=560, height=840, 
     )
 
 
-def render_grid(path, rows, tile=(400, 600), cel_look=None, lens=70, elevation=-2.0, margin=1.15, framing=None, view_rotation=None, labels=True, skip=("shadow",), same_scale=True):
+def render_grid(path, rows, tile=(400, 600), cel_look=None, lens=70, elevation=-2.0, margin=1.15, framing=None, view_rotation=None, labels=True, skip=("shadow",), same_scale=True, ground=None):
     """Renders a sheet: rows of tiles, each a view of the scene as a tile's
     `setup()` leaves it, and stitches them into one image at `path`.
 
@@ -317,7 +320,9 @@ def render_grid(path, rows, tile=(400, 600), cel_look=None, lens=70, elevation=-
     A tile's `look` dresses a creature in one NFT's colours and trait. A
     `silhouette` tile is the model in black, with the same silhouette at
     phone-thumbnail size in its corner. `cel_look` is a palette from
-    `cel.load()`: the sheet is drawn in that look.
+    `cel.load()`: the sheet is drawn in that look. `ground` is the colour
+    behind every tile but a silhouette, in place of the look's own: the
+    night sky behind light, which would not show on paper.
     """
 
     width, height = tile
@@ -368,8 +373,8 @@ def render_grid(path, rows, tile=(400, 600), cel_look=None, lens=70, elevation=-
                     _style(silhouette, tile["look"], cel_look)
                     styled = mode
 
-                ground = SILHOUETTE_GROUND if silhouette else cel_look["paper"] if cel_look else BACKGROUND
-                background.inputs["Color"].default_value = (*ground, 1)
+                behind = SILHOUETTE_GROUND if silhouette else ground or (cel_look["paper"] if cel_look else BACKGROUND)
+                background.inputs["Color"].default_value = (*behind, 1)
                 camera = _aim(centre, distance, tile["view"], elevation, eye_height, lens, view_rotation)
 
                 for (_, offset, energy, _, size), light in zip(LIGHTS, lights):
@@ -381,7 +386,7 @@ def render_grid(path, rows, tile=(400, 600), cel_look=None, lens=70, elevation=-
                     cel.set_ink(cel_look["width"] * 2 * half_high * distance / height, shown=not silhouette)
 
                 if label is not None:
-                    ink = (0.1, 0.1, 0.12) if silhouette or cel_look else (0.6, 0.62, 0.66)
+                    ink = (0.1, 0.1, 0.12) if silhouette or (cel_look and ground is None) else (0.6, 0.62, 0.66)
                     _caption(label, camera, tile["label"], ink, half_wide, half_high, height)
 
                 tile_path = f"{path}.{len(grid)}.{len(paths)}.png"

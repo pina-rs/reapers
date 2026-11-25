@@ -82,7 +82,8 @@ A model is judged by eye, from its review sheets. Every sheet is a grid: a row f
 | `weapon_<kind>.png` | One weapon alone, framed on itself. |
 | `weapons.png` | All eight side by side at one scale, and in silhouette. |
 | `viewmodel.png` | A row for each moment of the first-person view (fire, reload, throw, throw with the scythe, stab, swing), showing what that moment shows, lit by the palette it is painted from. Each view is framed on its own: an arm seen from its end is a fraction of its length. |
-| `viewmodel_orb.png`, `viewmodel_fx.png` | The capture orb, glowing, and every light the room shows. |
+| `viewmodel_orb.png` | The capture orb, its core glowing in the palette's `glow`. |
+| `viewmodel_fx.png` | Every light the room shows, a row each, drawn unlit and added to a dusk ground as the game draws it, from the front, three-quarter, side and above. The halos and the flare are cards the game turns to the camera, so they are lines from the side. |
 | `husk_<vessel>.png` | A row for each thing the creature can wear, in an NFT's look. |
 
 The drivers render them with `--preview`, after building. To render them again from the models already in `art/build/models`, without rebuilding (a minute rather than fifteen for the reapers):

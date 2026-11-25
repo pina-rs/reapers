@@ -43,8 +43,16 @@ GLOWING = ("accent", "glow")
 # surfaces.
 FLAT = ("void", "dark", "shadow")
 
+# The first-person effects' unlit materials (`viewmodel_parts/effects.py`):
+# a soft spot the game tints and adds to what is behind, a flat light it
+# tints, and a soft dark disc it blends behind a glow.
+EFFECT_GLOW = "fx_glow"
+EFFECT_LIGHT = "fx_light"
+EFFECT_SHADE = "fx_shade"
+EFFECTS = (EFFECT_GLOW, EFFECT_LIGHT, EFFECT_SHADE)
+
 # Materials that never get an outline: light, a floor shadow, and pictures.
-UNINKED = (*GLOWING, "shadow", *IMAGE_MATERIALS)
+UNINKED = (*GLOWING, *EFFECTS, "shadow", *IMAGE_MATERIALS)
 
 # Objects and materials the review itself adds, which are never restyled.
 REVIEW_PREFIX = "review_"
@@ -222,6 +230,9 @@ def style(palette, look_colours=None, accent=None):
         tree.links.new(emission.outputs["Emission"], output.inputs["Surface"])
         name = base_name(mat)
 
+        if effect(tree, output, mat, palette["surfaces"]["glow"]):
+            continue
+
         if name.startswith(GLOWING):
             emission.inputs["Color"].default_value = (*accent, 1)
             continue
@@ -257,6 +268,90 @@ def style(palette, look_colours=None, accent=None):
             banded = add.outputs["Result"]
 
         tree.links.new(banded, emission.inputs["Color"])
+
+
+def effect(tree, output, mat, glow, strength=1.0):
+    """Draws an effect's material as the game does, tinted `glow`, into a
+    cleared `tree`, and says whether `mat` is one.
+
+    The glow is the soft spot of its texture coordinates, added to what is
+    behind; the shade is the same spot as darkness, blended over it; the
+    light is flat. Unlit, so the same in both looks."""
+
+    name = base_name(mat)
+
+    if name not in EFFECTS:
+        return False
+
+    nodes, links = tree.nodes, tree.links
+    emission = nodes.new("ShaderNodeEmission")
+    emission.inputs["Strength"].default_value = strength
+
+    if name == EFFECT_LIGHT:
+        emission.inputs["Color"].default_value = (*glow, 1)
+        links.new(emission.outputs["Emission"], output.inputs["Surface"])
+
+        return True
+
+    spot = _spot(tree)
+    clear = nodes.new("ShaderNodeBsdfTransparent")
+    mat.surface_render_method = "BLENDED"
+
+    if name == EFFECT_GLOW:
+        tint = nodes.new("ShaderNodeMix")
+        tint.data_type = "RGBA"
+        tint.inputs["A"].default_value = (0, 0, 0, 1)
+        tint.inputs["B"].default_value = (*glow, 1)
+        links.new(spot, tint.inputs["Factor"])
+        links.new(tint.outputs["Result"], emission.inputs["Color"])
+        add = nodes.new("ShaderNodeAddShader")
+        links.new(clear.outputs["BSDF"], add.inputs[0])
+        links.new(emission.outputs["Emission"], add.inputs[1])
+        links.new(add.outputs["Shader"], output.inputs["Surface"])
+    else:
+        emission.inputs["Color"].default_value = (0, 0, 0, 1)
+        mix = nodes.new("ShaderNodeMixShader")
+        links.new(spot, mix.inputs["Fac"])
+        links.new(clear.outputs["BSDF"], mix.inputs[1])
+        links.new(emission.outputs["Emission"], mix.inputs[2])
+        links.new(mix.outputs["Shader"], output.inputs["Surface"])
+
+    return True
+
+
+def _spot(tree):
+    """The effects' soft spot from the texture coordinates: 1 in the middle,
+    0 at the edge, with the falloff `viewmodel_parts/effects.py` bakes."""
+
+    nodes, links = tree.nodes, tree.links
+    coordinates = nodes.new("ShaderNodeTexCoord")
+    centred = nodes.new("ShaderNodeVectorMath")
+    centred.operation = "MULTIPLY_ADD"
+    centred.inputs[1].default_value = (2, 2, 0)
+    centred.inputs[2].default_value = (-1, -1, 0)
+    links.new(coordinates.outputs["UV"], centred.inputs[0])
+    reach = nodes.new("ShaderNodeVectorMath")
+    reach.operation = "LENGTH"
+    links.new(centred.outputs["Vector"], reach.inputs[0])
+
+    def math(operation, first, second, clamp=False):
+        node = nodes.new("ShaderNodeMath")
+        node.operation = operation
+        node.use_clamp = clamp
+
+        for socket, value in zip(node.inputs, (first, second)):
+            if isinstance(value, float):
+                socket.default_value = value
+            else:
+                links.new(value, socket)
+
+        return node.outputs["Value"]
+
+    falloff = math("SUBTRACT", 1.0, reach.outputs["Value"], clamp=True)
+    soft = math("MULTIPLY", math("POWER", falloff, 2.2), 0.75)
+    hot = math("MULTIPLY", math("POWER", falloff, 8.0), 0.25)
+
+    return math("ADD", soft, hot)
 
 
 def _bands(tree, base, palette):
