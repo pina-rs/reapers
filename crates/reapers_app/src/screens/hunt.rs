@@ -43,7 +43,6 @@ use crate::state::Game;
 use crate::theme::ASH;
 use crate::theme::BONE;
 use crate::theme::CONTENT_WIDTH;
-use crate::theme::WOUND;
 use crate::theme::roman_numeral;
 use crate::ui::LedgerButton;
 use crate::ui::body;
@@ -53,6 +52,7 @@ use crate::ui::label;
 use crate::ui::ledger_notice;
 use crate::ui::ledger_row;
 use crate::ui::light;
+use crate::ui::wound_words;
 
 /// Where a hunt has got to.
 #[derive(Clone, Debug, PartialEq)]
@@ -325,15 +325,11 @@ fn result(game: Game, brief: &HuntBrief, reward: &HuntReward) -> Element {
 		})));
 	}
 	column = column
-		.child(label(
-			if absorbed {
-				words.hunt_captured_label()
-			} else {
-				words.hunt_lost_label()
-			},
-			11,
-			if absorbed { ASH } else { WOUND },
-		))
+		.child(if absorbed {
+			label(words.hunt_captured_label(), 11, ASH)
+		} else {
+			wound_words(label(words.hunt_lost_label(), 11, BONE), 11)
+		})
 		.child(gap(10))
 		.child(display(title, 52, BONE).test_id("hunt-result"))
 		.child(gap(14))

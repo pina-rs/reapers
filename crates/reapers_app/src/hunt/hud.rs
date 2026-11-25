@@ -305,7 +305,7 @@ pub fn status(
 
 fn thin_meter(fraction: f64, colour: Rgb) -> Element {
 	View()
-		.class("w-full h-[3px] bg-[#e9e4d42e]")
+		.class("w-full h-[3px] bg-[#ece3cf2e]")
 		.child(View().class(format!(
 			"h-full w-[{:.0}%] bg-[{}]",
 			fraction * 100.0,
@@ -361,7 +361,7 @@ pub fn status_view(
 	}
 	// The ledger sits on ink, so that it reads over a bright room.
 	let mut ledger = View()
-		.class("px-3 pt-2 pb-3 rounded-[8px] bg-[#07080bb8]")
+		.class("px-3 pt-2 pb-3 rounded-[8px] bg-[#16121ab8]")
 		.child(top)
 		.child(gap(8))
 		.child(ledger_meter(words.hunt_ward(), status.ward, light))
@@ -391,7 +391,7 @@ pub fn status_view(
 		column = column.child(
 			View().class("items-center").child(
 				View()
-					.class("max-w-[320px] px-3 py-[5px] rounded-[6px] bg-[#07080bb8] items-center")
+					.class("max-w-[320px] px-3 py-[5px] rounded-[6px] bg-[#16121ab8] items-center")
 					.test_id("hunt-prompt")
 					.child(prompt.class("text-center")),
 			),
@@ -414,7 +414,7 @@ pub fn status_view(
 		};
 		column = column.child(gap(8)).child(
 			View()
-				.class("px-3 py-2 rounded-[6px] bg-[#07080bb8]")
+				.class("px-3 py-2 rounded-[6px] bg-[#16121ab8]")
 				.child(label(name, 11, BONE))
 				.child(gap(6))
 				.child(thin_meter(fraction, colour)),
@@ -435,7 +435,7 @@ fn banner_view(banner: &Banner) -> Element {
 	};
 	View().class("items-center").child(
 		View()
-			.class("px-4 py-1 rounded-[8px] bg-[#07080bb8] items-center")
+			.class("px-4 py-1 rounded-[8px] bg-[#16121ab8] items-center")
 			.test_id("hunt-banner")
 			.child(words_of_it.class("text-center")),
 	)

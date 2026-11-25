@@ -362,7 +362,7 @@ pub fn frame_class(camera: bool) -> &'static str {
 	if camera {
 		"relative w-full h-screen overflow-hidden"
 	} else {
-		"relative w-full h-screen overflow-hidden bg-[#07080b]"
+		"relative w-full h-screen overflow-hidden bg-[#16121a]"
 	}
 }
 

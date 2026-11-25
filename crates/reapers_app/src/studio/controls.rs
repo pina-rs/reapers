@@ -54,9 +54,9 @@ pub fn chip(
 	let (border, fill, colour) = if selected {
 		(light.hex(), format!("{}2e", light.hex()), light)
 	} else if enabled {
-		("#e9e4d459".to_owned(), "#00000000".to_owned(), BONE)
+		("#ece3cf59".to_owned(), "#00000000".to_owned(), BONE)
 	} else {
-		("#e9e4d41f".to_owned(), "#00000000".to_owned(), ASH)
+		("#ece3cf1f".to_owned(), "#00000000".to_owned(), ASH)
 	};
 	let chip = Pressable(text.to_owned())
 		.class(format!(

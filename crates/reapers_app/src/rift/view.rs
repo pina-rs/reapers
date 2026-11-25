@@ -31,6 +31,7 @@ use crate::hunt::arena::Arena;
 use crate::hunt::controller::Fight;
 use crate::hunt::controller::HuntController;
 use crate::hunt::controls::SCRIM;
+use crate::hunt::controls::legible;
 use crate::hunt::hud::Banner;
 use crate::hunt::hud::banner_for;
 use crate::hunt::hud::knock_for;
@@ -55,6 +56,7 @@ use crate::seams::viewmodel_marks;
 use crate::seams::viewmodel_view;
 use crate::theme::ASH;
 use crate::theme::BONE;
+use crate::theme::INK;
 use crate::theme::Rgb;
 use crate::theme::WOUND;
 use crate::ui::LedgerButton;
@@ -629,8 +631,10 @@ fn circle(words: &dyn Messages, frame: &RiftFrame, light: Rgb) -> Element {
 		} else {
 			member.name.clone()
 		};
+		// Wound carries no words on a dark ground: a fallen seat's name is
+		// lifted until it reads, as every word over the room is.
 		let colour = if !member.standing {
-			WOUND
+			legible(WOUND, INK)
 		} else if you {
 			BONE
 		} else {
@@ -651,7 +655,7 @@ fn circle(words: &dyn Messages, frame: &RiftFrame, light: Rgb) -> Element {
 				.child(gap(4))
 				.child(
 					View()
-						.class("w-full h-[2px] bg-[#e9e4d42e]")
+						.class("w-full h-[2px] bg-[#ece3cf2e]")
 						.child(View().class(format!(
 							"h-full w-[{:.0}%] bg-[{}]",
 							share * 100.0,
@@ -698,7 +702,7 @@ fn lobby(props: &RiftViewProps, state: &RiftState) -> Element {
 		Some(frame) => {
 			let (title, colour) = match frame.phase {
 				RiftPhase::Sealed => (words.rift_sealed_title().to_owned(), light),
-				RiftPhase::Failed => (words.rift_failed_title().to_owned(), WOUND),
+				RiftPhase::Failed => (words.rift_failed_title().to_owned(), legible(WOUND, INK)),
 				RiftPhase::Gathering if frame.counting_down => {
 					(
 						words.rift_begins(frame.ticks_left / HuntRules::TICK_RATE + 1),
@@ -791,6 +795,6 @@ fn lobby(props: &RiftViewProps, state: &RiftState) -> Element {
 			.on_press(move || leave()),
 	);
 	ScrollView()
-		.class("absolute inset-0 pt-safe pb-safe bg-[#07080bc7]")
+		.class("absolute inset-0 pt-safe pb-safe bg-[#16121ac7]")
 		.child(column)
 }

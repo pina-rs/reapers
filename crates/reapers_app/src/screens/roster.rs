@@ -20,7 +20,6 @@ use crate::routes::Route;
 use crate::state::Game;
 use crate::theme::ASH;
 use crate::theme::BONE;
-use crate::theme::WOUND;
 use crate::theme::sol_amount;
 use crate::ui::LedgerButton;
 use crate::ui::aside;
@@ -33,6 +32,7 @@ use crate::ui::ledger_page;
 use crate::ui::ledger_pip;
 use crate::ui::ledger_row;
 use crate::ui::light;
+use crate::ui::wound_words;
 use crate::wallet::device_wallet;
 
 /// What the roster has asked the server about the chain.
@@ -222,11 +222,10 @@ pub fn page() -> Element {
 		)));
 	}
 	if let Some(message) = panel.failure.get() {
-		entries.push(
-			View()
-				.class("pt-[18px]")
-				.child(Alert(message).class(format!("text-[15px] text-[{}]", WOUND.hex()))),
-		);
+		entries.push(View().class("pt-[18px]").child(wound_words(
+			Alert(message).class(format!("text-[15px] text-[{}]", BONE.hex())),
+			15,
+		)));
 	}
 
 	ledger_page(words.roster_title(), None, None, entries)
@@ -251,7 +250,7 @@ fn chain_panel(game: Game, panel: Panel) -> Vec<Element> {
 		}
 		Chain::Unreachable => {
 			return vec![
-				body(words.common_unreachable(), 15, WOUND),
+				wound_words(body(words.common_unreachable(), 15, BONE), 15),
 				LedgerButton::new(words.common_retry())
 					.quiet()
 					.on_press(move || ask_chain(game, panel)),
@@ -324,7 +323,7 @@ fn chain_panel(game: Game, panel: Panel) -> Vec<Element> {
 	entries.push(
 		TextInput()
 			.class(
-				"w-full min-h-[48px] px-3 border border-[#e9e4d42e] text-[15px] text-[#e9e4d4] bg-[#0f1116]",
+				"w-full min-h-[48px] px-3 border border-[#ece3cf2e] text-[15px] text-[#ece3cf] bg-[#2b272c]",
 			)
 			.accessibility_label(words.roster_asset().to_owned())
 			.placeholder(words.roster_asset())

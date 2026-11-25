@@ -249,7 +249,7 @@ fn sighted_banner(sighting: &Sighting) -> Element {
 	let light = light();
 	let id = sighting.id;
 	Pressable(words.sanctum_sighted_banner(&sighting.nft.title()))
-		.class("relative flex-row items-center gap-3 px-4 py-[14px] bg-[#0f1116] max-w-[520px]")
+		.class("relative flex-row items-center gap-3 px-4 py-[14px] bg-[#2b272c] max-w-[520px]")
 		.test_id("sanctum-sighted-banner")
 		.aria_live(leptoskit::native::Live::Polite)
 		.on_press(move || open(Hunt { sighting: id }))

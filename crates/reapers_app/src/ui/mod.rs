@@ -1,5 +1,5 @@
-//! The "funeral ledger" interface kit: sketchy boxes over straight rules,
-//! rows and marks, in bone on tinted black, lit by the reaper's own light.
+//! The interface kit: Second Ink's printed controls, rows and marks, in
+//! paper on a dark page, lit by the bound reaper's own light.
 
 mod ledger;
 mod overlay;
@@ -25,11 +25,11 @@ pub use text::figure;
 pub use text::label;
 pub use text::margin;
 pub use text::prose;
+pub use text::wound_words;
 
 use crate::state::Game;
 use crate::theme::Rgb;
 use crate::theme::UNBOUND;
-use crate::theme::reaper_light;
 
 /// The foot of a stage falling into the page's ink, over the lowest
 /// `height` percent of its parent, to `alpha` at the bottom. leptoskit has
@@ -45,13 +45,16 @@ pub fn foot_scrim(height: u32, alpha: u8) -> leptoskit::prelude::Element {
 		let t = f64::from(step) / f64::from(STEPS - 1);
 		let smooth = t * t * (3.0 - 2.0 * t);
 		let shade = (f64::from(alpha) * smooth).round() as u8;
-		scrim = scrim.child(View().class(format!("flex-1 w-full bg-[#07080b{shade:02x}]")));
+		scrim = scrim.child(View().class(format!(
+			"flex-1 w-full bg-[{}{shade:02x}]",
+			crate::theme::KEY.hex()
+		)));
 	}
 	scrim
 }
 
-/// The light the interface is lit with: the bound reaper's, or the pale
-/// light of one nobody has bound yet.
+/// The light the interface is lit with: the bound reaper's class's spot
+/// (§3.2), or paper before any reaper is bound.
 pub fn light() -> Rgb {
 	use reactive_graph::traits::With as _;
 
@@ -59,7 +62,7 @@ pub fn light() -> Rgb {
 		game.books.with(|books| {
 			match books {
 				crate::state::Books::Open(player) if player.oath_taken() => {
-					reaper_light(&player.genome())
+					crate::theme::light(player.genome().reaper_class)
 				}
 				_ => UNBOUND,
 			}

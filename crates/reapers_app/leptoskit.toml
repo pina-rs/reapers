@@ -20,7 +20,7 @@ icon = "../../assets/branding/app_icon.png"
 # The launch screen: the mark's still on the veil's ink, framed for
 # Android 12's safe circle (docs/branding.md).
 [app.launch_screen]
-background = "#07080b"
+background = "#342f33"
 image = "../../assets/branding/splash_mark.png"
 
 # Agents and people alike write builder calls here: the compiler checks them

@@ -15,7 +15,7 @@ use crate::theme::seed_for;
 /// overlay away.
 fn scrim(game: Game) -> Element {
 	Pressable(crate::l10n::use_l10n().common_dismiss().to_owned())
-		.class("absolute inset-0 bg-[#07080bcc]")
+		.class("absolute inset-0 bg-[#16121acc]")
 		.test_id("overlay-scrim")
 		.on_press(move || game.overlay.set(None))
 }
@@ -28,7 +28,7 @@ pub fn dialog(game: Game, seed_text: &str, children: Vec<Element>) -> Element {
 		.child(
 			ScrollView()
 				.class(format!(
-					"relative w-full {CONTENT_WIDTH} max-h-[86vh] bg-[#0f1116]"
+					"relative w-full {CONTENT_WIDTH} max-h-[86vh] bg-[#2b272c]"
 				))
 				.role(Role::Dialog)
 				.aria_modal(true)
@@ -49,7 +49,7 @@ pub fn sheet(game: Game, children: Vec<Element>) -> Element {
 		.child(scrim(game))
 		.child(
 			ScrollView()
-				.class("relative w-full max-h-[86vh] bg-[#0f1116] border-t border-[#e9e4d42e]")
+				.class("relative w-full max-h-[86vh] bg-[#2b272c] border-t border-[#ece3cf2e]")
 				.role(Role::Dialog)
 				.aria_modal(true)
 				.test_id("sheet")
