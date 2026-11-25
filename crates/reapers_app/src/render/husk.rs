@@ -82,6 +82,10 @@ const FLASH_DECAY: f64 = 7.0;
 const BOIL_RATE: f64 = 7.5;
 /// How long a blow prints the husk in the reaper's spot: four frames.
 pub const PRINT_SECONDS: f64 = 4.0 / 60.0;
+/// The least time from one print in the spot to the next: the husk can fill
+/// much of the screen, and nothing may flash more than three times a second
+/// (art bible §1, "No flash"; WCAG 2.3.1). A faster blow still swells it.
+const PRINT_GAP: f64 = 1.0 / 3.0;
 
 /// How dark a shadow is at its darkest, under a body standing on it.
 const SHADOW_OPACITY: f64 = 0.55;
@@ -218,8 +222,10 @@ pub struct HuskRig {
 	effort: f64,
 	punch: f64,
 	/// A blow's print in the reaper's spot, and how long it has left, in
-	/// seconds; and how long the husk is held still by a blow.
+	/// seconds; how long since the last one began; and how long the husk is
+	/// held still by a blow.
 	print: Option<(Rgb, f64)>,
+	since_print: f64,
 	stopped: f64,
 	frost: f64,
 	burn: f64,
@@ -335,6 +341,7 @@ impl HuskRig {
 			effort: 0.0,
 			punch: 0.0,
 			print: None,
+			since_print: f64::INFINITY,
 			stopped: 0.0,
 			frost: 0.0,
 			burn: 0.0,
@@ -525,10 +532,15 @@ impl HuskRig {
 	}
 
 	/// Prints the husk in the reaper's `spot` for [`PRINT_SECONDS`], with its
-	/// line pressed, as a blow lands (art bible §11.2).
+	/// line pressed, as a blow lands (art bible §11.2); no sooner than
+	/// [`PRINT_GAP`] after the last print began.
 	pub fn print(&mut self, spot: Rgb) {
-		self.print = Some((spot, PRINT_SECONDS));
 		self.punch = 1.0;
+		if self.since_print < PRINT_GAP {
+			return;
+		}
+		self.print = Some((spot, PRINT_SECONDS));
+		self.since_print = 0.0;
 	}
 
 	/// Holds the husk still for `frames` sixtieths of a second, as a blow
@@ -600,6 +612,7 @@ impl HuskRig {
 		// left is over.
 		let stopping = self.stopped > delta / 2.0;
 		self.stopped = (self.stopped - delta).max(0.0);
+		self.since_print += delta;
 		self.print = self
 			.print
 			.map(|(spot, left)| (spot, left - delta))
@@ -1266,6 +1279,35 @@ mod tests {
 				assert_eq!(printed, 4 * per, "{fps} fps: four sixtieths in spot");
 				assert_eq!(held, stopped * per, "{fps} fps: held {frames} frames");
 			}
+		}
+		let _ = scene.take_ops();
+	}
+
+	#[test]
+	fn a_husk_prints_in_the_spot_no_more_than_three_times_a_second() {
+		let scene = Scene::new(leptoskit::scene3d::SceneId(42));
+		let nft = market_listings()[0];
+		for fps in [60.0, 120.0] {
+			let mut rig = HuskRig::spawn(&scene, nft.collection.vessel(), &nft);
+			rig.place(&HuskPose::new(
+				nft.collection.vessel(),
+				reapers_rules::Vec3::new(0.0, 0.0, -2.0),
+				std::f64::consts::PI,
+			));
+			// A blow on every frame for two seconds.
+			let mut began = 0;
+			for _ in 0..(2 * fps as usize) {
+				rig.print(crate::ink::LANTERN);
+				began += usize::from(rig.since_print == 0.0);
+				assert!(rig.punch > 0.99, "every blow still swells it");
+				rig.animate(
+					&scene,
+					1.0 / fps,
+					HuskMood::default(),
+					HuskPlight::default(),
+				);
+			}
+			assert_eq!(began, 6, "{fps} fps: three a second");
 		}
 		let _ = scene.take_ops();
 	}
