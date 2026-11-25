@@ -29,9 +29,10 @@ AMPLITUDE = {"harvester": 1.0, "ferryman": 0.85, "weigher": 0.8, "chooser": 1.05
 # weapon hand is built round the socket with its wrist along the socket's
 # +Y, and only then does that point back up the forearm.
 HOLDS = {
-    # Leant on like a staff: the foot out at the side, the snath back past
-    # the brim and in over the hat.
-    "harvester": ((0.28, 0.45, 0.85), (1.0, -0.3, 0.0)),
+    # Leant on like a staff: the foot out at the side and forward, the snath
+    # back past the brim, the blade over the hat. Leant in no further, or a
+    # shorter weapon's head goes behind the brim.
+    "harvester": ((0.14, 0.4, 0.9), (1.0, -0.3, 0.0)),
     # Planted and leant out from the body, foot in and crook out, so the
     # lantern hangs in space between the crook and the cowl.
     "ferryman": ((-0.2, 0.0, 0.98), (1.0, 0.2, 0.0)),
