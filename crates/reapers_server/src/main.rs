@@ -95,6 +95,7 @@ async fn run() -> Result<ExitCode, Box<dyn std::error::Error>> {
 	};
 	let signer = signer.with_retired(retired_keepers(
 		std::env::var("REAPERS_RETIRED_KEEPERS").ok().as_deref(),
+		mode,
 	)?);
 
 	if signer.is_development() && !mode.simulates() {
