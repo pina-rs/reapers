@@ -247,6 +247,11 @@ const TELEPORT: f64 = 0.5;
 /// Left where it is for longer than this, in seconds, by rules that move it
 /// sixty times a second, a body is standing.
 const STILL_AFTER: f64 = 0.05;
+/// How the body springs back from a leap the rules give no warning of: the
+/// spring's frequency, and the kick of a take-off (a stretch) and of the
+/// deepest landing (a squash). Each peaks at about a sixth of a second at
+/// [`TAKE_OFF_STRETCH`] and [`LAND_SQUASH_MOST`].
+const BOUNCE_FREQUENCY: f64 = 3.0;
 /// How long the body blends out of how it was held when its state changes
 /// (a crouch into a leap, a leap into a landing), in seconds.
 const CHANGE_BLEND: f64 = 0.12;
@@ -268,12 +273,20 @@ fn approach(value: &mut f64, target: f64, rate: f64, delta: f64) {
 /// Where a foot is along the ground in its stride at `phase` (wrapped to
 /// 0..1), from 1 (as far forward as it goes) to −1: planted and pushed back
 /// at an even pace for the first half, then swung forward again.
+///
+/// The swing leaves the ground at the pace the foot was pushed back at and
+/// comes down at the pace it will be pushed back at, so the foot never stops
+/// dead: it follows through a little behind where it lifts, sweeps forward,
+/// and reaches a little past where it plants before it settles back onto
+/// it. A Hermite curve from −1 to 1 whose slopes at both ends match the
+/// planted foot's.
 pub fn foot_reach(phase: f64) -> f64 {
 	let phase = phase.rem_euclid(1.0);
 	if phase < 0.5 {
 		1.0 - 4.0 * phase
 	} else {
-		-1.0 + 2.0 * smooth((phase - 0.5) * 2.0)
+		let swung = (phase - 0.5) * 2.0;
+		((-8.0 * swung + 12.0) * swung - 2.0) * swung - 1.0
 	}
 }
 
@@ -309,6 +322,12 @@ pub struct Footwork {
 	/// was from the new one, how fast that was changing, and how long ago
 	/// the change came, in seconds.
 	change: Option<([f64; CHANNELS], [f64; CHANNELS], f64)>,
+	/// The stretch of a take-off and the squash of a landing for a leap
+	/// off the room's grid, as a share of its height, on a spring.
+	bounce: Spring,
+	/// Whether what is only for liveliness moves: off for a player who
+	/// asked for less motion.
+	lively: bool,
 }
 
 impl Footwork {
@@ -328,7 +347,15 @@ impl Footwork {
 			act: None,
 			shown: None,
 			change: None,
+			bounce: Spring::new(BOUNCE_FREQUENCY, 0.0),
+			lively: true,
 		}
+	}
+
+	/// Lets what is only for liveliness move, or holds it still for a
+	/// player who asked for less motion.
+	pub fn set_lively(&mut self, lively: bool) {
+		self.lively = lively;
 	}
 
 	/// How the creature is built, if it walks at all.
@@ -379,8 +406,11 @@ impl Footwork {
 				locomotion.state_fraction,
 				&mut carriage,
 			);
-		} else if pose.leaping {
-			tuck(build, 1.0, 0.0, &mut carriage);
+		} else {
+			if pose.leaping {
+				tuck(build, 1.0, 0.0, &mut carriage);
+			}
+			self.spring_off(pose, delta, &mut carriage);
 		}
 		self.blend(state, pose.leaping, delta, &mut carriage);
 		let target = Self::gaze(pose);
@@ -389,6 +419,39 @@ impl Footwork {
 			self.look[1].step(target.1, delta),
 		);
 		carriage
+	}
+
+	/// Off the room's grid the rules leap a husk with no crouch before it:
+	/// the body stretches as it takes off and squashes as it lands, by how
+	/// far it fell, on a spring around where the rules hold it.
+	fn spring_off(&mut self, pose: &HuskPose, delta: f64, carriage: &mut Carriage) {
+		let was_leaping = self.act.is_some_and(|(_, leaping)| leaping);
+		if pose.leaping {
+			self.apex = self.apex.max(pose.position.y);
+		}
+		if !self.lively {
+			self.bounce.settle(0.0);
+			if !pose.leaping {
+				self.apex = f64::NEG_INFINITY;
+			}
+			return;
+		}
+		carriage.squash *= 1.0 + self.bounce.step(0.0, delta);
+		// The take-off or the landing is seen as this frame ends: its kick
+		// starts from here, whatever the frame rate. A kick of speed v rises
+		// to v/(ωe) on a critically damped spring.
+		let peak = |share: f64| share * TAU * BOUNCE_FREQUENCY * std::f64::consts::E;
+		if self.act.is_some() {
+			if pose.leaping && !was_leaping {
+				self.bounce.velocity += peak(TAKE_OFF_STRETCH);
+			} else if !pose.leaping && was_leaping && self.apex.is_finite() {
+				self.fall = (self.apex - pose.position.y).max(0.0);
+				self.bounce.velocity -= peak(landing_squash(self.fall));
+			}
+		}
+		if !pose.leaping {
+			self.apex = f64::NEG_INFINITY;
+		}
 	}
 
 	/// Carries `carriage` on from the one shown before when the body's state
@@ -700,6 +763,33 @@ mod tests {
 	}
 
 	#[test]
+	fn a_foot_swings_on_at_the_pace_it_was_planted() {
+		let step = 1e-6;
+		let pace =
+			|phase: f64| (foot_reach(phase + step) - foot_reach(phase - step)) / (2.0 * step);
+		// No stop where it lifts or where it plants: the planted pace, −4
+		// strides' reach a stride, carries through both.
+		for at in [0.5, 1.0] {
+			let before = (foot_reach(at - step) - foot_reach(at - 2.0 * step)) / step;
+			let after = (foot_reach(at + 2.0 * step) - foot_reach(at + step)) / step;
+			assert!(
+				(before - after).abs() < 1e-3,
+				"at {at}: {before} then {after}"
+			);
+			assert!((before + 4.0).abs() < 1e-3);
+		}
+		// It follows through a little past each end, and no further.
+		let swing: Vec<f64> = (0..=1000)
+			.map(|n| foot_reach(0.5 + 0.0005 * f64::from(n)))
+			.collect();
+		let lowest = swing.iter().copied().fold(f64::INFINITY, f64::min);
+		let highest = swing.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+		assert!(lowest < -1.05 && lowest > -1.1, "{lowest}");
+		assert!(highest > 1.05 && highest < 1.1, "{highest}");
+		assert!(pace(0.75) > 4.0, "it sweeps forward fast in the middle");
+	}
+
+	#[test]
 	fn a_planted_foot_does_not_skate() {
 		let mut footwork = Footwork::new(Vessel::Penguin);
 		let mut z = 2.0;
@@ -784,6 +874,69 @@ mod tests {
 			footwork.step(&held, FRAME);
 		}
 		footwork.step(&held, FRAME)
+	}
+
+	#[test]
+	fn a_leap_off_the_grid_stretches_on_take_off_and_squashes_on_landing() {
+		let off_grid = |height: f64, leaping: bool| {
+			HuskPose {
+				leaping,
+				..HuskPose::new(Vessel::Penguin, Vec3::new(0.0, height, 2.0), 0.0)
+			}
+		};
+		let leap = |lively: bool, rate: f64| {
+			let mut footwork = Footwork::new(Vessel::Penguin);
+			footwork.set_lively(lively);
+			let mut squashes = Vec::new();
+			let frames = (1.5 * rate) as usize;
+			for frame in 0..frames {
+				let t = frame as f64 / rate;
+				// Up for half a second, rising half a metre and falling a
+				// metre, then down.
+				let leaping = (0.2..0.7).contains(&t);
+				let height = if leaping {
+					let share = (t - 0.2) / 0.5;
+					-1.0 + 2.0 * share * (1.0 - share) - 0.5 * share
+				} else if t < 0.2 {
+					-1.0
+				} else {
+					-1.5
+				};
+				squashes.push(footwork.step(&off_grid(height, leaping), 1.0 / rate).squash);
+			}
+			squashes
+		};
+		let sixty = leap(true, 60.0);
+		let most = sixty.iter().copied().fold(0.0_f64, f64::max);
+		let least = sixty.iter().copied().fold(2.0_f64, f64::min);
+		assert!(most > 1.0 + 0.6 * TAKE_OFF_STRETCH, "it stretches: {most}");
+		assert!(
+			least < 1.0 - 0.6 * LAND_SQUASH_LEAST,
+			"it squashes: {least}"
+		);
+		assert!((sixty.last().unwrap() - 1.0).abs() < 1e-3, "and settles");
+		// The same at thirty frames a second, but for the frame a take-off
+		// or a landing is first seen in, which a slower display sees later.
+		let thirty = leap(true, 30.0);
+		for (frame, squash) in thirty.iter().enumerate() {
+			let t = frame as f64 / 30.0;
+			if [0.2, 0.7].iter().any(|at| (t - at).abs() < 0.04) {
+				continue;
+			}
+			assert!(
+				(squash - sixty[2 * frame]).abs() < 0.012,
+				"{frame}: {squash} {}",
+				sixty[2 * frame]
+			);
+		}
+		let fewest = thirty.iter().copied().fold(2.0_f64, f64::min);
+		assert!((fewest - least).abs() < 0.015, "{fewest} {least}");
+		// Held still for a player who asked for less motion.
+		assert!(
+			leap(false, 60.0)
+				.iter()
+				.all(|squash| (*squash - 1.0).abs() < 1e-12)
+		);
 	}
 
 	#[test]

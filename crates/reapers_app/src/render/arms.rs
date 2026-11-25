@@ -327,8 +327,9 @@ pub fn flowing(
 	since: f32,
 	clock: f32,
 	cut: Option<Cut>,
+	lively: bool,
 ) -> Pose {
-	let mut now = pose(manner, action, since, clock);
+	let mut now = lively_pose(manner, action, since, clock, lively);
 	let blend = blend_seconds(action);
 	let Some(cut) = cut else {
 		return now;
@@ -336,8 +337,8 @@ pub fn flowing(
 	if since >= blend {
 		return now;
 	}
-	let before = |at: f32| pose(manner, cut.from, at, clock);
-	let after = |at: f32| pose(manner, action, at, clock);
+	let before = |at: f32| lively_pose(manner, cut.from, at, clock, lively);
+	let after = |at: f32| lively_pose(manner, action, at, clock, lively);
 	let back = cut.played.min(BLEND_STEP);
 	let (was, was_back) = (before(cut.played), before(cut.played - back));
 	let (start, start_on) = (after(0.0), after(BLEND_STEP));
@@ -397,6 +398,57 @@ pub fn flowing(
 		left.roll = channels[5];
 	}
 	now
+}
+
+/// Everything at `since` seconds into `action`, as [`pose`] has it, with a
+/// heavy swing's [`follow_through`] when `lively`: not for a player who
+/// asked for less motion.
+pub fn lively_pose(
+	manner: Swing,
+	action: ViewAction,
+	since: f32,
+	clock: f32,
+	lively: bool,
+) -> Pose {
+	let mut pose = pose(manner, action, since, clock);
+	if lively {
+		match action {
+			ViewAction::Swing { .. } => follow_through(&mut pose.arm, manner, since),
+			ViewAction::Strike => follow_through(&mut pose.arm, manner, CONTACT + since),
+			_ => {}
+		}
+	}
+	pose
+}
+
+/// How far a heavy swing carries on past its strike before it comes back,
+/// as a share of the strike's own sweep.
+const OVERSHOOT: f32 = 0.1;
+
+/// What a lively heavy swing lays on its curves, `since` seconds from its
+/// press: from the contact it is driven on faster, carries on past where
+/// the strike ends, and comes back to rest with the swing. It is nothing at
+/// the contact itself, so the weapon is where the rules land it, and nothing
+/// once the swing is at rest. A sweep, a chop and a thrust follow through;
+/// a lash already whips past, a toll rings, and the pistol's and knife's
+/// short swings are over too quickly to.
+fn follow_through(arm: &mut ArmPose, manner: Swing, since: f32) {
+	if !matches!(manner, Swing::Sweep | Swing::Chop | Swing::Thrust) {
+		return;
+	}
+	let shape = shape(manner);
+	let on = (since - CONTACT) / (shape.end - CONTACT);
+	if on <= 0.0 || on >= 1.0 {
+		return;
+	}
+	// u·(1 − u)², scaled to peak at one a third of the way on: it leaves the
+	// contact moving and arrives at rest flat.
+	let carry = OVERSHOOT * 6.75 * on * (1.0 - on) * (1.0 - on);
+	let sweep = |curve: Keys| (sample(curve, STRIKE) - sample(curve, WIND_UP)) * carry;
+	turn_arm_and_wrist(arm, sweep(shape.pitch), sweep(shape.yaw), sweep(shape.roll));
+	arm.x += sweep(shape.x);
+	arm.y += sweep(shape.y);
+	arm.z += sweep(shape.z);
 }
 
 /// The arm's spin in its fist, among [`arm_channels`]: an angle that wraps.
@@ -961,7 +1013,14 @@ mod tests {
 	#[test]
 	fn a_cut_carries_on_from_where_the_arms_were_and_how_they_moved() {
 		let step = 1e-4;
-		for manner in [Swing::Sweep, Swing::Stab, Swing::Shoot, Swing::Toll] {
+		for (manner, lively) in [
+			(Swing::Sweep, true),
+			(Swing::Sweep, false),
+			(Swing::Chop, true),
+			(Swing::Stab, true),
+			(Swing::Shoot, true),
+			(Swing::Toll, true),
+		] {
 			for from in ACTIONS {
 				for to in ACTIONS {
 					if blend_seconds(to) <= 0.0 {
@@ -969,11 +1028,12 @@ mod tests {
 					}
 					for played in [0.05, 0.13, 0.3] {
 						let cut = Some(Cut { from, played });
-						let at_cut = arm_channels(&flowing(manner, to, 0.0, 1.0, cut).arm);
-						let just_after = arm_channels(&flowing(manner, to, step, 1.0, cut).arm);
-						let was = arm_channels(&pose(manner, from, played, 1.0).arm);
-						let was_back =
-							arm_channels(&pose(manner, from, played - BLEND_STEP, 1.0).arm);
+						let at_cut = arm_channels(&flowing(manner, to, 0.0, 1.0, cut, lively).arm);
+						let just_after =
+							arm_channels(&flowing(manner, to, step, 1.0, cut, lively).arm);
+						let at = |action, t| lively_pose(manner, action, t, 1.0, lively).arm;
+						let was = arm_channels(&at(from, played));
+						let was_back = arm_channels(&at(from, played - BLEND_STEP));
 						for slot in 0..10 {
 							let mut gap = at_cut[slot] - was[slot];
 							if slot == SPIN {
@@ -987,8 +1047,8 @@ mod tests {
 							let mut speed_before = (was[slot] - was_back[slot]) / BLEND_STEP;
 							if jolts(to) {
 								// Its own jolt goes on top.
-								let own = arm_channels(&pose(manner, to, step, 1.0).arm)[slot]
-									- arm_channels(&pose(manner, to, 0.0, 1.0).arm)[slot];
+								let own = arm_channels(&at(to, step))[slot]
+									- arm_channels(&at(to, 0.0))[slot];
 								speed_before += own / step;
 							}
 							assert!(
@@ -1003,12 +1063,63 @@ mod tests {
 	}
 
 	#[test]
+	fn a_heavy_swing_follows_through_past_its_strike_and_settles() {
+		let swing = ViewAction::Swing { dived: false };
+		for manner in [Swing::Sweep, Swing::Chop, Swing::Thrust] {
+			let shape = shape(manner);
+			let lively = |t: f32| lively_pose(manner, swing, t, 0.0, true);
+			let still = |t: f32| pose(manner, swing, t, 0.0);
+			// Exactly where the rules land it at the contact, and at rest.
+			assert_eq!(lively(CONTACT), still(CONTACT), "{manner:?}");
+			assert_eq!(lively(shape.end), still(shape.end), "{manner:?}");
+			assert_eq!(lively(WIND_UP), still(WIND_UP), "{manner:?}");
+			let channel = |pose: Pose| {
+				match manner {
+					Swing::Sweep => pose.arm.yaw,
+					Swing::Chop => pose.arm.pitch,
+					_ => pose.arm.z,
+				}
+			};
+			// Driven through the contact faster than before.
+			let step = 1e-3;
+			let lively_pace = (channel(lively(CONTACT + step)) - channel(lively(CONTACT))) / step;
+			let still_pace = (channel(still(CONTACT + step)) - channel(still(CONTACT))) / step;
+			assert!(lively_pace.abs() > still_pace.abs(), "{manner:?}");
+			// Carried on past where the strike ends, the way it was going.
+			let strike_end = channel(still(STRIKE));
+			let way = (strike_end - channel(still(WIND_UP))).signum();
+			let furthest = (0..=100)
+				.map(|n| channel(lively(STRIKE + (shape.end - STRIKE) * n as f32 / 100.0)))
+				.fold(
+					strike_end,
+					|far, at| if (at - far) * way > 0.0 { at } else { far },
+				);
+			assert!(
+				(furthest - strike_end) * way > 0.01,
+				"{manner:?}: {furthest} past {strike_end}"
+			);
+		}
+		// A lash, a toll and the short swings are left as they are, and so is
+		// every swing for a player who asked for less motion.
+		for manner in [Swing::Lash, Swing::Toll, Swing::Shoot, Swing::Stab] {
+			assert_eq!(
+				lively_pose(manner, swing, 0.35, 0.0, true),
+				pose(manner, swing, 0.35, 0.0)
+			);
+		}
+		assert_eq!(
+			lively_pose(Swing::Sweep, swing, 0.35, 0.0, false),
+			pose(Swing::Sweep, swing, 0.35, 0.0)
+		);
+	}
+
+	#[test]
 	fn a_blend_is_over_before_the_blow_lands() {
 		for from in ACTIONS {
 			let cut = Some(Cut { from, played: 0.2 });
 			let swing = ViewAction::Swing { dived: false };
 			assert_eq!(
-				flowing(Swing::Sweep, swing, CONTACT, 0.5, cut),
+				flowing(Swing::Sweep, swing, CONTACT, 0.5, cut, true),
 				pose(Swing::Sweep, swing, CONTACT, 0.5)
 			);
 			let stab = ViewAction::Stab {
@@ -1016,17 +1127,24 @@ mod tests {
 				dived: true,
 			};
 			assert_eq!(
-				flowing(Swing::Stab, stab, STAB_SECONDS, 0.5, cut),
+				flowing(Swing::Stab, stab, STAB_SECONDS, 0.5, cut, true),
 				pose(Swing::Stab, stab, STAB_SECONDS, 0.5)
 			);
 			// A strike lands on the press: it cuts straight to its blow.
 			assert_eq!(
-				flowing(Swing::Sweep, ViewAction::Strike, 0.0, 0.5, cut),
+				flowing(Swing::Sweep, ViewAction::Strike, 0.0, 0.5, cut, true),
 				pose(Swing::Sweep, ViewAction::Strike, 0.0, 0.5)
 			);
 			// Past its blend, an action is untouched.
 			assert_eq!(
-				flowing(Swing::Shoot, ViewAction::Fire, BLEND_SECONDS, 0.5, cut),
+				flowing(
+					Swing::Shoot,
+					ViewAction::Fire,
+					BLEND_SECONDS,
+					0.5,
+					cut,
+					true
+				),
 				pose(Swing::Shoot, ViewAction::Fire, BLEND_SECONDS, 0.5)
 			);
 		}

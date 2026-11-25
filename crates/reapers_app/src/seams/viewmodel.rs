@@ -359,19 +359,15 @@ impl Seam {
 		let tick = shown + f64::from(seconds) * f64::from(props.rate);
 		let since = props.action_seconds(tick);
 		let clock = (props.juice.motion_tick(tick) / f64::from(TICKS_PER_SECOND)) as f32;
-		let mut pose = arms::flowing(props.manner(), props.action, since, clock, self.cut);
+		let lively = !crate::platform::reduced_motion();
+		let mut pose = arms::flowing(props.manner(), props.action, since, clock, self.cut, lively);
 		// The arms' own clock over the frame, which a hit-stop holds.
 		let before = tick - f64::from(seconds) * f64::from(props.rate);
 		let moved = ((props.juice.motion_tick(tick) - props.juice.motion_tick(before))
 			/ f64::from(TICKS_PER_SECOND))
 		.max(0.0) as f32;
-		self.trailing.follow(
-			&mut pose,
-			props.turn_rate,
-			seconds,
-			moved,
-			!crate::platform::reduced_motion(),
-		);
+		self.trailing
+			.follow(&mut pose, props.turn_rate, seconds, moved, lively);
 		let arms_scene = scene(VIEWMODEL);
 		let ops = arms_scene.ops();
 		let rig = self.rig.get_or_insert_with(|| ViewmodelRig::spawn(ops));

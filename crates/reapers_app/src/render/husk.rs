@@ -327,7 +327,11 @@ impl HuskRig {
 			carried_from: None,
 			carried: 1.0,
 			pose: None,
-			gait: Footwork::new(vessel),
+			gait: {
+				let mut gait = Footwork::new(vessel);
+				gait.set_lively(!crate::platform::reduced_motion());
+				gait
+			},
 			carriage: Carriage::REST,
 			has_shadow,
 			shadow_placed: Transform::IDENTITY,
@@ -931,6 +935,7 @@ impl HuskRig {
 	/// who asked for less motion.
 	pub fn set_lively(&mut self, lively: bool) {
 		self.lively = lively;
+		self.gait.set_lively(lively);
 	}
 
 	/// Works out the face and loose parts for a body carried as `carriage`,
