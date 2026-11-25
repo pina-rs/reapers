@@ -175,7 +175,7 @@ def reaper(glb, calling, out, cel_look=None):
 
     for form in FORMS:
         rows = [
-            preview.row(f"{calling} {form}, robe {variant}, head and mantle {min(variant, 2)}:", lambda variant=variant, form=form: dress(root, variant, form, weapons, own))
+            preview.row(f"{calling} {form}, robe {variant}, head and mantle {min(variant, 2)}", lambda variant=variant, form=form: dress(root, variant, form, weapons, own))
             for variant in range(VARIANTS)
         ]
         preview.render_grid(preview.sheet_path(out, f"reaper_{calling}_{form}", cel_look), rows, tile=(400, 600), cel_look=cel_look)
