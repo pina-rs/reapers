@@ -197,7 +197,7 @@ CARRIER = "TEXCOORD_1"
 | `"COLOR_0.r"` | Red of `COLOR_0`, as weight / 2.5, over the grime mask. The app's build strips `COLOR_0` today (`crates/reapers_app/build.rs`), so it would have to keep it. |
 | `"_INK_W"` | A custom attribute, `_INK_W`, written by the exporter's `export_attributes`. gltfpack drops it. |
 
-gltfpack drops a UV set no material reads. With the flags in `crates/xtask/src/art.rs` today, line 64,
+gltfpack drops a UV set no material reads. With the flags in `crates/xtask/src/art.rs` today, line 65,
 
 ```rust
 pub const GLTFPACK_FLAGS: [&str; 4] = ["-cc", "-kn", "-km", "-ke"];
@@ -284,11 +284,12 @@ Before export, `lib/motion.py` inserts a `motion` pivot at waist height and a se
 How a clip is authored and baked (`lib/curves.py`, `lib/combat.py`, `lib/motion.py`):
 
 - **A pose holds what it leaves out.** A `pose` names the joints it moves and every other joint holds where the keys before it left it; a `stance` is a whole pose, and a joint it leaves out goes back to its bind pose. `REST` is the empty stance every one-shot starts and ends on.
-- **A key has a manner.** `AUTO` (the default) flows through a key between its neighbours and eases to a stop where a joint turns back; `PASS` crosses it at speed, as a swing crosses its contact; `STOP` eases in and out, for a held pose or a wind-up; `over(amount, apex, settle)` carries past the key and settles back, as a blade carries through its follow-through. A manner is one for every joint or a dict by joint with `"*"` for the rest.
+- **A key has a manner.** `AUTO` (the default) flows through a key between its neighbours and eases to a stop where a joint turns back; `PASS` crosses it at speed, as a swing crosses its contact; `STOP` eases in and out, for a held pose or a wind-up; `over(amount, apex, settle)` carries past the key and settles back, as a blade carries through its follow-through; `stab(apex, settle)` crosses a contact at full speed and drives on past it before it settles back. A manner is one for every joint or a dict by joint with `"*"` for the rest.
 - **Turns are rotation vectors**, interpolated by cubic Hermite, so a turn about one axis stays about it and velocity is continuous through every key that is not a stop.
 - **Motion travels through the body.** Each link plays its keys a little ahead of the hand: the pelvis 100 ms, the chest 75, the head 50, the shoulder 33, the elbow 17 and the wrist and weapon on the key, so a strike starts in the hips and lands in the blade. A one-shot's offsets fade to nothing at its ends, which stay on `REST`.
-- **The contact holds.** A combat clip's contact key is a `strike` and must land on the impact `motions.json` gives it; `motion.check_contact` fails the build when it does not.
-- **Clips are baked at 60 keys a second** (`motion.RATE`), every clip, as one NLA track per clip and part. The robe's `sway_x`, `sway_y` and `billow` are keyed in each clip from a damped spring the waist drags its hem with, and the Hollow's lantern from a pendulum on its handle; a one-shot's cloth settles by its end, and a loop's closes on itself. The Mourner's concealed second arm emerges for gestures. See [the animation guide](../../docs/animations.md) for clip names, class differences and review commands.
+- **The contact holds.** A combat clip's contact key is a `strike` and must land on the impact `motions.json` gives it; `motion.check_contact` fails the build when it does not. A strike crosses it near the top of its speed: `motion.check_strike` fails the build when the striking hand crosses the impact slower than `CONTACT_SHARE` (60%) of the fastest it moves in the clip.
+- **A class can perform a clip its own way.** `combat.CLASS_KEYS` lays a class's own joints over the shared keys: the Hollow's whip lies out toward its target at the slash's and the thrust's contacts, and the Harvester thrusts and blocks below its brim. `motion.MIRRORED` names the clips a class performs with its other hand, and the whole body turns, leans and steps the other way with it.
+- **Clips are baked at 60 keys a second** (`motion.RATE`), every clip, as one NLA track per clip and part, and packed at 60 (`REAPER_GLTFPACK_FLAGS` in `crates/xtask/src/art.rs`), where gltfpack would resample them to 30. The robe's `sway_x`, `sway_y` and `billow` are keyed in each clip from a damped spring the waist drags its hem with, and the Hollow's lantern from a pendulum on its handle; a one-shot's cloth settles by its end, and a loop's closes on itself. The Mourner's concealed second arm emerges for gestures. See [the animation guide](../../docs/animations.md) for clip names, class differences and review commands.
 
 The reaper driver reads `art/build/motions.json`, written from `ReaperMotion` in `reapers_rules` by `cargo xtask build-art --specs-only`. Rebuild that spec before invoking Blender directly after changing the shared animation catalogue.
 

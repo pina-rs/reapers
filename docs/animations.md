@@ -116,7 +116,7 @@ What leptoskit cannot do yet:
 
 ## Build and review
 
-`ReaperMotion` in `reapers_rules` owns clip IDs, durations, loop flags, contact fractions and weapon capabilities. `cargo xtask build-art` writes those timings to `art/build/motions.json`; `art/blender/lib/motion.py` authors the poses and bakes them at 60 keys a second into matching NLA tracks, with the robe's `sway_x`, `sway_y` and `billow` weights (and the Hollow's lantern) keyed from the body's own motion by a damped spring. The renderer plays the exported GLB clips and never reimplements joint animation or that cloth: it sets only the genome and fit morphs by hand, and must not set those three, since a weight set by hand overrides the clip's.
+`ReaperMotion` in `reapers_rules` owns clip IDs, durations, loop flags, contact fractions and weapon capabilities. `cargo xtask build-art` writes those timings to `art/build/motions.json`; `art/blender/lib/motion.py` authors the poses and bakes them at 60 keys a second into matching NLA tracks, with the robe's `sway_x`, `sway_y` and `billow` weights (and the Hollow's lantern) keyed from the body's own motion by a damped spring. The renderer plays the exported GLB clips and never reimplements joint animation or that cloth: it sets only the genome and fit morphs by hand, and must not set those three, since a weight set by hand overrides the clip's. `CLIPS_SWAY_THE_ROBE` in `crates/reapers_app/src/render/cloth.rs` says whether the committed models key them: until they do, the stage stirs the robe by its own clock, and a test fails as soon as the models carry the keys and the flag says otherwise. gltfpack keeps a reaper's clips at 60 keys a second (`REAPER_GLTFPACK_FLAGS` in `crates/xtask/src/art.rs`).
 
 ```sh
 cargo xtask build-art reapers

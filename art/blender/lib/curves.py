@@ -16,9 +16,19 @@ all of them, or a dict of manners by joint with `"*"` for the others:
   path runs on through or turns at, as a blade looping round does, slows
   as the turn tightens, and eases to a stop at a key where it turns back.
   A joint a key holds rather than names always passes it this way.
-- `PASS`: crosses the key at speed, as a swing crosses its contact: as
-  fast as it came in, up to what the move after it can slow from steadily
-  without stalling and picking up again.
+- `PASS`: crosses the key at speed, as a body crosses the top of a jump:
+  as fast as it came in, up to what the move after it can slow from
+  steadily without stalling and picking up again.
+- `STRIKE`: a contact. It speeds up all the way into the key and crosses
+  it at the top of its speed, `DRIVE` times as fast as the move into it
+  averaged, slowed only where the move after it is too short to carry
+  that speed without passing its next key. The follow-through keys after
+  it are `CARRY`.
+- `CARRY`: a follow-through. The joint only slows through it, never
+  stalling and picking up again: it crosses the key no faster than the
+  move after it can slow from steadily, and no slower than the move into
+  it can slow to steadily from the speed it came in at, so a blade's speed
+  after its contact dies away in one long fall rather than in pulses.
 - `STOP`: eases into the key and out again: a held pose, an apex, the
   wind-up a body anticipates from.
 - `over(amount, apex, settle)`: arrives at speed, carries on past the key by
@@ -26,6 +36,10 @@ all of them, or a dict of manners by joint with `"*"` for the others:
   and settles back onto the key `settle` seconds after that when there is
   room before the next key, or turns from the apex into the next move when
   there is not, as a blade carries through its follow-through.
+- `stab(apex, settle)`: a contact that drives on past its key and settles
+  back onto it, as a point drives in or a palm lands: it crosses the key
+  as a `STRIKE` does, carries on as far as that speed takes it in `apex`
+  seconds, slowing all the way, and settles back `settle` seconds later.
 
 A turn is interpolated as a rotation vector (a log-quaternion: an axis
 scaled by its angle) rather than Euler axis by Euler axis, so between two
@@ -51,6 +65,14 @@ from mathutils import Euler, Quaternion, Vector
 AUTO = "auto"
 PASS = "pass"
 STOP = "stop"
+STRIKE = "strike"
+CARRY = "carry"
+# How much faster than the move into it averaged a joint crosses a contact.
+# A Hermite segment from rest speeds up all the way to its end while its
+# end slope is at least 1.5x its average, and is a steady push (constant
+# acceleration) at 2x: between the two the joint is still speeding up as
+# it crosses, so its top speed is the contact.
+DRIVE = 1.8
 # The translation joint: every other joint is a turn.
 TRANSLATION = "move"
 
@@ -79,12 +101,17 @@ REST = Stance()
 
 
 class Over:
-    """Carries past a key and settles back onto it (see the module)."""
+    """Carries past a key and settles back onto it (see the module). A
+    stab (`drive`) crosses the key as a strike does, and by default
+    (`amount` None) carries on as far as that speed takes it."""
 
-    def __init__(self, amount, apex, settle):
-        self.amount, self.apex, self.settle = amount, apex, settle
+    def __init__(self, amount, apex, settle, drive=False):
+        self.amount, self.apex, self.settle, self.drive = amount, apex, settle, drive
 
     def __repr__(self):
+        if self.drive:
+            return f"stab({self.apex}, {self.settle}, {self.amount})"
+
         return f"over({self.amount}, {self.apex}, {self.settle})"
 
 
@@ -95,9 +122,21 @@ def over(amount=0.12, apex=0.07, settle=0.12):
     return Over(amount, apex, settle)
 
 
+def stab(apex=0.05, settle=0.12, amount=None):
+    """A contact's manner: cross the key at full speed, drive on past it as
+    far as that speed carries it in `apex` seconds (or by `amount` of the
+    move that brought it there, for a joint that must stop short, as an
+    elbow locks), and settle back onto it `settle` seconds later."""
+
+    return Over(amount, apex, settle, drive=True)
+
+
 # How a joint arrives at a key it will carry past: at the speed that brought
 # it there, kept low enough that it reaches its apex without turning back.
 _ARRIVE = "arrive"
+# A stab's: as a `STRIKE` crosses its contact, the apex taking the place of
+# the follow-through.
+_DRIVE = "drive"
 
 
 def turn(euler):
@@ -144,9 +183,13 @@ class Track:
         self.times, self.values = times, values
         self.tangents = [_tangent(times, values, index, manner) for index, (_, _, manner) in enumerate(self.keys)]
 
+        # In order, so a follow-through slows from the speed its contact
+        # (or the follow-through key before it) actually crosses at.
         for index, (_, _, manner) in enumerate(self.keys[1:-1], start=1):
             if manner == PASS:
                 self.tangents[index] = _slowing(times, values, self.tangents, index)
+            elif manner == CARRY:
+                self.tangents[index] = _dying(times, values, self.tangents, index)
 
     def at(self, phase):
         times, values, tangents = self.times, self.values, self.tangents
@@ -188,13 +231,20 @@ def _carry_through(keys, seconds):
         before = keys[index - 1][1]
         apex, settle = manner.apex / seconds, manner.settle / seconds
         room = keys[index + 1][0] - time
-        out.append((time, value, _ARRIVE))
+        carry = min(apex, room / 3)
+
+        # A stab's move in ends at `DRIVE` times its average speed, and by
+        # default the carry slows from that to its apex steadily, which a
+        # Hermite segment ending at rest does at half its start speed.
+        amount = DRIVE / 2 * carry / (time - keys[index - 1][0]) if manner.amount is None else manner.amount
+        out.append((time, value, _DRIVE if manner.drive else _ARRIVE))
+
         # The carry takes at most a third of the way to the next key, so the
         # move after it is never crammed. It settles back onto the key only
         # when the settle fits in half the way; otherwise it turns from its
         # apex straight into the next move, as a blade carried through its
         # follow-through turns into the recovery.
-        out.append((time + min(apex, room / 3), value + manner.amount * (value - before), STOP))
+        out.append((time + carry, value + amount * (value - before), STOP))
 
         if apex + settle <= room / 2:
             out.append((time + apex + settle, value.copy(), AUTO))
@@ -221,6 +271,15 @@ def _tangent(times, values, index, manner):
         incoming, outgoing = slopes
 
         return _through(incoming, outgoing, min(1.5 * incoming.length, 3 * outgoing.length))
+
+    if manner in (STRIKE, _DRIVE):
+        # Speeding up all the way in, and no faster than the move after it
+        # can carry without passing its next key: a Hermite segment ending
+        # at rest stays short of its key while its start slope is at most
+        # 3x its average.
+        incoming, outgoing = slopes
+
+        return _through(incoming, outgoing, min(DRIVE * incoming.length, 3 * outgoing.length))
 
     if manner == _ARRIVE:
         # The speed it came in at, but no faster than reaches the apex (the
@@ -252,6 +311,36 @@ def _slowing(times, values, tangents, index):
     limit = max(average, 3 * average - 2 * tangents[index + 1].length)
 
     return tangent if tangent.length <= limit else tangent.normalized() * limit
+
+
+def _dying(times, values, tangents, index):
+    """A follow-through key's tangent: its AUTO direction, at a speed the
+    move into it slows steadily to from the speed it came in at, and the
+    move after it slows steadily from. A Hermite segment's speed falls all
+    the way from its start slope `a` to its end slope `b` while `2a + b` is
+    at least 3x its average and `a + 2b` at most. Where the move into the
+    key is faster than the speed it came in at, the joint must pick up
+    again and the key keeps its AUTO speed."""
+
+    tangent = tangents[index]
+
+    if tangent.length < 1e-12:
+        return tangent
+
+    span = times[index] - times[index - 1]
+    average = (values[index] - values[index - 1]).length / span
+    entry = tangents[index - 1].length
+    low, high = max(0.0, 3 * average - 2 * entry), max(0.0, (3 * average - entry) / 2)
+
+    if low > high:
+        return tangent
+
+    span = times[index + 1] - times[index]
+    onward = (values[index + 1] - values[index]).length / span
+    # And slow enough to slow steadily into the next key at rest.
+    high = min(high, 3 * onward)
+
+    return tangent.normalized() * min(max(tangent.length, low), max(low, high))
 
 
 def _through(incoming, outgoing, speed):

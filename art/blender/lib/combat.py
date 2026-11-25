@@ -1,6 +1,6 @@
-"""Combat key poses: anticipation, a contact crossed at speed, and a
-follow-through that carries on round a loop into the recovery, so the
-weapon never stops and swings back the way it came.
+"""Combat key poses: anticipation, a contact crossed at the top of its
+speed, a follow-through that carries past its pose and settles, and one
+unhurried recovery home.
 
 Every pose names what it means to move and holds the rest (`curves`): the
 off hand keeps its guard through a wind-up instead of dropping to its bind
@@ -9,19 +9,27 @@ the target while the body winds and unwinds around them.
 
 Each attack's contact is a `strike` key. Its time is the clip's impact in
 `ReaperMotion` (`art/build/motions.json`); `motion.build` refuses to bake a
-clip whose contact key is anywhere else. The pelvis, chest, head, shoulder
-and elbow lead the weapon hand into it (`motion.LEAD`), so the hand, and the
-weapon in it, crosses its contact key on the impact.
+clip whose contact key is anywhere else, or whose weapon (or striking hand)
+crosses it at less than `motion.CONTACT_SHARE` of its top speed. A swing
+speeds up all the way into its contact (`curves.STRIKE`); a stab drives on
+past it and settles back (`curves.stab`). The pelvis, chest and head lead
+the blow and are already slowing as it lands; the arm starts its swing
+ahead of the hand but meets the contact with it (`motion.ON_THE_BLOW`).
+
+After the contact the blade only slows: it carries on past its
+follow-through pose and settles (`over`), then comes home in one
+unhurried move (a `PASS` key halfway, at the top of its speed), so its
+speed has one peak at the contact and one gentle hump on the way home.
 """
 
-from .curves import AUTO, PASS, REST, STOP, over, pose, stance
+from .curves import AUTO, PASS, REST, STOP, STRIKE, over, pose, stab, stance
 
 
 class Strike(tuple):
     """A contact key: `(time, pose, manner)`, at the clip's impact."""
 
 
-def strike(time, shown, manner=PASS):
+def strike(time, shown, manner=STRIKE):
     return Strike((time, shown, manner))
 
 
@@ -32,21 +40,27 @@ def contacts(keys):
 
 
 GUARD = stance(arm_r=(-25, 16, -8), arm_l=(-32, -20, 8), elbow_r=(-62, 0, 0), elbow_l=(-85, 0, 0), head=(5, 0, 0))
-# A landing gives in the body, which sinks past the pose and springs back.
-LANDING = {"*": AUTO, "move": over(0.3, 0.05, 0.12), "motion": over(0.2, 0.06, 0.12)}
+# A landing gives in the body: it falls faster and faster onto its feet,
+# sinks on past the pose as far as that speed carries it, slowing all the
+# way, and springs back.
+LANDING = {"*": AUTO, "move": stab(0.07, 0.14), "motion": stab(0.07, 0.14)}
 
 
-def trunk(manner):
+def trunk(manner, limbs=AUTO):
     """A key manner for the body alone (`move` and `motion`), the limbs
-    passing the key as they will: a landing gives in the hips, not in the
+    passing the key as `limbs` says: a landing gives in the hips, not in the
     arms, and a turn runs out in the body while the blade sweeps on."""
 
-    return {"*": AUTO, "move": manner, "motion": manner}
+    return {"*": limbs, "move": manner, "motion": manner}
 
 
 # While the arm loads, the chest is already unwinding, the head turning
 # against it: only the limbs stop.
 LOADED = {"*": STOP, "motion": AUTO, "move": AUTO, "head": AUTO}
+
+# A follow-through: the limbs carry past the pose and settle back, the body
+# a little less.
+FOLLOW = {"*": over(0.12, 0.07, 0.14), "move": over(0.08, 0.07, 0.12), "motion": over(0.08, 0.07, 0.12)}
 
 KEYS = {
     "slash": [
@@ -66,34 +80,34 @@ KEYS = {
             STOP,
         ),
         (0.34, pose(motion=(-3, -3, -30), head=(2, 0, 16), arm_r=(-58, 48, -38), elbow_r=(-78, 0, 0), wrist_r=(0, 42, -24)), LOADED),
+        # The blade crosses at chest height, its shaft level and clear of
+        # the hat brim, the elbow still straightening and the wrist still
+        # snapping through...
         strike(
             0.45,
             pose(
                 move=(0, -0.18, -0.04),
                 motion=(12, 5, 34),
                 head=(-2, 0, -16),
-                arm_r=(-75, -8, 42),
-                elbow_r=(-18, 0, 0),
-                wrist_r=(0, -30, 14),
+                arm_r=(-45, -6, 40),
+                elbow_r=(-26, 0, 0),
+                wrist_r=(-40, -8, 20),
                 arm_l=(18, -35, 0),
                 elbow_l=(-30, 0, 0),
             ),
         ),
-        # Past the contact the blade sweeps on round a loop, never back the
-        # way it came: the body's turn carries it on across, and the arm
-        # carries on across the body as it lifts, so a weapon lying along
-        # the sweep (a whip, a bell) keeps moving as well as one standing
-        # across it (a scythe)...
+        # ...sweeps on across the body, past the follow-through and back...
         (
-            0.55,
-            pose(move=(0, -0.21, -0.05), motion=(16, 7, 56), head=(0, 0, -26), arm_r=(-100, -20, 52), elbow_r=(-34, 0, 0), wrist_r=(2, -36, 18), arm_l=(32, -38, 0), elbow_l=(-26, 0, 0)),
-            trunk(over(0.08, 0.07, 0.12)),
+            0.57,
+            pose(move=(0, -0.21, -0.05), motion=(16, 7, 54), head=(0, 0, -24), arm_r=(-56, -28, 84), elbow_r=(-12, 0, 0), wrist_r=(-44, -40, 32), arm_l=(30, -38, 0), elbow_l=(-26, 0, 0)),
+            FOLLOW,
         ),
-        # ...up over the shoulder as the body unwinds under it...
-        (0.65, pose(move=(0, -0.14, -0.04), motion=(10, 5, 36), head=(1, 0, -16), arm_r=(-120, -30, 24), elbow_r=(-66, 0, 0), wrist_r=(10, -48, 26), arm_l=(20, -30, 0), elbow_l=(-38, 0, 0))),
-        # ...and down to the guard.
-        (0.77, pose(move=(0, -0.07, -0.02), motion=(5, 2, 12), head=(2, 0, -6), arm_r=(-98, -24, -12), elbow_r=(-56, 0, 0), wrist_r=(10, -44, 24), arm_l=(2, -20, 0), elbow_l=(-44, 0, 0))),
-        (0.89, stance(move=(0, -0.02, -0.01), motion=(2, 1, 4), head=(2, 0, -2), arm_r=(-30, 8, 4), elbow_r=(-40, 0, 0), wrist_r=(2, -6, 4), arm_l=(-10, -10, 2), elbow_l=(-30, 0, 0))),
+        # ...and comes home in one move.
+        (
+            0.80,
+            pose(move=(0, -0.07, -0.02), motion=(6, 2, 20), head=(2, 0, -8), arm_r=(-30, -10, 40), elbow_r=(-34, 0, 0), wrist_r=(-16, -20, 16), arm_l=(4, -16, 0), elbow_l=(-30, 0, 0)),
+            PASS,
+        ),
         (1, REST, STOP),
     ],
     "thrust": [
@@ -113,31 +127,29 @@ KEYS = {
             STOP,
         ),
         (0.36, pose(move=(0, 0.02, -0.06), motion=(4, 0, -12), head=(3, 0, 8), arm_r=(-32, 6, -6), elbow_r=(-88, 0, 0), wrist_r=(115, 0, 0)), LOADED),
-        # A thrust lands at full reach and crosses it at speed: the point
-        # drives on and up...
+        # The point lands at chest height and drives on in, the elbow
+        # locking short of straight, and settles back.
         strike(
             0.45,
             pose(
                 move=(0, -0.32, -0.02),
                 motion=(18, 0, 22),
                 head=(-6, 0, -12),
-                arm_r=(-78, 0, 8),
-                elbow_r=(-10, 0, 0),
-                wrist_r=(172, 0, 0),
+                arm_r=(-62, 0, 8),
+                elbow_r=(-30, 0, 0),
+                wrist_r=(150, 0, 0),
                 arm_l=(10, -25, 0),
                 elbow_l=(-35, 0, 0),
             ),
+            {"*": stab(0.05, 0.1), "elbow_r": stab(0.05, 0.1, 0.4), "move": stab(0.05, 0.1, 0.15), "motion": stab(0.05, 0.1, 0.15)},
         ),
+        # It draws the blade back out round a loop rather than straight down
+        # the line it went in on, and comes home.
         (
-            0.55,
-            pose(move=(0, -0.35, -0.03), motion=(20, 0, 26), head=(-7, 0, -14), arm_r=(-100, 0, 20), elbow_r=(-12, 0, 0), wrist_r=(176, 0, 0), arm_l=(14, -24, 0), elbow_l=(-40, 0, 0)),
-            trunk(over(0.08, 0.05, 0.1)),
+            0.70,
+            pose(move=(0, -0.12, -0.02), motion=(6, 0, 10), head=(0, 0, -4), arm_r=(-52, 8, 34), elbow_r=(-48, 0, 0), wrist_r=(120, 0, 0), arm_l=(-6, -20, 0), elbow_l=(-40, 0, 0)),
+            PASS,
         ),
-        # ...and draws back round a loop rather than straight down the line
-        # it went out on, the blade unwinding over the way home.
-        (0.65, pose(move=(0, -0.22, -0.03), motion=(10, 0, 16), head=(-3, 0, -8), arm_r=(-96, 4, 40), elbow_r=(-40, 0, 0), wrist_r=(120, 0, 0), arm_l=(2, -22, 0), elbow_l=(-46, 0, 0))),
-        (0.76, pose(move=(0, -0.1, -0.02), motion=(6, 0, 8), head=(1, 0, -3), arm_r=(-66, 8, 34), elbow_r=(-52, 0, 0), wrist_r=(50, 0, 0), arm_l=(-12, -18, 0), elbow_l=(-44, 0, 0))),
-        (0.86, stance(move=(0, -0.04, -0.02), motion=(3, 0, 4), head=(3, 0, 0), arm_r=(-30, 8, 10), elbow_r=(-34, 0, 0), wrist_r=(20, 0, 0), arm_l=(-14, -14, 0), elbow_l=(-30, 0, 0))),
         (1, REST, STOP),
     ],
     "parry": [
@@ -180,31 +192,35 @@ KEYS = {
                 elbow_l=(-60, 0, 0),
             ),
         ),
-        (0.41, pose(motion=(-5, -8, -34), head=(3, 0, 20), arm_r=(-68, 55, -40), elbow_r=(-62, 0, 0), wrist_r=(10, 60, -28)), LOADED),
+        (0.41, pose(motion=(-5, -8, -34), head=(3, 0, 20), arm_r=(-68, 55, -40), elbow_r=(-62, 0, 0), wrist_r=(0, 36, -20)), LOADED),
+        # The slash, wider: level through the contact under the brim...
         strike(
             0.52,
             pose(
                 move=(0, -0.28, -0.05),
                 motion=(17, 8, 48),
                 head=(-2, 0, -20),
-                arm_r=(-66, -15, 55),
-                elbow_r=(-12, 0, 0),
-                wrist_r=(0, -40, 25),
+                arm_r=(-46, -12, 52),
+                elbow_r=(-20, 0, 0),
+                wrist_r=(-40, -30, 26),
                 arm_l=(20, -42, 0),
                 elbow_l=(-30, 0, 0),
             ),
         ),
-        # Like the slash, but wider: the body's turn carries the blade on
-        # across, the arm lifts it up over the shoulder and down to guard,
-        # one loop with no stop in it.
+        # ...on round the body, past the follow-through and back...
         (
-            0.63,
-            pose(move=(0, -0.3, -0.06), motion=(18, 12, 72), head=(-4, 0, -25), arm_r=(-115, -15, 55), elbow_r=(-30, 0, 0), wrist_r=(4, -48, 28), arm_l=(26, -36, 0), elbow_l=(-40, 0, 0)),
-            trunk(over(0.1, 0.08, 0.14)),
+            0.59,
+            pose(move=(0, -0.31, -0.06), motion=(20, 12, 70), head=(-4, 0, -26), arm_r=(-58, -36, 98), elbow_r=(-10, 0, 0), wrist_r=(-46, -56, 36), arm_l=(28, -38, 0), elbow_l=(-38, 0, 0)),
+            FOLLOW,
         ),
-        (0.73, pose(move=(0, -0.2, -0.04), motion=(12, 6, 44), head=(0, 0, -16), arm_r=(-130, -22, 22), elbow_r=(-64, 0, 0), wrist_r=(8, -52, 30), arm_l=(18, -28, 0), elbow_l=(-40, 0, 0))),
-        (0.84, pose(move=(0, -0.1, -0.02), motion=(8, 4, 26), head=(2, 0, -8), arm_r=(-100, -20, -8), elbow_r=(-56, 0, 0), wrist_r=(8, -34, 20), arm_l=(0, -20, 0), elbow_l=(-44, 0, 0))),
-        (0.92, stance(move=(0, -0.05, -0.02), motion=(4, 2, 10), head=(2, 0, -5), arm_r=(-24, 2, 22), elbow_r=(-40, 0, 0), wrist_r=(6, -16, 10), arm_l=(-10, -16, 0), elbow_l=(-44, 0, 0))),
+        # ...held there a beat, the blade still drifting on...
+        (0.72, pose(move=(0, -0.28, -0.05), motion=(18, 10, 66), head=(-3, 0, -24), arm_r=(-60, -32, 92), elbow_r=(-14, 0, 0), wrist_r=(-42, -50, 36), arm_l=(24, -34, 0), elbow_l=(-40, 0, 0))),
+        # ...and home in one move.
+        (
+            0.86,
+            pose(move=(0, -0.1, -0.02), motion=(8, 4, 26), head=(2, 0, -8), arm_r=(-30, -12, 44), elbow_r=(-36, 0, 0), wrist_r=(-16, -24, 16), arm_l=(2, -20, 0), elbow_l=(-40, 0, 0)),
+            PASS,
+        ),
         (1, REST, STOP),
     ],
     "finisherImpale": [
@@ -224,51 +240,55 @@ KEYS = {
             ),
         ),
         (0.39, pose(motion=(3, 0, -18), head=(2, 0, 10), arm_r=(-28, 8, -12), elbow_r=(-90, 0, 0), wrist_r=(115, 0, 0)), LOADED),
+        # The point goes in, drives on and settles...
         strike(
             0.46,
             pose(
                 move=(0, -0.40, -0.04),
                 motion=(22, 0, 26),
                 head=(-6, 0, -14),
-                arm_r=(-80, 0, 15),
-                elbow_r=(-12, 0, 0),
-                wrist_r=(175, 0, 0),
+                arm_r=(-66, 0, 15),
+                elbow_r=(-30, 0, 0),
+                wrist_r=(160, 0, 0),
                 arm_l=(12, -28, 0),
                 elbow_l=(-40, 0, 0),
             ),
-            over(0.07, 0.04, 0.1),
+            {"*": stab(0.06, 0.14), "elbow_r": stab(0.06, 0.14, 0.4), "move": stab(0.06, 0.14, 0.15), "motion": stab(0.06, 0.14, 0.15)},
         ),
-        (0.59, pose(move=(0, -0.42, -0.03), motion=(18, 0, 28), head=(-5, 0, -15), arm_r=(-86, 0, 18), elbow_r=(-16, 0, 0), wrist_r=(180, 0, 0))),
+        # ...and is leant on, still pushing.
+        (0.59, pose(move=(0, -0.42, -0.03), motion=(19, 0, 28), head=(-5, 0, -15), arm_r=(-70, 0, 18), elbow_r=(-18, 0, 0), wrist_r=(164, 0, 0))),
         # Lift what is on the point, the off hand bracing, and fling it off
-        # outward, the blade sweeping round and down to the guard rather
-        # than dropping back the way it rose.
+        # outward, the blade sweeping round and down rather than dropping
+        # back the way it rose.
         (
-            0.68,
-            pose(move=(0, -0.25, 0), motion=(-6, 0, 15), head=(-14, 0, -8), arm_r=(-108, 6, 26), elbow_r=(-55, 0, 0), wrist_r=(150, 0, 0), arm_l=(-40, -20, 0), elbow_l=(-72, 0, 0)),
+            0.70,
+            pose(move=(0, -0.25, 0), motion=(-6, 0, 15), head=(-14, 0, -8), arm_r=(-96, 6, 26), elbow_r=(-52, 0, 0), wrist_r=(150, 0, 0), arm_l=(-40, -20, 0), elbow_l=(-72, 0, 0)),
             trunk(over(0.1, 0.08, 0.14)),
         ),
-        (0.77, pose(move=(0, -0.18, 0), motion=(-2, 0, 20), head=(-8, 0, -4), arm_r=(-100, 12, 54), elbow_r=(-44, 0, 0), wrist_r=(100, 0, 0), arm_l=(-30, -18, 0), elbow_l=(-60, 0, 0))),
-        (0.85, pose(move=(0, -0.1, 0), motion=(2, 0, 10), head=(-2, 0, -2), arm_r=(-64, 10, 40), elbow_r=(-52, 0, 0), wrist_r=(40, 0, 0), arm_l=(-22, -16, 0), elbow_l=(-50, 0, 0))),
-        (0.92, stance(move=(0, -0.05, 0), motion=(2, 0, 4), head=(0, 0, -2), arm_r=(-34, 8, 16), elbow_r=(-46, 0, 0), wrist_r=(10, 0, 0), arm_l=(-20, -16, 0), elbow_l=(-44, 0, 0))),
+        (0.80, pose(move=(0, -0.16, 0), motion=(-2, 0, 18), head=(-8, 0, -4), arm_r=(-88, 12, 50), elbow_r=(-46, 0, 0), wrist_r=(100, 0, 0), arm_l=(-28, -18, 0), elbow_l=(-58, 0, 0))),
+        (0.90, pose(move=(0, -0.06, 0), motion=(2, 0, 8), head=(-2, 0, -2), arm_r=(-48, 10, 30), elbow_r=(-50, 0, 0), wrist_r=(40, 0, 0), arm_l=(-18, -14, 0), elbow_l=(-44, 0, 0)), PASS),
         (1, REST, STOP),
     ],
     "finisherPalm": [
         (0, REST),
+        # The palm draws back, past its wind-up and back: the body coils.
         (
             0.30,
             pose(
                 move=(0, 0.08, -0.08),
                 motion=(8, 0, -35),
                 head=(6, 0, 18),
-                arm_l=(-12, -18, -24),
+                arm_l=(-12, -26, -34),
                 elbow_l=(-112, 0, 0),
                 wrist_l=(-18, 0, 0),
                 arm_r=(-28, 20, 0),
                 elbow_r=(-80, 0, 0),
             ),
-            STOP,
+            over(0.15, 0.08, 0.14),
         ),
-        (0.41, pose(motion=(5, 0, -20), head=(4, 0, 10), arm_l=(-22, -16, -18), elbow_l=(-98, 0, 0), wrist_l=(-20, 0, 0)), LOADED),
+        (0.41, pose(motion=(5, 0, -20), head=(4, 0, 10), arm_l=(-26, -22, -30), elbow_l=(-98, 0, 0), wrist_l=(-20, 0, 0)), LOADED),
+        # It strikes out round an arc and drives on in, the elbow locking
+        # short of straight, and settles.
         strike(
             0.50,
             pose(
@@ -276,15 +296,15 @@ KEYS = {
                 motion=(16, 0, 28),
                 head=(-4, 0, -14),
                 arm_l=(-85, -8, 15),
-                elbow_l=(-12, 0, 0),
+                elbow_l=(-30, 0, 0),
                 wrist_l=(-12, 0, 0),
                 arm_r=(12, 22, 0),
                 elbow_r=(-40, 0, 0),
             ),
-            over(0.08, 0.04, 0.1),
+            {"*": stab(0.06, 0.14), "elbow_l": stab(0.06, 0.14, 0.4), "move": stab(0.06, 0.14, 0.15), "motion": stab(0.06, 0.14, 0.15)},
         ),
-        (0.62, pose(move=(0, -0.34, -0.02), motion=(18, 0, 33), head=(-5, 0, -16), arm_l=(-88, -6, 18), elbow_l=(-10, 0, 0), wrist_l=(-12, 0, 0), arm_r=(16, 20, 0), elbow_r=(-46, 0, 0))),
-        (0.82, stance(move=(0, -0.06, -0.01), motion=(4, 0, 8), head=(1, 0, -4), arm_l=(-30, -12, 6), elbow_l=(-46, 0, 0), wrist_l=(-4, 0, 0), arm_r=(-8, 16, 0), elbow_r=(-40, 0, 0))),
+        (0.64, pose(move=(0, -0.34, -0.02), motion=(18, 0, 33), head=(-5, 0, -16), arm_l=(-88, -4, 22), elbow_l=(-12, 0, 0), wrist_l=(-14, 0, 0), arm_r=(16, 20, 0), elbow_r=(-46, 0, 0))),
+        (0.82, pose(move=(0, -0.08, -0.01), motion=(5, 0, 10), head=(1, 0, -4), arm_l=(-36, -14, 16), elbow_l=(-44, 0, 0), wrist_l=(-4, 0, 0), arm_r=(-6, 16, 0), elbow_r=(-38, 0, 0)), PASS),
         (1, REST, STOP),
     ],
     "finisherUppercut": [
@@ -302,34 +322,46 @@ KEYS = {
             ),
             STOP,
         ),
-        (0.39, pose(move=(0, -0.06, -0.05), motion=(12, 0, -8), head=(6, 0, 6), arm_r=(-28, 16, -6), elbow_r=(-105, 0, 0)), LOADED),
+        (0.39, pose(move=(0, -0.06, -0.05), motion=(12, 0, -8), head=(6, 0, 6), arm_r=(-14, 16, -6), elbow_r=(-110, 0, 0)), LOADED),
+        # The fist drives up through the jaw at the top of its speed...
         strike(
             0.48,
             pose(
-                move=(0, -0.18, 0.34),
+                move=(0, -0.18, 0.30),
                 motion=(-12, 0, 32),
                 head=(-14, 0, -14),
                 arm_r=(-118, 18, 10),
-                elbow_r=(-65, 0, 0),
+                elbow_r=(-50, 0, 0),
                 arm_l=(16, -28, 0),
                 elbow_l=(-40, 0, 0),
             ),
         ),
-        (0.60, pose(move=(0, -0.18, 0.30), motion=(-16, 0, 42), head=(-18, 0, -18), arm_r=(-140, 18, 12), elbow_r=(-38, 0, 0), arm_l=(22, -24, 0), elbow_l=(-50, 0, 0)), over(0.1, 0.07, 0.12)),
-        # Down onto both feet, the knees taking it.
+        # ...carries on up, past the reach and back...
         (
-            0.79,
-            pose(move=(0, 0, -0.06), motion=(14, 0, 12), head=(8, 0, -4), arm_r=(-62, 14, 0), elbow_r=(-62, 0, 0), arm_l=(-18, -18, 0), elbow_l=(-50, 0, 0)),
+            0.58,
+            pose(move=(0, -0.2, 0.40), motion=(-16, 0, 40), head=(-18, 0, -18), arm_r=(-162, 18, 14), elbow_r=(-28, 0, 0), arm_l=(22, -24, 0), elbow_l=(-50, 0, 0)),
+            over(0.1, 0.07, 0.14),
+        ),
+        # ...hangs at the top...
+        (0.70, pose(move=(0, -0.17, 0.26), motion=(-12, 0, 34), head=(-14, 0, -14), arm_r=(-140, 16, 12), elbow_r=(-38, 0, 0), arm_l=(18, -22, 0), elbow_l=(-48, 0, 0))),
+        # ...and comes down onto both feet, the knees taking it.
+        (
+            0.88,
+            pose(move=(0, 0, -0.05), motion=(12, 0, 10), head=(6, 0, -4), arm_r=(-36, 12, 0), elbow_r=(-50, 0, 0), arm_l=(-16, -18, 0), elbow_l=(-46, 0, 0)),
             LANDING,
         ),
         (1, REST, STOP),
     ],
     "finisherSoulCrush": [
         (0, REST),
-        (0.24, pose(motion=(6, 0, -15), arm_l=(-55, -18, -12), elbow_l=(-65, 0, 0), head=(5, 0, 10), arm_r=(-6, 14, 0), elbow_r=(-24, 0, 0))),
-        (0.43, pose(motion=(-5, 0, 15), arm_l=(-90, -15, 8), elbow_l=(-32, 0, 0), head=(-12, 0, 10), arm_r=(-12, 22, 0), elbow_r=(-34, 0, 0))),
-        # The soul held up, trembling: the tension before the crush.
-        (0.55, pose(motion=(-9, 0, 18), arm_l=(-98, -14, 8), elbow_l=(-38, 0, 0), wrist_l=(0, 0, 20), head=(-15, 0, 10)), STOP),
+        # The hand reaches out for the soul and draws it up round one arc,
+        # out across the body and up, never stopping on the way.
+        (0.24, pose(motion=(6, 0, -15), arm_l=(-50, -24, -12), elbow_l=(-60, 0, 0), head=(5, 0, 10), arm_r=(-6, 14, 0), elbow_r=(-24, 0, 0))),
+        (0.43, pose(motion=(-5, 0, 15), arm_l=(-88, -10, 36), elbow_l=(-30, 0, 0), head=(-12, 0, 10), arm_r=(-12, 22, 0), elbow_r=(-34, 0, 0))),
+        # The soul held up, trembling, lifted past and back: the tension
+        # before the crush.
+        (0.53, pose(motion=(-9, 0, 18), arm_l=(-104, -16, 0), elbow_l=(-44, 0, 0), wrist_l=(0, 0, 20), head=(-15, 0, 10)), over(0.1, 0.06, 0.12)),
+        # It is dragged down and crushed, the fist driving on in.
         strike(
             0.60,
             pose(
@@ -342,9 +374,80 @@ KEYS = {
                 arm_r=(10, 26, 0),
                 elbow_r=(-30, 0, 0),
             ),
-            over(0.15, 0.04, 0.1),
+            stab(0.05, 0.12),
         ),
         (0.73, pose(motion=(8, 0, -18), arm_l=(-45, -28, -18), elbow_l=(-88, 0, 0), wrist_l=(0, 0, 60), head=(10, 0, 4), arm_r=(4, 18, 0), elbow_r=(-26, 0, 0))),
+        (0.87, pose(motion=(3, 0, -6), arm_l=(-18, -16, -6), elbow_l=(-46, 0, 0), wrist_l=(0, 0, 20), head=(4, 0, 2), arm_r=(0, 10, 0), elbow_r=(-16, 0, 0)), PASS),
         (1, REST, STOP),
     ],
 }
+
+
+# What a class's weapon changes in the shared keys, by class and clip: for
+# each key time, the joints it poses differently (over the shared pose), and
+# optionally how they pass the key. The Hollow's chain whip hangs from its
+# fist and trails out, where a blade stands up from it: at the turns that
+# set a blade's edge level it would stand over the Hollow's head, pointing
+# back. Its keys lay the lash out toward the target at each contact.
+CLASS_KEYS = {
+    # The Harvester's hat is a brim as wide as its shoulders. A blade held
+    # at the head would run its shaft through it, so it thrusts and blocks
+    # from lower: the shaft crosses in front of the chest on the thrust and
+    # in front of the face, under the brim, on the block.
+    "harvester": {
+        "thrust": {
+            0.45: (dict(arm_r=(-30, 0, 10), elbow_r=(-28, 0, 0), wrist_r=(130, 0, 25)), {"elbow_r": stab(0.05, 0.1, 0.2)}),
+        },
+        "parry": {
+            0.32: dict(arm_r=(-24, 30, -22), elbow_r=(-75, 0, 0), wrist_r=(55, 15, 52)),
+            0.43: dict(arm_r=(-20, 22, -30), elbow_r=(-88, 0, 0), wrist_r=(50, 5, 42)),
+        },
+    },
+    "hollow": {
+        # The lash sweeps out level and forward across the body.
+        "slash": {
+            0.45: dict(wrist_r=(-40, -8, -70)),
+            0.57: dict(wrist_r=(-44, -24, -88)),
+            0.80: dict(wrist_r=(-16, -16, -30)),
+        },
+        # A crack: the lash is cocked up over the shoulder, thrown forward
+        # through the level at the contact, and carries on down, where it
+        # stays until the Hollow coils it home.
+        "thrust": {
+            0.28: dict(wrist_r=(-90, 0, 0)),
+            0.36: dict(wrist_r=(-100, 0, 0)),
+            0.45: (dict(wrist_r=(10, 0, 0)), {"wrist_r": stab(0.05, 0.1), "elbow_r": stab(0.05, 0.1, 0.25)}),
+            0.70: dict(wrist_r=(60, 0, 0)),
+        },
+    },
+}
+
+
+def for_class(keys, calling, name):
+    """`keys`, a clip's, as the class `calling` performs them
+    (`CLASS_KEYS`)."""
+
+    changes = CLASS_KEYS.get(calling, {}).get(name)
+
+    if not changes:
+        return keys
+
+    out = []
+
+    for key in keys:
+        change = changes.get(key[0])
+
+        if change is None:
+            out.append(key)
+            continue
+
+        poses, manners = change if isinstance(change, tuple) else (change, {})
+        shown = type(key[1])({**key[1], **poses})
+        manner = key[2] if len(key) > 2 else AUTO
+
+        if manners:
+            manner = {**(manner if isinstance(manner, dict) else {"*": manner}), **manners}
+
+        out.append(Strike((key[0], shown, manner)) if isinstance(key, Strike) else (key[0], shown, manner))
+
+    return out
