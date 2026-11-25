@@ -870,9 +870,9 @@ fn controls(state: &Bench) -> Element {
 		),
 	];
 	let outcomes = [
-		(Outcome::Seal, "arms-seal", words.arms_bench_seal()),
-		(Outcome::Body, "arms-body", words.arms_bench_body()),
-		(Outcome::Miss, "arms-miss", words.arms_bench_miss()),
+		(Outcome::Seal, "arms-blow-seal", words.arms_bench_seal()),
+		(Outcome::Body, "arms-blow-body", words.arms_bench_body()),
+		(Outcome::Miss, "arms-blow-miss", words.arms_bench_miss()),
 	]
 	.map(|(outcome, id, name)| {
 		quiet_chip(id, name, state.outcome == outcome, move |bench| {
