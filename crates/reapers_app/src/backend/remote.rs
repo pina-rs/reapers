@@ -116,6 +116,13 @@ pub struct WalletChallenge {
 /// device. Every method answers in the rules' types.
 #[async_trait(?Send)]
 pub trait ReapersApi {
+	/// Monotonic counter incremented whenever the underlying auth session
+	/// switches accounts (such as silent guest fallback after 401 or wallet
+	/// login).
+	fn session_generation(&self) -> u64 {
+		0
+	}
+
 	/// Restores the stored session, or opens a guest account.
 	async fn sign_in(&self) -> ApiResult<()>;
 
@@ -162,9 +169,9 @@ pub struct RemoteBackend<A> {
 	/// Whether this install has signed in. A failed sign-in is tried again
 	/// on the next request.
 	signed_in: RefCell<bool>,
-	/// Cached chain configuration & linked wallet; invalidated on login or
-	/// session reset.
-	cached_status: RefCell<Option<ChainStatus>>,
+	/// Cached chain configuration & linked wallet keyed by
+	/// `api.session_generation()`; invalidated on login or session reset.
+	cached_status: RefCell<Option<(u64, ChainStatus)>>,
 	/// The cluster real husks live on, and the wallet that moves them, on
 	/// a cluster build.
 	cluster: Option<(Rc<Cluster>, Rc<dyn WalletProver>)>,
@@ -207,11 +214,15 @@ impl<A: ReapersApi + 'static> RemoteBackend<A> {
 	}
 
 	async fn status_cached(&self) -> KeeperResult<ChainStatus> {
-		if let Some(status) = self.cached_status.borrow().clone() {
-			return Ok(status);
+		let generation = self.api.session_generation();
+		if let Some((cached_generation, status)) = self.cached_status.borrow().as_ref()
+			&& *cached_generation == generation
+		{
+			return Ok(status.clone());
 		}
 		let status = self.ask(async |api| api.chain_status().await).await?;
-		*self.cached_status.borrow_mut() = Some(status.clone());
+		let after = self.api.session_generation();
+		*self.cached_status.borrow_mut() = Some((after, status.clone()));
 		Ok(status)
 	}
 }
@@ -383,7 +394,8 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 
 	async fn chain_status(&self) -> KeeperResult<Option<ChainStatus>> {
 		let status = self.ask(async |api| api.chain_status().await).await?;
-		*self.cached_status.borrow_mut() = Some(status.clone());
+		let generation = self.api.session_generation();
+		*self.cached_status.borrow_mut() = Some((generation, status.clone()));
 		Ok(Some(status))
 	}
 
@@ -1425,5 +1437,129 @@ mod tests {
 		));
 		assert_eq!(wallet.signed.get(), 0);
 		assert!(rpc.calls.borrow().is_empty());
+	}
+
+	struct SequenceHttp {
+		replies: RefCell<Vec<crate::platform::HttpReply>>,
+	}
+
+	#[async_trait(?Send)]
+	impl crate::platform::HttpTransport for SequenceHttp {
+		async fn post(
+			&self,
+			_url: &str,
+			_headers: Vec<crate::platform::Header>,
+			_body: Vec<u8>,
+			_timeout: std::time::Duration,
+		) -> Result<crate::platform::HttpReply, crate::platform::PlatformError> {
+			Ok(self.replies.borrow_mut().remove(0))
+		}
+	}
+
+	#[test]
+	fn session_reset_on_401_invalidates_cached_chain_status() {
+		use crate::backend::ServerApi;
+		use crate::platform::HttpReply;
+		use crate::platform::MemoryPrefs;
+		use crate::platform::Prefs;
+
+		let wallet = solana_kit_core::Address::from_bytes([6; 32]);
+		let secrets = Rc::new(MemoryPrefs::new());
+		block_on(secrets.set("reapers.server.refresh", serde_json::json!("old-refresh"))).unwrap();
+
+		let old_chain = reapers_api::chain::Chain {
+			chain: "solana:localnet".into(),
+			identity_uri: "https://reapers.localhost/".into(),
+			collection: None,
+			marketplace_uri: None,
+			program: Some(crate::program::program_id().to_string()),
+			husks: demo_manifest(),
+			wallet: Some(wallet.to_string()),
+			lamports: Some(1_000_000),
+		};
+		let new_guest_chain = reapers_api::chain::Chain {
+			wallet: None,
+			lamports: None,
+			..old_chain.clone()
+		};
+		let http = Rc::new(SequenceHttp {
+			replies: RefCell::new(vec![
+				// 1. Initial sign_in via /auth/refresh for the wallet-linked account.
+				HttpReply {
+					status: 200,
+					body: serde_json::to_vec(&serde_json::json!({
+						"access_token": "old-access",
+						"refresh_token": "old-refresh-2",
+						"expires_in": 900
+					}))
+					.unwrap(),
+				},
+				// 2. chain_status populates RemoteBackend::cached_status with old wallet.
+				HttpReply {
+					status: 200,
+					body: serde_json::to_vec(&old_chain).unwrap(),
+				},
+				// 3. load() fails with 401 (session revoked).
+				HttpReply {
+					status: 401,
+					body: b"unauthorized".to_vec(),
+				},
+				// 4. /auth/refresh fails with 401 -> ServerApi forgets refresh token.
+				HttpReply {
+					status: 401,
+					body: b"revoked".to_vec(),
+				},
+				// 5. /auth/guest silently opens a brand-new unlinked guest account.
+				HttpReply {
+					status: 200,
+					body: serde_json::to_vec(&serde_json::json!({
+						"account": "fresh-guest",
+						"access_token": "new-access",
+						"refresh_token": "new-refresh",
+						"expires_in": 900
+					}))
+					.unwrap(),
+				},
+				// 6. Retried /api/load succeeds as the new unlinked guest.
+				HttpReply {
+					status: 200,
+					body: serde_json::to_vec(&PlayerState::initial()).unwrap(),
+				},
+				// 7. If cached_status was invalidated, wallet_husks fetches fresh chain_status.
+				HttpReply {
+					status: 200,
+					body: serde_json::to_vec(&new_guest_chain).unwrap(),
+				},
+			]),
+		});
+
+		let rpc = Rc::new(ReleasingRpc {
+			owner: wallet,
+			calls: RefCell::new(Vec::new()),
+		});
+		let cluster = Rc::new(
+			Cluster::new(
+				crate::chain::ClusterName::Localnet,
+				"http://rpc",
+				rpc.clone(),
+			)
+			.with_pause(Rc::new(|_| Box::pin(async { true }))),
+		);
+		let api = ServerApi::new("https://keeper.invalid", http, secrets);
+		let keeper = RemoteBackend::new(api).with_cluster(cluster, Rc::new(Wallet(None)));
+
+		// Populate cached_status for the wallet-linked account.
+		let initial = block_on(keeper.chain_status()).unwrap().unwrap();
+		assert_eq!(initial.wallet.as_deref(), Some(wallet.to_string().as_str()));
+
+		// Session is revoked -> ServerApi silently creates a new unlinked guest.
+		let _ = block_on(keeper.load()).unwrap();
+
+		// The new unlinked guest must NOT see the previous account's wallet husks.
+		let husks = block_on(keeper.wallet_husks()).unwrap();
+		assert!(
+			husks.is_empty(),
+			"RemoteBackend::cached_status still held the previous account's linked wallet after 401 guest fallback"
+		);
 	}
 }

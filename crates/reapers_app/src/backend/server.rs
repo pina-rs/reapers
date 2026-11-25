@@ -24,6 +24,7 @@
 //! with the same token, with each report going up as `report_rift`. Only
 //! the browser and the native guests have a socket.
 
+use std::cell::Cell;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -88,6 +89,9 @@ struct Session {
 	renewing: futures::lock::Mutex<()>,
 	/// The bearer header the live socket signs with.
 	shared: SharedToken,
+	/// Monotonic counter bumped whenever the underlying account/session resets
+	/// (401 forget, new guest fallback, or wallet login).
+	generation: Cell<u64>,
 }
 
 struct Access {
@@ -157,7 +161,12 @@ impl Session {
 			.map_err(unavailable)
 	}
 
+	fn bump_generation(&self) {
+		self.generation.set(self.generation.get().wrapping_add(1));
+	}
+
 	async fn forget(&self) {
+		self.bump_generation();
 		*self.access.borrow_mut() = None;
 		*self
 			.shared
@@ -199,6 +208,7 @@ impl ServerApi {
 				access: RefCell::new(None),
 				renewing: futures::lock::Mutex::new(()),
 				shared,
+				generation: Cell::new(0),
 			},
 		}))
 	}
@@ -254,6 +264,7 @@ impl Client {
 			return Err(failure(&reply));
 		}
 		let signed_in: SignedIn = decode(&reply)?;
+		self.session.bump_generation();
 		self.session.hold(signed_in.into()).await
 	}
 
@@ -384,6 +395,10 @@ impl From<Chain> for ChainStatus {
 
 #[async_trait(?Send)]
 impl ReapersApi for ServerApi {
+	fn session_generation(&self) -> u64 {
+		self.0.session.generation.get()
+	}
+
 	async fn sign_in(&self) -> ApiResult<()> {
 		self.0.authorization().await.map(drop)
 	}
@@ -527,6 +542,7 @@ impl ReapersApi for ServerApi {
 		}
 		let signed_in: SignedIn = decode(&reply)?;
 		let _renewing = self.0.session.renewing.lock().await;
+		self.0.session.bump_generation();
 		self.0.session.hold(signed_in.into()).await
 	}
 
