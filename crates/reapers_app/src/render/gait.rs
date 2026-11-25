@@ -210,9 +210,10 @@ const STRIDE_LEGS: f64 = 1.8;
 /// of the leg: about 37°. A faster gait than this allows takes quicker
 /// steps rather than longer ones.
 const REACH: f64 = 0.6;
-/// The quickest a stride cycles, in cycles a second. The rig is told where
-/// it is thirty times a second, and a quicker cycle would flicker; a body
-/// going faster lets its feet slip rather than blur.
+/// The quickest a stride cycles, in cycles a second. A slow display tells
+/// the rig where it is only thirty times a second, and a quicker cycle
+/// would flicker there; a body going faster lets its feet slip rather than
+/// blur.
 const MOST_CADENCE: f64 = 4.0;
 /// Slower than this, in metres a second, a body is standing.
 const STILL_SPEED: f64 = 0.04;

@@ -3,8 +3,8 @@
 //!
 //! The hunt lives between renders in [`HuntState`]: the arena and its husk,
 //! the sigil being traced, the room being read, and the platform's pose.
-//! [`crate::render::ticker`] moves it on about thirty times a second while it
-//! is on screen, and the screen is drawn again only when something on it
+//! [`crate::render::ticker`] moves it on once a displayed frame while it is
+//! on screen, and the screen is drawn again only when something on it
 //! changed.
 
 use std::cell::RefCell;
