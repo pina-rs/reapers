@@ -26,6 +26,7 @@
 //! committed. Every build ends by holding the shipped models to their
 //! budgets (`report.rs`).
 
+use std::ffi::OsStr;
 use std::fs;
 use std::io::BufRead;
 use std::io::BufReader;
@@ -62,6 +63,13 @@ pub const GLTFPACK_VERSION: &str = "0.25";
 /// What gltfpack is asked to do: meshopt compression at its higher level,
 /// keeping named nodes, materials and extras.
 pub const GLTFPACK_FLAGS: [&str; 4] = ["-cc", "-kn", "-km", "-ke"];
+
+/// What gltfpack is asked to do with a reaper (a model whose name starts
+/// `reaper_`) besides: keep its clips at the 60 keys a second they are baked
+/// at (`RATE` in art/blender/lib/motion.py), where gltfpack would resample
+/// them to 30. At 30 a strike crossing its contact at full speed travels a
+/// sixth of its arc between two keys, and the arc between them is lost.
+pub const REAPER_GLTFPACK_FLAGS: [&str; 2] = ["-af", "60"];
 
 /// The scripts, and the start of the name of every model each writes.
 const SCRIPTS: [(&str, &str); 4] = [
@@ -434,7 +442,7 @@ fn pack(root: &Path, raw: &Path) -> Outcome {
 		"-o".into(),
 		packed.as_os_str().to_owned(),
 	];
-	arguments.extend(GLTFPACK_FLAGS.map(Into::into));
+	arguments.extend(gltfpack_flags(name).into_iter().map(Into::into));
 	run::require("gltfpack", &arguments, root)?;
 
 	let generator = glb_generator(&fs::read(&packed)?).unwrap_or_default();
@@ -454,6 +462,17 @@ fn pack(root: &Path, raw: &Path) -> Outcome {
 	);
 
 	Ok(())
+}
+
+/// Everything gltfpack is asked to do with the model called `name`.
+fn gltfpack_flags(name: &OsStr) -> Vec<&'static str> {
+	let mut flags = GLTFPACK_FLAGS.to_vec();
+
+	if name.to_string_lossy().starts_with("reaper_") {
+		flags.extend(REAPER_GLTFPACK_FLAGS);
+	}
+
+	flags
 }
 
 /// The `asset.generator` of a binary glTF.
@@ -697,6 +716,18 @@ mod tests {
 					.windows(2)
 					.any(|pair| pair == ["--python-exit-code", "1"])
 			);
+		}
+	}
+
+	#[test]
+	fn only_the_reapers_keep_their_clips_at_60_keys_a_second() {
+		let reaper = gltfpack_flags("reaper_ferryman.glb".as_ref());
+
+		assert!(reaper.windows(2).any(|pair| pair == ["-af", "60"]));
+		assert!(reaper.starts_with(&GLTFPACK_FLAGS));
+
+		for other in ["husk_vase.glb", "weapons.glb", "viewmodel_orb.glb"] {
+			assert_eq!(gltfpack_flags(other.as_ref()), GLTFPACK_FLAGS);
 		}
 	}
 
