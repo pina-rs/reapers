@@ -145,14 +145,10 @@ def _torso(root, chest, back, shoulders):
             parts.append(_bolt(on(degrees, height, 0.008), _outward(degrees), detail, 0.009))
 
     # Vent slots low on the front, off to its left.
-    for row in range(3):
+    for row in range(2):
         height = hoops[1] - 0.05 - row * 0.027
 
         parts.append(_place(_band(radius, 286, 326, height - 0.007, height + 0.007, 0.003, dark), (0, middle, 0)))
-
-    for height in hoops:
-        for degrees in range(22, 360, 45):
-            parts.append(_bolt(on(degrees, height, 0.013), _outward(degrees), detail))
 
     # An exhaust stack up the right of its back that leans out over the
     # shoulder, so even the shoulder line is lopsided. It leans far enough

@@ -40,7 +40,7 @@ def build(spec):
     chest = ((0, shoulder, spine - 0.01), (0.175, 0.15, 0.2))
     hem = spine - 0.12
 
-    torso = creature.form(
+    torso = creature.facet(
         "torso",
         [
             ("sphere", *barrel),
@@ -51,8 +51,9 @@ def build(spec):
         ],
         body,
         root,
-        triangles=2600,
+        triangles=2200,
         voxel=0.018,
+        flat=11.0,
     )
 
     _blanket(root, _surface(torso), spine, flank.y, hem, trim, detail)
@@ -173,13 +174,13 @@ def _leg(root, name, hip, floor, body, detail):
     # Smooth tapering woolly upper leg cuff domed smoothly into the body hip/shoulder.
     wool_rings = []
     stops = [
-        (0.095, 0.024, 0.030),
-        (0.055, 0.056, 0.068),
-        (0.005, 0.072, 0.086),
-        (-0.08, 0.075, 0.090),
-        (-0.16, 0.070, 0.082),
-        (-0.23, 0.062, 0.068),
-        (-0.27, 0.044, 0.046),
+        (0.095, 0.028, 0.034),
+        (0.055, 0.066, 0.078),
+        (0.005, 0.084, 0.098),
+        (-0.08, 0.088, 0.102),
+        (-0.16, 0.082, 0.094),
+        (-0.23, 0.074, 0.080),
+        (-0.275, 0.056, 0.058),
     ]
     segs = 18
     for z, rx, ry in stops:
@@ -205,26 +206,27 @@ def _leg(root, name, hip, floor, body, detail):
             core.tube(
                 f"shin_{name}",
                 shin_path,
-                lambda t: 0.042 - 0.010 * t + 0.005 * math.exp(-(((t - 0.78) / 0.14) ** 2)),
+                lambda t: 0.053 - 0.011 * t + 0.006 * math.exp(-(((t - 0.78) / 0.14) ** 2)),
                 body,
                 leg,
-                sides=12,
+                sides=10,
             )
         )
     )
 
     # Sculpted cloven llama hoof standing flat on the ground.
-    creature.form(
+    creature.facet(
         f"hoof_{name}",
         [
-            ("sphere", (0.018, -0.020, ground + 0.032), (0.024, 0.056, 0.032)),
-            ("sphere", (-0.018, -0.020, ground + 0.032), (0.024, 0.056, 0.032)),
-            ("cube", (0.0, -0.018, ground + 0.015), (0.034, 0.048, 0.015)),
+            ("sphere", (0.023, -0.022, ground + 0.036), (0.03, 0.064, 0.036)),
+            ("sphere", (-0.023, -0.022, ground + 0.036), (0.03, 0.064, 0.036)),
+            ("cube", (0.0, -0.02, ground + 0.017), (0.042, 0.056, 0.017)),
         ],
         detail,
         leg,
-        triangles=200,
-        voxel=0.008,
+        triangles=180,
+        voxel=0.009,
+        flat=12.0,
     )
 
 
@@ -277,7 +279,7 @@ def _head(neck, neck_at, head_at, skull_at, body, detail, dark, accent):
 
     # Sculpted expressive llama skull: soft woolly cheeks, fluffy brow topknot,
     # clean tapered bridge, and gentle cleft upper muzzle.
-    creature.form(
+    creature.facet(
         "skull",
         _about(
             head_at,
@@ -297,8 +299,9 @@ def _head(neck, neck_at, head_at, skull_at, body, detail, dark, accent):
         ),
         body,
         head,
-        triangles=1500,
+        triangles=1100,
         voxel=0.011,
+        flat=10.0,
     )
 
     for side in (1, -1):
@@ -342,7 +345,21 @@ def _head(neck, neck_at, head_at, skull_at, body, detail, dark, accent):
     jaw = creature.pivot("jaw", head, jaw_at - head_at)
 
     feature("mouth", chin, (0.032, 0.05, 0.014), dark, 80)
-    creature.form("jaw_lower", _about(jaw_at, [("sphere", chin, (0.046, 0.068, 0.029))]), body, jaw, triangles=220)
+    # The lower jaw juts past the upper lip: an underbite.
+    jut = (0, chin[1] - 0.06, chin[2] + 0.006)
+    creature.form("jaw_lower", _about(jaw_at, [("sphere", chin, (0.046, 0.068, 0.029)), ("sphere", jut, (0.038, 0.04, 0.026))]), body, jaw, triangles=260)
+
+    # The underbite: two flat front teeth standing up out of the lower jaw
+    # past the lip, a llama's sass.
+    teeth = []
+
+    for side in (1, -1):
+        root_at = Vector((side * 0.012, jut[1] - 0.03, jut[2] + 0.01)) - jaw_at
+        teeth.append(core.tube(f"tooth_{side}", [root_at, root_at + Vector((0, -0.004, 0.036))], lambda t: 0.012 - 0.002 * t, detail, sides=6, flatten=0.55))
+
+    incisors = core.join(teeth, "teeth")
+    incisors.parent = jaw
+    creature.finish(core.shade_smooth(incisors, angle=40))
 
     _cowboy_hat(creature.pivot("trait_1", head, (0, 0, 0)), Vector((0, y - 0.02, z + 0.09)) - head_at, detail, core.material("trim"))
 

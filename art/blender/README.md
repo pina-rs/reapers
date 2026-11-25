@@ -333,7 +333,7 @@ The build fails, with a list of what to fix, if a creature breaks any rule below
 
 - `spec["gait"]`: `"ground"` for a creature that walks, `"air"` for one that flies.
 - `spec["halfWidth"]`, `spec["halfHeight"]`: half the body's width and height in metres. The middle of the body is the origin. A walker's feet stand on the floor at `z = -halfHeight` (`creature.floor(spec)`), and the top of its head is near `z = +halfHeight`. Width and length should stay within about one and a half half-widths of the middle.
-- `spec["seals"]`: where strikes land. `creature.studs(root, spec)` puts a small glowing stud at each. Model the body so every stud sits on its surface or just proud of it, never buried and never floating.
+- `spec["seals"]`: where strikes land. `creature.studs(root, spec)` puts a small glowing stud at each. Model the body so every stud sits on its surface or just proud of it, never buried and never floating: the build measures each seal's centre against the outermost surface near it, prints `SEAL seal_<n> stands … mm off the body`, and fails one buried more than half a stud's height or standing off more than three quarters of it. Never move a seal; shape the body to it.
 
 ### Axes
 

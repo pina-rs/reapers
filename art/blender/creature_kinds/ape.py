@@ -5,18 +5,18 @@ shoulder hump above a deep chest, muscular forelimbs planted on articulated
 knuckle fists, and a wide crested head hung forward with heavy brow ridges,
 sculpted cheekbones, and curved canine fangs inside a dark mouth.
 
-It wears a paneled baseball cap or a solidified royal crown.
+It wears the academy's mortarboard or a royal crown.
 """
 
 import math
 
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 from lib import core, creature
 
 # The joints, in the creature's own space.
 HEAD = (0, -0.08, 0.3)
-JAW = (0, -0.33, 0.145)
+JAW = (0, -0.33, 0.172)
 SHOULDER = (0.3, -0.05, 0.16)
 HIP = (0.19, 0.4, -0.14)
 
@@ -32,7 +32,7 @@ def build(spec):
 
     # Sculpted gorilla torso: broad trapezius hump, muscular shoulder blades,
     # deep ribcage tapering along a powerful sloping spine to compact haunches.
-    creature.form(
+    creature.facet(
         "torso",
         [
             ("sphere", (0, -0.05, 0.07), (0.33, 0.28, 0.29)),
@@ -48,12 +48,13 @@ def build(spec):
         ],
         body,
         root,
-        triangles=2150,
+        triangles=1500,
         voxel=BODY_VOXEL,
+        flat=13.0,
     )
 
     # Sculpted bare chest with subtle pectoral plates and rounded belly.
-    creature.form(
+    creature.facet(
         "chest",
         [
             ("sphere", (0, -0.11, 0.01), (0.24, 0.25, 0.22)),
@@ -62,8 +63,9 @@ def build(spec):
         ],
         trim,
         root,
-        triangles=650,
+        triangles=420,
         voxel=0.018,
+        flat=12.0,
     )
 
     _head(root, body, trim)
@@ -100,7 +102,7 @@ def _head(root, body, trim):
 
     # Sculpted gorilla cranium with pronounced sagittal crest, flared zygomatic
     # cheeks, and heavy supraorbital brow ridge.
-    creature.form(
+    creature.facet(
         "skull",
         _hang(
             [
@@ -114,18 +116,22 @@ def _head(root, body, trim):
                 ("sphere", (0, -0.248, 0.388), (0.175, 0.062, 0.036)),
                 ("sphere", (0.092, -0.252, 0.394), (0.092, 0.056, 0.042)),
                 ("sphere", (-0.092, -0.252, 0.394), (0.092, 0.056, 0.042)),
+                # The sagittal crest: a ridge along the crown that peaks
+                # the head, the gorilla's own shape in its outline.
+                ("cube", (0, -0.07, 0.455), (0.058, 0.13, 0.058), (0, math.radians(45), 0)),
             ],
             HEAD,
         ),
         body,
         head,
-        triangles=1500,
+        triangles=950,
         voxel=SKULL_VOXEL,
+        flat=11.0,
     )
 
     # Sculpted bare gorilla face: orbital mask, broad nose bridge with flared
     # nostril wings, muscular upper lip, and jowls framing the mouth.
-    creature.form(
+    creature.facet(
         "face",
         _hang(
             [
@@ -144,17 +150,18 @@ def _head(root, body, trim):
         ),
         trim,
         head,
-        triangles=950,
+        triangles=620,
         voxel=0.013,
+        flat=10.0,
     )
 
     for side in (1, -1):
-        creature.form(f"socket_{side}", _hang([("sphere", (side * 0.08, -0.286, 0.342), (0.052, 0.022, 0.036))], HEAD), dark, head, triangles=80)
+        creature.facet(f"socket_{side}", _hang([("sphere", (side * 0.08, -0.286, 0.342), (0.052, 0.022, 0.036))], HEAD), dark, head, triangles=80)
         creature.eye(side, head, _from(HEAD, (side * 0.08, -0.304, 0.342)), (0.019, 0.010, 0.019), accent, triangles=48)
-        creature.brow(side, head, _from(HEAD, (side * 0.083, -0.302, 0.392)), (0.058, 0.021, 0.016), body, triangles=90)
-        creature.form(f"nostril_{side}", _hang([("sphere", (side * 0.034, -0.418, 0.294), (0.018, 0.014, 0.013))], HEAD), dark, head, triangles=40)
+        creature.brow(side, head, _from(HEAD, (side * 0.083, -0.306, 0.394)), (0.066, 0.024, 0.02), dark, triangles=90)
+        creature.facet(f"nostril_{side}", _hang([("sphere", (side * 0.034, -0.418, 0.294), (0.018, 0.014, 0.013))], HEAD), dark, head, triangles=40)
         # Sculpted rounded ape ear with slight helix flare.
-        creature.form(
+        creature.facet(
             f"ear_{side}",
             _hang(
                 [
@@ -169,7 +176,7 @@ def _head(root, body, trim):
             voxel=0.008,
         )
 
-    creature.form("mouth", _hang([("sphere", (0, -0.30, 0.19), (0.125, 0.115, 0.055))], HEAD), dark, head, triangles=110)
+    creature.facet("mouth", _hang([("sphere", (0, -0.30, 0.19), (0.125, 0.115, 0.055))], HEAD), dark, head, triangles=110)
 
     # Sculpted curved upper dental arcade: four beveled incisors flanked by
     # sharp curved gorilla canines instead of blocky slabs.
@@ -199,23 +206,24 @@ def _head(root, body, trim):
 
     jaw = creature.pivot("jaw", head, _from(HEAD, JAW))
 
-    creature.form(
+    creature.facet(
         "jaw_lower",
         _hang(
             [
-                ("sphere", (0, -0.348, 0.115), (0.116, 0.072, 0.042)),
-                ("sphere", (0, -0.396, 0.132), (0.110, 0.048, 0.028)),
-                ("sphere", (0, -0.376, 0.096), (0.090, 0.056, 0.028)),
+                ("sphere", (0, -0.348, 0.142), (0.116, 0.072, 0.042)),
+                ("sphere", (0, -0.396, 0.159), (0.110, 0.048, 0.028)),
+                ("sphere", (0, -0.376, 0.123), (0.090, 0.056, 0.028)),
             ],
             JAW,
         ),
         trim,
         jaw,
-        triangles=440,
+        triangles=320,
         voxel=0.012,
+        flat=10.0,
     )
 
-    creature.form("mouth_floor", _hang([("sphere", (0, -0.295, 0.158), (0.096, 0.056, 0.036))], JAW), dark, jaw, triangles=90)
+    creature.facet("mouth_floor", _hang([("sphere", (0, -0.295, 0.185), (0.096, 0.056, 0.036))], JAW), dark, jaw, triangles=90)
 
     # Lower curved canines + compact lower incisors tucked cleanly inside the jaw.
     lower_teeth = []
@@ -227,9 +235,9 @@ def _head(root, body, trim):
             core.tube(
                 f"tooth_l_{idx}",
                 [
-                    _from(JAW, (tx, ty, 0.145)),
-                    _from(JAW, (tx, ty - 0.002, 0.145 + length * 0.55)),
-                    _from(JAW, (tx * 0.96, ty + 0.003, 0.145 + length)),
+                    _from(JAW, (tx, ty, 0.172)),
+                    _from(JAW, (tx, ty - 0.002, 0.172 + length * 0.55)),
+                    _from(JAW, (tx * 0.96, ty + 0.003, 0.172 + length)),
                 ],
                 lambda t, w=width, fang=abs(angle_deg) > 20: w * ((1.0 - 0.80 * t) if fang else (0.95 - 0.35 * t)),
                 detail,
@@ -241,7 +249,7 @@ def _head(root, body, trim):
     teeth_l.parent = jaw
     creature.finish(core.shade_smooth(teeth_l, angle=45))
 
-    _cap(creature.pivot("trait_1", head, (0, 0, 0)), detail, trim)
+    _mortarboard(creature.pivot("trait_1", head, (0, 0, 0)), detail, trim)
     _crown(creature.pivot("trait_2", head, (0, 0, 0)), detail)
 
 
@@ -250,7 +258,7 @@ def _arm(root, side, name, body, trim, floor):
     arm = creature.pivot(f"leg_f{name}", root, joint)
 
     # Muscular deltoid cap, sculpted bicep/tricep, and heavy tapering gorilla forearm.
-    creature.form(
+    creature.facet(
         f"forelimb_{name}",
         _hang(
             [
@@ -263,28 +271,28 @@ def _arm(root, side, name, body, trim, floor):
         ),
         body,
         arm,
-        triangles=1100,
+        triangles=760,
         voxel=BODY_VOXEL,
+        flat=13.0,
     )
 
     # Articulated gorilla knuckle fist with distinct metacarpal ridges and thumb.
-    creature.form(
+    creature.facet(
         f"fist_{name}",
         _hang(
             [
                 ("sphere", (side * 0.36, -0.285, floor + 0.082), (0.095, 0.108, 0.078)),
                 ("sphere", (side * 0.275, -0.315, floor + 0.068), (0.042, 0.064, 0.042), (0, 0, math.radians(side * 18))),
             ]
-            + [
-                ("sphere", (side * 0.36 + across, -0.368, floor + 0.056), (0.033, 0.064, 0.056))
-                for across in (-0.062, -0.020, 0.022, 0.062)
-            ],
+            # One heavy bar of knuckles, not four small ones.
+            + [("sphere", (side * 0.36, -0.352, floor + 0.058), (0.1, 0.058, 0.056))],
             joint,
         ),
         trim,
         arm,
-        triangles=480,
-        voxel=0.011,
+        triangles=300,
+        voxel=0.013,
+        flat=12.0,
     )
 
 
@@ -292,7 +300,7 @@ def _leg(root, side, name, body, trim, floor):
     joint = _mirror(HIP, side)
     leg = creature.pivot(f"leg_b{name}", root, joint)
 
-    creature.form(
+    creature.facet(
         f"haunch_{name}",
         _hang(
             [
@@ -303,12 +311,13 @@ def _leg(root, side, name, body, trim, floor):
         ),
         body,
         leg,
-        triangles=640,
+        triangles=440,
         voxel=BODY_VOXEL,
+        flat=13.0,
     )
 
     # Sculpted bare ape foot with distinct hallux (big toe) and toe pads flat on floor.
-    creature.form(
+    creature.facet(
         f"foot_{name}",
         _hang(
             [
@@ -322,65 +331,56 @@ def _leg(root, side, name, body, trim, floor):
         ),
         trim,
         leg,
-        triangles=320,
+        triangles=220,
         voxel=0.011,
+        flat=12.0,
     )
 
 
-def _cap(parent, cloth, button):
-    """Crisp paneled baseball cap with curved stitched brim."""
+def _mortarboard(parent, cloth, tassel):
+    """The academy's mortarboard, worn at an angle: a skullcap over the
+    crest, a flat square board on it, and a tassel hanging from a corner
+    beside the ear."""
 
-    dome = core.revolve(
+    skullcap = core.revolve(
         "cap",
-        [
-            (0.190, 0.432),
-            (0.214, 0.448),
-            (0.214, 0.482),
-            (0.194, 0.525),
-            (0.148, 0.562),
-            (0.082, 0.584),
-            (0.0, 0.592),
-        ],
+        [(0.0, 0.565), (0.13, 0.552), (0.195, 0.51), (0.214, 0.462), (0.206, 0.432)],
         cloth,
         parent,
-        segments=30,
-        shape=lambda a, r, h: (r * (1.0 - 0.03 * math.cos(a * 2)), h),
+        segments=24,
+        cap_top=True,
         cap_bottom=True,
     )
-    dome.location = _from(HEAD, (0, -0.12, 0))
-    creature.finish(core.shade_smooth(dome))
+    skullcap.location = _from(HEAD, (0, -0.11, 0))
+    creature.finish(core.shade_smooth(skullcap, angle=40))
 
-    # Curved athletic baseball bill sweeping out over the brow.
-    rings = []
-    for step in range(8):
-        t = step / 7
-        span = 0.175 * (1.0 - 0.42 * (t**1.8))
-        y = -0.28 - 0.22 * t
-        z_mid = 0.456 - 0.022 * t
-        ring = []
-        for s in range(12):
-            u = (s / 11) * 2.0 - 1.0
-            # Gentle downward arch across the width of the bill.
-            arch = -0.022 * (u * u) * (0.4 + 0.6 * t)
-            ring.append(_from(HEAD, (u * span, y + 0.035 * (u * u), z_mid + arch + 0.008)))
-        for s in range(11, -1, -1):
-            u = (s / 11) * 2.0 - 1.0
-            arch = -0.022 * (u * u) * (0.4 + 0.6 * t)
-            ring.append(_from(HEAD, (u * span, y + 0.035 * (u * u), z_mid + arch - 0.008)))
-        rings.append(ring)
+    # The board: a square slab, tipped down at the front-left like a hat
+    # worn with attitude.
+    tilt = Matrix.Rotation(math.radians(-7), 4, "Y") @ Matrix.Rotation(math.radians(5), 4, "X")
+    centre = Vector((0.0, -0.11, 0.585))
+    half = 0.235
 
-    brim = core.loft("cap_brim", rings, cloth, parent, closed=True, cap_start=True, cap_end=True)
-    creature.finish(core.shade_smooth(brim, angle=50))
+    def corner(x, y, z):
+        return tuple(Vector(_from(HEAD, tuple(centre + tilt.to_3x3() @ Vector((x, y, z))))))
 
-    btn = core.revolve(
-        "cap_button",
-        [(0.0, 0.606), (0.020, 0.604), (0.030, 0.596), (0.026, 0.588), (0.0, 0.586)],
-        button,
-        parent,
-        segments=14,
-    )
-    btn.location = _from(HEAD, (0, -0.12, 0))
-    creature.finish(core.shade_smooth(btn))
+    rings = [[corner(x * half, y * half, z) for x, y in ((-1, -1), (1, -1), (1, 1), (-1, 1))] for z in (0.016, -0.016)]
+    board = core.loft("cap_board", rings, cloth, parent, cap_start=True, cap_end=True)
+    creature.finish(core.crisp(board, 0.006, segments=1))
+
+    button = core.revolve("cap_button", [(0.0, 0.03), (0.026, 0.022), (0.03, 0.0)], tassel, parent, segments=10, cap_bottom=True)
+    button.data.transform(Matrix.Translation(_from(HEAD, tuple(centre + tilt.to_3x3() @ Vector((0, 0, 0.012))))))
+    creature.finish(core.shade_smooth(button))
+
+    # The cord runs from the button over the board's edge to the left front
+    # corner and drops; the tassel hangs from it by the ear.
+    top = centre + tilt.to_3x3() @ Vector((0, 0, 0.03))
+    edge = centre + tilt.to_3x3() @ Vector((half * 0.92, -half * 0.55, 0.024))
+    drop = edge + Vector((0.015, -0.005, -0.085))
+    cord = core.tube("cap_cord", [_from(HEAD, tuple(point)) for point in (top, top.lerp(edge, 0.5) + Vector((0, 0, 0.012)), edge, drop)], 0.009, tassel, parent, sides=6)
+    creature.finish(cord)
+    tuft = core.revolve("cap_tassel", [(0.0, 0.0), (0.02, -0.012), (0.034, -0.08), (0.03, -0.1), (0.0, -0.104)], tassel, parent, segments=8, cap_bottom=True)
+    tuft.location = _from(HEAD, tuple(drop))
+    creature.finish(core.shade_smooth(tuft, angle=40))
 
 
 def _crown(parent, gold):

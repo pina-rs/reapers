@@ -55,10 +55,11 @@ def _torso(root, body, trim):
         (-0.37, 0.10, 0.09, 0.10),
         (-0.33, 0.195, 0.185, 0.20),
         (-0.24, 0.255, 0.235, 0.245),
-        (-0.12, 0.272, 0.255, 0.250),
-        (0.02, 0.250, 0.238, 0.230),
-        (0.14, 0.208, 0.195, 0.195),
-        (0.23, 0.165, 0.155, 0.155),
+        (-0.12, 0.272, 0.255, 0.256),
+        (0.02, 0.250, 0.238, 0.262),
+        (0.10, 0.226, 0.212, 0.246),
+        (0.17, 0.192, 0.180, 0.212),
+        (0.23, 0.160, 0.152, 0.165),
         (0.27, 0.11, 0.105, 0.105),
     ]
     segments = 32
@@ -81,8 +82,8 @@ def _torso(root, body, trim):
     belly_stops = [
         (-0.33, 0.072, -0.145),
         (-0.26, 0.156, -0.228),
-        (-0.14, 0.188, -0.264),
-        (-0.01, 0.175, -0.254),
+        (-0.14, 0.188, -0.250),
+        (-0.01, 0.175, -0.232),
         (0.11, 0.140, -0.214),
         (0.20, 0.088, -0.168),
     ]
@@ -133,10 +134,12 @@ def _flipper(parent, side, name, body):
         (0.0, -0.052, 0.008, 0.024, 0.048, 0.020),
         (0.14, 0.002, 0.004, -0.015, 0.078, 0.028),
         (0.32, 0.034, 0.002, -0.085, 0.088, 0.029),
-        (0.56, 0.054, 0.008, -0.175, 0.084, 0.024),
-        (0.78, 0.064, 0.020, -0.255, 0.064, 0.017),
-        (0.92, 0.066, 0.030, -0.305, 0.038, 0.011),
-        (1.0, 0.062, 0.038, -0.330, 0.014, 0.005),
+        # The elbow kinks out and the tip comes back in to the hip: a
+        # flipper on its hip, the pest's attitude.
+        (0.56, 0.062, 0.012, -0.17, 0.084, 0.026),
+        (0.74, 0.058, 0.03, -0.235, 0.07, 0.022),
+        (0.88, 0.03, 0.045, -0.27, 0.05, 0.016),
+        (1.0, 0.0, 0.05, -0.285, 0.018, 0.008),
     ]
     rings = []
     segs = 14
@@ -226,9 +229,12 @@ def _head(root, body, trim, detail, dark, accent):
     creature.form(
         "face",
         [
-            ("sphere", (0.072, -0.144, 0.092), (0.068, 0.038, 0.064), (0, 0, math.radians(-14))),
-            ("sphere", (-0.072, -0.144, 0.092), (0.068, 0.038, 0.064), (0, 0, math.radians(14))),
-            ("sphere", (0.0, -0.154, 0.052), (0.084, 0.032, 0.038)),
+            ("sphere", (0.072, -0.146, 0.062), (0.068, 0.038, 0.06), (0, 0, math.radians(-14))),
+            ("sphere", (-0.072, -0.146, 0.062), (0.068, 0.038, 0.06), (0, 0, math.radians(14))),
+            ("sphere", (0.0, -0.156, 0.026), (0.084, 0.032, 0.036)),
+            # The blaze: a lozenge up the forehead that the seal is set
+            # in, so it reads as a badge, not a third eye.
+            ("cube", (0.0, -0.17, 0.1), (0.034, 0.03, 0.034), (0, math.radians(45), 0)),
         ],
         trim,
         head,
@@ -238,14 +244,14 @@ def _head(root, body, trim, detail, dark, accent):
 
     # Dark recessed eye sockets, glowing eyes, and sculpted expressive brow ledges.
     for side in (1, -1):
-        creature.form(f"socket_{side}", [("sphere", (side * 0.074, -0.178, 0.104), (0.036, 0.022, 0.038))], dark, head, triangles=120)
-        creature.eye(side, head, (side * 0.074, -0.195, 0.104), (0.017, 0.011, 0.018), accent)
-        creature.brow(side, head, (side * 0.074, -0.196, 0.152), (0.050, 0.018, 0.014), body, rotation=(0, math.radians(side * -7), math.radians(side * 12)))
+        creature.form(f"socket_{side}", [("sphere", (side * 0.074, -0.178, 0.072), (0.036, 0.022, 0.038))], dark, head, triangles=120)
+        creature.eye(side, head, (side * 0.074, -0.195, 0.072), (0.017, 0.011, 0.018), accent)
+        creature.brow(side, head, (side * 0.08, -0.2, 0.118), (0.052, 0.02, 0.016), dark, rotation=(0, 0, math.radians(side * 12)))
 
     # Sculpted curved penguin beak (upper ridge + hooked tip, lower hinged bill).
     _beak(
         "beak_upper",
-        Vector((0.0, -0.168, 0.040)),
+        Vector((0.0, -0.17, 0.014)),
         length=0.145,
         width=lambda t: 0.058 * (1.0 - t**2.1) + 0.005,
         top=lambda t: 0.042 * (1.0 - t**1.9) - 0.012 * (t**2.6),
@@ -254,7 +260,7 @@ def _head(root, body, trim, detail, dark, accent):
         parent=head,
     )
 
-    jaw = creature.pivot("jaw", head, (0, -0.165, 0.028))
+    jaw = creature.pivot("jaw", head, (0, -0.167, 0.002))
     _beak(
         "beak_lower",
         Vector((0.0, 0.0, 0.0)),
