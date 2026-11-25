@@ -12,8 +12,9 @@ use leptoskit_3d::client::Scene;
 use reapers_app::render::appearance::ReaperAppearance;
 use reapers_app::render::camera::STAGE_DISTANCE;
 use reapers_app::render::camera::stage_camera;
+use reapers_app::render::print::Framing;
 use reapers_app::render::rig::ReaperRig;
-use reapers_app::render::scene::light_sanctum;
+use reapers_app::render::scene::light_stage;
 use reapers_rules::Outfit;
 use reapers_rules::ReaperClass;
 use reapers_rules::ReaperGenome;
@@ -97,7 +98,7 @@ fn a_reaper_stands_on_the_stage_in_its_own_colours() {
 			..ReaperGenome::shuffle(7)
 		};
 		let scene = Scene::new(leptoskit_3d::SceneId(1));
-		light_sanctum(&scene);
+		light_stage(&scene, Framing::Figure);
 		ReaperRig::spawn(
 			&scene,
 			None,
@@ -138,7 +139,7 @@ fn the_face_close_up_is_filled_by_the_head() {
 		..ReaperGenome::shuffle(3)
 	};
 	let scene = Scene::new(leptoskit_3d::SceneId(1));
-	light_sanctum(&scene);
+	light_stage(&scene, Framing::Figure);
 	ReaperRig::spawn(
 		&scene,
 		None,

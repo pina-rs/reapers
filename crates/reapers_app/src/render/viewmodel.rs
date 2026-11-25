@@ -16,10 +16,9 @@
 //! built model.
 
 use leptoskit::scene3d::Backdrop;
-use leptoskit::scene3d::Blend;
-use leptoskit::scene3d::Light;
 use leptoskit::scene3d::MaterialOverride;
 use leptoskit::scene3d::Op;
+use leptoskit::scene3d::PrintTarget;
 use leptoskit::scene3d::Transform;
 use leptoskit::scene3d::client::Scene;
 use reapers_rules::Archetype;
@@ -30,6 +29,8 @@ use super::arms::LeftHolds;
 use super::arms::Pose;
 use super::camera::Point;
 use super::juice::Shake;
+use super::print::Framing;
+use super::print::Inking;
 use super::puppet::Puppet;
 use super::turn::add;
 use super::turn::axis_angle;
@@ -39,6 +40,8 @@ use super::turn::rotate;
 use super::turn::scale;
 use super::turn::sub;
 use super::turn::view_turn;
+use crate::ink::ReaperInk;
+use crate::theme::Rgb;
 
 /// The model.
 pub const VIEWMODEL_MODEL: &str = "models/viewmodel.glb";
@@ -334,37 +337,49 @@ pub fn visibility(archetype: Archetype, pose: &Pose) -> [(&'static str, bool); 1
 /// The first-person arms in a scene of their own.
 pub struct ViewmodelRig {
 	puppet: Puppet,
+	/// The light the arms print in: the reaper's own.
+	spot: Rgb,
 }
 
 impl ViewmodelRig {
 	/// Brings the arms into `scene`, with its camera at the eye and the
-	/// light they are seen in, over a transparent ground.
-	pub fn spawn(scene: &Scene) -> Self {
+	/// light they are seen in, over a transparent ground, printed in `spot`,
+	/// the reaper's light.
+	pub fn spawn(scene: &Scene, spot: Rgb) -> Self {
 		scene.push(Op::SetCamera {
 			transform: Transform::IDENTITY,
 			fov_y: VIEWMODEL_FOV,
 			near: 0.02,
 			far: 20.0,
 		});
-		scene.push(Op::SetLight(Light {
-			direction: [-0.4, -1.0, -0.6],
-			color: [0.85, 0.92, 1.0],
-			intensity: 3.2,
-			ambient: 0.7,
-			shadow: 0.0,
-			camera_space: false,
-		}));
+		Framing::FirstPerson.apply(scene);
 		scene.push(Op::SetBackdrop(Backdrop::Transparent));
 		let mut puppet = Puppet::spawn(scene, VIEWMODEL_MODEL, None);
-		// A heavy swing's trail is light: added to what is behind it, in the
-		// soul's colour.
-		scene.push(Op::SetBlend {
-			node: puppet.node,
-			part: Some("vm_trail".to_owned()),
-			blend: Blend::Additive,
-		});
 		puppet.material(scene, "vm_trail", glow(1.0));
-		Self { puppet }
+		let rig = Self { puppet, spot };
+		rig.print(scene);
+		rig
+	}
+
+	/// Prints the arms in the reaper's light, over the camera (art bible
+	/// §6.5). A heavy swing's trail is a smear: filled key, with no line
+	/// (§11.4).
+	fn print(&self, scene: &Scene) {
+		let inking = Inking::Reaper(ReaperInk::arm(self.spot));
+		super::print::print(scene, self.puppet.node, VIEWMODEL_MODEL, &inking);
+		scene.set_print(
+			self.puppet.node,
+			PrintTarget::Part("vm_trail".to_owned()),
+			super::print::smear(),
+		);
+	}
+
+	/// Prints the arms in `spot` from now on.
+	pub fn ink(&mut self, scene: &Scene, spot: Rgb) {
+		if self.spot != spot {
+			self.spot = spot;
+			self.print(scene);
+		}
 	}
 
 	/// Shows `pose`, with the weapon of a slot of `archetype` in hand, shaken

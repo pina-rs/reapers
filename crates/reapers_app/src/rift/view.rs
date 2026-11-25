@@ -510,6 +510,7 @@ fn thumbs(
 
 /// The rift: the circle gathering over the husk at rest, the fight in the
 /// same arena as a hunt with the circle under the ward, and how it ended.
+#[allow(clippy::too_many_lines, reason = "one view, read top to bottom")]
 pub fn rift_view(props: &RiftViewProps) -> Element {
 	let rift = rift_for(props);
 	mount(&rift);

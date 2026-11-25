@@ -16,13 +16,13 @@ pub mod effects;
 pub mod gait;
 pub mod husk;
 pub mod juice;
-pub mod look;
 #[cfg(test)]
 pub mod model;
 pub mod orb;
 pub mod parts;
 pub mod playback;
 pub mod pointer;
+pub mod print;
 pub mod puppet;
 pub mod reaction;
 pub mod rig;

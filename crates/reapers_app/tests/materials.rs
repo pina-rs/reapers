@@ -100,12 +100,28 @@ fn assert_animations_preserved(name: &str, source: &Glb, bundled: &Glb) {
 }
 
 fn assert_geometry_and_animations_preserved(name: &str, source: &Glb, bundled: &Glb) {
-	assert!(
-		bundled.bin.len() < source.bin.len(),
-		"{name}: expected COLOR_0 compaction to shrink BIN ({} vs {})",
-		bundled.bin.len(),
-		source.bin.len()
-	);
+	// Only the mask colours are stripped: a model without them, one that
+	// carries nothing but ink weights in `COLOR_1` say, keeps every byte.
+	let masked = source.json["meshes"]
+		.as_array()
+		.unwrap()
+		.iter()
+		.flat_map(|mesh| mesh["primitives"].as_array().unwrap())
+		.any(|primitive| primitive["attributes"].get("COLOR_0").is_some());
+	if masked {
+		assert!(
+			bundled.bin.len() < source.bin.len(),
+			"{name}: expected COLOR_0 compaction to shrink BIN ({} vs {})",
+			bundled.bin.len(),
+			source.bin.len()
+		);
+	} else {
+		assert_eq!(
+			bundled.bin.len(),
+			source.bin.len(),
+			"{name}: nothing to strip, so nothing may shrink"
+		);
+	}
 	for (mi, (sm, dm)) in source.json["meshes"]
 		.as_array()
 		.unwrap()

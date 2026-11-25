@@ -327,6 +327,7 @@ impl Plates {
 /// A blow's splat, added to `plates`: a blob with drops thrown from it the
 /// way the shot went, its key edge out of register until it springs home,
 /// its scrawl across it, wiped off from the far side in bites.
+#[allow(clippy::too_many_lines, reason = "one splat, plate by plate")]
 pub fn splat(plates: &mut Plates, splat: &Splat) {
 	let left = coverage(splat.beat, splat.lively);
 	if left <= 0.0 {
@@ -531,7 +532,7 @@ pub fn tag_view(look: TagLook) -> Element {
 					line + lift + jitter(0.8),
 				),
 				(
-					(width + text) / 2.0 + jitter(2.0),
+					f64::midpoint(width, text) + jitter(2.0),
 					line + lift + jitter(0.8),
 				),
 			],
@@ -647,10 +648,7 @@ mod tests {
 		assert_eq!(beat(0), 1, "the splat lands on the shot's own frame");
 		let left: Vec<f64> = (0..40).map(|beat| coverage(beat, false)).collect();
 		assert_eq!(left[0], 0.0);
-		assert!(
-			left[1..34].iter().all(|left| *left == 1.0),
-			"held: {left:?}"
-		);
+		assert_eq!(left[1..34], [1.0; 33], "held: {left:?}");
 		assert!(
 			left[34..].iter().all(|left| *left == 0.0),
 			"then gone at once"

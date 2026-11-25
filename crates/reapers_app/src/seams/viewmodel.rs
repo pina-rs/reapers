@@ -417,7 +417,10 @@ impl Seam {
 		self.show_tags(tags);
 		let arms_scene = scene(VIEWMODEL);
 		let ops = arms_scene.ops();
-		let rig = self.rig.get_or_insert_with(|| ViewmodelRig::spawn(ops));
+		let rig = self
+			.rig
+			.get_or_insert_with(|| ViewmodelRig::spawn(ops, props.spot));
+		rig.ink(ops, props.spot);
 		rig.show(
 			ops,
 			props.archetype,
@@ -449,7 +452,7 @@ impl Seam {
 			.as_ref()
 			.is_none_or(|(key, spawned, _)| *key != world.scene || *spawned != id)
 		{
-			self.world = Some((world.scene, id, WorldFx::spawn(ops, None)));
+			self.world = Some((world.scene, id, WorldFx::spawn(ops, None, props.spot)));
 			self.shards = [None; 2];
 			self.thrown = None;
 			self.trailing = arms::Trailing::default();
@@ -1136,9 +1139,10 @@ mod tests {
 			tags.extend(tagged.first().map(|tag| (tag.scale, tag.centre)));
 		}
 		assert_eq!(coverage.len(), 33, "f1 to f33");
-		assert!(coverage.iter().all(|left| *left == 1.0), "{coverage:?}");
+		assert_eq!(coverage, [1.0; 33]);
 		assert_eq!(tags.len(), 49, "f2 to f50");
-		assert!(tags.iter().all(|tag| *tag == tags[0] && tag.0 == 1.0));
+		assert!(tags.iter().all(|tag| *tag == tags[0]), "{tags:?}");
+		assert_eq!(tags[0].0, 1.0);
 	}
 
 	#[test]

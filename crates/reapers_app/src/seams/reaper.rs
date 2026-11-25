@@ -6,6 +6,7 @@ use reapers_rules::ReaperGenome;
 use reapers_rules::Weapon;
 
 use crate::render::scene::Key;
+use crate::render::stage::hero_show;
 use crate::render::stage::plain_show;
 use crate::render::stage::stage_view;
 
@@ -64,4 +65,15 @@ pub fn reaper_stage(props: &ReaperStageProps) -> Element {
 		),
 	)
 	.1
+}
+
+/// The bound reaper as the sanctum's hero: the same stage, the camera
+/// closer, so the reaper and what it holds stand about 400 pt tall, lit
+/// from behind so its rim carries the silhouette (art bible §9). It
+/// neither turns by itself nor moves in on the face: `turns_on_its_own`
+/// and `focus_face` are not read.
+#[track_caller]
+pub fn reaper_hero(props: &ReaperStageProps) -> Element {
+	let key = Key::caller();
+	stage_view(key, hero_show(props.genome, props.weapon, props.outfit)).1
 }

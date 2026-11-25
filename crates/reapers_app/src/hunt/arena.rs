@@ -457,6 +457,7 @@ impl Arena {
 	/// While nothing is being fought: the husk drifts and the rules wait.
 	pub fn idle(&mut self, delta: f64, live: ArPose) {
 		self.aim(&live);
+		self.rig.seen_by(self.scene.ops(), self.spot);
 		self.rig.animate(
 			self.scene.ops(),
 			delta,
@@ -489,6 +490,7 @@ impl Arena {
 	/// Advances the fight and everything drawn from it, with the player at
 	/// `live`, and returns what happened, each on the rules' tick it happened
 	/// on. Before a fight is engaged this only idles.
+	#[allow(clippy::too_many_lines, reason = "one tick, in the order it happens")]
 	pub fn advance(
 		&mut self,
 		delta: f64,
@@ -532,9 +534,7 @@ impl Arena {
 					// is held, three frames on the body and five on a seal, and
 					// printed in the reaper's spot. Its reaction is never held
 					// again on top, so the hold is the frames it says.
-					let Rgb(red, green, blue) = self.spot;
-					let spot = u32::from_be_bytes([0, red, green, blue]);
-					self.rig.print(crate::render::look::linear(spot));
+					self.rig.print(self.spot);
 					self.rig.stop(if seal.is_some() { 5 } else { 3 });
 					self.rig.hit(
 						*seal,
@@ -608,6 +608,7 @@ impl Arena {
 		let dissolve = self.come_apart.max(1.0 - self.gathered).max(self.taken);
 		self.rig
 			.dissolve(if hidden { dissolve.max(0.92) } else { dissolve });
+		self.rig.seen_by(self.scene.ops(), self.spot);
 		self.rig.animate(self.scene.ops(), delta, mood, plight);
 		self.aim(&pose);
 		self.scene.flush();

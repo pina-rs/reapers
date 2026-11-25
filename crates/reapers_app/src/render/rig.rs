@@ -1,6 +1,6 @@
 //! One reaper, assembled in a scene from its genome: the class's model with
-//! the genome's parts shown, the weapon in its hand, and its look on every
-//! surface. The Flutter `ReaperRig`.
+//! the genome's parts shown, the weapon in its hand, and every surface
+//! printed in its light (art bible §3.3–3.5). The Flutter `ReaperRig`.
 //!
 //! A class's model carries every part the shuffle can pick; the rig shows
 //! the ones this genome names and hides the rest. Weapons share one model,
@@ -26,10 +26,10 @@ use super::cloth::cloth_fit_weights;
 use super::cloth::cloth_sway_weights;
 #[cfg(test)]
 use super::cloth::cloth_weights;
-use super::look::ReaperLook;
-use super::parts::parts;
 use super::playback::EXPRESSIONS;
 use super::playback::ReaperPlayback;
+use super::print::Inking;
+use crate::ink::ReaperInk;
 
 /// The model of one class, holding every head, mantle and robe it can wear.
 pub fn reaper_model(calling: ReaperClass) -> String {
@@ -168,17 +168,18 @@ impl ReaperRig {
 		self.show_weapon(scene);
 	}
 
-	/// Dresses the reaper in `outfit`: the same model drawn with different
-	/// numbers, so this is cheap enough to call as the player browses.
+	/// Dresses the reaper in `outfit`: the same model printed with different
+	/// inks, one override a material, so this is cheap enough to call as the
+	/// player browses.
 	pub fn wear(&mut self, scene: &Scene, outfit: Outfit) {
 		self.outfit = outfit;
-		let look = ReaperLook::of(&self.genome, outfit);
-		for (material, nodes) in parts(&reaper_model(self.genome.reaper_class)) {
-			let change = look.material(material);
-			for node in *nodes {
-				scene.set_material(self.body, Some(node), change);
-			}
-		}
+		let inking = Inking::Reaper(ReaperInk::of(&self.genome, outfit));
+		super::print::print(
+			scene,
+			self.body,
+			&reaper_model(self.genome.reaper_class),
+			&inking,
+		);
 		self.dress(scene, self.appearance);
 	}
 
@@ -200,15 +201,10 @@ impl ReaperRig {
 		}
 	}
 
-	/// A weapon's temper is drawn the way the outfit of the same name is.
+	/// A weapon's temper prints the way the outfit of the same name does.
 	fn temper(&self, scene: &Scene) {
-		let look = ReaperLook::of(&self.genome, temper_look(self.weapon.temper));
-		for (material, nodes) in parts(super::rig::WEAPONS_MODEL) {
-			let change = look.material(material);
-			for node in *nodes {
-				scene.set_material(self.weapons, Some(node), change);
-			}
-		}
+		let inking = Inking::Reaper(ReaperInk::of(&self.genome, temper_look(self.weapon.temper)));
+		super::print::print(scene, self.weapons, WEAPONS_MODEL, &inking);
 	}
 
 	/// Plays `playback`'s motion, in this reaper's form, held still for a
@@ -391,20 +387,21 @@ mod tests {
 	}
 
 	#[test]
-	fn an_outfit_restyles_every_part_of_the_model() {
+	fn an_outfit_reprints_every_material_of_the_model() {
 		let (scene, mut rig) = rig();
 		scene.take_ops();
 		rig.wear(&scene, Outfit::Hollowed);
 		let ops = scene.take_ops();
-		let styled = ops
+		let printed = ops
 			.iter()
-			.filter(|op| matches!(op, Op::SetMaterial { node, .. } if *node == rig.body))
+			.filter(|op| matches!(op, Op::SetPrint { node, .. } if *node == rig.body))
 			.count();
-		let parts: usize = parts(&reaper_model(rig.genome.reaper_class))
-			.iter()
-			.map(|(_, nodes)| nodes.len())
-			.sum();
-		assert_eq!(styled, parts);
+		let materials = crate::render::parts::parts(&reaper_model(rig.genome.reaper_class)).len();
+		assert_eq!(printed, materials);
+		assert!(
+			!ops.iter().any(|op| matches!(op, Op::SetMaterial { .. })),
+			"a reaper is printed, never tinted"
+		);
 		assert!(ops.iter().any(
 			|op| matches!(op, Op::SetPartVisible { part, visible: false, .. } if part.starts_with("void_"))
 		));

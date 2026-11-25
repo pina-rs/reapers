@@ -13,10 +13,11 @@ use std::rc::Rc;
 
 use leptoskit::scene3d::Backdrop;
 use leptoskit::scene3d::Event;
-use leptoskit::scene3d::Light;
 use leptoskit::scene3d::Op;
 use leptoskit::scene3d::SceneId;
 use leptoskit::scene3d::client::Scene;
+
+use super::print::Framing;
 
 /// A scene the game keeps, and the ops it has sent (in tests, where there is
 /// no host to send them to).
@@ -228,35 +229,20 @@ pub async fn wait_for_scene(id: SceneId) -> Result<(), leptoskit::scene3d::clien
 	scene.submissions.ready().await
 }
 
-/// The light a reaper stands in alone in the dark: a cold key from above
-/// and in front, which leaves the face in the shadow of whatever the reaper
-/// wears on its head, and a dim sky. The Flutter `VeilLook.sanctum`.
-pub fn light_sanctum(scene: &Scene) {
-	scene.push(Op::SetLight(Light {
-		direction: [-0.35, -1.0, -0.55],
-		color: [0.82, 0.9, 1.0],
-		intensity: 4.6,
-		ambient: 0.55,
-		shadow: 0.55,
-		camera_space: false,
-	}));
+/// A stage's print: a reaper alone on transparent ground over the page's
+/// ink, lit and lined for how the stage frames it (art bible §5.4).
+pub fn light_stage(scene: &Scene, framing: Framing) {
+	framing.apply(scene);
 	scene.push(Op::SetBackdrop(Backdrop::Transparent));
-	scene.push(Op::SetExposure(1.3));
+	scene.push(Op::SetExposure(1.0));
 }
 
-/// The light for husks over the camera's picture, or the veil where there is
-/// none: nothing here may darken or tint the whole frame, because the
-/// background is the real world. The Flutter `VeilLook.hunt`.
+/// The hunt's print, over the camera's picture or over what the page draws
+/// where there is none: the husk lit over the player's left shoulder, so
+/// its face and mouth always read (art bible §5.4). Nothing here may darken
+/// or tint the whole frame, because the background is the real world.
 pub fn light_hunt(scene: &Scene, camera: bool) {
-	scene.push(Op::SetLight(Light {
-		direction: [0.3, -1.0, -0.4],
-		color: [0.8, 0.9, 1.0],
-		// Kept low enough that a pale coat still shows its shape.
-		intensity: 1.7,
-		ambient: 0.6,
-		shadow: 0.6,
-		camera_space: false,
-	}));
+	Framing::Hunt.apply(scene);
 	scene.push(Op::SetBackdrop(if camera {
 		Backdrop::Camera
 	} else {

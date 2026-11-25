@@ -9,9 +9,12 @@
 //! tick. Nothing is spawned or removed as effects come and go: the sparks
 //! are a pool of two bursts.
 //!
-//! Every glow is additive and unlit, in the soul's colour; behind the orb's
-//! bright halo is a dark one, blended normally, so the orb reads against a
-//! camera picture of any brightness.
+//! Both print in Second Ink, in the reaper's light (art bible §5.5, §11):
+//! the orb's iron and bone in their bands, and every effect flat in the
+//! spot, with no line and outside the paper knockout. The orb's halo and
+//! flare stay soft light added to the picture: the bible's printed halftone
+//! halo is not in the renderer, and print has no other way to glow. The
+//! dark disc that sat behind them is never shown.
 
 use leptoskit::scene3d::Blend;
 use leptoskit::scene3d::MaterialOverride;
@@ -23,6 +26,7 @@ use leptoskit::scene3d::client::Scene;
 use super::camera::Point;
 use super::camera::look_at;
 use super::orb::OrbLook;
+use super::print::Inking;
 use super::puppet::Puppet;
 use super::turn::add;
 use super::turn::axis_angle;
@@ -31,21 +35,28 @@ use super::turn::multiply;
 use super::turn::scale;
 use super::turn::sub;
 use super::turn::up_to;
-use super::viewmodel::SOUL;
 use super::viewmodel::glow;
+use crate::ink::ReaperInk;
+use crate::theme::Rgb;
 
 pub const ORB_MODEL: &str = "models/viewmodel_orb.glb";
 pub const FX_MODEL: &str = "models/viewmodel_fx.glb";
 
 /// How big the orb is in the world, against its model.
 const ORB_SCALE: f32 = 1.8;
-/// The halos' radii, in metres.
-const HALO: f32 = 0.3;
-const SHADE: f32 = 0.4;
-/// The sigil's gold, burning.
-const GOLD: [f32; 3] = [1.0, 0.68, 0.24];
+/// The halo's radius, in metres: about 1.6 times the orb's cup (§5.5).
+const HALO: f32 = 0.2;
+/// The most of the spot a halo or flare adds: the mean tone of the bible's
+/// halftone halo, whose dots fall from 70% coverage at its middle to none
+/// at its edge (§5.5). Print draws the disc flat, so it is a tint, never a
+/// solid disc of light.
+const HALO_TONE: f32 = 0.35;
 
-const ADDITIVE: [&str; 7] = [
+/// The light that stays added to the picture: the halos.
+const ADDITIVE: [&str; 2] = ["fx_halo", "fx_flare"];
+
+/// Every effect, each shown only while it plays.
+const EFFECTS: [&str; 8] = [
 	"fx_halo",
 	"fx_flare",
 	"fx_sparks_0",
@@ -53,6 +64,7 @@ const ADDITIVE: [&str; 7] = [
 	"fx_ring",
 	"fx_stream",
 	"fx_tracer",
+	"fx_shade",
 ];
 
 /// A tracer from the muzzle to what the shot hit.
@@ -92,19 +104,24 @@ pub struct WorldFx {
 }
 
 impl WorldFx {
-	/// Spawns the orb and the effects in `scene`, under `parent`, all hidden.
-	pub fn spawn(scene: &Scene, parent: Option<NodeId>) -> Self {
+	/// Spawns the orb and the effects in `scene`, under `parent`, all hidden,
+	/// printed in `spot`, the reaper's light.
+	pub fn spawn(scene: &Scene, parent: Option<NodeId>, spot: Rgb) -> Self {
 		let mut orb = Puppet::spawn(scene, ORB_MODEL, parent);
 		let mut fx = Puppet::spawn(scene, FX_MODEL, parent);
+		let inking = Inking::Reaper(ReaperInk::arm(spot));
+		super::print::print(scene, orb.node, ORB_MODEL, &inking);
+		super::print::print(scene, fx.node, FX_MODEL, &inking);
 		for part in ADDITIVE {
 			scene.push(Op::SetBlend {
 				node: fx.node,
 				part: Some(part.to_owned()),
 				blend: Blend::Additive,
 			});
+		}
+		for part in EFFECTS {
 			fx.visible(scene, part, false);
 		}
-		fx.visible(scene, "fx_shade", false);
 		orb.visible(scene, "capture_orb", false);
 		Self { orb, fx }
 	}
@@ -153,7 +170,7 @@ impl WorldFx {
 		let (orb, fx) = (&mut self.orb, &mut self.fx);
 		let Some((look, husk)) = frame.orb.filter(|(look, _)| look.shown) else {
 			orb.visible(scene, "capture_orb", false);
-			for part in ["fx_halo", "fx_shade", "fx_flare", "fx_stream", "fx_ring"] {
+			for part in ["fx_halo", "fx_flare", "fx_stream", "fx_ring"] {
 				fx.visible(scene, part, false);
 			}
 			return;
@@ -174,27 +191,9 @@ impl WorldFx {
 			..Transform::IDENTITY
 		};
 		orb.offset(scene, "orb_core", core_size, ease);
+		// The core prints flat in the spot and the sigil in its gold: print
+		// has no emission, so neither brightens as it burns.
 		orb.visible(scene, "orb_core", look.core > 0.01);
-		// The core is light itself: unlit, and brighter than white.
-		orb.material(
-			scene,
-			"orb_core",
-			MaterialOverride {
-				color: Some([SOUL[0] * 0.6, SOUL[1] * 0.6, SOUL[2] * 0.6, 1.0]),
-				emissive: Some(SOUL),
-				emissive_strength: Some(look.core * 1.4),
-				..MaterialOverride::default()
-			},
-		);
-		orb.material(
-			scene,
-			"orb_sigil",
-			MaterialOverride {
-				emissive: Some(GOLD),
-				emissive_strength: Some(look.sigil * 5.0),
-				..MaterialOverride::default()
-			},
-		);
 		halos(scene, fx, &look, frame.eye, ease);
 		stream(scene, fx, &look, husk, ease);
 		ring(scene, fx, &look, seconds);
@@ -206,33 +205,10 @@ impl WorldFx {
 	}
 }
 
-/// The orb's halos, facing the eye: a dark one a little behind a bright
-/// one, so the orb reads against a picture of any brightness, and a flare.
+/// The orb's halo, facing the eye, and a flare.
 fn halos(scene: &Scene, fx: &mut Puppet, look: &OrbLook, eye: Point, ease: f32) {
 	let facing = look_at(look.at, sub(scale(look.at, 2.0), eye), [0.0, 1.0, 0.0]).rotation;
-	let away = scale(
-		sub(look.at, eye),
-		0.04 / length(sub(look.at, eye)).max(0.01),
-	);
 	let halo = look.halo.clamp(0.0, 1.5);
-	disc(
-		scene,
-		fx,
-		"fx_shade",
-		add(look.at, away),
-		facing,
-		SHADE * halo,
-		ease,
-	);
-	fx.material(
-		scene,
-		"fx_shade",
-		MaterialOverride {
-			color: Some([0.0, 0.0, 0.0, 1.0]),
-			opacity: Some((0.6 * halo).min(1.0)),
-			..MaterialOverride::default()
-		},
-	);
 	disc(
 		scene,
 		fx,
@@ -242,7 +218,7 @@ fn halos(scene: &Scene, fx: &mut Puppet, look: &OrbLook, eye: Point, ease: f32) 
 		HALO * halo * (0.7 + 0.3 * look.core.min(2.0)),
 		ease,
 	);
-	fx.material(scene, "fx_halo", glow((0.45 * look.core).min(1.0)));
+	fx.material(scene, "fx_halo", glow(HALO_TONE * look.core.min(1.0)));
 	if look.flare > 0.01 {
 		disc(
 			scene,
@@ -253,7 +229,7 @@ fn halos(scene: &Scene, fx: &mut Puppet, look: &OrbLook, eye: Point, ease: f32) 
 			0.25 + 0.5 * look.flare,
 			ease,
 		);
-		fx.material(scene, "fx_flare", glow(look.flare.min(1.0)));
+		fx.material(scene, "fx_flare", glow(HALO_TONE * look.flare.min(1.0)));
 	} else {
 		fx.visible(scene, "fx_flare", false);
 	}

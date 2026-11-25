@@ -37,7 +37,6 @@ use crate::render::husk::HuskMood;
 use crate::render::husk::HuskRig;
 use crate::render::juice::dive_zoom;
 use crate::render::juice::zoomed_fov;
-use crate::render::look::linear;
 use crate::render::orb::soul_taken;
 use crate::render::orb::stage_began;
 use crate::render::reaction::HuskPlight;
@@ -141,6 +140,10 @@ pub enum Ground {
 }
 
 /// The bench between renders.
+#[allow(
+	clippy::struct_excessive_bools,
+	reason = "each is one switch on the bench"
+)]
 pub struct Bench {
 	/// The bench's clock, in the hunt's ticks.
 	pub tick: f64,
@@ -234,6 +237,7 @@ pub fn start(bench: &Rc<RefCell<Bench>>) {
 	light_hunt(ops, false);
 	let nft = Nft::new(NftCollection::DegenApes, 1);
 	let mut husk = HuskRig::spawn(ops, nft.collection.vessel(), &nft);
+	husk.seen_by(ops, SPOT);
 	let [x, y, z] = HUSK_AT;
 	husk.place(&HuskPose::new(
 		nft.collection.vessel(),
@@ -438,8 +442,7 @@ impl Bench {
 				match felt {
 					Felt::Flash(strength) => husk.flash(strength),
 					Felt::Shot { seal } => {
-						let Rgb(red, green, blue) = SPOT;
-						husk.print(linear(u32::from_be_bytes([0, red, green, blue])));
+						husk.print(SPOT);
 						husk.stop(if seal { 5 } else { 3 });
 					}
 				}
@@ -794,6 +797,10 @@ const fn own_motions(archetype: Archetype) -> &'static [ViewAction] {
 	}
 }
 
+#[allow(
+	clippy::too_many_lines,
+	reason = "one panel of chips, read top to bottom"
+)]
 fn controls(state: &Bench) -> Element {
 	let words = use_l10n();
 	let weapons = [
@@ -870,9 +877,9 @@ fn controls(state: &Bench) -> Element {
 		),
 	];
 	let outcomes = [
-		(Outcome::Seal, "arms-seal", words.arms_bench_seal()),
-		(Outcome::Body, "arms-body", words.arms_bench_body()),
-		(Outcome::Miss, "arms-miss", words.arms_bench_miss()),
+		(Outcome::Seal, "arms-blow-seal", words.arms_bench_seal()),
+		(Outcome::Body, "arms-blow-body", words.arms_bench_body()),
+		(Outcome::Miss, "arms-blow-miss", words.arms_bench_miss()),
 	]
 	.map(|(outcome, id, name)| {
 		quiet_chip(id, name, state.outcome == outcome, move |bench| {

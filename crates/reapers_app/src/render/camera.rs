@@ -93,6 +93,15 @@ pub const STAGE_TARGET: Point = [0.0, 1.42, 0.0];
 pub const STAGE_DISTANCE: f32 = 8.4;
 pub const STUDIO_DISTANCE: f32 = 7.6;
 
+/// Where the sanctum's camera stands for its hero: close, and nearly level
+/// with the reaper's middle. The 30° lens then holds 0.1 m to 3.05 m, so
+/// the bound reaper and the tallest thing it holds stand about 400 pt tall
+/// in the sanctum's 52vh stage, whole, and a little above the eye (art
+/// bible §9).
+pub const HERO_DISTANCE: f32 = 5.5;
+const HERO_EYE: f32 = 1.34;
+const HERO_TARGET: Point = [0.0, 1.58, 0.0];
+
 /// The stage's lens: 30° tall.
 pub const STAGE_FOV: f32 = 30.0 * std::f32::consts::PI / 180.0;
 
@@ -149,6 +158,21 @@ pub fn stage_camera(turn: f32, distance: f32, face: Option<(ReaperClass, f32)>) 
 		} else {
 			STAGE_FOV
 		},
+		near: 0.05,
+		far: 40.0,
+	}
+}
+
+/// The sanctum's camera, turned `turn` radians round its hero.
+pub fn hero_camera(turn: f32) -> Op {
+	let eye = [
+		turn.sin() * HERO_DISTANCE,
+		HERO_EYE,
+		turn.cos() * HERO_DISTANCE,
+	];
+	Op::SetCamera {
+		transform: look_at(eye, HERO_TARGET, [0.0, 1.0, 0.0]),
+		fov_y: STAGE_FOV,
 		near: 0.05,
 		far: 40.0,
 	}
@@ -212,5 +236,16 @@ mod tests {
 		close(transform.translation, [0.0, 0.67, 8.4]);
 		let forward = rotate(transform.rotation, [0.0, 0.0, -1.0]);
 		assert!(forward[2] < -0.99 && forward[1] > 0.0);
+	}
+
+	#[test]
+	fn the_hero_camera_stands_closer_and_nearly_level() {
+		let Op::SetCamera { transform, .. } = hero_camera(0.0) else {
+			unreachable!()
+		};
+		close(transform.translation, [0.0, HERO_EYE, HERO_DISTANCE]);
+		const { assert!(HERO_DISTANCE < STAGE_DISTANCE * 0.7) };
+		let forward = rotate(transform.rotation, [0.0, 0.0, -1.0]);
+		assert!(forward[1] > 0.0 && forward[1] < 0.05, "{forward:?}");
 	}
 }

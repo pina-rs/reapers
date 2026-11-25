@@ -513,6 +513,9 @@ fn the_arms_bench_plays_every_weapon_motion_and_orb_ending() {
 		}
 	}
 	for button in [
+		"arms-blow-seal",
+		"arms-blow-body",
+		"arms-blow-miss",
 		"arms-seal",
 		"arms-break-1",
 		"arms-break-2",
