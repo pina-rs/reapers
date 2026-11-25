@@ -5,7 +5,9 @@
 //! cargo xtask build-art                # build everything
 //! cargo xtask build-art reapers        # build one script
 //! cargo xtask build-art --preview      # also render review sheets
+//! cargo xtask build-art --preview --cel  # and each sheet again in the cel look
 //! cargo xtask build-art --specs-only   # write art/build/vessels.json and motions.json only
+//! cargo xtask build-art --report       # what every shipped model costs, against its budget
 //! ```
 //!
 //! The sources are the scripts in `art/blender`. Blender's authoring API is
@@ -21,7 +23,8 @@
 //! WebP pictures in `assets/nfts`.
 //!
 //! Review sheets land in `art/build/previews`. Nothing under `art/build` is
-//! committed.
+//! committed. Every build ends by holding the shipped models to their
+//! budgets (`report.rs`).
 
 use std::fs;
 use std::io::BufRead;
@@ -41,6 +44,8 @@ use crate::run::Failure;
 use crate::run::Outcome;
 use crate::run::UNAVAILABLE;
 use crate::run::USAGE;
+
+mod report;
 
 /// The Blender release the committed models were built with. A different
 /// release may triangulate or export differently, so upgrade it on purpose.
@@ -78,16 +83,35 @@ const MOTIONS: &str = "art/build/motions.json";
 pub struct Options {
 	/// Build only these scripts: reapers, weapons, husks, viewmodel.
 	scripts: Vec<String>,
-	/// Also render review sheets into art/build/previews.
-	#[arg(long)]
-	preview: bool,
+	#[command(flatten)]
+	sheets: Sheets,
 	/// Write the specs the scripts read, and stop.
 	#[arg(long)]
 	specs_only: bool,
+	/// Print what every shipped model costs against its budget, and stop.
+	/// Fails when a model is over.
+	#[arg(long, conflicts_with_all = ["preview", "specs_only"])]
+	report: bool,
+}
+
+/// The review sheets a build renders.
+#[derive(clap::Args, Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct Sheets {
+	/// Also render review sheets into art/build/previews.
+	#[arg(long)]
+	preview: bool,
+	/// Render each review sheet in the cel look of art/blender/cel.toml as
+	/// well, beside the normal one.
+	#[arg(long, requires = "preview")]
+	cel: bool,
 }
 
 pub fn main(root: &Path, options: &Options) -> Outcome {
 	let scripts = chosen(&options.scripts)?;
+
+	if options.report {
+		return report::main(root);
+	}
 
 	write_specs(root)?;
 
@@ -124,7 +148,7 @@ pub fn main(root: &Path, options: &Options) -> Outcome {
 		}
 
 		println!("build  {script}");
-		run_blender(root, &blender_arguments(script, options.preview))?;
+		run_blender(root, &blender_arguments(script, options.sheets))?;
 
 		for model in matching(&root.join(RAW_MODELS), prefix, "glb")? {
 			pack(root, &model)?;
@@ -136,7 +160,7 @@ pub fn main(root: &Path, options: &Options) -> Outcome {
 		}
 	}
 
-	Ok(())
+	report::check(&report::measure(root)?)
 }
 
 /// The scripts to build, from what was asked for.
@@ -169,7 +193,7 @@ fn chosen(wanted: &[String]) -> Outcome<Vec<(&'static str, &'static str)>> {
 }
 
 /// What Blender is told to run, from the repository's root.
-fn blender_arguments(script: &str, preview: bool) -> Vec<String> {
+fn blender_arguments(script: &str, sheets: Sheets) -> Vec<String> {
 	let mut arguments: Vec<String> = [
 		"--background",
 		"--python-exit-code",
@@ -185,8 +209,11 @@ fn blender_arguments(script: &str, preview: bool) -> Vec<String> {
 	.map(ToOwned::to_owned)
 	.to_vec();
 
-	if preview {
+	if sheets.preview {
 		arguments.extend(["--preview".to_owned(), PREVIEWS.to_owned()]);
+	}
+	if sheets.cel {
+		arguments.push("--cel".to_owned());
 	}
 	match script {
 		"husks" => arguments.extend(["--portraits".to_owned(), RAW_PORTRAITS.to_owned()]),
@@ -428,9 +455,16 @@ fn pack(root: &Path, raw: &Path) -> Outcome {
 	Ok(())
 }
 
-/// The `asset.generator` of a binary glTF: its JSON chunk, read from the
-/// header (magic, version, length, then the chunk's length and type).
+/// The `asset.generator` of a binary glTF.
 fn glb_generator(glb: &[u8]) -> Option<String> {
+	glb_json(glb)?["asset"]["generator"]
+		.as_str()
+		.map(ToOwned::to_owned)
+}
+
+/// The JSON chunk of a binary glTF, read from the header (magic, version,
+/// length, then the chunk's length and type).
+fn glb_json(glb: &[u8]) -> Option<Value> {
 	let word = |at: usize| {
 		glb.get(at..at + 4)
 			.map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()))
@@ -441,9 +475,8 @@ fn glb_generator(glb: &[u8]) -> Option<String> {
 	}
 
 	let length = word(12)? as usize;
-	let json: Value = serde_json::from_slice(glb.get(20..20 + length)?).ok()?;
 
-	json["asset"]["generator"].as_str().map(ToOwned::to_owned)
+	serde_json::from_slice(glb.get(20..20 + length)?).ok()
 }
 
 /// Turns one rendered portrait into the WebP the game shows.
@@ -570,6 +603,48 @@ mod tests {
 	}
 
 	#[test]
+	fn reads_the_json_of_a_binary_gltf() {
+		let json = br#"{"asset":{"generator":"gltfpack 0.25"}}  "#;
+		let mut glb = b"glTF".to_vec();
+		glb.extend(2u32.to_le_bytes());
+		glb.extend((20 + json.len() as u32).to_le_bytes());
+		glb.extend((json.len() as u32).to_le_bytes());
+		glb.extend(b"JSON");
+		glb.extend(json);
+
+		assert_eq!(
+			glb_json(&glb).unwrap()["asset"]["generator"],
+			"gltfpack 0.25"
+		);
+		assert_eq!(glb_generator(&glb).as_deref(), Some("gltfpack 0.25"));
+	}
+
+	#[test]
+	fn the_cel_look_needs_previews_and_the_report_stands_alone() {
+		use clap::Parser;
+
+		#[derive(Parser)]
+		struct Cli {
+			#[command(flatten)]
+			options: Options,
+		}
+
+		let parse = |arguments: &[&str]| Cli::try_parse_from([&["build-art"], arguments].concat());
+
+		assert_eq!(
+			parse(&["--preview", "--cel"]).unwrap().options.sheets,
+			Sheets {
+				preview: true,
+				cel: true
+			}
+		);
+		assert!(parse(&["--cel"]).is_err());
+		assert!(parse(&["--report"]).unwrap().options.report);
+		assert!(parse(&["--report", "--preview"]).is_err());
+		assert!(parse(&["--report", "--specs-only"]).is_err());
+	}
+
+	#[test]
 	fn rejects_what_is_not_a_binary_gltf() {
 		assert_eq!(glb_generator(b"not a model at all"), None);
 		assert_eq!(glb_generator(b""), None);
@@ -584,9 +659,15 @@ mod tests {
 
 	#[test]
 	fn hands_each_script_what_it_reads() {
-		let husks = blender_arguments("husks", true);
-		let reapers = blender_arguments("reapers", false);
-		let weapons = blender_arguments("weapons", false);
+		let husks = blender_arguments(
+			"husks",
+			Sheets {
+				preview: true,
+				cel: true,
+			},
+		);
+		let reapers = blender_arguments("reapers", Sheets::default());
+		let weapons = blender_arguments("weapons", Sheets::default());
 
 		assert!(
 			husks
@@ -599,7 +680,9 @@ mod tests {
 				.windows(2)
 				.any(|pair| pair == ["--motions", MOTIONS])
 		);
+		assert!(husks.iter().any(|argument| argument == "--cel"));
 		assert!(!weapons.iter().any(|argument| argument == "--preview"));
+		assert!(!weapons.iter().any(|argument| argument == "--cel"));
 		for arguments in [husks, reapers, weapons] {
 			assert!(
 				arguments
