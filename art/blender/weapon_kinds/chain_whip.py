@@ -256,7 +256,7 @@ def _skull(root, neck, tangent):
     nose = at(0.96, -0.40, 0.0)
     sockets.append(core.tube("whip_nose", [nose - face * SKULL * 0.06, nose + face * SKULL * 0.018], SKULL * 0.13, void, sides=3))
 
-    core.join(sockets, "whip_sockets").parent = root
+    core.join(sockets, "whip_eye_sockets").parent = root
     core.join(eyes, "whip_eyes").parent = root
 
 
