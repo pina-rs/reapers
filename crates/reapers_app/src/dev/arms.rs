@@ -310,7 +310,8 @@ impl Bench {
 		}
 		let (husk, _) = Self::husk_at();
 		// Each blow lands a little apart from the last, on the husk's near
-		// side.
+		// side just under the sight, where a hunt's shots are aimed: its
+		// splat and tag then stand where they would in a hunt.
 		let spread = (f64::from(self.blows) * 2.4).sin() as f32;
 		let color = self
 			.husk
@@ -320,7 +321,7 @@ impl Bench {
 			tick,
 			at: [
 				husk[0] + 0.12 * spread,
-				husk[1] + 0.08 * spread.abs(),
+				0.08 * spread.abs() - 0.1,
 				husk[2] + 0.32,
 			],
 			damage: if seal { damage * 2 } else { damage },
@@ -870,9 +871,9 @@ fn controls(state: &Bench) -> Element {
 		),
 	];
 	let outcomes = [
-		(Outcome::Seal, "arms-seal", words.arms_bench_seal()),
-		(Outcome::Body, "arms-body", words.arms_bench_body()),
-		(Outcome::Miss, "arms-miss", words.arms_bench_miss()),
+		(Outcome::Seal, "arms-blow-seal", words.arms_bench_seal()),
+		(Outcome::Body, "arms-blow-body", words.arms_bench_body()),
+		(Outcome::Miss, "arms-blow-miss", words.arms_bench_miss()),
 	]
 	.map(|(outcome, id, name)| {
 		quiet_chip(id, name, state.outcome == outcome, move |bench| {
