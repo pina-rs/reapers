@@ -579,9 +579,11 @@ mod tests {
 		stage.tick(0.5);
 		let sent = &stage.scene.sent()[before..];
 		assert!(sent.iter().any(|op| matches!(op, Op::SetCamera { .. })));
-		assert!(
+		assert_eq!(
 			sent.iter()
-				.any(|op| matches!(op, Op::SetMorphWeight { target, .. } if target == "sway_x"))
+				.any(|op| matches!(op, Op::SetMorphWeight { target, .. } if target == "sway_x")),
+			!crate::render::cloth::CLIPS_SWAY_THE_ROBE,
+			"the stage stirs the robe only while the clips do not"
 		);
 		assert!((stage.turn - 0.25).abs() < 1e-6);
 	}

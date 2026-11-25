@@ -22,6 +22,7 @@ use reapers_rules::WeaponKind;
 
 use super::appearance::ReaperAppearance;
 use super::appearance::dressing;
+use super::cloth::CLIPS_SWAY_THE_ROBE;
 use super::cloth::cloth_fit_weights;
 use super::cloth::cloth_sway_weights;
 #[cfg(test)]
@@ -222,8 +223,12 @@ impl ReaperRig {
 	/// targets whose quantized weight changed. Only the robe the genome wears
 	/// takes them: the spirit's body under it carries targets of the same
 	/// names, and shrinking it with the robe would push it out through the
-	/// cloth.
+	/// cloth. Nothing, once the clips sway the robe themselves
+	/// ([`CLIPS_SWAY_THE_ROBE`]).
 	pub fn stir(&mut self, scene: &Scene, seconds: f64) {
+		if CLIPS_SWAY_THE_ROBE {
+			return;
+		}
 		let sway = cloth_sway_weights(&self.appearance, self.motion, seconds);
 		let quantized = sway.map(|(_, weight)| (weight * 500.0).round() as i32);
 		let previous = self.last_sway;
@@ -327,6 +332,39 @@ mod tests {
 				weapons.contains(&weapon_part(kind)),
 				"no {}",
 				weapon_part(kind)
+			);
+		}
+	}
+
+	/// Whether any clip of the model at `path` keys the weights of a mesh
+	/// that has the robe's sway morph.
+	fn clips_sway_the_robe(path: &str) -> bool {
+		let gltf = model::gltf(path);
+		let swaying = |node: &serde_json::Value| {
+			node["mesh"].as_u64().is_some_and(|mesh| {
+				gltf["meshes"][mesh as usize]["extras"]["targetNames"]
+					.as_array()
+					.is_some_and(|names| names.iter().any(|name| name == "sway_x"))
+			})
+		};
+		gltf["animations"]
+			.as_array()
+			.into_iter()
+			.flatten()
+			.flat_map(|clip| clip["channels"].as_array().into_iter().flatten())
+			.filter(|channel| channel["target"]["path"] == "weights")
+			.filter_map(|channel| channel["target"]["node"].as_u64())
+			.any(|node| swaying(&gltf["nodes"][node as usize]))
+	}
+
+	#[test]
+	fn the_robe_is_stirred_by_hand_only_while_the_clips_do_not_sway_it() {
+		for calling in ReaperClass::ALL {
+			let path = reaper_model(calling);
+			assert_eq!(
+				clips_sway_the_robe(&path),
+				CLIPS_SWAY_THE_ROBE,
+				"{path}: set CLIPS_SWAY_THE_ROBE to whether the clips key the robe's sway"
 			);
 		}
 	}
