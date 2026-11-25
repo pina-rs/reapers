@@ -234,6 +234,7 @@ impl SoulMemory {
 pub struct SoulRules;
 
 impl SoulRules {
+	pub const AFTERMATH_TICKS_PER_STRENGTH: i64 = 24;
 	pub const CADENCE_FOR_MARK: i64 = 5;
 	pub const EQUILIBRIUM_HITS: i64 = 3;
 	pub const EQUILIBRIUM_TICKS_PER_STRENGTH: i64 = 24;

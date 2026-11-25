@@ -2454,7 +2454,7 @@ impl HuntSim {
 						self.open_until[other] = self.open_until[other].max(
 							self.tick
 								+ HuntRules::EXPOSED_TICKS
-								+ SoulRules::GATHERING_TICKS_PER_STRENGTH
+								+ SoulRules::AFTERMATH_TICKS_PER_STRENGTH
 									* self.stats.gift_strength(),
 						);
 					} else {
