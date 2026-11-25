@@ -61,7 +61,6 @@ def sheet(name, path, options, look):
 
     core.reset_scene()
     review.import_glb(path)
-    review.rest_pose()
 
     if name == "weapons" or name.startswith("weapon_"):
         roots = sorted(bpy.data.objects["weapons"].children, key=_kind_order)

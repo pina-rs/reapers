@@ -258,7 +258,9 @@ def _camera(location, target, lens=70):
 
 
 # The angle each view looks from, turning about the model from its front.
-ANGLES = {"front": 0.0, "threequarter": 32.0, "side": 90.0, "back": 180.0, "silhouette": 0.0, "top": 0.0}
+# `eye` is a camera a tile places itself (see `row`); its lights are a front
+# view's.
+ANGLES = {"front": 0.0, "threequarter": 32.0, "side": 90.0, "back": 180.0, "silhouette": 0.0, "top": 0.0, "eye": 0.0}
 
 # Every view a model sheet shows.
 VIEWS = ("front", "threequarter", "side", "back", "silhouette")
@@ -266,6 +268,10 @@ VIEWS = ("front", "threequarter", "side", "back", "silhouette")
 # How tall, in pixels, a silhouette is shown at the size a phone shows a
 # model in a list or a card, so it can be judged where it is hardest to read.
 THUMBNAIL = 96
+
+# A portrait phone's screen, width over height: an `eye` tile is this shape,
+# so it shows what the game's camera shows on a phone.
+PHONE = 9 / 19.5
 
 # The lights of the normal look, about the model's middle, for a camera
 # `REFERENCE` metres away at the front. They turn with the camera.
@@ -285,10 +291,18 @@ def sheet_path(directory, stem, cel_look=None):
     return os.path.join(directory, f"{stem}{'_cel' if cel_look else ''}.png")
 
 
-def row(label, setup, views=VIEWS, look=None):
-    """One row of a sheet: the same scene, `setup()`, from each view."""
+def row(label, setup, views=VIEWS, look=None, eye=None):
+    """One row of a sheet: the same scene, `setup()`, from each view.
 
-    return [{"label": f"{view}  {label}".strip(), "setup": setup, "view": view, "look": look} for view in views]
+    An `eye` view is seen through a camera of its own, which `eye` gives as
+    `(location, rotation, fov_y)`: a world point, the quaternion that turns a
+    camera looking down -Z with +Y up into it, and its vertical field of view
+    in radians. Its tile is a phone's shape (`PHONE`)."""
+
+    if "eye" in views and eye is None:
+        raise ValueError(f"{label!r}: an eye view needs the eye's camera")
+
+    return [{"label": f"{view}  {label}".strip(), "setup": setup, "view": view, "look": look, "eye": eye if view == "eye" else None} for view in views]
 
 
 def render_sheet(path, centre=(0, 0, 1.4), distance=7.4, width=560, height=840, views=("front", "threequarter", "back", "silhouette"), look=None, eye_height=-0.25, view_rotation=None, cel_look=None):
@@ -358,15 +372,26 @@ def render_grid(path, rows, tile=(400, 600), cel_look=None, lens=70, elevation=-
     try:
         for tiles in rows:
             placed = [_place(tile, lens, half_wide, half_high, elevation, margin, framing, skip) for tile in tiles]
-            widest = max(distance for _, distance, _ in placed)
+            # An eye tile stands where its eye is, so it sets no row's scale.
+            framed = [distance for tile, (_, distance, _) in zip(tiles, placed) if tile.get("eye") is None]
+            widest = max(framed, default=0.0)
             paths = []
 
             for tile, (centre, own, eye_height) in zip(tiles, placed):
-                distance = widest if same_scale else own
+                distance = widest if same_scale and tile.get("eye") is None else own
                 if tile["setup"] is not None:
                     tile["setup"]()
 
                 silhouette = tile["view"] == "silhouette"
+                tile_width = width if tile.get("eye") is None else round(height * PHONE)
+                scene.render.resolution_x = tile_width
+                tile_wide, tile_high = (half_wide, half_high) if tile.get("eye") is None else _eye_half_view(tile.get("eye"), tile_width, height)
+                # A floor shadow is not the creature's shape: a silhouette
+                # leaves out what framing leaves out.
+                unshaped = [obj for obj in bpy.data.objects if silhouette and skip and obj.type == "MESH" and not obj.hide_render and obj.name.startswith(tuple(skip))]
+
+                for obj in unshaped:
+                    obj.hide_render = True
                 mode = ("silhouette" if silhouette else "cel" if cel_look else "normal", id(tile["look"]))
 
                 if mode != styled:
@@ -375,7 +400,11 @@ def render_grid(path, rows, tile=(400, 600), cel_look=None, lens=70, elevation=-
 
                 behind = SILHOUETTE_GROUND if silhouette else ground or (cel_look["paper"] if cel_look else BACKGROUND)
                 background.inputs["Color"].default_value = (*behind, 1)
-                camera = _aim(centre, distance, tile["view"], elevation, eye_height, lens, view_rotation)
+                if tile.get("eye") is None:
+                    camera = _aim(centre, distance, tile["view"], elevation, eye_height, lens, view_rotation)
+                else:
+                    camera = _eye(tile.get("eye"))
+                    distance = (Vector(centre) - camera.location).length
 
                 for (_, offset, energy, _, size), light in zip(LIGHTS, lights):
                     _place_light(light, centre, distance, tile["view"], offset, energy, size)
@@ -383,11 +412,11 @@ def render_grid(path, rows, tile=(400, 600), cel_look=None, lens=70, elevation=-
 
                 if cel_look:
                     cel.aim_key(cel_look, camera)
-                    cel.set_ink(cel_look["width"] * 2 * half_high * distance / height, shown=not silhouette)
+                    cel.set_ink(cel_look["width"] * 2 * tile_high * distance / height, shown=not silhouette)
 
                 if label is not None:
                     ink = (0.1, 0.1, 0.12) if silhouette or (cel_look and ground is None) else (0.6, 0.62, 0.66)
-                    _caption(label, camera, tile["label"], ink, half_wide, half_high, height)
+                    _caption(label, camera, tile["label"], ink, tile_wide, tile_high, height)
 
                 tile_path = f"{path}.{len(grid)}.{len(paths)}.png"
                 scene.render.filepath = tile_path
@@ -398,14 +427,17 @@ def render_grid(path, rows, tile=(400, 600), cel_look=None, lens=70, elevation=-
                     if label is not None:
                         label.hide_render = True
                     inset = f"{tile_path}.thumb.png"
-                    scene.render.resolution_x = round(THUMBNAIL * width / height)
+                    scene.render.resolution_x = round(THUMBNAIL * tile_width / height)
                     scene.render.resolution_y = THUMBNAIL
                     scene.render.filepath = inset
                     bpy.ops.render.render(write_still=True)
-                    scene.render.resolution_x = width
+                    scene.render.resolution_x = tile_width
                     scene.render.resolution_y = height
                     if label is not None:
                         label.hide_render = False
+
+                for obj in unshaped:
+                    obj.hide_render = False
 
                 paths.append((tile_path, inset))
                 bpy.data.objects.remove(camera, do_unlink=True)
@@ -438,6 +470,34 @@ def _half_view(lens, width, height):
     shorter = longer * min(width, height) / max(width, height)
 
     return (longer, shorter) if width >= height else (shorter, longer)
+
+
+def _eye_half_view(eye, width, height):
+    """How far an eye camera sees either side of its middle, across and up,
+    at one metre."""
+
+    half_high = math.tan(eye[2] / 2)
+
+    return half_high * width / height, half_high
+
+
+def _eye(eye):
+    """A camera at an eye: `(location, rotation, fov_y)`, as `row` takes it."""
+
+    location, rotation, fov_y = eye
+    data = bpy.data.cameras.new("PreviewCamera")
+    data.sensor_fit = "VERTICAL"
+    data.angle_y = fov_y
+    data.clip_start = 0.01
+    camera = bpy.data.objects.new("PreviewCamera", data)
+    camera.location = location
+    camera.rotation_mode = "QUATERNION"
+    camera.rotation_quaternion = rotation
+    bpy.context.scene.collection.objects.link(camera)
+    bpy.context.scene.camera = camera
+    bpy.context.view_layer.update()
+
+    return camera
 
 
 def _direction(view, elevation):

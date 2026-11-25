@@ -60,7 +60,12 @@ def main():
     tiles = [preview.row(f"{options.calling} {options.clip} {options.phase:.0%}", None, ("front", "threequarter", "side"))]
 
     if options.face:
-        face = review.find(root, f"face_{min(options.variant, 2)}")
+        counts = review.variant_counts(root)
+
+        if counts["face_"] == 0:
+            raise SystemExit(f"reaper_{options.calling}.glb has no face to frame")
+
+        face = review.find(root, f"face_{review.shown_variant(counts, 'face_', options.variant)}")
         rotation = face.matrix_world.to_quaternion()
         preview.render_grid(options.out, tiles, tile=(420, 560), cel_look=look, framing=(face.matrix_world.translation, 1.5, 0.04), view_rotation=rotation)
     else:
