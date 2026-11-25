@@ -69,6 +69,11 @@ def main():
     if options.fast and not options.preview:
         parser.error("--fast renders sheets instead of writing a model: give it --preview")
 
+    # A moment may show 6,000 triangles and the parts are within a few dozen
+    # of it, so the building blocks spend none they were not asked for
+    # (lib/core.py): the parts are made rounder or chamfered where they say.
+    core.LIFTS_ADD_TRIANGLES = False
+
     os.makedirs(options.out, exist_ok=True)
     _build_viewmodel(options)
     _build_orb(options)

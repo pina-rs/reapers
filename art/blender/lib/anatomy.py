@@ -6,6 +6,11 @@ from mathutils import Matrix, Vector
 
 from .core import bezier, join, material, sculpt, shade_smooth, tube
 
+# How far a knuckle swells over the bone either side of it. Bands and hatch
+# flatten a uniform rod into a noodle; a knuckle that steps out is what
+# makes a bone finger read as one at a phone's size (docs/art-bible.md 6.1).
+KNUCKLE = 0.68
+
 
 def hand(name, parent, grip_radius=0.022, curl=1.0, side=1, scale=1.0):
     """A skeletal hand closed around a haft of `grip_radius`.
@@ -28,7 +33,8 @@ def hand(name, parent, grip_radius=0.022, curl=1.0, side=1, scale=1.0):
             tube(
                 f"{name}_metacarpal_{finger}",
                 bezier([wrist, (wrist + knuckle) / 2 + Vector((-0.006, 0, 0)), knuckle], samples=5),
-                lambda t: 0.0068 + 0.0026 * abs(2 * t - 1) ** 2,
+                # Narrow in the shaft, the head at the knuckle the largest.
+                lambda t: 0.0066 + 0.0022 * abs(2 * t - 1) ** 2 + 0.0034 * t**6,
                 bone,
                 sides=8,
             )
@@ -58,8 +64,9 @@ def hand(name, parent, grip_radius=0.022, curl=1.0, side=1, scale=1.0):
             tube(
                 f"{name}_finger_{finger}",
                 path,
-                # Thicker at each joint, thinner between, tapering to a claw.
-                lambda t: (0.0064 - 0.0034 * t) * (1 + 0.42 * abs(math.sin(t * math.pi * 3)) ** 3),
+                # A knuckle at each joint, the bone narrow between, tapering
+                # to a claw.
+                lambda t: (0.0068 - 0.0036 * t) * (1 + KNUCKLE * abs(math.sin(t * math.pi * 3)) ** 4),
                 bone,
                 sides=8,
             )
@@ -80,7 +87,7 @@ def hand(name, parent, grip_radius=0.022, curl=1.0, side=1, scale=1.0):
         tube(
             f"{name}_thumb",
             thumb_path,
-            lambda t: (0.0075 - 0.0038 * t) * (1 + 0.4 * abs(math.sin(t * math.pi * 2)) ** 3),
+            lambda t: (0.0078 - 0.0040 * t) * (1 + KNUCKLE * abs(math.sin(t * math.pi * 2)) ** 4),
             bone,
             sides=8,
         )
@@ -109,6 +116,36 @@ def hand(name, parent, grip_radius=0.022, curl=1.0, side=1, scale=1.0):
             result.data.flip_normals()
 
     return shade_smooth(result)
+
+
+def grow(hand, factor):
+    """Makes a hand `factor` times larger about the haft it holds, which runs
+    along its own Z through its origin, keeping the inside of its grip where
+    it was: the fingers grow longer and thicker and the hand wider, but
+    still close on the same haft, and the weapon it holds does not move.
+
+    Seen from the haft, a point at distance r from it goes to
+    r0 + factor x (r - r0), r0 being the nearest the hand comes to it, at the
+    same angle; along the haft it goes to factor x z. The wrist end reaches
+    further back into the sleeve."""
+
+    vertices = hand.data.vertices
+    inside = min(math.hypot(vertex.co.x, vertex.co.y) for vertex in vertices)
+
+    for vertex in vertices:
+        x, y, z = vertex.co
+        reach = math.hypot(x, y)
+
+        if reach > 1e-9:
+            # Never past the haft's axis, however far `factor` is from 1.
+            outward = max(0.0, inside + factor * (reach - inside)) / reach
+            x, y = x * outward, y * outward
+
+        vertex.co = (x, y, z * factor)
+
+    hand.data.update()
+
+    return hand
 
 
 def forearm(name, parent, wrist, elbow):

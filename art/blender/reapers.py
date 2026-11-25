@@ -41,7 +41,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(HERE)
 
-from lib import body, cel, core, face, ink, motion, review  # noqa: E402
+from lib import body, cel, core, face, figure, ink, motion, review  # noqa: E402
 
 # The classes, in build order.
 CLASSES = tuple(review.CLASS_WEAPONS)
@@ -124,6 +124,7 @@ def build(name):
     its root and its faces."""
 
     root = importlib.import_module(f"reaper_classes.{name}").build()
+    figure.grow_hands(root)
     body.build(root, name)
 
     return root, face.build(root, name)

@@ -8,6 +8,8 @@ from . import core
 from .locomotion import HIP_X, HIP_Z, LENGTH
 
 LEG_JOINTS = ("leg_l", "leg_r", "knee_l", "knee_r", "foot_l", "foot_r")
+# What each humanoid boot is cut down to (`core.planes`).
+BOOT_TRIANGLES = 1400
 
 
 def robe_fit(co):
@@ -159,17 +161,22 @@ def build(root, calling):
                 voxel=0.009,
             )
         )
+        # Cut into planes, like a carved clog: a boot is one mass at the
+        # floor, and its band edges should run straight along it.
         core.finish(
-            core.sculpt(
-                f"boot_{side}",
-                [
-                    ("sphere", (0, 0, -0.025), (0.055, 0.065, 0.09)),
-                    ("sphere", (0, 0.018, -0.087), (0.066, 0.064, 0.043)),
-                    ("sphere", (0, -0.10, -0.085), (0.073, 0.12, 0.045)),
-                ],
-                core.material("cloth"),
-                ankle,
-                voxel=0.008,
+            core.planes(
+                core.sculpt(
+                    f"boot_{side}",
+                    [
+                        ("sphere", (0, 0, -0.025), (0.055, 0.065, 0.09)),
+                        ("sphere", (0, 0.018, -0.087), (0.066, 0.064, 0.043)),
+                        ("sphere", (0, -0.10, -0.085), (0.073, 0.12, 0.045)),
+                    ],
+                    core.material("cloth"),
+                    ankle,
+                    voxel=0.008,
+                ),
+                BOOT_TRIANGLES,
             )
         )
 

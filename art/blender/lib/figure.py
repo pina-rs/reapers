@@ -19,6 +19,16 @@ NECK_HEIGHT = 1.73
 HEAD_HEIGHT = 1.88
 HEAD_RADIUS = 0.105
 
+# How much larger than its class builds them every reaper's hands are drawn
+# (docs/art-bible.md 6.1: "Hands at 1.4x on every reaper, baked into the
+# model"): bone hands are the only bright family on a reaper and must read at
+# stage scale. `grow_hands` applies it to every class alike.
+HAND_GROWTH = 1.4
+
+# What share of its voxel faces a void head keeps. It prints as flat key with
+# no line, inside a hood, so only its outline matters.
+VOID_KEEP = 0.3
+
 
 def eyes(parent, forward=0.0, spacing=0.04, height=HEAD_HEIGHT + 0.012, size=0.012, name="eyes"):
     """Authoring lights, replaced by the expression rig before export."""
@@ -51,13 +61,15 @@ def eyes(parent, forward=0.0, spacing=0.04, height=HEAD_HEIGHT + 0.012, size=0.0
 def void_head(parent, forward=0.0, name="void"):
     """The darkness inside a hood or under a brim."""
 
-    return core.sculpt(
+    void = core.sculpt(
         name,
         [("sphere", (0, -forward - 0.012, HEAD_HEIGHT), (HEAD_RADIUS, HEAD_RADIUS * 1.05, HEAD_RADIUS * 1.2))],
         core.material("void"),
         parent,
         voxel=0.012,
     )
+
+    return core.decimate(void, VOID_KEEP)
 
 
 def face_wrap(parent, forward=0.0, name="wrap", seed=2, bands=6, top=HEAD_HEIGHT - 0.04):
@@ -74,8 +86,8 @@ def face_wrap(parent, forward=0.0, name="wrap", seed=2, bands=6, top=HEAD_HEIGHT
         radius = 0.146 - 0.038 * share
         path = []
 
-        for step in range(45):
-            angle = math.tau * step / 44
+        for step in range(37):
+            angle = math.tau * step / 36
             # Slight front chin prominence and draped side folds.
             front = max(0.0, -math.sin(angle))
             path.append(
@@ -92,6 +104,24 @@ def face_wrap(parent, forward=0.0, name="wrap", seed=2, bands=6, top=HEAD_HEIGHT
     result.parent = parent
 
     return finish(core.shade_smooth(result))
+
+
+def grow_hands(root, factor=HAND_GROWTH):
+    """Grows every hand of the reaper under `root` (`arm_r_hand`,
+    `arm_l_hand`) by `factor` about the haft it closes on
+    (`anatomy.grow`), so the six classes get the same larger hands whatever
+    scale each built them at. The pivots, and so the weapon and every clip,
+    stay where they are."""
+
+    hands = [node for node in root.children_recursive if node.type == "MESH" and node.name in ("arm_r_hand", "arm_l_hand")]
+
+    if not hands:
+        raise ValueError(f"{root.name} has no arm_r_hand or arm_l_hand to grow")
+
+    for hand in hands:
+        anatomy.grow(hand, factor)
+
+    return hands
 
 
 def arms(

@@ -247,6 +247,17 @@ The budgets are in `crates/xtask/src/art/report.rs`. Triangles follow the guidel
 - **One light per reaper.** `accent` is the only thing that glows: eyes, a blade edge, a lantern flame, a bell's mouth. Keep it small.
 - **Triangles.** About 110,000 for a whole class file, with all its variants. About 6,000 for a weapon. The build enforces what each model may cost: see [Budgets](#budgets).
 
+### What the library does to every model
+
+These are the art bible's form rules (6.1) where the shared code can keep them, so every model gets them without asking:
+
+- **Hands at 1.4x.** `reapers.py` grows every class's `arm_r_hand` and `arm_l_hand` by `figure.HAND_GROWTH` after the class is built (`figure.grow_hands`), about the haft the hand holds: the fingers grow longer and thicker and close on the same haft, and the pivots, the weapon and every clip stay where they are. Build a hand at whatever scale suits the class; the driver makes it larger. Knuckles step out of the bone (`anatomy.KNUCKLE`), so a finger reads as bone and not as a rod.
+- **Round things look round.** `core.tube` and `core.revolve` take more sides than asked for when a section is wide enough for its facets to show past the key line (`core.sides_for`: within 2 mm of a true circle, at most 16 sides). A thin rod keeps the count it was given, and so does a section asked for with fewer than 8 sides, which is taken to be faceted on purpose.
+- **Hard edges are bevelled.** `core.plate` chamfers sheet (2 cm thick or less) a third of its thickness wide, at most 3 mm, bevels any plate given `bevel=` in two segments, and leaves a thicker slab to its caller; a bevelled plate gets one normal a vertex, weighted by the faces round it (`core.crisp`), so flat faces stay flat, the bevel catches the paper highlight, and the key line has a closed surface to push. Use `core.crisp` on any other hard-edged mesh.
+- **Budgets come first.** The two lifts that spend triangles, rounder sections and chamfered sheet, are switched off by `core.LIFTS_ADD_TRIANGLES`; `viewmodel.py` turns it off, since a first-person moment may show 6,000 triangles and its parts are within a few dozen of that.
+- **Cloth folds few and large.** `cloth.robe` and `cloth.sleeve` weigh a robe's three fold counts 0.62, 0.30 and 0.08 (`cloth.FOLD_WEIGHTS`), so the finest barely shows, and cut the hem between tears into a few broad tongues, with each slit two columns wide.
+- **Planes instead of clay.** `core.planes` cuts a voxel sculpt into flat facets with crisp creases, at a triangle count; `creature.facet` is `creature.form` cut that way. The humanoid boots use it (1,400 triangles each, down from 6,172), and the hidden void heads keep 30% of their faces.
+
 ## The node layout of a class
 
 The game assembles any genome from a class file by showing some nodes and hiding others, so every class must have exactly this layout:
@@ -291,7 +302,7 @@ The classes come from [the design research](../../docs/research/dark-games-and-a
 - Menace comes from dignity and from hiding the face, never from gore or clutter. Keep shapes clean and deliberate.
 - Give every class one asymmetric element.
 - At most three materials on show at once.
-- Hands are larger than life.
+- Hands are larger than life: the driver grows every hand 1.4x on top of the class's own scale (see [What the library does to every model](#what-the-library-does-to-every-model)).
 
 ## Creatures
 
@@ -385,7 +396,7 @@ Use only these. The game keeps the name and throws the rest away.
 | `glow` | Seal studs. Made by `creature.studs`. | Glows. |
 | `shadow` | The floor shadow. Made by `creature.shadow`. | A soft dark patch. |
 
-Make organic parts with `creature.form(name, blobs, material, parent, triangles=...)`, which fuses spheres and cubes into one shape, trims it to a triangle count and paints its shading. Use `core.revolve`, `core.loft`, `core.tube` and `core.plate` for hard or regular shapes, and pass what they return through `creature.finish`.
+Make organic parts with `creature.form(name, blobs, material, parent, triangles=...)`, which fuses spheres and cubes into one shape, trims it to a triangle count and paints its shading. `creature.facet` takes the same arguments and cuts the shape into flat planes with crisp creases instead, which prints as a carving in hard bands rather than a speckle of small facets: prefer it for heads, shoulders and anything that should catch a straight band edge, and raise its `flat` for fewer, larger planes. Use `core.revolve`, `core.loft`, `core.tube` and `core.plate` for hard or regular shapes, and pass what they return through `creature.finish`.
 
 ### What makes a creature read
 

@@ -172,6 +172,40 @@ def shade_smooth(obj, angle=None):
 
 # Building blocks -------------------------------------------------------
 
+# Whether the building blocks may spend triangles a caller did not ask for:
+# more sides on a wide round section (`sides_for`) and a chamfer on sheet
+# (`plate`). viewmodel.py turns it off, since a first-person moment may show
+# 6,000 triangles and its parts are within a few dozen of that.
+LIFTS_ADD_TRIANGLES = True
+
+# The most a round section's outline may stray from the true circle, in
+# metres: under a device pixel on a reaper framed for the roster (300 pt for
+# 2.2 m on a 3x phone, 2.4 mm a pixel). A tube or a revolve with too few
+# sides for its radius gets more (`sides_for`), since a key line traces
+# every facet of an outline (docs/art-bible.md 6.1). It is the wide sections
+# this reaches, a sleeve or a bell, not a haft, whose facets the line
+# itself covers.
+ROUND_TOLERANCE = 0.002
+# The most sides that rule ever asks of one section.
+MOST_SIDES = 16
+# Fewer sides than this are asked for on purpose (a hexagonal nut, a square
+# post), and are kept.
+FACETED = 8
+
+
+def sides_for(radius, sides):
+    """`sides`, or more if a section of `radius` meant to be round needs
+    them to look round within `ROUND_TOLERANCE`: a chord of an n-gon strays
+    r(1 - cos(pi / n)) from its circle. A section given fewer than
+    `FACETED` sides is faceted on purpose and keeps them."""
+
+    if not LIFTS_ADD_TRIANGLES or sides < FACETED or radius <= ROUND_TOLERANCE:
+        return sides
+
+    needed = math.ceil(math.pi / math.acos(1 - ROUND_TOLERANCE / radius))
+
+    return max(sides, min(needed, MOST_SIDES))
+
 
 def loft(name, rings, mat, parent=None, closed=True, cap_start=False, cap_end=False):
     """Skins a surface over `rings`, a list of equal-length point loops.
@@ -207,6 +241,7 @@ def revolve(name, profile, mat, parent=None, segments=48, shape=None, cap_top=Fa
     """
 
     rings = []
+    segments = sides_for(max(radius for radius, _ in profile), segments)
 
     for radius, height in profile:
         ring = []
@@ -232,6 +267,8 @@ def tube(name, path, radius, mat, parent=None, sides=12, cap=True, twist=0.0, fl
     points = [Vector(point) for point in path]
     rings = []
     normal = None
+    widest = max(radius(index / max(len(points) - 1, 1)) for index in range(len(points))) if callable(radius) else radius
+    sides = sides_for(widest, sides)
 
     for index, point in enumerate(points):
         ahead = points[min(index + 1, len(points) - 1)]
@@ -287,11 +324,15 @@ def bezier(points, samples=24):
     return result
 
 
-def plate(name, outline, thickness, mat, parent=None, bevel=0.0):
+def plate(name, outline, thickness, mat, parent=None, bevel=None):
     """Extrudes a flat outline in the XZ plane into a plate `thickness` deep.
 
     Used for blades, pans and anything cut from sheet. `outline` is a list of
-    (x, z) pairs running once around the shape.
+    (x, z) pairs running once around the shape. Its edges are bevelled
+    `bevel` wide in two segments, or left sharp at 0. When None, a sheet
+    (`SHEET` thick or less) is chamfered a third of its thickness wide, at
+    most `PLATE_BEVEL`, and a slab left sharp. A bevelled plate's normals
+    are welded across its bevels (`crisp`).
     """
 
     mesh = bmesh.new()
@@ -308,10 +349,41 @@ def plate(name, outline, thickness, mat, parent=None, bevel=0.0):
 
     result = object_from_bmesh(name, mesh, mat, parent, smooth=False)
 
+    if bevel is None:
+        # A chamfer on sheet, one segment enough to turn the edge. A slab
+        # thicker than `SHEET` is the caller's to bevel as it likes.
+        bevel, segments = (min(thickness / 3, PLATE_BEVEL) if LIFTS_ADD_TRIANGLES and thickness <= SHEET else 0.0), 1
+    else:
+        segments = 2
+
     if bevel > 0:
-        apply_modifier(result, "BEVEL", width=bevel, segments=2, limit_method="ANGLE")
+        crisp(result, bevel, segments=segments)
 
     return result
+
+
+# The widest a plate's edges are bevelled unless it says otherwise, and the
+# thickest plate that is sheet, bevelled at all unless it says so.
+PLATE_BEVEL = 0.003
+SHEET = 0.02
+
+
+def crisp(obj, width, angle=30.0, segments=2):
+    """Bevels every edge of `obj` sharper than `angle` degrees `width` wide,
+    and gives each vertex one normal, weighted by the faces round it, so
+    flat faces stay flat and only the bevels turn.
+
+    A hard edge splits a vertex's normal in two, and an outline pushed along
+    split normals tears open at the edge. A bevel with one normal a vertex
+    keeps the edge reading crisp in hard bands, catches the paper highlight
+    on its turn (docs/art-bible.md 5.3), and gives the key line a closed
+    surface to push (4.4)."""
+
+    apply_modifier(obj, "BEVEL", width=width, segments=segments, limit_method="ANGLE", angle_limit=math.radians(angle))
+    shade_smooth(obj)
+    apply_modifier(obj, "WEIGHTED_NORMAL", weight=50, mode="FACE_AREA", keep_sharp=False)
+
+    return obj
 
 
 def sculpt(name, blobs, mat, parent=None, voxel=0.012, smooth=2):
@@ -353,6 +425,33 @@ def sculpt(name, blobs, mat, parent=None, voxel=0.012, smooth=2):
         result.parent = parent
 
     return shade_smooth(result)
+
+
+def planes(obj, triangles, flat=9.0, crease=34.0):
+    """Cuts a voxel sculpt into planes: its near-flat stretches merged into
+    flat facets (faces within `flat` degrees of each other), a hard edge
+    wherever two facets meet at more than `crease` degrees, and at most about
+    `triangles` triangles in all. See `creature.facet`."""
+
+    def count():
+        return sum(len(polygon.vertices) - 2 for polygon in obj.data.polygons)
+
+    # Down to twice the target first, evenly, then the near-flat stretches
+    # merged, which takes it the rest of the way without a speckle.
+    if count() > 2 * triangles:
+        decimate(obj, 2 * triangles / count())
+
+    apply_modifier(obj, "DECIMATE", decimate_type="DISSOLVE", angle_limit=math.radians(flat), use_dissolve_boundaries=False)
+    apply_modifier(obj, "TRIANGULATE", quad_method="BEAUTY", ngon_method="BEAUTY")
+
+    if count() > triangles:
+        decimate(obj, triangles / count())
+
+    # Simplifying can leave faces folded onto each other, which the exporter
+    # warns about and may write wrongly.
+    obj.data.validate()
+
+    return shade_smooth(obj, angle=crease)
 
 
 def carve(target, cutter):

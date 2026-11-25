@@ -14,12 +14,20 @@ from mathutils import Vector, noise
 from .core import add_shape_key, object_from_bmesh
 
 
+# How much of the ripple each of a robe's three fold counts carries, largest
+# first. The first two make the robe's few big folds; the third, the finest,
+# is kept faint: printed in hard bands, every small fold becomes a stripe of
+# its own and the robe reads as corrugated (docs/art-bible.md 6.1, "big
+# masses, few forms").
+FOLD_WEIGHTS = (0.62, 0.30, 0.08)
+
+
 def _fold(angle, depth, folds, phases):
     """The ripple that turns a smooth tube into hanging cloth."""
 
     total = 0.0
 
-    for count, weight, phase in zip(folds, (0.5, 0.32, 0.18), phases):
+    for count, weight, phase in zip(folds, FOLD_WEIGHTS, phases):
         total += weight * math.sin(angle * count + phase + depth * 1.4)
 
     return total
@@ -75,8 +83,10 @@ def robe(
     nibble = generator.uniform(0, math.tau)
 
     def torn(angle):
-        points = abs(math.sin(angle * 11 + nibble)) * abs(math.sin(angle * 4.3 + nibble * 2))
-        cut = tatter * 0.16 * points
+        # Between the tears the hem is cut into a few broad tongues rather
+        # than nibbled into points, so it reads as one shape on the floor.
+        points = abs(math.sin(angle * 3.5 + nibble)) ** 0.7 * abs(math.sin(angle * 2.0 + nibble * 2))
+        cut = tatter * 0.12 * points
 
         for centre, depth, width in zip(tear_angles, tear_depths, tear_widths):
             distance = abs((angle - centre + math.pi) % math.tau - math.pi)
@@ -86,13 +96,17 @@ def robe(
 
         return cut
 
-    # A slit is one column left out, running up from the hem, which is what
-    # separates a ragged hem into hanging strips.
+    # A slit is a column left out, running up from the hem, which is what
+    # separates a ragged hem into hanging strips. Two columns wide, so the gap
+    # is a shape at a phone's size rather than a hairline.
     slit_columns = {}
 
     for _ in range(slits):
         column = generator.randrange(segments)
-        slit_columns[column] = generator.uniform(0.3, 1.0) * tatter * 1.25
+        reach = generator.uniform(0.3, 1.0) * tatter * 1.25
+
+        for gap in (column, (column + 1) % segments):
+            slit_columns[gap] = max(slit_columns.get(gap, 0.0), reach)
 
     mesh = bmesh.new()
     grid = []
@@ -108,7 +122,7 @@ def robe(
             width, thickness = radii(reach)
             ripple = fold_depth * reach**1.35
             fold = 1 + ripple * _fold(angle, reach, folds, phases)
-            flutter = 0.03 * reach * reach * noise.noise(Vector((angle * 2.0, reach * 3.0, seed)))
+            flutter = 0.018 * reach * reach * noise.noise(Vector((angle * 2.0, reach * 3.0, seed)))
             curl = hunch * math.sin(min(reach * 2.2, 1.0) * math.pi * 0.5) if hunch else 0.0
 
             row.append(
@@ -311,7 +325,7 @@ def drape(
     grid = []
 
     def torn(across):
-        points = abs(math.sin(across * 17 + nibble)) * abs(math.sin(across * 6.1 + nibble * 2))
+        points = abs(math.sin(across * 8 + nibble)) * abs(math.sin(across * 3.1 + nibble * 2))
         notch = max(0.0, noise.noise(Vector((across * 5.0, seed, 2.0)))) ** 0.6
 
         return tatter * (0.25 * points + 0.75 * notch)

@@ -133,6 +133,26 @@ def form(name, blobs, mat, parent, triangles=900, voxel=None):
     return finish(part)
 
 
+def facet(name, blobs, mat, parent, triangles=900, voxel=None, flat=9.0, crease=34.0):
+    """`form`, cut into planes: the same fused blobs, but the near-flat
+    stretches of the surface merged into flat facets, with a crisp edge
+    wherever two facets meet at more than `crease` degrees.
+
+    A voxel form simplified to a triangle count shades in hard bands as a
+    speckle of small triangles, each a little off its neighbours, with no
+    plane for a band edge to run along. A faceted one prints as a few broad
+    planes, like a carving, so its band edges are long and straight and its
+    creases take a line. `flat` is how far apart, in degrees, two faces may
+    turn and still be merged into one facet: raise it for fewer, larger
+    planes. It stays at about `triangles` or under.
+    """
+
+    smallest = min(min(scale) for _, _, scale, *_ in blobs)
+    part = core.sculpt(name, blobs, mat, parent, voxel=voxel or max(0.006, min(0.02, smallest / 3.5)))
+
+    return finish(core.planes(part, triangles, flat, crease))
+
+
 def floor(spec):
     """The height of the floor under a creature that walks, in Blender's Z.
     The middle of the body is the origin, so the floor is half a body down."""
