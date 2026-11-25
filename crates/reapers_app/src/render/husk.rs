@@ -13,8 +13,16 @@
 //! the reaping arc. Its own pivots move by part offsets, which the host
 //! eases between ticks: its legs keep step with the ground it covers, it
 //! crouches, stretches, tucks and reaches through a leap, and its head
-//! looks where it is going ([`super::gait`]). Its shadow stays on the
-//! surface under it, whatever the body does above.
+//! looks where it is going ([`super::gait`]). Its face acts out its plight:
+//! the jaw drops, the eyes widen and squeeze, the brows lift and knit, and
+//! the head shivers and is thrown back by a blow. What hangs loose follows
+//! the body on a spring: a tail swings out behind a turn and lags the walk,
+//! wings beat in time with the body's rise. Its shadow stays on the surface
+//! under it, whatever the body does above.
+//!
+//! None of that reaches a seal: the seals hang from the body itself, never
+//! from a part the face or a tail moves, so while a ward holds they stay
+//! where the rules hold them.
 
 use leptoskit::scene3d::MaterialOverride;
 use leptoskit::scene3d::NodeId;
@@ -38,6 +46,7 @@ use super::look::linear;
 use super::parts::parts;
 use super::reaction::HuskPlight;
 use super::reaction::HuskReaction;
+use super::spring::Spring;
 
 /// The model of one vessel.
 pub fn husk_model(vessel: Vessel) -> String {
@@ -87,6 +96,88 @@ const CARRY_TELEPORT: f32 = 0.5;
 /// No turn at all.
 const IDENTITY: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
 
+/// How far each loose part moves, within the ranges the models are built
+/// to take (`art/blender/README.md`): the jaw drops 43°, the brows turn
+/// about 34° and rise or fall a twentieth of the half height, the tail
+/// swings 27° either way, the wings beat from 20° below rest to 37° above,
+/// limbs swing 47° at most and the head turns 20° and tips 14° beyond its
+/// gaze.
+const JAW_DROP: f64 = 0.75;
+const BROW_MOST: f64 = 0.59;
+const TAIL_MOST: f64 = 0.47;
+const WING_LOWEST: f64 = -0.34;
+const WING_HIGHEST: f64 = 0.64;
+const LIMB_MOST: f64 = 0.82;
+const HEAD_TURN_MOST: f64 = 0.35;
+const HEAD_TIP_MOST: f64 = 0.24;
+/// How stiff a tail is, as the frequency of the spring it follows the body
+/// on, and how far it swings with each step.
+const TAIL_FREQUENCY: f64 = 2.0;
+const TAIL_WAG: f64 = 0.22;
+/// A turn of the body quicker than this in one frame, in radians, is the
+/// husk set down facing somewhere new: its tail is set down with it.
+const TAIL_TELEPORT: f64 = 1.5;
+
+/// How many of the face's pivots and loose parts a creature can have.
+const FACE_PARTS: usize = 8;
+
+/// Which of the face's pivots and loose parts a creature has, beyond its
+/// head, jaw and brows, which every creature has.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Features {
+	/// A band of eyes scaled in height only, rather than two eyes.
+	band: bool,
+	tail: bool,
+	wings: bool,
+}
+
+/// The face and loose parts of `vessel`, or nothing for a stack of relics.
+const fn features(vessel: Vessel) -> Option<Features> {
+	let (band, tail, wings) = match vessel {
+		Vessel::Ape | Vessel::Robot => (false, false, false),
+		Vessel::Llama | Vessel::Penguin => (false, true, false),
+		Vessel::Bird => (true, true, true),
+		Vessel::ReliquaryStack => return None,
+	};
+	Some(Features { band, tail, wings })
+}
+
+/// What a husk's face and loose parts show at one instant, on top of its
+/// walk.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Expression {
+	/// How far the jaw has dropped, in radians.
+	jaw: f64,
+	/// The eyes' width and height, as scales.
+	eyes: (f64, f64),
+	/// The brows' roll, positive lifting the inner ends, and their rise as a
+	/// share of the half height.
+	brow_tilt: f64,
+	brow_lift: f64,
+	/// Laid on the gaze: a shiver to the right and a tip down.
+	head: (f64, f64),
+	/// The tail's swing to the creature's left, in radians.
+	tail: f64,
+	/// The wings, raised above rest, in radians.
+	wings: f64,
+	/// How far the limbs flail beyond their gait, in radians.
+	flail: f64,
+}
+
+impl Expression {
+	/// A calm face, every part at rest.
+	const REST: Self = Self {
+		jaw: 0.0,
+		eyes: (1.0, 1.0),
+		brow_tilt: 0.0,
+		brow_lift: 0.0,
+		head: (0.0, 0.0),
+		tail: 0.0,
+		wings: 0.0,
+		flail: 0.0,
+	};
+}
+
 /// One husk in a scene.
 #[derive(Debug)]
 #[allow(
@@ -112,7 +203,6 @@ pub struct HuskRig {
 	reaction: HuskReaction,
 	/// The way from the player to the husk, flat, in the model's frame.
 	away: (f64, f64),
-	seconds: f64,
 	stride: f64,
 	effort: f64,
 	flash: f64,
@@ -155,6 +245,18 @@ pub struct HuskRig {
 	origin: [f32; 3],
 	/// What was last sent, so a still husk sends nothing.
 	sent: Option<(Transform, Transform, [i32; 6])>,
+	/// Whether what is only for liveliness moves: the tail's swing, the
+	/// wings' beat, the head's shiver and snap and the limbs' flail. Off for
+	/// a player who asked for less motion.
+	lively: bool,
+	/// Its face and loose parts, kept while frozen so the ice holds them.
+	expression: Expression,
+	/// The body's heading, wound on rather than wrapped, and the tail's
+	/// spring following it.
+	heading: Option<f64>,
+	tail: Spring,
+	/// How far the wings have beaten, in beats.
+	beat: f64,
 }
 
 impl HuskRig {
@@ -210,7 +312,6 @@ impl HuskRig {
 			light,
 			reaction: HuskReaction::default(),
 			away: (0.0, 1.0),
-			seconds: 0.0,
 			stride: 0.0,
 			effort: 0.0,
 			flash: 0.0,
@@ -234,6 +335,11 @@ impl HuskRig {
 			frozen: false,
 			origin: [0.0; 3],
 			sent: None,
+			lively: !crate::platform::reduced_motion(),
+			expression: Expression::REST,
+			heading: None,
+			tail: Spring::new(TAIL_FREQUENCY, 0.0),
+			beat: 0.0,
 		};
 		rig.style(scene, 1.0);
 		scene.set_visible(root, false);
@@ -468,13 +574,11 @@ impl HuskRig {
 			.is_some_and(|build| !build.limbs.is_empty());
 		let reaction = &self.reaction;
 		let still = 1.0 - self.frost;
-		let t = self.seconds * still;
 		let half_height = self.vessel.half_height();
-		let beats = 2.6 + 2.4 * self.effort + 4.0 * reaction.flail().abs();
 		let step = if self.tuck > 0.5 {
 			0.0
 		} else if self.vessel.gait() == Gait::Air {
-			0.02 * (t * std::f64::consts::TAU * beats).sin()
+			0.02 * (std::f64::consts::TAU * self.beat).sin()
 		} else if walks {
 			carriage.bob * half_height
 		} else {
@@ -513,33 +617,20 @@ impl HuskRig {
 		let fade = (-FLASH_DECAY * delta).exp();
 		self.flash *= fade;
 		self.punch *= fade;
-		let approach = |value: &mut f64, target: f64, rate: f64| {
-			*value += (target - *value) * (1.0 - (-rate * delta).exp());
-		};
 		approach(
 			&mut self.frost,
 			f64::from(u8::from(mood.frozen)),
 			if mood.frozen { 6.0 } else { 2.5 },
+			delta,
 		);
 		approach(
 			&mut self.burn,
 			f64::from(u8::from(mood.burning)),
 			if mood.burning { 10.0 } else { 3.0 },
+			delta,
 		);
 		if !frozen {
-			// Ice holds the body as it was: nothing that only time or a
-			// settling foot swings goes on while it is frozen. The parts
-			// themselves are pinned below, where the ice lands.
-			self.seconds += played;
-			approach(&mut self.tuck, f64::from(u8::from(self.leaping)), 14.0);
-			let bolt = self.vessel.bolt_speed();
-			let target = if bolt <= 0.0 {
-				0.0
-			} else {
-				(mood.speed / bolt).clamp(0.0, 1.0)
-			};
-			approach(&mut self.effort, target, 8.0);
-			self.stride += played * (2.2 + 9.0 * self.effort);
+			self.pass(mood, delta, played);
 		}
 		let carriage = match self.pose {
 			Some(pose) if !frozen => {
@@ -552,15 +643,18 @@ impl HuskRig {
 			Some(_) => self.carriage,
 			None => Carriage::REST,
 		};
+		// Carried toward where the rules put it over one of their ticks, so a
+		// display faster than the rules draws it moving, not stepping.
+		self.carried = (self.carried + delta * HuntRules::TICK_RATE as f64).min(1.0);
+		let placed = self.drawn_place();
+		if !frozen {
+			self.express(&carriage, f64::from(placed.1), mood, played);
+		}
 		let lift_transform = self.carry(&carriage);
 		let reaction = &self.reaction;
 		// The rules' size for the body: a husk on a room's grid is the
 		// smaller creature of the v2 table.
 		let size = self.pose.map_or(1.0, |pose| pose.scale) * (1.0 + self.punch * 0.06);
-		// Carried toward where the rules put it over one of their ticks, so a
-		// display faster than the rules draws it moving, not stepping.
-		self.carried = (self.carried + delta * HuntRules::TICK_RATE as f64).min(1.0);
-		let placed = self.drawn_place();
 		let root = Transform::from_translation(
 			self.origin[0] + placed.0[0],
 			self.origin[1] + placed.0[1],
@@ -617,6 +711,31 @@ impl HuskRig {
 		self.sent = Some((root, lift_transform, looks));
 	}
 
+	/// Moves on what only time swings, over a frame `delta` seconds long in
+	/// which `played` seconds of the husk's own time passed. Ice holds the
+	/// body as it was, so none of this goes on while it is frozen; the parts
+	/// themselves are pinned where the ice lands.
+	fn pass(&mut self, mood: HuskMood, delta: f64, played: f64) {
+		approach(
+			&mut self.tuck,
+			f64::from(u8::from(self.leaping)),
+			14.0,
+			delta,
+		);
+		let bolt = self.vessel.bolt_speed();
+		let target = if bolt <= 0.0 {
+			0.0
+		} else {
+			(mood.speed / bolt).clamp(0.0, 1.0)
+		};
+		approach(&mut self.effort, target, 8.0, delta);
+		self.stride += played * (2.2 + 9.0 * self.effort);
+		// The wingbeat's pace changes with its effort; its place in the beat
+		// is wound on, so a change of pace never skips a beat.
+		let beats = 2.6 + 2.4 * self.effort + 4.0 * self.reaction.flail().abs();
+		self.beat = (self.beat + played * beats).rem_euclid(1.0);
+	}
+
 	/// Sends the parts' offsets for this frame. A body free to move has
 	/// them eased; the frame the ice lands pins every pivot at once, with
 	/// no easing, so the host stops the interpolation it was told to do
@@ -636,10 +755,11 @@ impl HuskRig {
 		}
 	}
 
-	/// Sends the limbs' swings and the head's gaze that changed, for the
-	/// host to ease to over `delta`, or, when `pin`, sends every pivot at
-	/// once with no easing: the pose the ice caught is the pose that is
-	/// held, and the host's interpolation is stopped where it stands.
+	/// Sends the limbs' swings, the head's gaze and the face that changed,
+	/// for the host to ease to over `delta`, or, when `pin`, sends every
+	/// pivot at once with no easing: the pose the ice caught is the pose
+	/// that is held, and the host's interpolation is stopped where it
+	/// stands.
 	fn pose_parts(&mut self, scene: &Scene, carriage: &Carriage, delta: f64, pin: bool) {
 		let Some(build) = self.gait.build() else {
 			return;
@@ -649,8 +769,13 @@ impl HuskRig {
 		} else {
 			delta.clamp(0.0, 0.1) as f32
 		};
+		let expression = self.expression;
 		for (slot, limb) in build.limbs.iter().take(MAX_LIMBS).enumerate() {
 			let (swing, spread) = carriage.limbs[slot];
+			// A struggling body flails each limb against the one across from
+			// it.
+			let swing = (swing + expression.flail * limb.side).clamp(-LIMB_MOST, LIMB_MOST);
+			let spread = spread + 0.5 * expression.flail.abs() * limb.side;
 			let rotation = multiply(
 				axis_angle([1.0, 0.0, 0.0], swing),
 				axis_angle([0.0, 0.0, 1.0], spread),
@@ -661,7 +786,8 @@ impl HuskRig {
 				scene.set_part_offset(self.body, limb.part, turn(rotation), seconds);
 			}
 		}
-		let (right, down) = carriage.look;
+		let right = carriage.look.0 + expression.head.0;
+		let down = carriage.look.1 + expression.head.1;
 		// A long neck takes the tip and the head the turn; otherwise the
 		// head takes both.
 		let (head, neck) = match build.neck {
@@ -691,6 +817,79 @@ impl HuskRig {
 			if pin || self.posed.neck != key {
 				self.posed.neck = key;
 				scene.set_part_offset(self.body, part, turn(neck), seconds);
+			}
+		}
+		self.pose_face(scene, seconds, pin);
+	}
+
+	/// Sends the jaw, the eyes, the brows, the tail and the wings that
+	/// changed, as [`pose_parts`](Self::pose_parts) does the limbs.
+	fn pose_face(&mut self, scene: &Scene, seconds: f32, pin: bool) {
+		let Some(features) = features(self.vessel) else {
+			return;
+		};
+		let expression = self.expression;
+		let half_height = self.vessel.half_height();
+		let (width, height) = expression.eyes;
+		// A band of eyes only ever grows or shrinks in height.
+		let band = [(1, "eyes", 1.0)];
+		let pair = [(1, "eye_l", width), (2, "eye_r", width)];
+		let eyes = if features.band {
+			band.as_slice()
+		} else {
+			pair.as_slice()
+		};
+		let mut offsets = Vec::with_capacity(FACE_PARTS);
+		// The jaw drops about its hinge: a turn about x takes its tip, ahead
+		// of the hinge, down.
+		offsets.push((0, "jaw", turn(axis_angle([1.0, 0.0, 0.0], expression.jaw))));
+		for &(slot, part, width) in eyes {
+			offsets.push((
+				slot,
+				part,
+				Transform {
+					translation: [0.0; 3],
+					rotation: IDENTITY,
+					scale: [width as f32, height as f32, 1.0],
+				},
+			));
+		}
+		// Each brow rolls in the face's plane: the left one's inner end is
+		// toward −x, which a turn about z the other way lifts.
+		for (slot, part, side) in [(3, "brow_l", 1.0), (4, "brow_r", -1.0)] {
+			offsets.push((
+				slot,
+				part,
+				Transform {
+					translation: [0.0, (expression.brow_lift * half_height) as f32, 0.0],
+					rotation: axis_angle([0.0, 0.0, 1.0], -side * expression.brow_tilt),
+					scale: [1.0; 3],
+				},
+			));
+		}
+		if features.tail {
+			offsets.push((
+				5,
+				"tail",
+				turn(axis_angle([0.0, 1.0, 0.0], expression.tail)),
+			));
+		}
+		if features.wings {
+			// Each wing rises away from the body on its own side.
+			for (slot, part, side) in [(6, "wing_l", 1.0), (7, "wing_r", -1.0)] {
+				offsets.push((
+					slot,
+					part,
+					turn(axis_angle([0.0, 0.0, 1.0], side * expression.wings)),
+				));
+			}
+		}
+		for (slot, part, offset) in offsets {
+			let key = quantize_transform(&offset);
+			let sent = &mut self.posed.face[slot];
+			if pin || *sent != key {
+				*sent = key;
+				scene.set_part_offset(self.body, part, offset, seconds);
 			}
 		}
 	}
@@ -728,10 +927,89 @@ impl HuskRig {
 		true
 	}
 
+	/// Lets what is only for liveliness move, or holds it still for a player
+	/// who asked for less motion.
+	pub fn set_lively(&mut self, lively: bool) {
+		self.lively = lively;
+	}
+
+	/// Works out the face and loose parts for a body carried as `carriage`,
+	/// facing `heading` (a yaw, in radians), `mood` and its plight having
+	/// been stepped, over `played` seconds of its own time.
+	fn express(&mut self, carriage: &Carriage, heading: f64, mood: HuskMood, played: f64) {
+		let reaction = &self.reaction;
+		let lively = self.lively;
+		let jaw = if lively {
+			mood.gape.max(reaction.gape())
+		} else {
+			// Its scream, without the chatter of its teeth.
+			mood.gape.max(reaction.scream())
+		};
+		// A calm husk does not tremble: the shiver grows with its fear.
+		let shaken = (reaction.fear() + reaction.death()).min(1.0);
+		let head = if lively {
+			(
+				(reaction.shiver() * shaken).clamp(-HEAD_TURN_MOST, HEAD_TURN_MOST),
+				(-0.7 * reaction.head_back()).clamp(-HEAD_TIP_MOST, HEAD_TIP_MOST),
+			)
+		} else {
+			(0.0, 0.0)
+		};
+		let flail = if lively { reaction.flail() } else { 0.0 };
+		// The tail follows the body's heading on a spring, so it swings out
+		// behind a turn and settles after it, and sways with each step.
+		let wound = match self.heading {
+			Some(before) if wrap_angle(heading - before).abs() < TAIL_TELEPORT => {
+				before + wrap_angle(heading - before)
+			}
+			_ => {
+				self.tail.settle(heading);
+				heading
+			}
+		};
+		self.heading = Some(wound);
+		let waddle = self.gait.build().map_or(0.0, |build| build.waddle);
+		let wag = if waddle > 0.0 {
+			carriage.roll / waddle * TAIL_WAG
+		} else {
+			0.0
+		};
+		let tail = if lively {
+			let swung = self.tail.step(wound + wag + 0.5 * flail, played);
+			(swung - wound).clamp(-TAIL_MOST, TAIL_MOST)
+		} else {
+			self.tail.settle(wound);
+			0.0
+		};
+		// The wings beat as the body rises and falls: down as it lifts.
+		let wings = if lively {
+			let middle = f64::midpoint(WING_HIGHEST, WING_LOWEST);
+			let swing = 0.5 * (WING_HIGHEST - WING_LOWEST);
+			middle - swing * (std::f64::consts::TAU * self.beat).sin()
+		} else {
+			0.0
+		};
+		self.expression = Expression {
+			jaw: JAW_DROP * jaw.clamp(0.0, 1.0),
+			eyes: (reaction.eye_width(), reaction.eye_height()),
+			brow_tilt: reaction.brow_tilt().clamp(-BROW_MOST, BROW_MOST),
+			brow_lift: reaction.brow_lift(),
+			head,
+			tail,
+			wings,
+			flail,
+		};
+	}
+
 	/// Removes the husk from the scene.
 	pub fn remove(&self, scene: &Scene) {
 		scene.remove(self.root);
 	}
+}
+
+/// Moves `value` towards `target` at `rate` a second, over `delta` seconds.
+fn approach(value: &mut f64, target: f64, rate: f64, delta: f64) {
+	*value += (target - *value) * (1.0 - (-rate * delta).exp());
 }
 
 /// The turn about the scene's vertical that faces a husk along `heading`,
@@ -753,6 +1031,9 @@ struct Posed {
 	limbs: [[i32; 4]; MAX_LIMBS],
 	head: [i32; 4],
 	neck: [i32; 4],
+	/// The face and loose parts: the jaw, the eyes (or their band), the
+	/// brows, the tail and the wings, in that order.
+	face: [[i32; 10]; FACE_PARTS],
 	shadow: Option<[i32; 10]>,
 	shadow_look: i32,
 }
@@ -765,6 +1046,7 @@ impl Default for Posed {
 			limbs: [rest; MAX_LIMBS],
 			head: rest,
 			neck: rest,
+			face: [quantize_transform(&Transform::IDENTITY); FACE_PARTS],
 			shadow: None,
 			shadow_look: -1,
 		}
@@ -1530,13 +1812,267 @@ mod tests {
 			HuskMood::default(),
 			HuskPlight::default(),
 		);
+		let ops = scene.take_ops();
 		assert!(
-			scene
-				.take_ops()
-				.iter()
-				.all(|op| !matches!(op, Op::SetPartOffset { .. })),
-			"a husk standing still sends no part"
+			ops.iter().all(|op| !matches!(op, Op::SetPartOffset { .. })),
+			"a husk standing still sends no part: {ops:?}"
 		);
+	}
+
+	/// A husk of `vessel` in `scene`, dressed as the first NFT of its kind.
+	fn rig_of(scene: &Scene, vessel: Vessel) -> HuskRig {
+		let nft = market_listings()
+			.into_iter()
+			.find(|nft| nft.collection.vessel() == vessel)
+			.unwrap();
+		HuskRig::spawn(scene, vessel, &nft)
+	}
+
+	/// The part offsets among `ops`, by part.
+	fn offsets(ops: &[Op]) -> Vec<(String, Transform)> {
+		ops.iter()
+			.filter_map(|op| {
+				match op {
+					Op::SetPartOffset { part, offset, .. } => Some((part.clone(), *offset)),
+					_ => None,
+				}
+			})
+			.collect()
+	}
+
+	/// A plight that has the husk's ward broken and the reap a third of the
+	/// way along: afraid, struggling, screaming.
+	fn reaped() -> HuskPlight {
+		HuskPlight {
+			fighting: true,
+			ward: 0.0,
+			broken: true,
+			reap: 0.35,
+			..HuskPlight::default()
+		}
+	}
+
+	/// The signed angle of a turn about `axis`, which it must be about.
+	fn angle_about(rotation: [f32; 4], axis: usize) -> f32 {
+		let half = rotation[3].clamp(-1.0, 1.0).acos();
+		2.0 * half * rotation[axis].signum()
+	}
+
+	#[test]
+	fn a_reaped_husk_screams_and_its_face_shows_it_within_its_ranges() {
+		let scene = Scene::new(leptoskit::scene3d::SceneId(46));
+		let mut rig = rig_of(&scene, Vessel::Penguin);
+		rig.set_lively(true);
+		scene.take_ops();
+		let pose = walker(reapers_rules::HuskMotionState::Idle, 0.0, -1.21, -1.45);
+		let mut sent = Vec::new();
+		for _ in 0..60 {
+			rig.place(&pose);
+			rig.animate(&scene, 1.0 / 60.0, HuskMood::default(), reaped());
+			sent.extend(offsets(&scene.take_ops()));
+		}
+		let of = |part: &str| {
+			sent.iter()
+				.filter(|(sent, _)| sent == part)
+				.map(|(_, offset)| *offset)
+				.collect::<Vec<_>>()
+		};
+		// The jaw drops, its tip ahead of the hinge going down, and never
+		// further than the 43° it is built for.
+		let jaw = of("jaw");
+		assert!(jaw.iter().any(|jaw| angle_about(jaw.rotation, 0) > 0.4));
+		for jaw in &jaw {
+			assert!(angle_about(jaw.rotation, 0) <= 0.75 + 1e-4);
+			let tip = crate::render::camera::rotate(jaw.rotation, [0.0, 0.0, 0.1]);
+			assert!(tip[1] <= 1e-6, "the jaw drops: {tip:?}");
+		}
+		// The eyes are wide with fear, within 2.4 times their height.
+		let eyes = of("eye_l");
+		assert!(eyes.iter().any(|eye| eye.scale[1] > 1.3));
+		assert!(
+			eyes.iter()
+				.all(|eye| eye.scale[1] <= 2.4 && eye.scale[0] <= 2.2)
+		);
+		// The brows lift at their inner ends, within 34° and a twentieth of
+		// the half height.
+		let lift = Vessel::Penguin.half_height() as f32 / 20.0;
+		for (part, inner) in [("brow_l", -0.05), ("brow_r", 0.05)] {
+			let brows = of(part);
+			let last = brows.last().unwrap();
+			let end = crate::render::camera::rotate(last.rotation, [inner, 0.0, 0.0]);
+			assert!(end[1] > 0.0, "{part}'s inner end lifts: {end:?}");
+			for brow in &brows {
+				assert!(angle_about(brow.rotation, 2).abs() <= 0.59 + 1e-4);
+				assert!(brow.translation[1].abs() <= lift + 1e-5);
+			}
+		}
+		// It struggles: the tail and the limbs flail, within their ranges.
+		let tail = of("tail");
+		assert!(
+			tail.iter()
+				.any(|tail| angle_about(tail.rotation, 1).abs() > 0.05)
+		);
+		assert!(
+			tail.iter()
+				.all(|tail| angle_about(tail.rotation, 1).abs() <= 0.47 + 1e-4)
+		);
+		assert!(rig.expression.flail.abs() > 1e-3);
+		assert!(of("leg_l").len() > 10, "the legs kick");
+	}
+
+	#[test]
+	fn a_player_who_asked_for_less_motion_sees_the_face_but_not_the_thrashing() {
+		let scene = Scene::new(leptoskit::scene3d::SceneId(47));
+		let mut rig = rig_of(&scene, Vessel::Penguin);
+		rig.set_lively(false);
+		scene.take_ops();
+		let pose = walker(reapers_rules::HuskMotionState::Idle, 0.0, -1.21, -1.45);
+		let mut sent = Vec::new();
+		for _ in 0..60 {
+			rig.place(&pose);
+			rig.animate(&scene, 1.0 / 60.0, HuskMood::default(), reaped());
+			sent.extend(offsets(&scene.take_ops()));
+			assert_eq!(rig.expression.tail, 0.0);
+			assert_eq!(rig.expression.flail, 0.0);
+			assert_eq!(rig.expression.head, (0.0, 0.0));
+		}
+		assert!(
+			sent.iter().all(|(part, _)| part != "tail"),
+			"the tail hangs"
+		);
+		// Its scream and its fear still show, held rather than jerking.
+		assert!(sent.iter().any(|(part, _)| part == "jaw"));
+		assert!(sent.iter().any(|(part, _)| part == "eye_l"));
+		assert!(rig.expression.jaw > 0.5, "{}", rig.expression.jaw);
+	}
+
+	/// The model's nodes that hold a seal, from the seal up to the root.
+	fn holding_a_seal(vessel: Vessel) -> Vec<String> {
+		let gltf = model::gltf(&husk_model(vessel));
+		let nodes = gltf["nodes"].as_array().unwrap();
+		let name = |index: usize| nodes[index]["name"].as_str().unwrap_or("").to_owned();
+		let parent = |child: usize| {
+			nodes.iter().position(|node| {
+				node["children"].as_array().is_some_and(|children| {
+					children.iter().any(|c| c.as_u64() == Some(child as u64))
+				})
+			})
+		};
+		let mut holding = Vec::new();
+		for (index, _) in nodes.iter().enumerate() {
+			if !name(index).starts_with("seal_") {
+				continue;
+			}
+			let mut at = Some(index);
+			while let Some(node) = at {
+				holding.push(name(node));
+				at = parent(node);
+			}
+		}
+		holding
+	}
+
+	#[test]
+	fn seals_stay_where_the_rules_put_them_while_the_ward_holds() {
+		for vessel in [
+			Vessel::Ape,
+			Vessel::Bird,
+			Vessel::Llama,
+			Vessel::Penguin,
+			Vessel::Robot,
+		] {
+			let holding = holding_a_seal(vessel);
+			assert!(holding.iter().any(|name| name.starts_with("seal_")));
+			let scene = Scene::new(leptoskit::scene3d::SceneId(48));
+			let mut lively = rig_of(&scene, vessel);
+			lively.set_lively(true);
+			let mut still = rig_of(&scene, vessel);
+			still.set_lively(false);
+			scene.take_ops();
+			// Fought, struck and turning while its ward holds.
+			let plight = HuskPlight {
+				fighting: true,
+				ward: 0.6,
+				fury: 0.4,
+				..HuskPlight::default()
+			};
+			for frame in 0..90 {
+				let mut pose = HuskPose::new(
+					vessel,
+					reapers_rules::Vec3::new(0.3, -0.6, 2.4),
+					std::f64::consts::PI + 0.02 * f64::from(frame),
+				);
+				pose.position.x += 0.01 * f64::from(frame);
+				for rig in [&mut lively, &mut still] {
+					if frame == 20 {
+						rig.hit(Some(2), 1.0, true);
+					}
+					rig.place(&pose);
+					rig.animate(&scene, 1.0 / 60.0, HuskMood::default(), plight);
+				}
+				// The body, and so every seal on it, is placed and carried
+				// alike: the lively parts move nothing that holds a seal.
+				assert_eq!(lively.sent.unwrap().0, still.sent.unwrap().0, "{vessel:?}");
+				assert_eq!(lively.sent.unwrap().1, still.sent.unwrap().1, "{vessel:?}");
+				for (part, _) in offsets(&scene.take_ops()) {
+					assert!(
+						!holding.contains(&part),
+						"{vessel:?} moved {part}, which holds a seal"
+					);
+				}
+			}
+		}
+	}
+
+	/// A llama turning on the spot for half a second and then still, the
+	/// rules turning it sixty times a second and the display drawing it
+	/// `rate` times: its tail's swing every tenth of a second.
+	fn tail_turning(rate: u32) -> Vec<f64> {
+		let scene = Scene::new(leptoskit::scene3d::SceneId(49));
+		let mut rig = rig_of(&scene, Vessel::Llama);
+		rig.set_lively(true);
+		let mut swung = Vec::new();
+		let at = |tick: f64| {
+			let mut pose = llama_walking(2.2);
+			pose.heading = std::f64::consts::PI + 1.2 * tick.min(30.0) / 60.0;
+			pose
+		};
+		rig.place(&at(0.0));
+		rig.animate(&scene, 0.0, HuskMood::default(), HuskPlight::default());
+		for frame in 1..=2 * rate {
+			let tick = (f64::from(frame) / f64::from(rate) * 60.0 + 1e-9).floor();
+			rig.place(&at(tick));
+			rig.animate(
+				&scene,
+				1.0 / f64::from(rate),
+				HuskMood::default(),
+				HuskPlight::default(),
+			);
+			if frame % (rate / 10) == 0 {
+				swung.push(rig.expression.tail);
+			}
+		}
+		swung
+	}
+
+	#[test]
+	fn a_tail_swings_out_behind_a_turn_and_settles_the_same_at_any_frame_rate() {
+		let sixty = tail_turning(60);
+		// The heading grows, so the body's yaw shrinks: the tail is left
+		// behind it, on the other side, and comes back once it stops.
+		let most = sixty.iter().copied().fold(0.0_f64, f64::max);
+		assert!(most > 0.1 && most <= TAIL_MOST, "{sixty:?}");
+		assert!(sixty.last().unwrap().abs() < 2e-3, "{sixty:?}");
+		for rate in [30, 120] {
+			let other = tail_turning(rate);
+			assert_eq!(other.len(), sixty.len());
+			for (one, two) in sixty.iter().zip(&other) {
+				assert!(
+					(one - two).abs() < 0.02,
+					"{rate} Hz: {sixty:?} against {other:?}"
+				);
+			}
+		}
 	}
 
 	/// A llama walking for two seconds, the rules moving it sixty times a
@@ -1620,7 +2156,7 @@ mod tests {
 	}
 
 	#[test]
-	fn every_pivot_a_creature_walks_on_is_in_its_model() {
+	fn every_pivot_a_creature_moves_is_in_its_model() {
 		for vessel in [
 			Vessel::Ape,
 			Vessel::Bird,
@@ -1630,11 +2166,28 @@ mod tests {
 		] {
 			let build = crate::render::gait::build(vessel).unwrap();
 			let names = model::node_names(&husk_model(vessel));
+			let features = features(vessel).unwrap();
+			let eyes: &[&str] = if features.band {
+				&["eyes"]
+			} else {
+				&["eye_l", "eye_r"]
+			};
 			let pivots = build
 				.limbs
 				.iter()
 				.map(|limb| limb.part)
-				.chain([build.head])
+				.chain([build.head, "jaw", "brow_l", "brow_r"])
+				.chain(eyes.iter().copied())
+				.chain(features.tail.then_some("tail"))
+				.chain(
+					if features.wings {
+						["wing_l", "wing_r"].as_slice()
+					} else {
+						&[]
+					}
+					.iter()
+					.copied(),
+				)
 				.chain(build.neck);
 			for pivot in pivots {
 				assert!(

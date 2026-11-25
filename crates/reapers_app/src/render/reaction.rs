@@ -315,6 +315,13 @@ impl HuskReaction {
 		0.35 * self.reap * self.struggle + 0.18 * self.death
 	}
 
+	/// How wide its jaw hangs as it screams, from 0 to 1, without the
+	/// chatter and the jerks of [`gape`](Self::gape): stunned by a blow,
+	/// reaped, dying.
+	pub fn scream(&self) -> f64 {
+		((0.35 * self.wince).max(0.75 * self.struggle) + self.death).clamp(0.0, 1.0)
+	}
+
 	/// How wide its jaw hangs, from 0 to 1: teeth chatter in fear, and it
 	/// screams while it is reaped and as it dies.
 	pub fn gape(&self) -> f64 {
@@ -322,7 +329,7 @@ impl HuskReaction {
 			self.fear * (1.0 - self.struggle) * 0.16 * (0.5 + 0.5 * (self.seconds * 41.0).sin());
 		chatter
 			.max(
-				(0.35 * self.wince).max(0.75 * self.struggle + 0.25 * self.thrash(0.4).abs())
+				(0.35 * self.wince).max((0.75 + 0.25 * self.thrash(0.4).abs()) * self.struggle)
 					+ self.death,
 			)
 			.clamp(0.0, 1.0)
@@ -354,6 +361,19 @@ impl HuskReaction {
 	/// fear; negative drives them down, as in fury or a wince.
 	pub fn brow_tilt(&self) -> f64 {
 		0.5 * self.fear - 0.6 * self.rage - 0.35 * self.wince + 0.3 * self.death
+	}
+
+	/// How far the brows are raised, as a share of the body's half height:
+	/// up in fear and as it dies, down in fury and at a blow.
+	pub fn brow_lift(&self) -> f64 {
+		(0.05 * self.fear - 0.04 * self.rage - 0.035 * self.wince + 0.04 * self.death)
+			.clamp(-0.05, 0.05)
+	}
+
+	/// How far the head is thrown back by a blow, in radians: further than
+	/// the body, and back later.
+	pub fn head_back(&self) -> f64 {
+		self.head_back.position
 	}
 
 	/// How bright its eyes burn, as a multiple of their usual glow: they
@@ -412,6 +432,15 @@ mod tests {
 		while t < seconds {
 			reaction.step(1.0 / 60.0, plight);
 			t += 1.0 / 60.0;
+		}
+	}
+
+	#[test]
+	fn a_calm_husk_keeps_its_mouth_shut() {
+		let mut reaction = HuskReaction::default();
+		for _ in 0..120 {
+			reaction.step(1.0 / 60.0, HuskPlight::default());
+			assert_eq!(reaction.gape(), 0.0);
 		}
 	}
 

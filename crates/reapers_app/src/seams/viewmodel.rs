@@ -93,10 +93,6 @@ const TRACER_FRAMES: f32 = 4.0;
 const SHARD_SECONDS: f32 = 0.4;
 /// How long a damage number floats, in milliseconds.
 const NUMBER_MILLIS: f32 = 800.0;
-/// How long the arms take to trail a turn of the view, in seconds.
-const SWAY_LAG: f32 = 0.08;
-/// How far the arms trail at most, in radians.
-const SWAY_MOST: f32 = 0.12;
 
 /// The room the effects are drawn in: the world's scene and its camera.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -233,8 +229,9 @@ struct Seam {
 	/// The effects, and the scene they were spawned in: a world scene that
 	/// was forgotten and made afresh needs them again.
 	world: Option<(Key, SceneId, WorldFx)>,
-	/// The arms' trail behind the view's turn, in radians.
-	sway: [f32; 2],
+	/// What lags behind the arms: their trail behind the view's turn, and
+	/// the hand behind the forearm.
+	trailing: arms::Trailing,
 	/// Where the orb left the hand, for the throw released on that tick.
 	thrown: Option<(i64, Point)>,
 	/// The latest two blows: two bursts of shards in flight at once.
@@ -256,7 +253,7 @@ fn seam() -> Rc<RefCell<Seam>> {
 				shown: None,
 				rig: None,
 				world: None,
-				sway: [0.0; 2],
+				trailing: arms::Trailing::default(),
 				thrown: None,
 				shards: [None; 2],
 				numbers: crate::ui::lasting(|| RwSignal::new(Vec::new())),
@@ -336,12 +333,18 @@ impl Seam {
 		let since = props.action_seconds(tick);
 		let clock = (props.juice.motion_tick(tick) / f64::from(TICKS_PER_SECOND)) as f32;
 		let mut pose = arms::pose(props.manner(), props.action, since, clock);
-		let follow = 1.0 - (-seconds / SWAY_LAG).exp();
-		for (sway, rate) in self.sway.iter_mut().zip(props.turn_rate) {
-			let trailing = (-rate * SWAY_LAG).clamp(-SWAY_MOST, SWAY_MOST);
-			*sway += (trailing - *sway) * follow;
-		}
-		arms::sway(&mut pose.arm, self.sway[0], self.sway[1]);
+		// The arms' own clock over the frame, which a hit-stop holds.
+		let before = tick - f64::from(seconds) * f64::from(props.rate);
+		let moved = ((props.juice.motion_tick(tick) - props.juice.motion_tick(before))
+			/ f64::from(TICKS_PER_SECOND))
+		.max(0.0) as f32;
+		self.trailing.follow(
+			&mut pose,
+			props.turn_rate,
+			seconds,
+			moved,
+			!crate::platform::reduced_motion(),
+		);
 		let arms_scene = scene(VIEWMODEL);
 		let ops = arms_scene.ops();
 		let rig = self.rig.get_or_insert_with(|| ViewmodelRig::spawn(ops));
@@ -379,7 +382,7 @@ impl Seam {
 			self.world = Some((world.scene, id, WorldFx::spawn(ops, None)));
 			self.shards = [None; 2];
 			self.thrown = None;
-			self.sway = [0.0; 2];
+			self.trailing = arms::Trailing::default();
 			self.numbers.set(Vec::new());
 		}
 		let mut frame = WorldFrame {

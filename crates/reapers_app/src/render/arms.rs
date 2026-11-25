@@ -4,8 +4,10 @@
 //!
 //! It decides nothing: the hunt says what the arms are doing and since
 //! when, and [`pose`] answers where everything is at that moment. Nothing
-//! here keeps state, so a hit-stop holds a pose by holding the time, and a
-//! bench can show any frame.
+//! but [`Trailing`] keeps state, so a hit-stop holds a pose by holding the
+//! time, and a bench can show any frame; [`Trailing`] then lays on what
+//! lags behind the pose from frame to frame, on springs that move the same
+//! at any frame rate.
 //!
 //! Lengths are metres and angles radians, in the view's frame: x to the
 //! right, y up, z away from the eye. Yaw turns the muzzle right, pitch up,
@@ -28,6 +30,7 @@ use super::curves::end;
 use super::curves::key;
 use super::curves::knock;
 use super::curves::sample;
+use super::spring::Spring;
 use super::swings::shape;
 
 /// The manner the weapon in hand swings in. A class weapon in the heavy
@@ -312,6 +315,83 @@ pub fn sway(arm: &mut ArmPose, yaw: f32, pitch: f32) {
 	arm.roll += yaw * 0.5;
 	arm.pitch += pitch * 0.4;
 	arm.wrist_pitch += pitch * 0.6;
+}
+
+/// How long the arms take to trail a turn of the view, in seconds, and how
+/// far they trail at most, in radians.
+const SWAY_LAG: f32 = 0.08;
+const SWAY_MOST: f32 = 0.12;
+/// How stiff the arms' trail behind the view is, as the frequency of its
+/// spring: about as quick as [`SWAY_LAG`].
+const SWAY_FREQUENCY: f64 = 4.0;
+/// How stiff the hand is on the wrist, as the frequency of its spring: it
+/// is left behind by a forearm swinging fast and catches up as it slows.
+const WRIST_FREQUENCY: f64 = 9.0;
+/// How much of what the forearm has left the hand behind the wrist gives,
+/// and the most it bends for it, in radians.
+const WRIST_GIVE: f32 = 0.25;
+const WRIST_MOST: f32 = 0.12;
+
+/// What trails the arm from frame to frame: the whole arm behind the view's
+/// turn, and the hand behind a forearm that swings fast, bent back at the
+/// wrist and catching up as the swing slows.
+#[derive(Clone, Copy, Debug)]
+pub struct Trailing {
+	/// The trail behind the view's turn, to the right and up.
+	sway: [Spring; 2],
+	/// Where the hand would point, following the forearm's pitch, yaw and
+	/// roll.
+	wrist: [Spring; 3],
+}
+
+impl Default for Trailing {
+	fn default() -> Self {
+		Self {
+			sway: [Spring::new(SWAY_FREQUENCY, 0.0); 2],
+			wrist: [Spring::new(WRIST_FREQUENCY, 0.0); 3],
+		}
+	}
+}
+
+impl Trailing {
+	/// Lays the trail on `pose` for a frame `seconds` long, over which the
+	/// view turned at `turn_rate` radians a second (right, then up) and the
+	/// arms' own clock ran `moved` seconds: a hit-stop holds the hand with
+	/// the arm. For a player who asked for less motion (`lively` false) the
+	/// hand stays square on the forearm.
+	pub fn follow(
+		&mut self,
+		pose: &mut Pose,
+		turn_rate: [f32; 2],
+		seconds: f32,
+		moved: f32,
+		lively: bool,
+	) {
+		for (spring, rate) in self.sway.iter_mut().zip(turn_rate) {
+			let trailing = (-rate * SWAY_LAG).clamp(-SWAY_MOST, SWAY_MOST);
+			spring.step(f64::from(trailing), f64::from(seconds));
+		}
+		sway(
+			&mut pose.arm,
+			self.sway[0].value as f32,
+			self.sway[1].value as f32,
+		);
+		let arm = &mut pose.arm;
+		let forearm = [arm.pitch, arm.yaw, arm.roll];
+		let wrist = [
+			&mut arm.wrist_pitch,
+			&mut arm.wrist_yaw,
+			&mut arm.wrist_roll,
+		];
+		for ((spring, angle), bend) in self.wrist.iter_mut().zip(forearm).zip(wrist) {
+			if !lively {
+				spring.settle(f64::from(angle));
+				continue;
+			}
+			let behind = spring.step(f64::from(angle), f64::from(moved)) as f32 - angle;
+			*bend += (WRIST_GIVE * behind).clamp(-WRIST_MOST, WRIST_MOST);
+		}
+	}
 }
 
 fn draw(arm: &mut ArmPose, since: f32) {
@@ -630,4 +710,80 @@ fn raised(pose: &mut Pose, since: f32) {
 	});
 	pose.arm.y -= 0.015 * rise;
 	pose.arm.x += 0.008 * rise;
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	/// A sweep shown `rate` times a second with the view held still, with
+	/// the hand's lag laid on, at each of the times in `at`.
+	fn swept(rate: f32, lively: bool, at: &[f32]) -> Vec<(Pose, Pose)> {
+		let mut trailing = Trailing::default();
+		let mut shown = Vec::new();
+		let frames = (1.2 * rate).round() as usize;
+		for frame in 1..=frames {
+			let t = frame as f32 / rate;
+			let bare = pose(Swing::Sweep, ViewAction::Swing { dived: false }, t, 0.0);
+			let mut trailed = bare;
+			trailing.follow(&mut trailed, [0.0; 2], 1.0 / rate, 1.0 / rate, lively);
+			if at.iter().any(|when| (when - t).abs() < 1e-5) {
+				shown.push((bare, trailed));
+			}
+		}
+		shown
+	}
+
+	#[test]
+	fn the_hand_lags_a_fast_swing_the_same_at_any_frame_rate() {
+		let at = [0.1, 0.2, 0.3, 0.5, 1.2];
+		let sixty = swept(60.0, true, &at);
+		assert_eq!(sixty.len(), at.len());
+		for rate in [30.0, 120.0] {
+			for ((_, one), (_, other)) in sixty.iter().zip(swept(rate, true, &at)) {
+				for (a, b) in [
+					(one.arm.wrist_pitch, other.arm.wrist_pitch),
+					(one.arm.wrist_yaw, other.arm.wrist_yaw),
+					(one.arm.wrist_roll, other.arm.wrist_roll),
+				] {
+					assert!((a - b).abs() < 0.01, "{rate} Hz: {a} against {b}");
+				}
+			}
+		}
+		// Bent back as the strike sweeps across, square again at rest.
+		let (bare, trailed) = sixty[2];
+		assert!(
+			(trailed.arm.wrist_yaw - bare.arm.wrist_yaw).abs() > 0.03,
+			"{} against {}",
+			trailed.arm.wrist_yaw,
+			bare.arm.wrist_yaw
+		);
+		assert!((trailed.arm.wrist_yaw - bare.arm.wrist_yaw).abs() <= WRIST_MOST);
+		let (bare, trailed) = sixty[4];
+		assert!((trailed.arm.wrist_yaw - bare.arm.wrist_yaw).abs() < 1e-3);
+		// The rest of the arm is not touched.
+		assert_eq!(trailed.arm.yaw, bare.arm.yaw);
+		assert_eq!(trailed.arm.x, bare.arm.x);
+	}
+
+	#[test]
+	fn a_player_who_asked_for_less_motion_keeps_the_hand_square() {
+		for (bare, trailed) in swept(60.0, false, &[0.1, 0.2, 0.3, 0.5]) {
+			assert_eq!(trailed, bare);
+		}
+	}
+
+	#[test]
+	fn a_hit_stop_holds_the_hand_with_the_arm() {
+		let mut trailing = Trailing::default();
+		let mut moving = pose(Swing::Sweep, ViewAction::Swing { dived: false }, 0.2, 0.0);
+		trailing.follow(&mut moving, [0.0; 2], 1.0 / 60.0, 1.0 / 60.0, true);
+		let held = pose(Swing::Sweep, ViewAction::Swing { dived: false }, 0.22, 0.0);
+		let mut first = held;
+		trailing.follow(&mut first, [0.0; 2], 1.0 / 60.0, 1.0 / 60.0, true);
+		// The arms' clock stopped: the hand does not catch up through it.
+		let mut second = held;
+		trailing.follow(&mut second, [0.0; 2], 1.0 / 60.0, 0.0, true);
+		assert_eq!(first.arm.wrist_yaw, second.arm.wrist_yaw);
+	}
 }

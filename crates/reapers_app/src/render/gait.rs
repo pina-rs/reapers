@@ -20,6 +20,8 @@ use reapers_rules::HuskPose;
 use reapers_rules::Vec3;
 use reapers_rules::Vessel;
 
+use super::spring::Spring;
+
 /// What a limb is to the body.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LimbKind {
@@ -215,8 +217,10 @@ const MOST_CADENCE: f64 = 4.0;
 const STILL_SPEED: f64 = 0.04;
 /// How quickly a stride fades in and settles out, per second.
 const SETTLE_RATE: f64 = 7.0;
-/// How quickly the head follows what it looks at, per second.
-const GAZE_RATE: f64 = 9.0;
+/// How quickly the head follows what it looks at: the frequency of a
+/// critically damped spring, so it turns, slows and settles on a thing with
+/// no snap at the start of a turn and no wobble at its end.
+const GAZE_FREQUENCY: f64 = 2.2;
 /// The farthest the head turns, and tips up and down, in radians.
 const GAZE_TURN: f64 = 1.1;
 const GAZE_UP: f64 = 0.45;
@@ -288,7 +292,7 @@ pub struct Footwork {
 	apex: f64,
 	fall: f64,
 	/// The head's turn and tip, as they follow what it looks at.
-	look: (f64, f64),
+	look: [Spring; 2],
 }
 
 impl Footwork {
@@ -304,7 +308,7 @@ impl Footwork {
 			rising: 0.0,
 			apex: f64::NEG_INFINITY,
 			fall: 0.0,
-			look: (0.0, 0.0),
+			look: [Spring::new(GAZE_FREQUENCY, 0.0); 2],
 		}
 	}
 
@@ -360,9 +364,10 @@ impl Footwork {
 			tuck(build, 1.0, 0.0, &mut carriage);
 		}
 		let target = Self::gaze(pose);
-		approach(&mut self.look.0, target.0, GAZE_RATE, delta);
-		approach(&mut self.look.1, target.1, GAZE_RATE, delta);
-		carriage.look = self.look;
+		carriage.look = (
+			self.look[0].step(target.0, delta),
+			self.look[1].step(target.1, delta),
+		);
 		carriage
 	}
 
@@ -758,5 +763,48 @@ mod tests {
 		let (_, perched) = look(None, Footing::Ledge);
 		assert!(perched > 0.4, "{perched}");
 		assert_eq!(look(None, Footing::Open), (0.0, 0.0));
+	}
+
+	#[test]
+	fn the_head_eases_into_a_turn_and_settles_without_a_wobble() {
+		let pose = HuskPose {
+			locomotion: Some(HuskLocomotion {
+				state: HuskMotionState::Idle,
+				state_fraction: 0.0,
+				support_height: -0.6,
+				next_foothold: Some(Vec3::new(1.5, -0.3, 3.3)),
+			}),
+			..HuskPose::new(Vessel::Ape, Vec3::new(0.0, -0.3, 2.5), 0.0)
+		};
+		let turned = |rate: f64| {
+			let mut footwork = Footwork::new(Vessel::Ape);
+			(1..=(rate as usize))
+				.map(|_| footwork.step(&pose, 1.0 / rate).look.0)
+				.collect::<Vec<_>>()
+		};
+		let sixty = turned(60.0);
+		let target = *sixty.last().unwrap();
+		assert!(target > 0.5, "{target}");
+		// It starts slowly, never passes what it looks at, and is there by
+		// the end of a second.
+		assert!(sixty[0] < 0.05 * target, "{} of {target}", sixty[0]);
+		assert!(sixty.windows(2).all(|pair| pair[1] >= pair[0]));
+		assert!(sixty.iter().all(|turn| *turn <= target + 1e-9));
+		assert!((Footwork::gaze(&pose).0 - target).abs() < 0.01 * target);
+		// The same at thirty and a hundred and twenty frames a second.
+		for (rate, every) in [(30.0, 2), (120.0, 1)] {
+			let other = turned(rate);
+			for (at, turn) in sixty.iter().enumerate().skip(1).step_by(2) {
+				let other = if rate < 60.0 {
+					other[at / every]
+				} else {
+					other[2 * at + 1]
+				};
+				assert!(
+					(turn - other).abs() < 1e-9,
+					"{rate} Hz at {at}: {turn} against {other}"
+				);
+			}
+		}
 	}
 }

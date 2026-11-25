@@ -28,6 +28,7 @@ pub mod reaction;
 pub mod rig;
 pub mod scene;
 pub mod silhouette;
+pub mod spring;
 pub mod stage;
 #[cfg(any(
 	test,
