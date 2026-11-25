@@ -89,8 +89,9 @@ pub struct Options {
 	#[arg(long)]
 	specs_only: bool,
 	/// Print what every shipped model costs against its budget, and stop.
-	/// Fails when a model is over.
-	#[arg(long, conflicts_with_all = ["preview", "specs_only"])]
+	/// Fails when a model is over. It always measures every model, so it
+	/// takes no scripts.
+	#[arg(long, conflicts_with_all = ["scripts", "preview", "specs_only"])]
 	report: bool,
 }
 
@@ -642,6 +643,8 @@ mod tests {
 		assert!(parse(&["--report"]).unwrap().options.report);
 		assert!(parse(&["--report", "--preview"]).is_err());
 		assert!(parse(&["--report", "--specs-only"]).is_err());
+		// The report measures every model; a script name would do nothing.
+		assert!(parse(&["--report", "reapers"]).is_err());
 	}
 
 	#[test]
