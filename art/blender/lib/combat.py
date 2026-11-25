@@ -323,14 +323,15 @@ KEYS = {
             STOP,
         ),
         (0.39, pose(move=(0, -0.06, -0.05), motion=(12, 0, -8), head=(6, 0, 6), arm_r=(-14, 16, -6), elbow_r=(-110, 0, 0)), LOADED),
-        # The fist drives up through the jaw at the top of its speed...
+        # The fist drives up through the jaw at the top of its speed, the
+        # body still rising and turning under it...
         strike(
             0.48,
             pose(
-                move=(0, -0.18, 0.30),
-                motion=(-12, 0, 32),
+                move=(0, -0.17, 0.26),
+                motion=(-10, 0, 20),
                 head=(-14, 0, -14),
-                arm_r=(-118, 18, 10),
+                arm_r=(-112, 18, 10),
                 elbow_r=(-50, 0, 0),
                 arm_l=(16, -28, 0),
                 elbow_l=(-40, 0, 0),
@@ -339,7 +340,7 @@ KEYS = {
         # ...carries on up, past the reach and back...
         (
             0.58,
-            pose(move=(0, -0.2, 0.40), motion=(-16, 0, 40), head=(-18, 0, -18), arm_r=(-162, 18, 14), elbow_r=(-28, 0, 0), arm_l=(22, -24, 0), elbow_l=(-50, 0, 0)),
+            pose(move=(0, -0.2, 0.40), motion=(-16, 0, 42), head=(-18, 0, -18), arm_r=(-166, 18, 14), elbow_r=(-28, 0, 0), arm_l=(22, -24, 0), elbow_l=(-50, 0, 0)),
             over(0.1, 0.07, 0.14),
         ),
         # ...hangs at the top...
