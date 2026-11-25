@@ -1,0 +1,197 @@
+# Second Ink's colours as the Blender reference prints them: the review
+# sheets' art/blender/lib/cel.py and cel.toml, at feat-second-ink-art 5428e36,
+# run outside Blender with bpy stubbed (the colour functions use neither).
+# src/ink.rs is held to every line here within one 8-bit step. When the art
+# direction changes on purpose, regenerate this from the new cel.py and say so.
+#
+# Sections: overprint (k s light hex); reaper families in the roster scene
+# (class family lit shade deep hatch spec rim cross hatch_min, or flat hex);
+# robe colourways; first-person cloth; husk families; ghost wash (player or
+# "-", NFT colour, lit shade deep spec); light hues in degrees.
+# overprint
+0.36 0.0 lantern #9F988E
+0.86 0.0 lantern #342F33
+0.46 0.84 lantern #8C4D28
+0.0 1.0 wisp #A8F2D8
+0.85 0.16 lantern #362D2E
+0.5 0.5 cobalt #54607A
+# reaper families, roster scene, night robe
+harvester cloth #8D783C #42392B #252023 1.0 0.0 1.0 1.0 0.24
+harvester cloth_alt #AD9241 #584C33 #2C2627 1.0 0.0 1.0 1.0 0.24
+harvester feather #77663A #39322B #211C21 1.0 0.0 1.0 1.0 0.24
+harvester bone #ECE3CF #B9AF9A #776F66 0.0 0.95 1.0 1.0 0.24
+harvester metal #A39C91 #635D58 #342F32 1.0 0.9 1.0 1.0 0.24
+harvester gold #F4CD50 #A98D38 #625127 0.0 0.92 1.0 1.0 0.24
+harvester wood #8C7C52 #534A3A #2C2627 1.0 0.0 1.0 1.0 0.24
+harvester rope #DECA8F #9D8D63 #4E473D 0.0 0.0 1.0 1.0 0.24
+harvester paper #E4D9BE #B9AF98 #81796D 0.0 0.0 1.0 1.0 0.24
+harvester spirit flat #231E23
+harvester void flat #16121A
+harvester dark flat #16121A
+harvester accent flat #F4CD50
+harvester glow flat #F4CD50
+ferryman cloth #8C4D28 #412D25 #251E22 1.0 0.0 1.0 1.0 0.24
+ferryman cloth_alt #AA5826 #573929 #2C2325 1.0 0.0 1.0 1.0 0.24
+ferryman feather #76462B #392A27 #211B20 1.0 0.0 1.0 1.0 0.24
+ferryman bone #ECE3CF #B9A896 #766C65 0.0 0.95 1.0 1.0 0.24
+ferryman metal #A39C91 #635B57 #342E31 1.0 0.9 1.0 1.0 0.24
+ferryman gold #F07428 #A6501C #603218 0.0 0.92 1.0 1.0 0.24
+ferryman wood #8B6045 #523E34 #2C2326 1.0 0.0 1.0 1.0 0.24
+ferryman rope #DCA77F #9C7257 #4E3F3A 0.0 0.0 1.0 1.0 0.24
+ferryman paper #E4D2BB #B9A694 #81756B 0.0 0.0 1.0 1.0 0.24
+ferryman spirit flat #231D22
+ferryman void flat #16121A
+ferryman dark flat #16121A
+ferryman accent flat #F07428
+ferryman glow flat #F07428
+weigher cloth #2D7064 #273737 #202025 1.0 0.0 1.0 1.0 0.24
+weigher cloth_alt #2C8775 #2D4945 #24262A 1.0 0.0 1.0 1.0 0.24
+weigher feather #2F6058 #283032 #1E1C22 1.0 0.0 1.0 1.0 0.24
+weigher bone #ECE3CF #AAAEA0 #6F6F69 0.0 0.95 1.0 1.0 0.24
+weigher metal #A39C91 #5E5C5A #322F33 1.0 0.9 1.0 1.0 0.24
+weigher gold #2FBD9F #218270 #1A4C45 0.0 0.92 1.0 1.0 0.24
+weigher wood #4D776C #384746 #25262A 1.0 0.0 1.0 1.0 0.24
+weigher rope #91C3AE #62887B #3D4545 0.0 0.0 1.0 1.0 0.24
+weigher paper #D5D8C4 #A7AD9F #777872 0.0 0.0 1.0 1.0 0.24
+weigher spirit flat #201E24
+weigher void flat #16121A
+weigher dark flat #16121A
+weigher accent flat #2FBD9F
+weigher glow flat #2FBD9F
+chooser cloth #395286 #2A2F41 #211E27 1.0 0.0 1.0 1.0 0.24
+chooser cloth_alt #3C5FA3 #323B55 #25232D 1.0 0.0 1.0 1.0 0.24
+chooser feather #384A72 #2A2B39 #1E1B23 1.0 0.0 1.0 1.0 0.24
+chooser bone #ECE3CF #ACA9A5 #706C6C 0.0 0.95 1.0 1.0 0.24
+chooser metal #A39C91 #5F5B5C #322E34 1.0 0.9 1.0 1.0 0.24
+chooser gold #477FE4 #3157A0 #233660 0.0 0.92 1.0 1.0 0.24
+chooser wood #556383 #3B3F50 #26242D 1.0 0.0 1.0 1.0 0.24
+chooser rope #9BABC9 #697691 #40404B 0.0 0.0 1.0 1.0 0.24
+chooser paper #D7D3C9 #A9A7A6 #787576 0.0 0.0 1.0 1.0 0.24
+chooser spirit flat #201D25
+chooser void flat #16121A
+chooser dark flat #16121A
+chooser accent flat #477FE4
+chooser glow flat #477FE4
+hollow cloth #688A80 #373E40 #232127 1.0 0.0 1.0 1.0 0.24
+hollow cloth_alt #7BAA9B #475452 #29272C 1.0 0.0 1.0 1.0 0.24
+hollow feather #5B736D #323538 #201D23 1.0 0.0 1.0 1.0 0.24
+hollow bone #ECE3CF #B3B2A4 #74716C 0.0 0.95 1.0 1.0 0.24
+hollow metal #A39C91 #615E5B #332F33 1.0 0.9 1.0 1.0 0.24
+hollow gold #A8F2D8 #74A698 #465E5B 0.0 0.92 1.0 1.0 0.24
+hollow wood #74887F #484F4E #29272C 1.0 0.0 1.0 1.0 0.24
+hollow rope #C0D8C4 #86988D #484A4A 0.0 0.0 1.0 1.0 0.24
+hollow paper #DEDCC8 #B2B2A4 #7D7B75 0.0 0.0 1.0 1.0 0.24
+hollow spirit flat #221F25
+hollow void flat #16121A
+hollow dark flat #16121A
+hollow accent flat #A8F2D8
+hollow glow flat #A8F2D8
+mourner cloth #7A6B8F #3D3544 #242028 1.0 0.0 1.0 1.0 0.24
+mourner cloth_alt #9380AF #4F4659 #2A252E 1.0 0.0 1.0 1.0 0.24
+mourner feather #695C78 #362F3B #201C24 1.0 0.0 1.0 1.0 0.24
+mourner bone #ECE3CF #B6ADA7 #756E6D 0.0 0.95 1.0 1.0 0.24
+mourner metal #A39C91 #625C5C #342F34 1.0 0.9 1.0 1.0 0.24
+mourner gold #CDB2F6 #8E7AAD #544866 0.0 0.92 1.0 1.0 0.24
+mourner wood #807389 #4E4652 #2A252E 1.0 0.0 1.0 1.0 0.24
+mourner rope #CFBFD0 #918596 #4B444D 0.0 0.0 1.0 1.0 0.24
+mourner paper #E1D7CB #B6ACA7 #7F7877 0.0 0.0 1.0 1.0 0.24
+mourner spirit flat #221E26
+mourner void flat #16121A
+mourner dark flat #16121A
+mourner accent flat #CDB2F6
+mourner glow flat #CDB2F6
+# robe colourways
+ember harvester #AD9241 #584C33 #2C2627
+ember ferryman #AA5826 #573929 #2C2325
+ember weigher #2C8775 #2D4945 #24262A
+ember chooser #3C5FA3 #323B55 #25232D
+ember hollow #7BAA9B #475452 #29272C
+ember mourner #9380AF #4F4659 #2A252E
+ash harvester #7D756A #3D3738 #231F25
+ash ferryman #7D7168 #3D3638 #231F25
+ash weigher #73746E #3A373A #231F25
+ash chooser #747172 #3A363B #231F25
+ash hollow #797771 #3B383B #231F25
+ash mourner #7B7473 #3C373B #231F25
+# first person cloth
+ferryman #8C4D28 #412D25 #362D2E
+harvester #8D783C #42392B #363130
+# husk families (hunt)
+husk dark flat #16121A
+husk accent flat #ECE3CF
+husk glow flat #16121A
+husk metal #A39C91 #635D5B #342F33 1.0 0.9 0.0 0.0 0.3
+husk bone #ECE3CF #B9B1A4 #76706B 0.0 0.95 0.0 0.0 0.3
+# ghost wash
+- #C9722E #9F8370 #6B574D #483A35 0.0
+- #2E6FD9 #6C718C #494C60 #313343 0.0
+- #3B3F46 #4C5058 #33363C #282828 0.0
+- #7A5F8A #73647C #4E4355 #352D3B 0.0
+- #F2EEE6 #E6E2DA #9B9795 #696568 0.96
+- #E6D8BF #E6D8BF #9B9083 #69615B 0.96
+- #808A86 #808A86 #565C5C #3A3E40 0.0
+- #D8D2C4 #D8D2C4 #918C86 #625E5D 0.96
+- #A08A6A #9C8B72 #695D4E #473E36 0.0
+- #000000 #505050 #363537 #282828 0.0
+- #FFFFFF #E2E2E2 #98979B #67656C 0.96
+- #1A1A1A #505050 #363537 #282828 0.0
+- #C9A227 #B3A58A #796E5E #524A42 0.0
+ferryman #C9722E #94857C #645955 #443C3B 0.0
+ferryman #2E6FD9 #6C718C #494C60 #313343 0.0
+ferryman #3B3F46 #4C5058 #33363C #282828 0.0
+ferryman #7A5F8A #73647C #4E4355 #352D3B 0.0
+ferryman #F2EEE6 #E6E2DA #9B9795 #696568 0.96
+ferryman #E6D8BF #E6D8BF #9B9083 #69615B 0.96
+ferryman #808A86 #808A86 #565C5C #3A3E40 0.0
+ferryman #D8D2C4 #D8D2C4 #918C86 #625E5D 0.96
+ferryman #A08A6A #9C8B72 #695D4E #473E36 0.0
+ferryman #000000 #505050 #363537 #282828 0.0
+ferryman #FFFFFF #E2E2E2 #98979B #67656C 0.96
+ferryman #1A1A1A #505050 #363537 #282828 0.0
+ferryman #C9A227 #B3A58A #796E5E #524A42 0.0
+weigher #C9722E #9F8370 #6B574D #483A35 0.0
+weigher #2E6FD9 #6C718C #494C60 #313343 0.0
+weigher #3B3F46 #4C5058 #33363C #282828 0.0
+weigher #7A5F8A #73647C #4E4355 #352D3B 0.0
+weigher #F2EEE6 #E6E2DA #9B9795 #696568 0.96
+weigher #E6D8BF #E6D8BF #9B9083 #69615B 0.96
+weigher #808A86 #808A86 #565C5C #3A3E40 0.0
+weigher #D8D2C4 #D8D2C4 #918C86 #625E5D 0.96
+weigher #A08A6A #9C8B72 #695D4E #473E36 0.0
+weigher #000000 #505050 #363537 #282828 0.0
+weigher #FFFFFF #E2E2E2 #98979B #67656C 0.96
+weigher #1A1A1A #505050 #363537 #282828 0.0
+weigher #C9A227 #B3A58A #796E5E #524A42 0.0
+chooser #C9722E #9F8370 #6B574D #483A35 0.0
+chooser #2E6FD9 #70727F #4B4C57 #33333D 0.0
+chooser #3B3F46 #4C5058 #33363C #282828 0.0
+chooser #7A5F8A #73647C #4E4355 #352D3B 0.0
+chooser #F2EEE6 #E6E2DA #9B9795 #696568 0.96
+chooser #E6D8BF #E6D8BF #9B9083 #69615B 0.96
+chooser #808A86 #808A86 #565C5C #3A3E40 0.0
+chooser #D8D2C4 #D8D2C4 #918C86 #625E5D 0.96
+chooser #A08A6A #9C8B72 #695D4E #473E36 0.0
+chooser #000000 #505050 #363537 #282828 0.0
+chooser #FFFFFF #E2E2E2 #98979B #67656C 0.96
+chooser #1A1A1A #505050 #363537 #282828 0.0
+chooser #C9A227 #B3A58A #796E5E #524A42 0.0
+harvester #C9722E #9F8370 #6B574D #483A35 0.0
+harvester #2E6FD9 #6C718C #494C60 #313343 0.0
+harvester #3B3F46 #4C5058 #33363C #282828 0.0
+harvester #7A5F8A #73647C #4E4355 #352D3B 0.0
+harvester #F2EEE6 #E6E2DA #9B9795 #696568 0.96
+harvester #E6D8BF #E1D9CA #97918B #676160 0.96
+harvester #808A86 #808A86 #565C5C #3A3E40 0.0
+harvester #D8D2C4 #D8D2C4 #918C86 #625E5D 0.96
+harvester #A08A6A #958C7F #655E57 #443F3D 0.0
+harvester #000000 #505050 #363537 #282828 0.0
+harvester #FFFFFF #E2E2E2 #98979B #67656C 0.96
+harvester #1A1A1A #505050 #363537 #282828 0.0
+harvester #C9A227 #ADA698 #756F68 #4F4A48 0.0
+# light hues
+chaff 89.46
+lantern 54.24
+verdigris 173.98
+cobalt 284.31
+wisp 169.45
+mauve 306.96
