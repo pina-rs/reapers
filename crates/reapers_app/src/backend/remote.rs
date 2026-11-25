@@ -298,9 +298,19 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 				.await;
 		};
 		let player = self.ask(async |api| api.load().await).await?;
-		if !player.vault().contains(&nft) {
-			self.ask(async |api| api.acquire(&nft.id()).await).await?;
+		if !player.oath_taken() {
+			return Err(Refusal::OathRequired.into());
 		}
+		if player.sightings().len() >= PlayerState::MAX_SIGHTINGS {
+			return Err(Refusal::VeilCrowded.into());
+		}
+		let player = if player.vault().contains(&nft) {
+			player
+		} else {
+			player.acquire(nft)?;
+			self.ask(async |api| api.acquire(&nft.id()).await).await?
+		};
+		player.release(nft, 0, reapers_rules::Timestamp::from_unix_seconds(0))?;
 		if husk.place == HuskPlace::InWallet {
 			cluster
 				.release(&status, wallet.as_ref(), &address, &husk)
@@ -925,5 +935,353 @@ mod tests {
 			}
 			.wallets_enabled()
 		);
+	}
+
+	/// RPC stub that serves a wallet-owned Core asset and accepts `ReleaseCore`.
+	struct ReleasingRpc {
+		owner: solana_kit_core::Address,
+		calls: RefCell<Vec<String>>,
+	}
+
+	#[async_trait(?Send)]
+	impl crate::platform::HttpTransport for ReleasingRpc {
+		async fn post(
+			&self,
+			_url: &str,
+			_headers: Vec<crate::platform::Header>,
+			body: Vec<u8>,
+			_timeout: std::time::Duration,
+		) -> Result<crate::platform::HttpReply, crate::platform::PlatformError> {
+			use base64::Engine as _;
+			use serde_json::json;
+
+			let request: serde_json::Value = serde_json::from_slice(&body).unwrap();
+			let method = request["method"].as_str().unwrap().to_owned();
+			self.calls.borrow_mut().push(method.clone());
+			let mut asset_data = vec![1u8];
+			asset_data.extend_from_slice(self.owner.as_bytes());
+			asset_data.push(0);
+			let result = match method.as_str() {
+				"getMultipleAccounts" => {
+					let count = request["params"][0].as_array().map_or(2, Vec::len);
+					let half = count / 2;
+					let encoded = base64::engine::general_purpose::STANDARD.encode(asset_data);
+					let mut values = Vec::with_capacity(count);
+					for index in 0..count {
+						if index < half {
+							values.push(json!({
+								"owner": crate::program::core_program().to_string(),
+								"data": [encoded, "base64"],
+							}));
+						} else {
+							values.push(serde_json::Value::Null);
+						}
+					}
+					json!({ "value": values })
+				}
+				"getLatestBlockhash" => {
+					json!({ "value": {
+						"blockhash": solana_kit_core::Hash::from_bytes([7; 32]).to_string(),
+						"lastValidBlockHeight": 100
+					} })
+				}
+				"sendTransaction" => json!("escrowed-sig"),
+				"getSignatureStatuses" => {
+					json!({ "value": [{ "slot": 11, "confirmationStatus": "finalized", "err": null }] })
+				}
+				other => panic!("unexpected RPC method {other}"),
+			};
+			Ok(crate::platform::HttpReply {
+				status: 200,
+				body: serde_json::to_vec(
+					&json!({ "jsonrpc": "2.0", "id": request["id"], "result": result }),
+				)
+				.unwrap(),
+			})
+		}
+	}
+
+	struct CountingWallet {
+		keypair: solana_kit_core::crypto::Keypair,
+		signed: Cell<u32>,
+	}
+
+	#[async_trait(?Send)]
+	impl WalletProver for CountingWallet {
+		fn available(&self) -> bool {
+			true
+		}
+
+		async fn prove(
+			&self,
+			_status: &ChainStatus,
+			_challenge: crate::wallet::ChallengeFn<'_>,
+		) -> KeeperResult<crate::wallet::WalletProof> {
+			unimplemented!()
+		}
+
+		async fn sign_transaction(
+			&self,
+			_status: &ChainStatus,
+			transaction: Vec<u8>,
+		) -> crate::chain::ChainResult<Vec<u8>> {
+			use solana_kit_core::transaction::Transaction;
+
+			self.signed.set(self.signed.get() + 1);
+			Transaction::decode(&transaction)
+				.and_then(|tx| tx.sign(&self.keypair))
+				.and_then(|tx| tx.encode(true))
+				.map_err(|_| ChainFailure::WrongWallet)
+		}
+	}
+
+	struct ReleaseStub {
+		player: PlayerState,
+		chain: ChainStatus,
+		release_refusal: &'static str,
+	}
+
+	#[async_trait(?Send)]
+	impl ReapersApi for ReleaseStub {
+		async fn sign_in(&self) -> ApiResult<()> {
+			Ok(())
+		}
+
+		async fn load(&self) -> ApiResult<PlayerState> {
+			Ok(self.player.clone())
+		}
+
+		async fn update_location(&self, _fix: Option<GeoFix>) -> ApiResult<()> {
+			unimplemented!()
+		}
+
+		async fn take_oath(&self) -> ApiResult<PlayerState> {
+			unimplemented!()
+		}
+
+		async fn select_reaper(&self, _id: &str) -> ApiResult<PlayerState> {
+			unimplemented!()
+		}
+
+		async fn acquire(&self, _nft_id: &str) -> ApiResult<PlayerState> {
+			Ok(self.player.clone())
+		}
+
+		async fn release(&self, _nft_id: &str, _escrow: Option<&str>) -> ApiResult<PlayerState> {
+			Err(ApiError::Refused(self.release_refusal.into()))
+		}
+
+		async fn settle_hunt(&self, _sighting_id: i64, _log: Vec<u8>) -> ApiResult<SettledHunt> {
+			unimplemented!()
+		}
+
+		async fn absorb_transaction(&self, _nft_id: &str) -> ApiResult<ChainReceipt> {
+			unimplemented!()
+		}
+
+		async fn buy_weapon(&self, _weapon_id: &str) -> ApiResult<PlayerState> {
+			unimplemented!()
+		}
+
+		async fn wield(&self, _weapon_id: &str) -> ApiResult<PlayerState> {
+			unimplemented!()
+		}
+
+		async fn buy_outfit(&self, _outfit: &str) -> ApiResult<PlayerState> {
+			unimplemented!()
+		}
+
+		async fn wear(&self, _outfit: &str) -> ApiResult<PlayerState> {
+			unimplemented!()
+		}
+
+		async fn attune(&self, _art: &str) -> ApiResult<PlayerState> {
+			unimplemented!()
+		}
+
+		async fn chain_status(&self) -> ApiResult<ChainStatus> {
+			Ok(self.chain.clone())
+		}
+
+		async fn import_reaper(&self, _asset: &str) -> ApiResult<PlayerState> {
+			unimplemented!()
+		}
+
+		async fn challenge(&self, _address: &str) -> ApiResult<WalletChallenge> {
+			unimplemented!()
+		}
+
+		async fn login(&self, _challenge_id: &str, _signature: &str) -> ApiResult<()> {
+			unimplemented!()
+		}
+
+		async fn enter_rift(
+			&self,
+			_site: &str,
+			_demo: bool,
+			_reports: LocalBoxStream<'static, RiftReport>,
+		) -> ApiResult<LocalBoxStream<'static, ApiResult<RiftFrame>>> {
+			unimplemented!()
+		}
+	}
+
+	fn demo_manifest() -> Vec<Husks> {
+		vec![Husks {
+			collection: "degenApes".into(),
+			address: solana_kit_core::Address::from_bytes([9; 32]).to_string(),
+			assets: (1..=8_u8)
+				.map(|n| solana_kit_core::Address::from_bytes([n; 32]).to_string())
+				.collect(),
+		}]
+	}
+
+	#[test]
+	fn release_checks_veil_capacity_before_irreversible_on_chain_escrow() {
+		let keypair = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]);
+		let address = keypair.address();
+		let now = reapers_rules::Timestamp::utc(2026, 11, 4, 12, 0, 0);
+		let mut player = PlayerState::initial().take_oath(1).unwrap();
+		for serial in 1..=3 {
+			let nft = Nft::new(reapers_rules::NftCollection::DegenApes, serial);
+			player = player
+				.acquire(nft)
+				.unwrap()
+				.release(nft, serial as i64, now)
+				.unwrap();
+		}
+		let fourth = Nft::new(reapers_rules::NftCollection::DegenApes, 4);
+		player = player.acquire(fourth).unwrap();
+		assert_eq!(player.sightings().len(), PlayerState::MAX_SIGHTINGS);
+
+		let rpc = Rc::new(ReleasingRpc {
+			owner: address,
+			calls: RefCell::new(Vec::new()),
+		});
+		let cluster = Rc::new(
+			Cluster::new(
+				crate::chain::ClusterName::Localnet,
+				"http://rpc",
+				rpc.clone(),
+			)
+			.with_pause(Rc::new(|_| Box::pin(async { true }))),
+		);
+		let wallet = Rc::new(CountingWallet {
+			keypair,
+			signed: Cell::new(0),
+		});
+		let status = ChainStatus {
+			husks: demo_manifest(),
+			..linked_to(&address)
+		};
+		let keeper = RemoteBackend::new(ReleaseStub {
+			player,
+			chain: status,
+			release_refusal: "veilCrowded",
+		})
+		.with_cluster(cluster, wallet.clone());
+
+		let error = block_on(keeper.release(fourth)).unwrap_err();
+		assert_eq!(error.refusal(), Some(Refusal::VeilCrowded));
+		assert_eq!(
+			wallet.signed.get(),
+			0,
+			"must not ask wallet to sign irreversible ReleaseCore when 3 husks are already loose"
+		);
+		assert!(
+			!rpc.calls.borrow().iter().any(|m| m == "sendTransaction"),
+			"must not broadcast ReleaseCore when veil is crowded"
+		);
+	}
+
+	#[test]
+	fn release_checks_oath_before_irreversible_on_chain_escrow() {
+		let keypair = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]);
+		let address = keypair.address();
+		let player = PlayerState::initial();
+		assert!(!player.oath_taken());
+		let saint = Nft::new(reapers_rules::NftCollection::DegenApes, 1);
+
+		let rpc = Rc::new(ReleasingRpc {
+			owner: address,
+			calls: RefCell::new(Vec::new()),
+		});
+		let cluster = Rc::new(
+			Cluster::new(
+				crate::chain::ClusterName::Localnet,
+				"http://rpc",
+				rpc.clone(),
+			)
+			.with_pause(Rc::new(|_| Box::pin(async { true }))),
+		);
+		let wallet = Rc::new(CountingWallet {
+			keypair,
+			signed: Cell::new(0),
+		});
+		let status = ChainStatus {
+			husks: demo_manifest(),
+			..linked_to(&address)
+		};
+		let keeper = RemoteBackend::new(ReleaseStub {
+			player,
+			chain: status,
+			release_refusal: "oathRequired",
+		})
+		.with_cluster(cluster, wallet.clone());
+
+		let error = block_on(keeper.release(saint)).unwrap_err();
+		assert_eq!(error.refusal(), Some(Refusal::OathRequired));
+		assert_eq!(
+			wallet.signed.get(),
+			0,
+			"must not ask wallet to sign irreversible ReleaseCore before taking the oath"
+		);
+		assert!(
+			!rpc.calls.borrow().iter().any(|m| m == "sendTransaction"),
+			"must not broadcast ReleaseCore when oath has not been taken"
+		);
+	}
+
+	#[test]
+	fn release_checks_acquire_affordability_before_irreversible_on_chain_escrow() {
+		let keypair = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]);
+		let address = keypair.address();
+		let mut value = serde_json::to_value(PlayerState::initial().take_oath(1).unwrap()).unwrap();
+		value["lamports"] = serde_json::json!(0);
+		let player: PlayerState = serde_json::from_value(value).unwrap();
+		let expensive = Nft::new(reapers_rules::NftCollection::DegenApes, 8);
+		assert!(!player.vault().contains(&expensive));
+		assert!(player.lamports() < expensive.rarity().lamports());
+
+		let rpc = Rc::new(ReleasingRpc {
+			owner: address,
+			calls: RefCell::new(Vec::new()),
+		});
+		let cluster = Rc::new(
+			Cluster::new(
+				crate::chain::ClusterName::Localnet,
+				"http://rpc",
+				rpc.clone(),
+			)
+			.with_pause(Rc::new(|_| Box::pin(async { true }))),
+		);
+		let wallet = Rc::new(CountingWallet {
+			keypair,
+			signed: Cell::new(0),
+		});
+		let status = ChainStatus {
+			husks: demo_manifest(),
+			..linked_to(&address)
+		};
+		let keeper = RemoteBackend::new(ReleaseStub {
+			player,
+			chain: status,
+			release_refusal: "insufficientFunds",
+		})
+		.with_cluster(cluster, wallet.clone());
+
+		let error = block_on(keeper.release(expensive)).unwrap_err();
+		assert_eq!(error.refusal(), Some(Refusal::InsufficientFunds));
+		assert_eq!(wallet.signed.get(), 0);
+		assert!(!rpc.calls.borrow().iter().any(|m| m == "sendTransaction"));
 	}
 }
