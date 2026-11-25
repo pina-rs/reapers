@@ -110,13 +110,17 @@ pub const fn weapon_part(archetype: Archetype) -> Option<&'static str> {
 
 const fn hold(archetype: Archetype) -> Hold {
 	match archetype {
+		// The pistol is held a little higher and further out than the arm's
+		// rest, its muzzle tipped down to stay where it was: the hand on its
+		// grip reads in the frame, and the muzzle stays clear of the sight at
+		// the height of a kick.
 		Archetype::Gun | Archetype::Art => {
 			Hold {
 				lean: 0.0,
 				twist: 0.0,
 				scale: 1.0,
-				rest: [0.0; 3],
-				turn: [0.0; 3],
+				rest: [0.0, 0.04, 0.06],
+				turn: [0.0, -0.1, 0.0],
 				wrist: [0.0; 3],
 			}
 		}
@@ -136,7 +140,7 @@ const fn hold(archetype: Archetype) -> Hold {
 				twist: -0.4,
 				scale: 0.42,
 				rest: [0.01, -0.03, 0.0],
-				turn: [0.0, -0.05, 0.0],
+				turn: [0.0, -0.1, 0.0],
 				wrist: [0.0; 3],
 			}
 		}
@@ -457,7 +461,9 @@ mod tests {
 	use reapers_rules::WeaponKind;
 
 	use super::*;
+	use crate::render::arms::Cut;
 	use crate::render::arms::ViewAction;
+	use crate::render::arms::flowing;
 	use crate::render::arms::manner;
 	use crate::render::arms::pose;
 
@@ -473,6 +479,123 @@ mod tests {
 	/// its top.
 	fn height(point: Point) -> f32 {
 		point[1] / (-point[2] * (VIEWMODEL_FOV / 2.0).tan())
+	}
+
+	/// Where `point` is drawn on a phone held upright, 390 by 844 points, in
+	/// points from its top left.
+	fn on_phone(point: Point) -> (f32, f32) {
+		let per = 422.0 / (VIEWMODEL_FOV / 2.0).tan();
+		(
+			195.0 + per * point[0] / -point[2],
+			422.0 - per * point[1] / -point[2],
+		)
+	}
+
+	/// The sight on a phone held upright, and how far round it the arms stay
+	/// clear (the art bible, §6.5).
+	const SIGHT: (f32, f32) = (195.0, 422.0);
+	const CLEAR: f32 = 60.0;
+
+	/// Where the pistol's grip and muzzle are drawn on the phone for `pose`.
+	fn pistol(pose: &Pose) -> [(f32, f32); 2] {
+		let placed = place(Archetype::Gun, pose);
+		[on_phone(placed.grip), on_phone(placed.muzzle)]
+	}
+
+	/// The pistol `seconds` from a first shot, with a second shot fired
+	/// `second` seconds after it, if any, and the arms at rest before both.
+	fn shooting(seconds: f32, second: Option<f32>) -> Pose {
+		let manner = manner(Archetype::Gun, WeaponKind::Scythe);
+		let rest = Cut {
+			from: ViewAction::Idle,
+			played: 1.0,
+		};
+		match second {
+			_ if seconds < 0.0 => flowing(manner, ViewAction::Idle, 1.0, 0.0, None, true),
+			Some(second) if seconds >= second => {
+				let cut = Cut {
+					from: ViewAction::Fire,
+					played: second,
+				};
+				flowing(
+					manner,
+					ViewAction::Fire,
+					seconds - second,
+					0.0,
+					Some(cut),
+					true,
+				)
+			}
+			_ => flowing(manner, ViewAction::Fire, seconds, 0.0, Some(rest), true),
+		}
+	}
+
+	#[test]
+	fn the_pistol_rests_in_the_frame_and_kicks_clear_of_the_sight() {
+		let [grip, muzzle] = pistol(&posed(Archetype::Gun, ViewAction::Idle, 0.0));
+		// The hand reads in the frame: its grip well inside the phone. The
+		// muzzle is about where the bible's proof has it, (232, 574).
+		assert!(
+			(40.0..350.0).contains(&grip.0) && (40.0..804.0).contains(&grip.1),
+			"the grip rests at {grip:?}"
+		);
+		assert!(
+			(muzzle.0 - 232.0).hypot(muzzle.1 - 574.0) < 20.0,
+			"the muzzle rests at {muzzle:?}"
+		);
+		// At rest, at the height of a kick, and of a second fired as the first
+		// recovers, and everywhere between, the hand and the muzzle are in the
+		// frame, clear of the sight's circle and right of the middle column.
+		// (The rules fire the pistol no faster than every 0.3 s, by when a
+		// kick is over: only a bench stacks two.)
+		for second in [None, Some(0.09)] {
+			for step in 0..=400 {
+				let seconds = step as f32 / 1000.0;
+				for (part, point) in ["grip", "muzzle"]
+					.into_iter()
+					.zip(pistol(&shooting(seconds, second)))
+				{
+					let from_sight = (point.0 - SIGHT.0).hypot(point.1 - SIGHT.1);
+					assert!(
+						from_sight > CLEAR,
+						"{seconds} s in ({second:?}) the {part} is {from_sight} pt from the sight"
+					);
+					assert!(
+						point.0 > 215.0 && point.0 < 390.0 && point.1 > 0.0 && point.1 < 844.0,
+						"{seconds} s in ({second:?}) the {part} is at {point:?}"
+					);
+				}
+			}
+		}
+	}
+
+	#[test]
+	fn a_shot_moves_the_pistol_without_a_jump_at_sixty_and_a_hundred_and_twenty_frames() {
+		// From rest, through a shot, a second fired in its recovery and back to
+		// rest: halving the frame halves the step, so nothing jumps, and the
+		// biggest step is the kick's own.
+		let largest_step = |rate: f32, second: Option<f32>| {
+			let frames = (0.55 * rate) as i32;
+			(0..frames)
+				.map(|frame| {
+					let at = |frame: i32| frame as f32 / rate - 0.05;
+					let [grip, muzzle] = pistol(&shooting(at(frame), second));
+					let [grip_next, muzzle_next] = pistol(&shooting(at(frame + 1), second));
+					(muzzle_next.0 - muzzle.0)
+						.hypot(muzzle_next.1 - muzzle.1)
+						.max((grip_next.0 - grip.0).hypot(grip_next.1 - grip.1))
+				})
+				.fold(0.0, f32::max)
+		};
+		for second in [None, Some(0.05), Some(0.09)] {
+			let sixty = largest_step(60.0, second);
+			let hundred_and_twenty = largest_step(120.0, second);
+			assert!(sixty < 30.0, "{second:?}: a {sixty} pt step at 60 fps");
+			assert!(
+				hundred_and_twenty < 0.7 * sixty,
+				"{second:?}: {hundred_and_twenty} pt at 120 fps against {sixty} at 60"
+			);
+		}
 	}
 
 	#[test]

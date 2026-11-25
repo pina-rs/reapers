@@ -15,6 +15,7 @@
 
 use std::f32::consts::PI;
 use std::f32::consts::TAU;
+use std::sync::LazyLock;
 
 use reapers_rules::Archetype;
 use reapers_rules::Arsenal;
@@ -183,10 +184,27 @@ pub const TICKS_PER_SECOND: f32 = HuntRules::TICK_RATE as f32;
 /// How long drawing a weapon takes: as long as the rules take to let it
 /// fire.
 pub const DRAW_SECONDS: f32 = Arsenal::SWITCH_TICKS as f32 / TICKS_PER_SECOND;
-/// A shot's kick, and how fast it recovers: it peaks after a quarter of
-/// the recovery and is gone by about 120 ms.
-pub const KICK: f32 = 6.0 * PI / 180.0;
-const KICK_RATE: f32 = 1.0 / 0.024;
+/// How far a shot kicks the muzzle up at its height, in radians: the art
+/// bible's 7° (§11.4).
+pub const KICK: f32 = 7.0 * PI / 180.0;
+/// How far a shot shoves the arm back toward the eye at its height, in
+/// metres: enough to bring the muzzle back about 10 pt on a phone held
+/// upright.
+pub const SHOVE: f32 = 0.016;
+/// How the kick is shared between the hand, at the wrist, and the forearm,
+/// about the elbow, and how far the hand leads: the wrist snaps first and
+/// the forearm follows, so the hand whips.
+const KICK_WRIST: f32 = 0.7;
+const KICK_LAG: f32 = 0.03;
+/// The arm spring the kick rides (the art bible's `arm`, §13): stiffness and
+/// damping on a unit mass. Damped at 0.85, it settles in about 180 ms.
+const ARM_STIFFNESS: f32 = 683.0;
+const ARM_DAMPING: f32 = 44.4;
+/// When what is left of a kick is let go: a twentieth of it is left 200 ms
+/// in, and that is faded out over the last 50 ms so nothing jumps.
+pub const RECOIL_SECONDS: f32 = 0.25;
+/// The drum turns a chamber over six frames.
+pub const DRUM_TURN_SECONDS: f32 = 6.0 / TICKS_PER_SECOND;
 /// A reload: the rules' 84 ticks.
 pub const RELOAD_SECONDS: f32 = GunRules::RELOAD_TICKS as f32 / TICKS_PER_SECOND;
 /// Where in a reload the new drum goes home.
@@ -319,8 +337,9 @@ const BLEND_STEP: f32 = 1.0e-4;
 /// on from the action `cut` short: at the cut the arms are where the action
 /// before had them and moving as it moved them, and the difference dies
 /// away over [`blend_seconds`]. An action that [`jolts`] keeps its own
-/// sudden start on top of the motion carried on. It is a function of time
-/// alone, like [`pose`]: held by a hit-stop, sampled anywhere.
+/// sudden start on top of the motion carried on, and a shot cutting short a
+/// shot adds its kick to what is left of the last one's. It is a function of
+/// time alone, like [`pose`]: held by a hit-stop, sampled anywhere.
 pub fn flowing(
 	manner: Swing,
 	action: ViewAction,
@@ -334,6 +353,13 @@ pub fn flowing(
 	let Some(cut) = cut else {
 		return now;
 	};
+	if action == ViewAction::Fire && cut.from == ViewAction::Fire {
+		// A kick is an impulse on a spring: a shot fired as the last one
+		// recovers adds its kick to what is left of that one, which goes on
+		// exactly as it would have.
+		recoil(&mut now.arm, cut.played + since);
+		return now;
+	}
 	if since >= blend {
 		return now;
 	}
@@ -619,20 +645,66 @@ fn draw(arm: &mut ArmPose, since: f32) {
 }
 
 fn fire(pose: &mut Pose, since: f32) {
-	let kick = knock(KICK, KICK_RATE, since);
-	let shove = knock(-0.03, 1.0 / 0.03, since);
-	let arm = &mut pose.arm;
-	// The hand kicks up at the wrist, the arm shoves back.
-	arm.wrist_pitch += kick * 0.85;
-	arm.pitch += kick * 0.15;
-	arm.z += shove;
-	arm.wrist_roll += kick * 0.25;
-	// The drum turns a chamber, quickly but not at once. It has six, so a
+	recoil(&mut pose.arm, since);
+	// The drum turns a chamber, smoothly, over six frames. It has six, so a
 	// turn of a sixth looks like none once it is done.
-	pose.drum_spin = Ease::Out.apply(since / 0.08) * TAU / 6.0;
+	pose.drum_spin = Ease::InOut.apply(since / DRUM_TURN_SECONDS) * TAU / 6.0;
 	if since < FLASH_FRAME_SECONDS * 3.0 {
 		pose.flash = Some((since / FLASH_FRAME_SECONDS) as usize);
 	}
+}
+
+/// A shot's kick on the arm, `since` seconds after it: the muzzle rises
+/// [`KICK`] and the arm comes back [`SHOVE`] toward the eye, both on the arm
+/// spring, the hand at the wrist [`KICK_LAG`] ahead of the forearm. A kick is
+/// an impulse on a spring, so two add: a shot fired while one recovers lays
+/// its own on what is left of the last ([`flowing`]).
+fn recoil(arm: &mut ArmPose, since: f32) {
+	if !(0.0..RECOIL_SECONDS).contains(&since) {
+		return;
+	}
+	// What little is left is faded out over the last moments, so the kick
+	// ends flat and the arm is exactly at rest once it is over.
+	let fade = 1.0 - Ease::InOut.apply((since - (RECOIL_SECONDS - RECOIL_FADE)) / RECOIL_FADE);
+	let wrist = kick(since) * KICK_WRIST * fade;
+	let forearm = kick(since - KICK_LAG) * (1.0 - KICK_WRIST) * fade;
+	let scale = KICK / kick_peak();
+	arm.wrist_pitch += wrist * scale;
+	arm.pitch += forearm * scale;
+	arm.wrist_roll += wrist * scale * 0.25;
+	arm.z -= SHOVE * kick(since) * fade;
+}
+
+/// How long the end of a kick is faded out over, in seconds.
+const RECOIL_FADE: f32 = 0.05;
+
+/// The arm spring struck once, `since` seconds after the blow: 0 until the
+/// blow, 1 at its height about 40 ms in, then a shallow dip below rest as it
+/// settles, and on toward nothing.
+fn kick(since: f32) -> f32 {
+	if since <= 0.0 {
+		return 0.0;
+	}
+	let decay = ARM_DAMPING / 2.0;
+	let ring = (ARM_STIFFNESS - decay * decay).sqrt();
+	let peak = (ring / decay).atan() / ring;
+	let at = |time: f32| (-decay * time).exp() * (ring * time).sin();
+	at(since) / at(peak)
+}
+
+/// The height of the kick shared between the wrist and the lagging forearm,
+/// as a share of one alone: what the muzzle's rise is scaled by to peak at
+/// [`KICK`].
+fn kick_peak() -> f32 {
+	static PEAK: LazyLock<f32> = LazyLock::new(|| {
+		(0..=60)
+			.map(|step| {
+				let time = step as f32 * 0.001 + 0.03;
+				kick(time) * KICK_WRIST + kick(time - KICK_LAG) * (1.0 - KICK_WRIST)
+			})
+			.fold(0.0, f32::max)
+	});
+	*PEAK
 }
 
 const DIP: Keys = &[
@@ -1148,6 +1220,153 @@ mod tests {
 				pose(Swing::Shoot, ViewAction::Fire, BLEND_SECONDS, 0.5)
 			);
 		}
+	}
+
+	/// How far the muzzle is turned up by a shot `since` seconds in: the
+	/// forearm's turn and the hand's, on top of where they rest.
+	fn muzzle_rise(pose: &Pose) -> f32 {
+		let rest = super::pose(Swing::Shoot, ViewAction::Idle, 0.0, 0.0).arm;
+		pose.arm.pitch + pose.arm.wrist_pitch - rest.pitch - rest.wrist_pitch
+	}
+
+	#[test]
+	fn a_shot_kicks_seven_degrees_on_the_arm_spring_and_settles() {
+		let fired = |since: f32| pose(Swing::Shoot, ViewAction::Fire, since, 0.0);
+		let rises: Vec<(f32, f32)> = (0..=300)
+			.map(|step| {
+				let since = step as f32 / 1000.0;
+				(since, muzzle_rise(&fired(since)))
+			})
+			.collect();
+		let (at, most) =
+			rises.iter().copied().fold(
+				(0.0, 0.0),
+				|best, now| if now.1 > best.1 { now } else { best },
+			);
+		assert!(
+			(most.to_degrees() - 7.0).abs() < 0.05,
+			"it rises {}°",
+			most.to_degrees()
+		);
+		assert!((0.035..0.07).contains(&at), "at its height {at} s in");
+		// Settled in about 180 ms, as the spring's envelope has it (the
+		// forearm's lag holds a little on a moment longer), and nothing at all
+		// by the end.
+		assert!(
+			rises[180].1.abs() < 0.1 * most,
+			"{}° left at 180 ms",
+			rises[180].1.to_degrees()
+		);
+		assert!(
+			rises[220].1.abs() < 0.02 * most,
+			"{}° left at 220 ms",
+			rises[220].1.to_degrees()
+		);
+		assert_eq!(muzzle_rise(&fired(RECOIL_SECONDS)), 0.0);
+		assert_eq!(fired(RECOIL_SECONDS).arm.z, fired(1.0).arm.z);
+		// The arm comes back toward the eye with the kick.
+		assert!((fired(at).arm.z + SHOVE).abs() < 0.2 * SHOVE);
+	}
+
+	#[test]
+	fn the_hand_whips_ahead_of_the_forearm() {
+		let peak_of = |channel: fn(&ArmPose) -> f32| {
+			(0..=200)
+				.map(|step| step as f32 / 1000.0)
+				.map(|since| {
+					(
+						since,
+						channel(&pose(Swing::Shoot, ViewAction::Fire, since, 0.0).arm),
+					)
+				})
+				.fold(
+					(0.0, f32::MIN),
+					|best, now| if now.1 > best.1 { now } else { best },
+				)
+				.0
+		};
+		let rest = pose(Swing::Shoot, ViewAction::Idle, 0.0, 0.0).arm;
+		let wrist = peak_of(|arm| arm.wrist_pitch);
+		let forearm = peak_of(|arm| arm.pitch);
+		let lead = forearm - wrist;
+		assert!(
+			(0.02..=0.04).contains(&lead),
+			"the wrist leads by {lead} s ({wrist} against {forearm}; at rest {rest:?})"
+		);
+	}
+
+	#[test]
+	fn the_drum_turns_a_chamber_smoothly_over_six_frames() {
+		let drum = |frames: f32| {
+			pose(
+				Swing::Shoot,
+				ViewAction::Fire,
+				frames / TICKS_PER_SECOND,
+				0.0,
+			)
+			.drum_spin
+		};
+		assert_eq!(drum(0.0), 0.0);
+		assert!((drum(3.0) - TAU / 12.0).abs() < 1e-5, "halfway at three");
+		assert!((drum(6.0) - TAU / 6.0).abs() < 1e-5, "a sixth at six");
+		assert_eq!(drum(9.0), drum(6.0));
+		// Smooth: it starts and ends at rest, and never turns back.
+		let steps: Vec<f32> = (0..=12)
+			.map(|half| drum(half as f32 * 0.5))
+			.collect::<Vec<_>>()
+			.windows(2)
+			.map(|pair| pair[1] - pair[0])
+			.collect();
+		assert!(steps.iter().all(|step| *step >= 0.0));
+		assert!(steps[0] < steps[5] && steps[11] < steps[6], "{steps:?}");
+	}
+
+	#[test]
+	fn a_shot_fired_in_the_last_ones_recovery_adds_to_it() {
+		let fire = ViewAction::Fire;
+		let lone = |since: f32| pose(Swing::Shoot, fire, since, 0.0);
+		for played in [0.02, 0.04, 0.09] {
+			let cut = Some(Cut { from: fire, played });
+			let stacked = |since: f32| flowing(Swing::Shoot, fire, since, 0.0, cut, true);
+			// Nothing is reset: the arms are where the last kick had them.
+			assert_eq!(stacked(0.0).arm, lone(played).arm, "at {played}");
+			// The two kicks add, all the way through.
+			for since in [0.01, 0.03, 0.05, 0.1] {
+				let both = muzzle_rise(&lone(since)) + muzzle_rise(&lone(played + since));
+				assert!(
+					(muzzle_rise(&stacked(since)) - both).abs() < 1e-6,
+					"{played} then {since}"
+				);
+			}
+			// The second kick lands on top of what is left of the first.
+			let highest = |shown: &dyn Fn(f32) -> Pose| {
+				(0..=120)
+					.map(|step| muzzle_rise(&shown(step as f32 / 1000.0)))
+					.fold(f32::MIN, f32::max)
+			};
+			assert!(highest(&stacked) > highest(&lone) + 0.01, "{played}");
+		}
+		// Once the last has settled there is nothing left of it to add.
+		let late = Some(Cut {
+			from: fire,
+			played: RECOIL_SECONDS,
+		});
+		assert_eq!(
+			flowing(Swing::Shoot, fire, 0.05, 0.0, late, true),
+			lone(0.05)
+		);
+	}
+
+	#[test]
+	fn an_empty_drum_still_knocks() {
+		let dry = pose(Swing::Shoot, ViewAction::Empty, 1.0 / 30.0, 0.0);
+		let rest = pose(Swing::Shoot, ViewAction::Idle, 0.0, 0.0);
+		let knocked = dry.arm.wrist_pitch - rest.arm.wrist_pitch;
+		assert!(
+			knocked > 0.005 && knocked < 0.02,
+			"a small dry knock: {knocked}"
+		);
+		assert_eq!(dry.drum_spin, 0.0, "the drum does not turn");
 	}
 
 	#[test]
