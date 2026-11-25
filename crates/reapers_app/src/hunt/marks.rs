@@ -192,15 +192,16 @@ pub fn burst(sketch: &mut Sketch, at: At, seed: i64, spot: Rgb) {
 }
 
 /// The smear of the pistol's kick: a ribbon from the muzzle, `trail[0]`,
-/// back through where it was the three frames before, filled key and edged
-/// in paper, kept out of the sight's clear circle round `centre`. A muzzle
-/// that has not moved leaves none.
+/// back through where it was the three frames before, its widths spaced
+/// evenly along it, filled key and edged in paper, kept out of the sight's
+/// clear circle round `centre`. A muzzle that has not moved leaves none.
 pub fn smear(sketch: &mut Sketch, trail: [At; 4], centre: At) {
 	let (dx, dy) = (trail[0].0 - trail[3].0, trail[0].1 - trail[3].1);
 	let length = dx.hypot(dy);
 	if length < 1.5 {
 		return;
 	}
+	let trail = spaced(trail);
 	let across = (-dy / length, dx / length);
 	let side = |sign: f64| {
 		trail
@@ -226,6 +227,39 @@ pub fn smear(sketch: &mut Sketch, trail: [At; 4], centre: At) {
 		Some(colour(ink::KEY, 1.0)),
 		Some((colour(ink::PAPER, 1.0), SMEAR_EDGE)),
 	);
+}
+
+/// `trail`, its two middle points moved along it so that all four stand
+/// evenly spaced by length, its ends kept. A kick that snaps on its own
+/// frame leaves the three frames before at one place, where the ribbon
+/// would end in a block three widths deep; spaced, it tapers to its tail.
+fn spaced(trail: [At; 4]) -> [At; 4] {
+	let lengths = [0, 1, 2].map(|from| {
+		let to = from + 1;
+		(trail[to].0 - trail[from].0).hypot(trail[to].1 - trail[from].1)
+	});
+	let total: f64 = lengths.iter().sum();
+	let mut spaced = trail;
+	for (index, point) in spaced.iter_mut().enumerate().take(3).skip(1) {
+		let mut left = total * index as f64 / 3.0;
+		for (from, length) in lengths.iter().enumerate() {
+			if left <= *length || from == 2 {
+				let part = if *length > 0.0 {
+					(left / length).min(1.0)
+				} else {
+					0.0
+				};
+				let (start, end) = (trail[from], trail[from + 1]);
+				*point = (
+					start.0 + (end.0 - start.0) * part,
+					start.1 + (end.1 - start.1) * part,
+				);
+				break;
+			}
+			left -= length;
+		}
+	}
+	spaced
 }
 
 #[cfg(test)]
@@ -284,5 +318,44 @@ mod tests {
 			still.is_empty(),
 			"a muzzle that has not moved leaves no smear"
 		);
+	}
+
+	#[test]
+	fn a_kick_that_snaps_on_its_frame_still_leaves_a_tapered_smear() {
+		// The whole kick is on the shot's own frame, so the three frames
+		// before left the muzzle at rest, all at one place.
+		let mut sketch = Sketch::default();
+		smear(
+			&mut sketch,
+			[
+				(230.0, 520.0),
+				(230.0, 565.0),
+				(230.0, 565.0),
+				(230.0, 565.0),
+			],
+			(195.0, 422.0),
+		);
+		let paths = sketch.into_paths();
+		let corners: Vec<(f32, f32)> = paths[0]
+			.data()
+			.commands()
+			.iter()
+			.filter_map(|command| {
+				match command {
+					PathCommand::MoveTo(at) | PathCommand::LineTo(at) => Some((at.x, at.y)),
+					_ => None,
+				}
+			})
+			.collect();
+		// One side, from the muzzle to the tail: each corner further down the
+		// kick and nearer its middle, so the ribbon tapers to its tail rather
+		// than ending in a block of three widths at the rest.
+		let side = &corners[..4];
+		for pair in side.windows(2) {
+			assert!(
+				pair[1].1 > pair[0].1 + 10.0 && pair[1].0 < pair[0].0,
+				"{side:?}"
+			);
+		}
 	}
 }
