@@ -55,15 +55,16 @@ const BURST_EDGE: f64 = 1.8;
 const SMEAR_EDGE: f64 = 1.25;
 const SMEAR_WIDTHS: [f64; 4] = [4.5, 3.2, 2.0, 0.8];
 
-/// Whether a shot's burst is printed on its `frame`: the first two (§11.6).
-pub const fn burst_shows(frame: i64) -> bool {
-	matches!(frame, 0 | 1)
+/// Whether a shot's burst is printed on its `frame`: the first two (§11.6),
+/// or only the first for a player who asks for less motion (§14).
+pub const fn burst_shows(frame: i64, lively: bool) -> bool {
+	frame == 0 || (lively && frame == 1)
 }
 
 /// Whether the smear of a shot's kick is printed on its `frame`: the first
-/// (§11.4).
-pub const fn smear_shows(frame: i64) -> bool {
-	frame == 0
+/// (§11.4), and never for a player who asks for less motion (§14).
+pub const fn smear_shows(frame: i64, lively: bool) -> bool {
+	lively && frame == 0
 }
 
 /// What is printed over a fight on one frame, in the view's points.
@@ -239,10 +240,16 @@ mod tests {
 
 	#[test]
 	fn the_burst_and_the_smear_keep_to_the_bibles_frames() {
-		let burst: Vec<i64> = (-2..10).filter(|frame| burst_shows(*frame)).collect();
+		let burst: Vec<i64> = (-2..10).filter(|frame| burst_shows(*frame, true)).collect();
 		assert_eq!(burst, [0, 1], "f0–f1");
-		let smear: Vec<i64> = (-2..10).filter(|frame| smear_shows(*frame)).collect();
+		let smear: Vec<i64> = (-2..10).filter(|frame| smear_shows(*frame, true)).collect();
 		assert_eq!(smear, [0], "one frame");
+		// With less motion: a burst of one frame, and no smear.
+		let burst: Vec<i64> = (-2..10)
+			.filter(|frame| burst_shows(*frame, false))
+			.collect();
+		assert_eq!(burst, [0]);
+		assert!((-2..10).all(|frame| !smear_shows(frame, false)));
 	}
 
 	#[test]

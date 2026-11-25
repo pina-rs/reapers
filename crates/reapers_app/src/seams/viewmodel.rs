@@ -408,7 +408,7 @@ impl Seam {
 				};
 				let mut print = shot.print(&world, shown, &untrailed, &pose);
 				self.land(&props, &world, shown, &pose, print.view);
-				let tags = self.blows(&mut print, &props, &world, shown);
+				let tags = self.blows(&mut print, &props, &world, shown, lively);
 				(Some(print), tags)
 			}
 			None => (None, Vec::new()),
@@ -564,13 +564,15 @@ impl Seam {
 	/// Adds the splats of the blows that landed to `print`, with the sight
 	/// stepped out for the latest, and returns their tags, at the hunt's tick
 	/// `shown`. A splat goes where the husk goes; a tag stays where it was
-	/// put, and rises.
+	/// put, and rises, unless the player asks for less motion (`lively`
+	/// false).
 	fn blows(
 		&self,
 		print: &mut marks::Print,
 		props: &ViewmodelProps,
 		world: &WorldView,
 		shown: f64,
+		lively: bool,
 	) -> Vec<TagLook> {
 		let words = crate::app::messages();
 		let mut out = 0.0_f64;
@@ -579,7 +581,7 @@ impl Seam {
 			let hit = landed.hit;
 			let beat = blow::beat(marks::frames_since(shown, hit.tick));
 			out = out.max(blow::sight_out(beat));
-			if blow::coverage(beat) > 0.0
+			if blow::coverage(beat, lively) > 0.0
 				&& let Some(at) = screen_point(world, add(world.husk, landed.from_husk), print.view)
 			{
 				print.splats.push(blow::Splat {
@@ -592,9 +594,10 @@ impl Seam {
 					toward: landed.toward,
 					seed: hit.tick,
 					beat,
+					lively,
 				});
 			}
-			if let Some((scale, rise)) = blow::tag(beat) {
+			if let Some((scale, rise)) = blow::tag(beat, lively) {
 				tags.push(TagLook {
 					tick: hit.tick,
 					centre: (landed.tag.0, landed.tag.1 - rise),
@@ -794,10 +797,10 @@ impl Shot<'_> {
 		let Some(now) = muzzle(pose) else {
 			return print;
 		};
-		if marks::burst_shows(frame) {
+		if marks::burst_shows(frame, self.lively) {
 			print.burst = Some((now, props.action_tick));
 		}
-		if self.lively && marks::smear_shows(frame) {
+		if marks::smear_shows(frame, self.lively) {
 			// Where the muzzle was each frame before, without the trail, moved
 			// as far as the trail moves it now.
 			let Some(still) = muzzle(untrailed) else {
@@ -1054,11 +1057,12 @@ mod tests {
 		props: &ViewmodelProps,
 		world: &WorldView,
 		shown: f64,
+		lively: bool,
 	) -> (marks::Print, Vec<TagLook>) {
 		let pose = arms::flowing(props.manner(), ViewAction::Idle, 0.0, 0.0, None, true);
 		let mut print = marks::Print::blank((390.0, 844.0), props.spot);
 		seam.land(props, world, shown, &pose, print.view);
-		let tags = seam.blows(&mut print, props, world, shown);
+		let tags = seam.blows(&mut print, props, world, shown, lively);
 		(print, tags)
 	}
 
@@ -1072,7 +1076,7 @@ mod tests {
 		let mut out = Vec::new();
 		let mut tags = Vec::new();
 		for shown in 100..=152 {
-			let (print, tagged) = printed_at(&mut seam, &props, &world, f64::from(shown));
+			let (print, tagged) = printed_at(&mut seam, &props, &world, f64::from(shown), true);
 			if let Some(splat) = print.splats.first() {
 				splats.push((shown, splat.beat, splat.radius));
 			}
@@ -1102,11 +1106,39 @@ mod tests {
 		assert!(tags[30].2 < tags[2].2 - 17.0, "it has risen: {tags:?}");
 		assert!(seam.landed.is_empty(), "and forgotten");
 		// Its tag says what it did.
-		let (_, tagged) = printed_at(&mut seam, &props, &world, 105.0);
+		let (_, tagged) = printed_at(&mut seam, &props, &world, 105.0, true);
 		let tag = &tagged[0];
 		assert_eq!(tag.figure, "−27");
 		assert_eq!(tag.size, 40);
 		assert_eq!(tag.chip.as_deref(), Some("Seal ×2"));
+	}
+
+	#[test]
+	fn with_less_motion_a_shot_bursts_once_and_its_marks_hold_still_then_go() {
+		// The burst is one frame and there is no smear.
+		let first = shot_print(Archetype::Gun, 101.0, false);
+		assert!(first.burst.is_some() && first.smear.is_none());
+		assert!(shot_print(Archetype::Gun, 102.0, false).is_blank());
+		// The splat, scrawl and tag appear in place, held, and go in one step;
+		// the tag neither pops, rises nor shrinks.
+		let (props, world) = seal_shot();
+		let seam = seam();
+		let mut seam = seam.borrow_mut();
+		seam.landed.clear();
+		let mut coverage = Vec::new();
+		let mut tags = Vec::new();
+		for shown in 100..=152 {
+			let (print, tagged) = printed_at(&mut seam, &props, &world, f64::from(shown), false);
+			if let Some(splat) = print.splats.first() {
+				assert!(!splat.lively);
+				coverage.push(blow::coverage(splat.beat, splat.lively));
+			}
+			tags.extend(tagged.first().map(|tag| (tag.scale, tag.centre)));
+		}
+		assert_eq!(coverage.len(), 33, "f1 to f33");
+		assert!(coverage.iter().all(|left| *left == 1.0), "{coverage:?}");
+		assert_eq!(tags.len(), 49, "f2 to f50");
+		assert!(tags.iter().all(|tag| *tag == tags[0] && tag.0 == 1.0));
 	}
 
 	#[test]
@@ -1115,11 +1147,11 @@ mod tests {
 		let seam = seam();
 		let mut seam = seam.borrow_mut();
 		seam.landed.clear();
-		printed_at(&mut seam, &props, &world, 101.0);
+		printed_at(&mut seam, &props, &world, 101.0, true);
 		let mut next = props.hit.unwrap();
 		next.tick = 120;
 		props.hit = Some(next);
-		let (_, tags) = printed_at(&mut seam, &props, &world, 121.0);
+		let (_, tags) = printed_at(&mut seam, &props, &world, 121.0, true);
 		let first = seam.landed[0].tag;
 		let second = seam.landed[1].tag;
 		assert_eq!(tags.len(), 1, "the second's tag waits for f2");
@@ -1130,14 +1162,14 @@ mod tests {
 		for tick in [130, 140] {
 			next.tick = tick;
 			props.hit = Some(next);
-			printed_at(&mut seam, &props, &world, tick as f64 + 1.0);
+			printed_at(&mut seam, &props, &world, tick as f64 + 1.0, true);
 		}
 		assert_eq!(seam.landed.len(), blow::MOST_TAGS);
 		assert_eq!(seam.landed[0].hit.tick, 120, "the oldest left at once");
 		// A miss lands nothing.
 		seam.landed.clear();
 		props.hit = None;
-		let (print, tags) = printed_at(&mut seam, &props, &world, 101.0);
+		let (print, tags) = printed_at(&mut seam, &props, &world, 101.0, true);
 		assert!(print.splats.is_empty() && tags.is_empty());
 	}
 

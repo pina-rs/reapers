@@ -59,9 +59,14 @@ const SCRAWL_WIDTH: f64 = 2.4;
 
 /// How much of a blow's splat is printed on `beat`, from 1 (all of it) down
 /// to 0 (none): none before it lands, then all, then wiped off in bites.
-pub fn coverage(beat: i64) -> f64 {
+/// For a player who asks for less motion (`lively` false) it is all there
+/// until it goes, in one step, when the bites would have finished (§14).
+pub fn coverage(beat: i64, lively: bool) -> f64 {
 	if beat < 1 {
 		return 0.0;
+	}
+	if !lively {
+		return if beat < WIPE[2].0 { 1.0 } else { 0.0 };
 	}
 	WIPE.iter()
 		.rev()
@@ -71,8 +76,11 @@ pub fn coverage(beat: i64) -> f64 {
 
 /// How far a splat's key edge prints from where it belongs on `beat`: out
 /// of register and held until beat 5, then sprung home on the snap spring.
-pub fn misregistration(beat: i64) -> (f64, f64) {
-	let left = if beat <= HELD_UNTIL {
+/// In register throughout for a player who asks for less motion.
+pub fn misregistration(beat: i64, lively: bool) -> (f64, f64) {
+	let left = if !lively {
+		0.0
+	} else if beat <= HELD_UNTIL {
 		1.0
 	} else {
 		snap((beat - HELD_UNTIL) as f64 / FRAMES_PER_SECOND)
@@ -82,8 +90,8 @@ pub fn misregistration(beat: i64) -> (f64, f64) {
 
 /// Whether a blow's scrawl is printed on `beat`: from beat 2, and gone with
 /// the splat.
-pub fn scrawl_shows(beat: i64) -> bool {
-	beat >= SCRAWL_FROM && coverage(beat) > 0.0
+pub fn scrawl_shows(beat: i64, lively: bool) -> bool {
+	beat >= SCRAWL_FROM && coverage(beat, lively) > 0.0
 }
 
 /// The tag: when it appears, popped, and when it is at its size; how far it
@@ -102,10 +110,14 @@ pub const STACK_BEATS: i64 = 36;
 pub const MOST_TAGS: usize = 3;
 
 /// How a blow's tag is printed on `beat`: its scale, and how far it has
-/// risen, in points; `None` while it is not.
-pub fn tag(beat: i64) -> Option<(f64, f64)> {
+/// risen, in points; `None` while it is not. For a player who asks for less
+/// motion it is printed in place at its size, and goes in one step (§14).
+pub fn tag(beat: i64, lively: bool) -> Option<(f64, f64)> {
 	if !(TAG_FROM..TAG_GONE).contains(&beat) {
 		return None;
+	}
+	if !lively {
+		return Some((1.0, 0.0));
 	}
 	if beat < TAG_SETTLED {
 		return Some((TAG_POP, 0.0));
@@ -229,6 +241,8 @@ pub struct Splat {
 	pub seed: i64,
 	/// The bible's frame it is on.
 	pub beat: i64,
+	/// Whether it moves: not for a player who asks for less motion.
+	pub lively: bool,
 }
 
 /// How many corners a splat's blob has.
@@ -314,7 +328,7 @@ impl Plates {
 /// way the shot went, its key edge out of register until it springs home,
 /// its scrawl across it, wiped off from the far side in bites.
 pub fn splat(plates: &mut Plates, splat: &Splat) {
-	let left = coverage(splat.beat);
+	let left = coverage(splat.beat, splat.lively);
 	if left <= 0.0 {
 		return;
 	}
@@ -324,6 +338,7 @@ pub fn splat(plates: &mut Plates, splat: &Splat) {
 		toward,
 		seed,
 		beat,
+		lively,
 	} = *splat;
 	let mut random = SeededRandom::new(seed);
 	// The blob: round, with a few lumps, the same each frame.
@@ -396,8 +411,8 @@ pub fn splat(plates: &mut Plates, splat: &Splat) {
 		commands
 	};
 	plates.spot.extend(shapes((0.0, 0.0)));
-	plates.edge.extend(shapes(misregistration(beat)));
-	if !scrawl_shows(beat) {
+	plates.edge.extend(shapes(misregistration(beat, lively)));
+	if !scrawl_shows(beat, lively) {
 		return;
 	}
 	let commands = &mut plates.scrawl;
@@ -571,23 +586,23 @@ mod tests {
 
 	#[test]
 	fn the_splat_lands_holds_springs_home_and_wipes_off_in_three_bites() {
-		assert_eq!(coverage(0), 0.0);
+		assert_eq!(coverage(0, true), 0.0);
 		for beat in 1..24 {
-			assert_eq!(coverage(beat), 1.0, "f{beat}");
+			assert_eq!(coverage(beat, true), 1.0, "f{beat}");
 		}
-		assert_eq!(coverage(24), 0.75, "400 ms");
-		assert_eq!(coverage(28), 0.75, "held on twos");
-		assert_eq!(coverage(29), 0.45);
-		assert_eq!(coverage(33), 0.45);
-		assert_eq!(coverage(34), 0.0, "gone");
+		assert_eq!(coverage(24, true), 0.75, "400 ms");
+		assert_eq!(coverage(28, true), 0.75, "held on twos");
+		assert_eq!(coverage(29, true), 0.45);
+		assert_eq!(coverage(33, true), 0.45);
+		assert_eq!(coverage(34, true), 0.0, "gone");
 		// Out of register, held, from f1 to f5.
 		for beat in 1..=5 {
-			assert_eq!(misregistration(beat), MISREGISTER, "f{beat}");
+			assert_eq!(misregistration(beat, true), MISREGISTER, "f{beat}");
 		}
 		// From f6 it springs home on the snap spring: moving at once, never
 		// past where it belongs, and home in about 120 ms.
 		let left: Vec<f64> = (5..=14)
-			.map(|beat| misregistration(beat).0 / MISREGISTER.0)
+			.map(|beat| misregistration(beat, true).0 / MISREGISTER.0)
 			.collect();
 		assert!(
 			left[1] < 1.0 && left[1] > 0.5,
@@ -598,33 +613,54 @@ mod tests {
 				.all(|pair| pair[1] < pair[0] && pair[1] >= 0.0)
 		);
 		assert!(
-			misregistration(5 + 8).0.abs() < 0.05 * MISREGISTER.0.abs(),
+			misregistration(5 + 8, true).0.abs() < 0.05 * MISREGISTER.0.abs(),
 			"home in about 120 ms"
 		);
 		// The scrawl from f2, gone with the splat.
-		let scrawl: Vec<i64> = (0..40).filter(|beat| scrawl_shows(*beat)).collect();
+		let scrawl: Vec<i64> = (0..40).filter(|beat| scrawl_shows(*beat, true)).collect();
 		assert_eq!(scrawl, (2..34).collect::<Vec<_>>());
 	}
 
 	#[test]
 	fn the_tag_pops_settles_rises_and_shrinks_out_in_steps() {
-		assert_eq!(tag(1), None);
-		assert_eq!(tag(2), Some((1.15, 0.0)), "f2 at 1.15×");
-		assert_eq!(tag(3), Some((1.15, 0.0)));
-		assert_eq!(tag(4), Some((1.0, 0.0)), "f4 at 1.0×");
+		assert_eq!(tag(1, true), None);
+		assert_eq!(tag(2, true), Some((1.15, 0.0)), "f2 at 1.15×");
+		assert_eq!(tag(3, true), Some((1.15, 0.0)));
+		assert_eq!(tag(4, true), Some((1.0, 0.0)), "f4 at 1.0×");
 		// It rises 18 pt on the settle spring, smoothly, and is there well
 		// before 600 ms.
-		let rises: Vec<f64> = (4..36).map(|beat| tag(beat).unwrap().1).collect();
+		let rises: Vec<f64> = (4..36).map(|beat| tag(beat, true).unwrap().1).collect();
 		assert!(rises.windows(2).take(10).all(|pair| pair[1] > pair[0]));
 		assert!((rises.last().unwrap() - TAG_RISE).abs() < 0.2, "{rises:?}");
 		assert!(rises.iter().all(|rise| *rise < TAG_RISE * 1.05));
 		// Three stepped shrinks on twos from 600 ms, and gone at 850 ms.
-		let scale = |beat| tag(beat).unwrap().0;
+		let scale = |beat| tag(beat, true).unwrap().0;
 		assert_eq!(scale(35), 1.0);
 		assert_eq!((scale(36), scale(40)), (0.8, 0.8));
 		assert_eq!((scale(41), scale(45)), (0.55, 0.55));
 		assert_eq!((scale(46), scale(50)), (0.3, 0.3));
-		assert_eq!(tag(51), None);
+		assert_eq!(tag(51, true), None);
+	}
+
+	#[test]
+	fn with_less_motion_a_blow_prints_in_place_and_leaves_in_one_step() {
+		assert_eq!(beat(0), 1, "the splat lands on the shot's own frame");
+		let left: Vec<f64> = (0..40).map(|beat| coverage(beat, false)).collect();
+		assert_eq!(left[0], 0.0);
+		assert!(
+			left[1..34].iter().all(|left| *left == 1.0),
+			"held: {left:?}"
+		);
+		assert!(
+			left[34..].iter().all(|left| *left == 0.0),
+			"then gone at once"
+		);
+		assert!((1..40).all(|beat| misregistration(beat, false) == (0.0, 0.0)));
+		let scrawl: Vec<i64> = (0..40).filter(|beat| scrawl_shows(*beat, false)).collect();
+		assert_eq!(scrawl, (2..34).collect::<Vec<_>>());
+		assert_eq!(tag(1, false), None);
+		assert!((2..51).all(|beat| tag(beat, false) == Some((1.0, 0.0))));
+		assert_eq!(tag(51, false), None);
 	}
 
 	#[test]
@@ -693,6 +729,7 @@ mod tests {
 				toward: (0.6, -0.8),
 				seed: 42,
 				beat,
+				lively: true,
 			}
 		};
 		let printed = |beats: &[i64]| {
