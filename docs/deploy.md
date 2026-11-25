@@ -10,7 +10,8 @@ Commands run from the repository root, in bash or zsh.
 
 | Tool | Version used | For |
 | --- | --- | --- |
-| Agave Solana CLI (`solana`, `solana-keygen`, `cargo-build-sbf`) | 4.2.2, platform tools v1.54 | Building, deploying, inspecting |
+| Agave Solana CLI (`solana`, `solana-keygen`) | 4.4.1 | Deploying, inspecting |
+| `cargo-build-sbf` | 4.5.0, platform tools v1.57 | Building the program |
 | `pina` | 0.24.0 (`cargo install pina_cli --version 0.24.0 --locked`) | Building the program and its IDL |
 | `surfpool` | 1.7.0 | The rehearsal |
 | Rust | the nightly in `rust-toolchain.toml` | `reapers_ops` |
@@ -66,7 +67,7 @@ solana airdrop 2 -k $DEPLOYER -u devnet     # rate limited; or https://faucet.so
 solana balance -k $DEPLOYER -u devnet
 ```
 
-Have at least 2 SOL. The program data account costs 0.2516 SOL of rent, the deploy's write buffer holds about as much again until the deploy finishes, and the 40 demo husks cost about 0.15 SOL with Core's fees. The rest is margin for priority fees and a second attempt.
+Have at least 2 SOL. The program data account costs 0.2386 SOL of rent, the deploy's write buffer holds about as much again until the deploy finishes, and the 40 demo husks cost about 0.15 SOL with Core's fees. The rest is margin for priority fees and a second attempt.
 
 ## 3. Deploy
 
