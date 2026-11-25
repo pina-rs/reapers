@@ -2,7 +2,7 @@
 
 Open **Animations · 32 states** in the [Reaper studio](preview.md). Choose a group and a clip, pause it, scrub any pose, replay it, or slow it to quarter speed. **Inspect contact pose** goes straight to an attack's contact frame. Change calling, birth traits and equipment in the same studio. Everything is an unsaved specimen.
 
-The six reapers have separate spirit and humanoid performances. Spirit form keeps the floating silhouette. Humanoid form has shaped thighs, kneecaps, calves and feet, with foot targets and two-bone IK solved in Blender. Walking has heel contact, grounded support, toe-off and swing clearance. Running adds flight. Jump, dodge and dash have bounded local movement and return to their starting position. A future third-person controller must supply matching world speed and terrain adaptation.
+The six reapers have separate spirit and humanoid performances. Spirit form keeps the floating silhouette. Humanoid form has shaped thighs, kneecaps, calves and feet, with foot targets and two-bone IK solved in Blender. Walking has heel contact, grounded support, toe-off and swing clearance. Running adds flight. The jump and the rising uppercut drive out of a crouch into the flight's own speed and land into the knees at the speed they fall (`locomotion.LEAPS`), so the pelvis never jumps from still to flying; the uppercut leaves the floor just before its fist lands. The land clip comes in falling the same way. Jump, dodge and dash have bounded local movement and return to their starting position. A future third-person controller must supply matching world speed and terrain adaptation.
 
 ## Faces and appearance
 

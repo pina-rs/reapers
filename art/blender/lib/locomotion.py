@@ -38,6 +38,47 @@ def envelope(p, start, peak, end):
     return smooth((p - start) / (peak - start)) if p < peak else 1 - smooth((p - peak) / (end - peak))
 
 
+# The standing jumps, as shares of the clip and metres: when the feet leave
+# the floor and meet it again, how high the pelvis flies, and how deep it
+# crouches before and sinks after. The uppercut leaves the floor just before
+# its fist lands, so the body is still rising hard into the blow.
+LEAPS = {
+    "jump": (0.27, 0.77, 0.48, 0.17, 0.15),
+    "finisherUppercut": (0.42, 0.78, 0.28, 0.17, 0.14),
+}
+
+
+def leap(p, takeoff, touchdown, height, crouch, landing):
+    """The pelvis's height through a standing jump at `p`, and how far of it
+    is flight. It sinks into the crouch, drives out of it at an even
+    acceleration that reaches the flight's own speed as the feet leave the
+    floor, flies its parabola, and comes down at that speed into knees that
+    slow it evenly to the bottom of the landing before it stands: its speed
+    never jumps."""
+
+    speed = 4 * height / (touchdown - takeoff)
+    bottom = takeoff - 2 * crouch / speed
+    settled = touchdown + 2 * landing / speed
+
+    if p < bottom:
+        return -crouch * smooth(p / bottom), 0.0
+
+    if p < takeoff:
+        u = (p - bottom) / (takeoff - bottom)
+        return -crouch * (1 - u * u), 0.0
+
+    if p < touchdown:
+        f = (p - takeoff) / (touchdown - takeoff)
+        flight = height * 4 * f * (1 - f)
+        return flight, flight
+
+    if p < settled:
+        u = (p - touchdown) / (settled - touchdown)
+        return -landing * u * (2 - u), 0.0
+
+    return -landing * (1 - smooth((p - settled) / (1 - settled))), 0.0
+
+
 def foot_cycle(name, phase, side):
     """Ankle pose with heel contact, flat support, toe off and swing clearance."""
     stride, lift, stance, _ = GAITS[name]
@@ -103,18 +144,20 @@ def grounded(name, phase, performance):
     root = Vector((0, 0, -0.045))
     travel = Vector()
     step = 0.0
-    if name in ("jump", "finisherUppercut"):
-        takeoff, touchdown = (0.22, 0.79) if name == "jump" else (0.34, 0.76)
+    if name in LEAPS:
+        takeoff, touchdown = LEAPS[name][:2]
         flight = max(0, min(1, (p - takeoff) / (touchdown - takeoff)))
-        height = (0.48 if name == "jump" else 0.28) * 4 * flight * (1 - flight)
-        squat = 0.17 * envelope(p, 0, takeoff, takeoff + 0.12) + 0.16 * envelope(p, touchdown - 0.02, touchdown + 0.04, 1)
-        root.z += height - squat
+        rise, height = leap(p, *LEAPS[name])
+        root.z += rise
         for side in ("l", "r"):
             lift = height + 0.10 * math.sin(math.pi * flight) ** 2
             feet[side] = (Vector((HIP_X * (1 if side == "l" else -1), 0, ANKLE_Z + lift)), Quaternion())
         return root, 0, feet
     if name == "land":
-        root.z -= 0.20 * envelope(p, 0, 0.22, 1)
+        # It comes in falling, as a leap lands, and the knees slow it evenly
+        # to the bottom before it stands.
+        u = min(p / 0.22, 1)
+        root.z -= 0.20 * (u * (2 - u) if p < 0.22 else 1 - smooth((p - 0.22) / 0.78))
     elif name in ("dash", "dashLeft", "dashRight", "dodgeLeft", "dodgeRight"):
         travel = Vector((move.x, move.y, 0))
         root += travel
