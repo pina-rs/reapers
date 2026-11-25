@@ -65,7 +65,10 @@ def sheet(name, path, options, look):
 
     if name == "weapons" or name.startswith("weapon_"):
         roots = sorted(bpy.data.objects["weapons"].children, key=_kind_order)
-        review.weapons(roots, options.out, look, lineup=name == "weapons")
+        # weapons.glb holds all eight, for the lineup; each weapon_<kind>.glb
+        # holds one, for its own sheet.
+        lineup = name == "weapons"
+        review.weapons(roots, options.out, look, lineup=lineup, singles=not lineup)
     elif name == "viewmodel":
         review.first_person(MOMENTS, options.out, cel_look=look)
     elif name == "viewmodel_fx":

@@ -196,21 +196,22 @@ def reaper(glb, calling, out, cel_look=None):
 # Weapons -------------------------------------------------------------------
 
 
-def weapons(roots, out, cel_look=None, lineup=True):
+def weapons(roots, out, cel_look=None, lineup=True, singles=True):
     """The sheets of the weapons under `roots`, each modelled with its grip
     at the origin:
 
-    - `weapon_<kind>.png`: one weapon alone, framed on itself, from the
-      front, three-quarter, side and back, and in silhouette.
-    - `weapons.png`: all of them side by side at one scale, from the front
-      and in silhouette, so their sizes can be compared.
+    - `weapon_<kind>.png` (with `singles`): one weapon alone, framed on
+      itself, from the front, three-quarter, side and back, and in
+      silhouette.
+    - `weapons.png` (with `lineup`): all of them side by side at one scale,
+      from the front and in silhouette, so their sizes can be compared.
     """
 
     def alone(chosen):
         for weapon in roots:
             hide_tree(weapon, weapon is not chosen)
 
-    for weapon in roots:
+    for weapon in roots if singles else ():
         kind = snake(base(weapon).removeprefix("weapon_"))
         preview.render_grid(
             preview.sheet_path(out, f"weapon_{kind}", cel_look),
