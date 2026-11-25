@@ -110,11 +110,24 @@ pub const fn weapon_part(archetype: Archetype) -> Option<&'static str> {
 
 const fn hold(archetype: Archetype) -> Hold {
 	match archetype {
-		// The pistol is held a little higher and further out than the arm's
-		// rest, its muzzle tipped down to stay where it was: the hand on its
-		// grip reads in the frame, and the muzzle stays clear of the sight at
-		// the height of a kick.
-		Archetype::Gun | Archetype::Art => {
+		// The pistol is held higher, further out and a little in from the
+		// arm's rest, turned out and its muzzle tipped down: the hand on its
+		// grip sits where the bible's proof has it, about (300, 640) on a
+		// phone, clear of FIRE; the barrel points up the column under the
+		// sight; and the whole barrel, flared mouth and all, stays right of
+		// that column at the height of a kick (the art bible, §6.5).
+		Archetype::Gun => {
+			Hold {
+				lean: 0.0,
+				twist: 0.0,
+				scale: 1.0,
+				rest: [-0.01, 0.06, 0.14],
+				turn: [0.2, -0.2, 0.0],
+				wrist: [0.0; 3],
+			}
+		}
+		// The art is thrown from an empty hand, held as the pistol once was.
+		Archetype::Art => {
 			Hold {
 				lean: 0.0,
 				twist: 0.0,
@@ -217,6 +230,9 @@ pub struct Placed {
 	/// `vm_right` and `vm_wrist_r`'s offsets.
 	pub arm: Frame,
 	pub wrist: [f32; 4],
+	/// The held weapon's own frame, in the view: where any point of its
+	/// model is.
+	pub weapon: Frame,
 	/// The weapon's grip, the pistol's muzzle and a heavy weapon's head,
 	/// in the view.
 	pub grip: Point,
@@ -286,6 +302,7 @@ pub fn place(archetype: Archetype, pose: &Pose) -> Placed {
 	Placed {
 		arm,
 		wrist,
+		weapon: weapon_frame,
 		grip: socket.at,
 		muzzle: weapon_frame.point(MUZZLE),
 		head: weapon_frame.point(SCYTHE_HEAD),
@@ -531,29 +548,43 @@ mod tests {
 
 	#[test]
 	fn the_pistol_rests_in_the_frame_and_kicks_clear_of_the_sight() {
-		let [grip, muzzle] = pistol(&posed(Archetype::Gun, ViewAction::Idle, 0.0));
-		// The hand reads in the frame: its grip well inside the phone. The
-		// muzzle is about where the bible's proof has it, (232, 574).
+		let at_rest = posed(Archetype::Gun, ViewAction::Idle, 0.0);
+		let [grip, muzzle] = pistol(&at_rest);
+		// The hand is where the bible's proof has it, about (300, 640), above
+		// FIRE. The muzzle is low and right of the sight, near the proof's
+		// (232, 574), moved up and right as far as the barrel's flared mouth
+		// needs to keep out of the column while the barrel points up it, at
+		// the column below the sight.
 		assert!(
-			(40.0..350.0).contains(&grip.0) && (40.0..804.0).contains(&grip.1),
+			(grip.0 - 300.0).hypot(grip.1 - 640.0) < 20.0,
 			"the grip rests at {grip:?}"
 		);
 		assert!(
-			(muzzle.0 - 232.0).hypot(muzzle.1 - 574.0) < 20.0,
+			(muzzle.0 - 232.0).hypot(muzzle.1 - 574.0) < 35.0,
 			"the muzzle rests at {muzzle:?}"
 		);
+		let placed = place(Archetype::Gun, &at_rest);
+		let aim = on_phone(placed.weapon.point([0.0, MUZZLE[1], 5.0]));
+		assert!(
+			(175.0..215.0).contains(&aim.0) && (SIGHT.1..SIGHT.1 + 160.0).contains(&aim.1),
+			"the barrel points at {aim:?}"
+		);
 		// At rest, at the height of a kick, and of a second fired as the first
-		// recovers, and everywhere between, the hand and the muzzle are in the
-		// frame, clear of the sight's circle and right of the middle column.
-		// (The rules fire the pistol no faster than every 0.3 s, by when a
-		// kick is over: only a bench stacks two.)
+		// recovers, and everywhere between, the hand and the whole barrel as
+		// it is drawn are in the frame, clear of the sight's circle and right
+		// of the column under it, x 175 to 215. (The rules fire the pistol no
+		// faster than every 0.3 s, by when a kick is over: only a bench stacks
+		// two.)
 		for second in [None, Some(0.09)] {
 			for step in 0..=400 {
 				let seconds = step as f32 / 1000.0;
-				for (part, point) in ["grip", "muzzle"]
+				let placed = place(Archetype::Gun, &shooting(seconds, second));
+				let drawn = barrel()
 					.into_iter()
-					.zip(pistol(&shooting(seconds, second)))
-				{
+					.map(|point| ("barrel", placed.weapon.point(point)))
+					.chain([("grip", placed.grip)]);
+				for (part, point) in drawn {
+					let point = on_phone(point);
 					let from_sight = (point.0 - SIGHT.0).hypot(point.1 - SIGHT.1);
 					assert!(
 						from_sight > CLEAR,
@@ -568,13 +599,38 @@ mod tests {
 		}
 	}
 
+	/// Points round the pistol's barrel as its model is built
+	/// (`art/blender/viewmodel_parts/grave_pistol.py`), in the pistol's own
+	/// frame: the rim of its flared mouth, the teeth round the bore, and the
+	/// bands along it.
+	fn barrel() -> Vec<Point> {
+		let bore = MUZZLE[1];
+		let rings = [
+			(0.0162, 0.236),
+			(0.0155, 0.2385),
+			(0.0128, 0.241),
+			(0.0139, 0.19),
+			(0.0139, 0.128),
+			(0.0139, 0.072),
+		];
+		(0..16)
+			.flat_map(|step| {
+				let angle = step as f32 / 16.0 * std::f32::consts::TAU;
+				rings.map(|(radius, along)| {
+					[radius * angle.cos(), bore + radius * angle.sin(), along]
+				})
+			})
+			.collect()
+	}
+
 	#[test]
 	fn a_shot_moves_the_pistol_without_a_jump_at_sixty_and_a_hundred_and_twenty_frames() {
 		// From rest, through a shot, a second fired in its recovery and back to
-		// rest. The kick snaps up on each shot's own frame, the one the burst
-		// and the smear print over (the art bible, §11.4): that step is the
-		// kick, and no more. Every other step halves when the frame does, so
-		// nothing else jumps.
+		// rest. The kick snaps up on each shot's own frame, the sixtieth of a
+		// second the burst and the smear print over (the art bible, §11.4),
+		// shown in one step at sixty frames a second and two at a hundred and
+		// twenty: that is the kick, and no more. Every other step halves when
+		// the frame does, so nothing else jumps.
 		let steps = |rate: f32, second: Option<f32>| {
 			let frames = (0.55 * rate) as i32;
 			let shots = [Some(0.0), second];
@@ -586,11 +642,12 @@ mod tests {
 				let step = (muzzle_next.0 - muzzle.0)
 					.hypot(muzzle_next.1 - muzzle.1)
 					.max((grip_next.0 - grip.0).hypot(grip_next.1 - grip.1));
-				// The step onto the first frame sampled after the shot, as the
-				// seam samples it (a frame on, so never on the shot itself).
+				// A step onto a frame inside the shot's own sixtieth of a
+				// second, as the seam samples it (a frame on, so never on the
+				// shot itself).
 				let fired = shots.iter().flatten().any(|shot| {
 					let shot = shot + 1.0e-4;
-					at(frame) <= shot && at(frame + 1) > shot
+					at(frame + 1) > shot && at(frame + 1) <= shot + 1.0 / 60.0
 				});
 				if fired {
 					snap = snap.max(step);
