@@ -50,6 +50,7 @@ The versions are pinned in `crates/xtask/src/art.rs` (`BLENDER_RELEASE`, `GLTFPA
 | `review_motions.py` | One pose of an exported clip, from three angles. |
 | `review_catalogue.py` | Every clip of a class in five timed poses. |
 | `review_trail.py` | One clip's weapon tip and wrist paths over ghosted poses. |
+| `review_check.py` | Checks the review harness itself against the built models. |
 | `lib/creature.py` | What every husk creature shares: pivots, seals, the shadow, and the checks a creature must pass. |
 | `reaper_classes/<class>.py` | One module per reaper class. `build()` returns the model's root. |
 | `creature_kinds/<vessel>.py` | One module per husk creature. `build(spec)` returns the model's root. |
@@ -73,15 +74,18 @@ Add `--preview art/build/previews` to any driver for its review sheets (see [Rev
 
 ## Reviewing a model
 
-A model is judged by eye, from its review sheets. Every sheet is a grid: a row for each thing to compare, framed on what that row shows so nothing leaves the frame, at one scale across the row. Most rows show the front, three-quarter, side and back, then the model in black with the same silhouette beside it at the size a phone shows it in a list (96 pixels tall), since that is where a shape is hardest to read.
+A model is judged by eye, from its review sheets. Every sheet is a grid: a row for each thing to compare, framed on what that row shows so nothing leaves the frame, at one scale across the row. Most rows show the front, three-quarter, side and back, then the model in black with the same silhouette beside it at the size a phone shows it in a list (96 pixels tall), since that is where a shape is hardest to read. A silhouette leaves out the floor shadow, which is not the model's shape.
+
+A model is reviewed at its bind pose: every node and morph where the file exported it, before any clip moves it. The glTF importer leaves each node at the first frame of the first clip it reads, so `review.py` puts every node a clip moves back where the file has it. To see a class in its idle stance instead, render `review_motions.py --clip idle --phase 0`.
 
 | Sheet | What it shows |
 | --- | --- |
-| `reaper_<class>_spirit.png`, `reaper_<class>_humanoid.png` | The class at rest (every clip stopped, frame 0), holding its own weapon: a row for each robe, with the matching head and mantle (the last head and mantle again with the fourth robe). |
+| `reaper_<class>_spirit.png`, `reaper_<class>_humanoid.png` | The class at its bind pose, holding its own weapon: a row for each robe, with the matching head and mantle (the last of them again where a class has fewer heads or mantles than robes; the row's label says which). |
 | `reaper_<class>_armoury.png` | The class holding each of the eight weapons, then each in silhouette, so a weapon is judged in a hand at its true size. |
 | `weapon_<kind>.png` | One weapon alone, framed on itself. |
 | `weapons.png` | All eight side by side at one scale, and in silhouette. |
-| `viewmodel.png` | A row for each moment of the first-person view (fire, reload, throw, throw with the scythe, stab, swing), showing what that moment shows, lit by the palette it is painted from. Each view is framed on its own: an arm seen from its end is a fraction of its length. |
+| `viewmodel.png` | A row for each moment of the first-person view (fire, reload, throw, throw with the scythe, stab, swing), showing what that moment shows, lit by the palette it is painted from, with every part placed where the game's rig places it. The first view is the game's own camera at the eye, at a phone's shape; then the front, three-quarter, side and back, each framed on its own (an arm seen from its end is a fraction of its length), and the silhouette. |
+| `viewmodel_parts.png` | Every first-person part alone, at rest, framed on itself, so what a hand hides in play (the orb in the palm, the spare drum) is seen too. |
 | `viewmodel_orb.png` | The capture orb, its core glowing in the palette's `glow`. |
 | `viewmodel_fx.png` | Every light the room shows, a row each, drawn unlit and added to a dusk ground as the game draws it, from the front, three-quarter, side and above. The halos and the flare are cards the game turns to the camera, so they are lines from the side. |
 | `husk_<vessel>.png` | A row for each thing the creature can wear, in an NFT's look. |
@@ -94,6 +98,14 @@ blender --background --python-exit-code 1 --python art/blender/review.py -- \
 ```
 
 `--only` takes model names without `.glb`; `--models` and `--specs` read from somewhere other than `art/build/models` and `art/build/vessels.json`.
+
+The first-person sheets are staged from the rig itself: `lib/review.py` reads the arms' rest place and turn, each weapon's hold, the camera's field of view and the reload and throw constants out of `crates/reapers_app/src/render/viewmodel.rs` and `arms.rs`, so they follow the game. The few numbers a pose works out inside a function (where the left hand is at the top of a reload and while a throw is held) are copied into `review.moment_stages`, which says where each comes from. If the rig's source changes shape, the review stops and names the constant it could not find.
+
+`review_check.py` checks the harness itself against the built models: every reaper reviewed at exactly its bind pose, the trail finding the off-hand flaps in thrust, slash and parry and none in idle or a walk, the first-person moments staged where the game puts them, and a face found for every variant. It prints a `CHECK` line for each and fails if any did, in about three minutes:
+
+```sh
+blender --background --python-exit-code 1 --python art/blender/review_check.py [-- --models art/build/models]
+```
 
 ### The cel look
 
@@ -123,7 +135,7 @@ blender --background --python-exit-code 1 --python art/blender/review_trail.py -
   --class harvester --clip finisherReap --out art/build/previews/trail_harvester_finisherReap.png
 ```
 
-On a trail sheet (front, side and top), the pose at the clip's contact is solid and the ghosts before and after it run from cold to warm. The tip (orange; the point of the weapon farthest from its grip), the right wrist (cyan) and the left wrist (pink) each have a dot at every frame, so the gaps are the speed. A green dot is a dead stop in the middle of the clip, a red one a flap: a point turning back on itself while still moving fast. A fluid arc is smooth, opens its gaps into the strike and bunches them only where it means to hold. It also prints each path's length, top speed, stops and flaps.
+On a trail sheet (front, side and top), the pose at the clip's contact is solid and the ghosts before and after it run from cold to warm. The tip (orange; the point of the weapon farthest from its grip), the right wrist (cyan) and the left wrist (pink) each have a dot at every key: the model is imported at the 30 keys a second the clips are baked at and the game plays, so the gaps are the speed. A green dot is a dead stop in the middle of the clip. A red one is a flap of a joint of that arm (shoulder, elbow or wrist), found from the joint's turn rather than the path: a drop, the joint at least 25° out within the last five keys landing on its bind pose at 15° a key or faster (the snap a key pose that leaves a joint out makes), or a jitter, out by 25° and back to within a third of that inside five keys. A flap of the head or spine is printed but not drawn. A fluid arc is smooth, opens its gaps into the strike and bunches them only where it means to hold. It prints each path's length, top speed, stops and flaps, and a `FLAP` line for each flap, such as `FLAP elbow_l: drops 65° onto its bind pose in 100 ms, keys 8-11` for the harvester's thrust.
 
 ### Budgets
 
@@ -131,7 +143,7 @@ On a trail sheet (front, side and top), the pose at the clip's contact is solid 
 cargo xtask build-art --report
 ```
 
-prints, for every model in `assets/models`, its triangles, vertices, draw calls, materials, morph targets and clips (counted as if every node were shown), its size as Blender wrote it (when a build has left it in `art/build/models`) and packed, and the triangles of each weapon in it. It fails when a model is over its budget, and so do every build and `cargo xtask check` (a test in `crates/xtask`).
+prints, for every model in `assets/models` (it takes no script names: it always measures them all), its triangles, vertices, draw calls, materials, morph targets and clips (counted as if every node were shown), its size as Blender wrote it (when a build has left it in `art/build/models`) and packed, and the triangles of each weapon in it. It fails when a model is over its budget, and so do every build and `cargo xtask check` (a test in `crates/xtask`).
 
 The budgets are in `crates/xtask/src/art/report.rs`. Triangles follow the guidelines above where today's models meet them: 6,000 a weapon, 14,000 a creature, 3,000 for the orb and 1,500 for the lights. Where a model was already over when the budgets were set (every reaper class, at 129,000 to 142,000 against 110,000; the lantern pole, at 6,328; the whole first-person file, which has no guideline beyond the 6,000 a moment `viewmodel.py` holds it to), its ceiling is what it measured, so it can only get better. Each packed file's size ceiling is what it measured, rounded up to the next 8 KiB. Lower a ceiling when a model slims; raise one only on purpose.
 
