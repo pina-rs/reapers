@@ -44,8 +44,13 @@ pub const FX_MODEL: &str = "models/viewmodel_fx.glb";
 
 /// How big the orb is in the world, against its model.
 const ORB_SCALE: f32 = 1.8;
-/// The halo's radius, in metres.
-const HALO: f32 = 0.3;
+/// The halo's radius, in metres: about 1.6 times the orb's cup (§5.5).
+const HALO: f32 = 0.2;
+/// The most of the spot a halo or flare adds: the mean tone of the bible's
+/// halftone halo, whose dots fall from 70% coverage at its middle to none
+/// at its edge (§5.5). Print draws the disc flat, so it is a tint, never a
+/// solid disc of light.
+const HALO_TONE: f32 = 0.35;
 
 /// The light that stays added to the picture: the halos.
 const ADDITIVE: [&str; 2] = ["fx_halo", "fx_flare"];
@@ -213,7 +218,7 @@ fn halos(scene: &Scene, fx: &mut Puppet, look: &OrbLook, eye: Point, ease: f32) 
 		HALO * halo * (0.7 + 0.3 * look.core.min(2.0)),
 		ease,
 	);
-	fx.material(scene, "fx_halo", glow((0.45 * look.core).min(1.0)));
+	fx.material(scene, "fx_halo", glow(HALO_TONE * look.core.min(1.0)));
 	if look.flare > 0.01 {
 		disc(
 			scene,
@@ -224,7 +229,7 @@ fn halos(scene: &Scene, fx: &mut Puppet, look: &OrbLook, eye: Point, ease: f32) 
 			0.25 + 0.5 * look.flare,
 			ease,
 		);
-		fx.material(scene, "fx_flare", glow(look.flare.min(1.0)));
+		fx.material(scene, "fx_flare", glow(HALO_TONE * look.flare.min(1.0)));
 	} else {
 		fx.visible(scene, "fx_flare", false);
 	}
