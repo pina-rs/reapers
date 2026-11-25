@@ -31,6 +31,15 @@ pub fn cloth_at(motion: ReaperMotion, seconds: f64) -> ClothStir {
 	}
 }
 
+/// Whether the reaper models key the robe's sway (`sway_x`, `sway_y` and
+/// `billow`) in their own clips, from a spring the body drags the hem with
+/// (`art/blender/lib/motion.py`). While they do not, the stage stirs the
+/// robe by hand ([`cloth_sway_weights`]). Once they do, it must not: a weight
+/// set by hand holds the morph over what the clip plays, so the robe would
+/// swing to this clock instead of the body's. A test holds this to the
+/// committed models, so rebuilding them with keyed sway flips it here.
+pub const CLIPS_SWAY_THE_ROBE: bool = false;
+
 /// The three animated sway morphs sampled from the clip clock.
 pub fn cloth_sway_weights(
 	appearance: &ReaperAppearance,
