@@ -1,6 +1,7 @@
 //! The marks printed flat over a fight, as the art bible sets them out
-//! (§11, §12.2): here, the burst at the pistol's muzzle and the smear of its
-//! kick, which stand in for the flash the pistol once drew in light.
+//! (§11, §12.2): the burst at the pistol's muzzle and the smear of its kick,
+//! which stand in for the flash the pistol once drew in light, printed with
+//! the splats of its blows ([`super::blow`]) and the sight over them.
 //!
 //! Each is a function of the frame it is asked about, counted at sixty a
 //! second from the first frame shown after its event ([`frames_since`]),
@@ -18,8 +19,13 @@ use leptoskit::native::vector::Point;
 use leptoskit::prelude::*;
 use reapers_rules::SeededRandom;
 
+use super::blow::Plates;
+use super::blow::Splat;
+use super::blow::splat;
+use super::overlay::Sight;
 use super::overlay::Sketch;
 use super::overlay::colour;
+use super::overlay::crosshair;
 use crate::ink;
 use crate::theme::Rgb;
 
@@ -67,11 +73,17 @@ pub struct Print {
 	pub view: At,
 	/// The reaper's spot: the second ink.
 	pub spot: Rgb,
+	/// The splats of the blows that struck, oldest first.
+	pub splats: Vec<Splat>,
 	/// The burst at the muzzle, and the seed that turns it.
 	pub burst: Option<(At, i64)>,
 	/// The smear of the pistol's kick: the muzzle now, then where it was the
 	/// three frames before.
 	pub smear: Option<[At; 4]>,
+	/// The sight at the middle of the view, while there is one: what a press
+	/// would do, the light it shows a seal in, and how far its arms stand
+	/// out.
+	pub sight: Option<(Sight, Rgb, f64)>,
 }
 
 impl Print {
@@ -80,26 +92,40 @@ impl Print {
 		Self {
 			view,
 			spot,
+			splats: Vec::new(),
 			burst: None,
 			smear: None,
+			sight: None,
 		}
 	}
 
 	/// Whether nothing is printed.
 	pub const fn is_blank(&self) -> bool {
-		self.burst.is_none() && self.smear.is_none()
+		self.splats.is_empty()
+			&& self.burst.is_none()
+			&& self.smear.is_none()
+			&& self.sight.is_none()
 	}
 }
 
-/// The marks of `print`, filling their parent: the smear under the burst.
+/// The marks of `print`, filling their parent: the splats on the husk, the
+/// smear and the burst at the muzzle, and the sight over them all.
 pub fn print_view(print: &Print) -> Element {
 	let mut sketch = Sketch::default();
 	let centre = (print.view.0 / 2.0, print.view.1 / 2.0);
+	let mut plates = Plates::default();
+	for each in &print.splats {
+		splat(&mut plates, each);
+	}
+	plates.print(&mut sketch, print.spot);
 	if let Some(trail) = print.smear {
 		smear(&mut sketch, trail, centre);
 	}
 	if let Some((at, seed)) = print.burst {
 		burst(&mut sketch, at, seed, print.spot);
+	}
+	if let Some((sight, light, out)) = print.sight {
+		crosshair(&mut sketch, centre, sight, light, out);
 	}
 	sketch.into_view(print.view.0, print.view.1)
 }

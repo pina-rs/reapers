@@ -10,6 +10,7 @@ use std::rc::Rc;
 
 use leptoskit::scene3d::Op;
 use leptoskit::scene3d::Transform;
+use reapers_rules::Archetype;
 use reapers_rules::HuntEvent;
 use reapers_rules::HuntPhase;
 use reapers_rules::HuntSim;
@@ -27,6 +28,7 @@ use super::arms::HuskMarks;
 use super::controller::FrameEye;
 use super::controller::HuntController;
 use super::controller::PauseStatus;
+use super::overlay::Sight;
 use crate::render::camera::look_at;
 use crate::render::husk::HuskMood;
 use crate::render::husk::HuskRig;
@@ -44,6 +46,7 @@ use crate::seams::ViewmodelProps;
 use crate::seams::WorldView;
 use crate::seams::dive;
 use crate::seams::shake_turn;
+use crate::theme::Rgb;
 
 /// The vertical field of view the hunt is drawn with when there is no
 /// camera picture to match: a browser, a simulator, a refused permission.
@@ -100,8 +103,12 @@ pub struct Arena {
 	pub fov: f64,
 	/// The view's width over its height.
 	pub aspect: f64,
-	/// The reaper's spot, the second ink its blows print in.
-	pub spot: crate::theme::Rgb,
+	/// The reaper's spot, the second ink its blows print in, and the
+	/// hunt's light, the husk's, that the sight shows an open seal in.
+	pub spot: Rgb,
+	pub light: Rgb,
+	/// Where the phone pointed last tick, for the sight.
+	forward: Option<Vec3>,
 	/// The camera last sent, so a still view sends nothing, and its turn.
 	camera: Option<([i32; 10], i32)>,
 	turned: [f32; 4],
@@ -169,6 +176,8 @@ impl Arena {
 			fov: HUNT_FOV,
 			aspect,
 			spot: crate::ink::CHAFF,
+			light: crate::theme::BONE,
+			forward: None,
 			camera: None,
 			turned: [0.0, 0.0, 0.0, 1.0],
 			room_frame: None,
@@ -406,7 +415,17 @@ impl Arena {
 			)),
 		};
 		let turn = self.turn_rate.map(|rate| rate as f32);
-		Some(arms.props(sim, Some(world), turn, self.spot))
+		let mut props = arms.props(sim, Some(world), turn, self.spot);
+		// The sight, while a press can strike and the fight runs.
+		let aiming = matches!(
+			sim.phase(),
+			HuntPhase::Fight | HuntPhase::Windup | HuntPhase::Charge | HuntPhase::Broken
+		) && controller.pause_status() == PauseStatus::Playing;
+		props.sight = self
+			.forward
+			.filter(|_| aiming)
+			.map(|forward| (Sight::of(sim, forward), self.light));
+		Some(props)
 	}
 
 	fn marks(&self) -> HuskMarks {
@@ -489,6 +508,7 @@ impl Arena {
 		};
 		let was_paused = controller.pause_status() != PauseStatus::Playing;
 		let events = controller.frame(delta, &pose, frame_eye);
+		self.forward = Some(pose.forward);
 		let delta = if (was_paused || controller.pause_status() != PauseStatus::Playing)
 			&& !controller.sim().is_over()
 		{
@@ -501,6 +521,27 @@ impl Arena {
 		self.follow_turn(delta, &pose);
 		for (_, event) in &events {
 			match event {
+				HuntEvent::HitLanded {
+					weapon: Archetype::Gun,
+					empowered,
+					seal,
+					critical,
+					..
+				} => {
+					// A shot's impact frame (art bible §11.2): the husk alone
+					// is held, three frames on the body and five on a seal, and
+					// printed in the reaper's spot. Its reaction is never held
+					// again on top, so the hold is the frames it says.
+					let Rgb(red, green, blue) = self.spot;
+					let spot = u32::from_be_bytes([0, red, green, blue]);
+					self.rig.print(crate::render::look::linear(spot));
+					self.rig.stop(if seal.is_some() { 5 } else { 3 });
+					self.rig.hit(
+						*seal,
+						if *empowered || *critical { 1.0 } else { 0.75 },
+						false,
+					);
+				}
 				HuntEvent::HitLanded {
 					empowered,
 					seal,

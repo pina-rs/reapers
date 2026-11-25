@@ -101,6 +101,14 @@ pub trait Messages: Send + Sync {
 	///
 	/// `Behind`
 	fn arms_bench_behind(&self) -> &'static str;
+	/// What the next blow on the bench strikes.
+	///
+	/// `Blow`
+	fn arms_bench_blow(&self) -> &'static str;
+	/// The next blow strikes the husk's body.
+	///
+	/// `Body`
+	fn arms_bench_body(&self) -> &'static str;
 	/// `Bone knife`
 	fn arms_bench_bone_knife(&self) -> &'static str;
 	/// The capture orb after its third pulse, before it seals.
@@ -139,6 +147,10 @@ pub trait Messages: Send + Sync {
 	fn arms_bench_grave_pistol(&self) -> &'static str;
 	/// `Mid-grey`
 	fn arms_bench_grey(&self) -> &'static str;
+	/// Stops the bench's clock, so a blow can be stepped through a frame at a time. Debug builds only.
+	///
+	/// `Hold`
+	fn arms_bench_hold(&self) -> &'static str;
 	/// The arms at rest, breathing.
 	///
 	/// `Rest`
@@ -155,6 +167,10 @@ pub trait Messages: Send + Sync {
 	///
 	/// `Look around`
 	fn arms_bench_look_around(&self) -> &'static str;
+	/// The next blow strikes nothing.
+	///
+	/// `Miss`
+	fn arms_bench_miss(&self) -> &'static str;
 	/// The capture orb missed the husk and went out.
 	///
 	/// `Missed`
@@ -181,10 +197,18 @@ pub trait Messages: Send + Sync {
 	fn arms_bench_reload(&self) -> &'static str;
 	/// `Scythe`
 	fn arms_bench_scythe(&self) -> &'static str;
+	/// The next blow strikes an open seal.
+	///
+	/// `Seal`
+	fn arms_bench_seal(&self) -> &'static str;
 	/// `Sealed`
 	fn arms_bench_sealed(&self) -> &'static str;
 	/// `Stab`
 	fn arms_bench_stab(&self) -> &'static str;
+	/// Moves the held clock on by one sixtieth of a second. Debug builds only.
+	///
+	/// `Step a tick`
+	fn arms_bench_step(&self) -> &'static str;
 	/// A heavy swing at a husk in arm's reach, which lands the moment FIRE is pressed.
 	///
 	/// `Strike`
@@ -567,8 +591,16 @@ pub trait Messages: Send + Sync {
 	fn hunt_held_firm(&self) -> &'static str;
 	/// `Ward −{damage}`
 	fn hunt_hit(&self, damage: i64) -> String;
+	/// The figure printed on a blow's tag: the ward it took, with a true minus.
+	///
+	/// `−{damage}`
+	fn hunt_hit_figure(&self, damage: i64) -> String;
 	/// `Seal ×2 · ward −{damage}`
 	fn hunt_hit_seal(&self, damage: i64) -> String;
+	/// The chip under a blow's tag when it struck an open seal, for twice the harm.
+	///
+	/// `Seal ×2`
+	fn hunt_hit_seal_chip(&self) -> &'static str;
 	/// `When its ring turns gold, hold ORB and let go as the ring closes on it. That is the capture.`
 	fn hunt_how_capture(&self) -> &'static str;
 	/// `When its ring turns red and it runs at you, swing the phone hard across it.`
@@ -2023,6 +2055,14 @@ impl Messages for En {
 		"Behind"
 	}
 
+	fn arms_bench_blow(&self) -> &'static str {
+		"Blow"
+	}
+
+	fn arms_bench_body(&self) -> &'static str {
+		"Body"
+	}
+
 	fn arms_bench_bone_knife(&self) -> &'static str {
 		"Bone knife"
 	}
@@ -2091,6 +2131,10 @@ impl Messages for En {
 		"Mid-grey"
 	}
 
+	fn arms_bench_hold(&self) -> &'static str {
+		"Hold"
+	}
+
 	fn arms_bench_idle(&self) -> &'static str {
 		"Rest"
 	}
@@ -2105,6 +2149,10 @@ impl Messages for En {
 
 	fn arms_bench_look_around(&self) -> &'static str {
 		"Look around"
+	}
+
+	fn arms_bench_miss(&self) -> &'static str {
+		"Miss"
 	}
 
 	fn arms_bench_missed(&self) -> &'static str {
@@ -2155,12 +2203,20 @@ impl Messages for En {
 		"Scythe"
 	}
 
+	fn arms_bench_seal(&self) -> &'static str {
+		"Seal"
+	}
+
 	fn arms_bench_sealed(&self) -> &'static str {
 		"Sealed"
 	}
 
 	fn arms_bench_stab(&self) -> &'static str {
 		"Stab"
+	}
+
+	fn arms_bench_step(&self) -> &'static str {
+		"Step a tick"
 	}
 
 	fn arms_bench_strike(&self) -> &'static str {
@@ -2934,8 +2990,16 @@ impl Messages for En {
 		format!("Ward −{damage}")
 	}
 
+	fn hunt_hit_figure(&self, damage: i64) -> String {
+		format!("−{damage}")
+	}
+
 	fn hunt_hit_seal(&self, damage: i64) -> String {
 		format!("Seal ×2 · ward −{damage}")
+	}
+
+	fn hunt_hit_seal_chip(&self) -> &'static str {
+		"Seal ×2"
 	}
 
 	fn hunt_how_capture(&self) -> &'static str {

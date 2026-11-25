@@ -171,6 +171,7 @@ impl RiftState {
 		);
 		arena.height = size.1;
 		arena.spot = crate::ink::light(loadout.reaper_class);
+		arena.light = Rgb((accent >> 16) as u8, (accent >> 8) as u8, accent as u8);
 		let shared = Shared {
 			environment: arena.environment.clone(),
 			scene: Some(arena.scene.id().0),

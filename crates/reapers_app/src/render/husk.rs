@@ -76,6 +76,8 @@ const RIM: f32 = 0.12;
 
 /// How fast a strike's flash fades, as a share lost each second.
 const FLASH_DECAY: f64 = 7.0;
+/// How long a blow prints the husk in the reaper's spot: four frames.
+pub const PRINT_SECONDS: f64 = 4.0 / 60.0;
 
 /// How dark a shadow is at its darkest, under a body standing on it.
 const SHADOW_OPACITY: f64 = 0.55;
@@ -211,6 +213,10 @@ pub struct HuskRig {
 	effort: f64,
 	flash: f64,
 	punch: f64,
+	/// A blow's print in the reaper's spot, and how long it has left, in
+	/// seconds; and how long the husk is held still by a blow.
+	print: Option<([f32; 3], f64)>,
+	stopped: f64,
 	frost: f64,
 	burn: f64,
 	tuck: f64,
@@ -248,7 +254,7 @@ pub struct HuskRig {
 	/// platform draws the scene from its own view of the room.
 	origin: [f32; 3],
 	/// What was last sent, so a still husk sends nothing.
-	sent: Option<(Transform, Transform, [i32; 6])>,
+	sent: Option<(Transform, Transform, [i32; 7])>,
 	/// Whether what is only for liveliness moves: the tail's swing, the
 	/// wings' beat, the head's shiver and snap and the limbs' flail. Off for
 	/// a player who asked for less motion, read again every frame so a
@@ -321,6 +327,8 @@ impl HuskRig {
 			effort: 0.0,
 			flash: 0.0,
 			punch: 0.0,
+			print: None,
+			stopped: 0.0,
 			frost: 0.0,
 			burn: 0.0,
 			tuck: 0.0,
@@ -366,6 +374,11 @@ impl HuskRig {
 		let frost = self.frost as f32;
 		let burn = self.burn as f32;
 		let flash = self.flash as f32;
+		// A blow's print takes the place of the flash in the husk's light.
+		let (glow, flash) = match self.print {
+			Some((spot, _)) => (spot, 1.0),
+			None => (self.light, flash),
+		};
 		let mut change = match material {
 			"body" => {
 				MaterialOverride {
@@ -435,7 +448,7 @@ impl HuskRig {
 			}
 		};
 		// Ice whitens and blues it; fire lights it from within; a strike
-		// flashes it in its own light.
+		// flashes it in its own light, or prints it in the reaper's spot.
 		if let Some(colour) = change.color.as_mut() {
 			for (channel, ice) in colour.iter_mut().zip([0.55, 0.75, 0.95]) {
 				*channel += (ice - *channel) * 0.6 * frost;
@@ -444,7 +457,7 @@ impl HuskRig {
 		if material != "accent" && material != "glow" {
 			let ember = [1.0, 0.36, 0.08];
 			change.emissive =
-				Some([0, 1, 2].map(|channel| ember[channel] * burn + self.light[channel] * flash));
+				Some([0, 1, 2].map(|channel| ember[channel] * burn + glow[channel] * flash));
 			change.emissive_strength = Some(1.5 * burn + 2.0 * flash);
 		}
 		change.opacity = Some((1.0 - self.dissolved) as f32);
@@ -564,6 +577,21 @@ impl HuskRig {
 		self.punch = self.punch.max(strength);
 	}
 
+	/// Prints the husk in the reaper's `spot`, linear RGB, for
+	/// [`PRINT_SECONDS`], as a blow lands (art bible §11.2): in place of its
+	/// flash, at full strength.
+	pub fn print(&mut self, spot: [f32; 3]) {
+		self.print = Some((spot, PRINT_SECONDS));
+		self.punch = 1.0;
+	}
+
+	/// Holds the husk still for `frames` sixtieths of a second, as a blow
+	/// lands: the impact frame, on the husk alone (art bible §11.2). Its print
+	/// and its flash hold with it.
+	pub fn stop(&mut self, frames: u32) {
+		self.stopped = self.stopped.max(f64::from(frames) / 60.0);
+	}
+
 	/// How much of the husk has come apart, from 0 (whole) to 1 (gone).
 	pub fn dissolve(&mut self, amount: f64) {
 		self.dissolved = amount.clamp(0.0, 1.0);
@@ -620,6 +648,17 @@ impl HuskRig {
 		// The seals are drawn where the rules put them: while the ward
 		// holds, nothing that moves the body under them may play.
 		self.gait.set_bouncy(!plight.ward_holds());
+		// A blow's impact frame holds the husk's own time still; the print
+		// counts down through it, so it shows for its frames whatever the hold.
+		// Each is counted in whole frames: one that has less than half a frame
+		// left is over.
+		let stopping = self.stopped > delta / 2.0;
+		self.stopped = (self.stopped - delta).max(0.0);
+		self.print = self
+			.print
+			.map(|(spot, left)| (spot, left - delta))
+			.filter(|(_, left)| *left > -delta / 2.0);
+		let delta = if stopping { 0.0 } else { delta };
 		let reaction = &mut self.reaction;
 		reaction.step(delta, plight);
 		let played = delta * reaction.time_scale();
@@ -694,6 +733,7 @@ impl HuskRig {
 			quantum(self.dissolved),
 			quantum(eye_glow),
 			i32::from(shadow),
+			i32::from(self.print.is_some()),
 		];
 		let changed = self.sent.map(|(_, _, sent)| sent != looks);
 		if self.sent.map(|(sent, ..)| sent) != Some(root) {
@@ -1220,6 +1260,47 @@ mod tests {
 				.iter()
 				.any(|op| matches!(op, Op::SetMaterial { .. }))
 		);
+	}
+
+	#[test]
+	fn a_blow_prints_the_husk_four_frames_and_stops_it_three_or_five() {
+		let scene = Scene::new(leptoskit::scene3d::SceneId(41));
+		let nft = market_listings()[0];
+		for fps in [60.0, 120.0] {
+			for (frames, stopped) in [(3, 3), (5, 5)] {
+				let mut rig = HuskRig::spawn(&scene, nft.collection.vessel(), &nft);
+				rig.place(&HuskPose::new(
+					nft.collection.vessel(),
+					reapers_rules::Vec3::new(0.0, 0.0, -2.0),
+					std::f64::consts::PI,
+				));
+				let step = |rig: &mut HuskRig| {
+					rig.animate(
+						&scene,
+						1.0 / fps,
+						HuskMood::default(),
+						HuskPlight::default(),
+					);
+				};
+				step(&mut rig);
+				rig.reaction.hit(0.0, 1.0, 1.0, false);
+				rig.print([0.9, 0.6, 0.2]);
+				rig.stop(frames);
+				let mut printed = 0;
+				let mut held = 0;
+				for _ in 0..(fps as usize / 4) {
+					// The reaction to the blow is what a stop holds still.
+					let before = format!("{:?}", rig.reaction);
+					step(&mut rig);
+					printed += usize::from(rig.print.is_some());
+					held += usize::from(format!("{:?}", rig.reaction) == before);
+				}
+				let per = fps as usize / 60;
+				assert_eq!(printed, 4 * per, "{fps} fps: four sixtieths in spot");
+				assert_eq!(held, stopped * per, "{fps} fps: held {frames} frames");
+			}
+		}
+		let _ = scene.take_ops();
 	}
 
 	#[test]

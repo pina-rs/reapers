@@ -7,6 +7,7 @@
 
 pub mod arena;
 pub mod arms;
+pub mod blow;
 pub mod controller;
 pub mod controls;
 pub mod environment;

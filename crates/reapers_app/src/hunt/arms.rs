@@ -156,6 +156,7 @@ impl Arms {
 			HuntEvent::HitLanded {
 				weapon,
 				damage,
+				cadence,
 				critical,
 				seal,
 				..
@@ -172,7 +173,7 @@ impl Arms {
 					self.juice.land(jolt, landed);
 				}
 				let at = seal.map_or(sim.pose().position, |seal| sim.pose().seal_position(seal));
-				self.hit = Some(husk.hit(landed, at, *damage, *critical));
+				self.hit = Some(husk.hit(landed, at, *damage, *critical, seal.is_some(), *cadence));
 			}
 			HuntEvent::Missed(weapon) => self.strike(*weapon, tick),
 			HuntEvent::ArtLanded {
@@ -181,8 +182,8 @@ impl Arms {
 				damage,
 				..
 			} => {
-				self.juice.land(Jolt::SealShot, tick);
-				self.hit = Some(husk.hit(tick, *at, *damage, false));
+				self.juice.land(Jolt::ArtHit, tick);
+				self.hit = Some(husk.hit(tick, *at, *damage, false, false, 1));
 			}
 			HuntEvent::Parried => {
 				self.play(ViewAction::Parry, tick);
@@ -308,6 +309,7 @@ impl Arms {
 			world,
 			hit: self.hit,
 			spot,
+			sight: None,
 		}
 	}
 }
@@ -326,8 +328,17 @@ pub struct HuskMarks {
 
 impl HuskMarks {
 	/// A blow seen to strike on `tick` at `at`, a point in the hunt's space
-	/// on the husk, drawn on its near side.
-	fn hit(&self, tick: i64, at: Vec3, damage: f64, crit: bool) -> HitView {
+	/// on the husk, drawn on its near side: on an open seal or not, and the
+	/// `cadence`th hit in a row.
+	fn hit(
+		&self,
+		tick: i64,
+		at: Vec3,
+		damage: f64,
+		crit: bool,
+		seal: bool,
+		cadence: i64,
+	) -> HitView {
 		let way = at - self.eye;
 		let distance = way.length();
 		let near = if distance > NEAR_SIDE * 2.0 {
@@ -340,6 +351,8 @@ impl HuskMarks {
 			at: self.scene_point(near),
 			damage: damage.round() as i64,
 			crit,
+			seal,
+			cadence,
 			color: self.light,
 		}
 	}
@@ -496,7 +509,7 @@ mod tests {
 			eye: Vec3::new(1.0, 0.0, 0.0),
 			light: [1.0; 3],
 		};
-		let hit = marks.hit(0, Vec3::new(0.0, 0.0, 2.0), 1.0, false);
+		let hit = marks.hit(0, Vec3::new(0.0, 0.0, 2.0), 1.0, false, false, 1);
 		assert!(hit.at[0] > 1.0);
 		assert!(hit.at[2] > 1.0);
 	}

@@ -253,6 +253,7 @@ impl HuntState {
 		);
 		arena.height = size.1;
 		arena.spot = crate::ink::light(props.brief.loadout.reaper_class);
+		arena.light = light_of(&props.brief);
 		let shared = Shared {
 			environment: arena.environment.clone(),
 			scene: Some(arena.scene.id().0),

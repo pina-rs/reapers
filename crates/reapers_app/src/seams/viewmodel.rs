@@ -42,9 +42,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use leptoskit::native::animation::Easing;
-use leptoskit::native::animation::Keyframe;
-use leptoskit::native::animation::Keyframes;
 use leptoskit::native::reactive::For;
 use leptoskit::prelude::*;
 use leptoskit::scene3d::SceneId;
@@ -56,7 +53,10 @@ use reapers_rules::OrbView;
 use reapers_rules::WeaponKind;
 use reapers_world::pose::to_platform;
 
+use crate::hunt::blow;
+use crate::hunt::blow::TagLook;
 use crate::hunt::marks;
+use crate::hunt::overlay::Sight;
 use crate::ink;
 use crate::render::arms;
 use crate::render::arms::TICKS_PER_SECOND;
@@ -83,7 +83,6 @@ use crate::render::turn::view_turn;
 use crate::render::viewmodel::VIEWMODEL_FOV;
 use crate::render::viewmodel::ViewmodelRig;
 use crate::render::viewmodel::place;
-use crate::theme::BONE;
 use crate::theme::Rgb;
 
 /// The arms' own scene.
@@ -94,8 +93,6 @@ const TRACER_FRAMES: f32 = 4.0;
 const TRACER_FRAME_SECONDS: f32 = 1.0 / 30.0;
 /// How long a burst of shards flies, in seconds.
 const SHARD_SECONDS: f32 = 0.4;
-/// How long a damage number floats, in milliseconds.
-const NUMBER_MILLIS: f32 = 800.0;
 
 /// The room the effects are drawn in: the world's scene and its camera.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -125,6 +122,10 @@ pub struct HitView {
 	pub at: Point,
 	pub damage: i64,
 	pub crit: bool,
+	/// Whether it struck an open seal, and the hits in a row it is, counting
+	/// itself.
+	pub seal: bool,
+	pub cadence: i64,
 	/// The husk's own light. Its shards fly in this colour, never white.
 	pub color: [f32; 3],
 }
@@ -158,6 +159,9 @@ pub struct ViewmodelProps {
 	pub hit: Option<HitView>,
 	/// The reaper's spot, the second ink its marks are printed in.
 	pub spot: Rgb,
+	/// The sight at the middle of the view, while there is one: what a press
+	/// would do now, and the light it shows an open seal in.
+	pub sight: Option<(Sight, Rgb)>,
 }
 
 impl ViewmodelProps {
@@ -177,6 +181,7 @@ impl ViewmodelProps {
 			world: None,
 			hit: None,
 			spot: ink::CHAFF,
+			sight: None,
 		}
 	}
 
@@ -215,16 +220,19 @@ pub fn shake_turn(juice: &Juice, tick: f64, fov_y: f32, height: f32) -> [f32; 4]
 	view_turn(shake.x * most, shake.y * most, shake.roll * most)
 }
 
-/// A damage number, rising from where the blow struck.
+/// A blow that landed, as its marks remember it.
 #[derive(Clone, Copy, Debug, PartialEq)]
-struct Number {
-	/// The tick of the blow, which tells numbers apart.
-	tick: i64,
-	/// Where it rises from, in percent of the view's width and height.
-	x: f32,
-	y: f32,
-	damage: i64,
-	crit: bool,
+struct Landed {
+	hit: HitView,
+	/// Where it struck from the husk's middle, in the scene: its splat goes
+	/// where the husk goes.
+	from_husk: Point,
+	/// The way the shot crossed the screen, as a unit vector.
+	toward: marks::At,
+	/// Where the middle of its tag stands before it rises, and the slip's
+	/// size.
+	tag: marks::At,
+	slip: marks::At,
 }
 
 /// The seam's state between renders.
@@ -246,7 +254,10 @@ struct Seam {
 	thrown: Option<(i64, Point)>,
 	/// The latest two blows: two bursts of shards in flight at once.
 	shards: [Option<HitView>; 2],
-	numbers: RwSignal<Vec<Number>>,
+	/// The latest blows that landed, oldest first, while their marks show.
+	landed: Vec<Landed>,
+	/// The tags the marks' layer shows.
+	tags: RwSignal<Vec<TagLook>>,
 	/// What was last printed over the view, and the print the marks' layer
 	/// shows, numbered so that a changed print replaces the last.
 	print: Option<marks::Print>,
@@ -272,7 +283,8 @@ fn seam() -> Rc<RefCell<Seam>> {
 				trailing: arms::Trailing::default(),
 				thrown: None,
 				shards: [None; 2],
-				numbers: crate::ui::lasting(|| RwSignal::new(Vec::new())),
+				landed: Vec::new(),
+				tags: crate::ui::lasting(|| RwSignal::new(Vec::new())),
 				print: None,
 				prints: 0,
 				printed: crate::ui::lasting(|| RwSignal::new(Vec::new())),
@@ -385,17 +397,24 @@ impl Seam {
 		.max(0.0) as f32;
 		self.trailing
 			.follow(&mut pose, props.turn_rate, seconds, moved, lively);
-		let print = props.world.map(|world| {
-			let shot = Shot {
-				props: &props,
-				since,
-				clock,
-				cut: self.cut,
-				lively,
-			};
-			shot.print(&world, shown, &untrailed, &pose)
-		});
+		let (print, tags) = match props.world {
+			Some(world) => {
+				let shot = Shot {
+					props: &props,
+					since,
+					clock,
+					cut: self.cut,
+					lively,
+				};
+				let mut print = shot.print(&world, shown, &untrailed, &pose);
+				self.land(&props, &world, shown, &pose, print.view);
+				let tags = self.blows(&mut print, &props, &world, shown);
+				(Some(print), tags)
+			}
+			None => (None, Vec::new()),
+		};
 		self.show_print(print);
+		self.show_tags(tags);
 		let arms_scene = scene(VIEWMODEL);
 		let ops = arms_scene.ops();
 		let rig = self.rig.get_or_insert_with(|| ViewmodelRig::spawn(ops));
@@ -413,7 +432,7 @@ impl Seam {
 		}
 	}
 
-	/// Shows the orb, the tracer, the shards and the numbers in the world.
+	/// Shows the orb, the tracer and the shards in the world.
 	fn show_world(
 		&mut self,
 		props: &ViewmodelProps,
@@ -434,7 +453,7 @@ impl Seam {
 			self.shards = [None; 2];
 			self.thrown = None;
 			self.trailing = arms::Trailing::default();
-			self.numbers.set(Vec::new());
+			self.landed.clear();
 		}
 		let mut frame = WorldFrame {
 			eye: world.camera.translation,
@@ -453,9 +472,6 @@ impl Seam {
 		}
 		for (slot, shard) in self.shards.iter().enumerate() {
 			frame.sparks[slot] = shard.and_then(|hit| shards(&hit, tick));
-		}
-		if let Some(hit) = props.hit {
-			self.number(world, &hit, tick);
 		}
 		if let Some((_, _, fx)) = &mut self.world {
 			fx.show(ops, &frame, seconds);
@@ -489,32 +505,119 @@ impl Seam {
 		(orb::look(orb, ticks, &place), target)
 	}
 
-	/// Puts up the number for `hit` the moment it lands.
-	fn number(&self, world: &WorldView, hit: &HitView, tick: f64) {
-		let landed = tick - hit.tick as f64;
-		if !(0.0..f64::from(TICKS_PER_SECOND)).contains(&landed) {
+	/// Remembers the latest blow once it has landed, by the hunt's tick
+	/// `shown`, with the arms at `pose`, on a view `view` points big: where it
+	/// struck the husk, the way the shot crossed the screen, and where its tag
+	/// stands. Blows whose marks have all gone are forgotten, and no more than
+	/// [`blow::MOST_TAGS`] are kept: a fourth sends the oldest at once.
+	fn land(
+		&mut self,
+		props: &ViewmodelProps,
+		world: &WorldView,
+		shown: f64,
+		pose: &arms::Pose,
+		view: marks::At,
+	) {
+		let showing = |tick: i64| blow::beat(marks::frames_since(shown, tick)) < blow::TAG_GONE;
+		self.landed.retain(|landed| showing(landed.hit.tick));
+		let Some(hit) = props.hit else {
 			return;
-		}
-		if self
-			.numbers
-			.with_untracked(|numbers| numbers.iter().any(|number| number.tick == hit.tick))
+		};
+		if marks::frames_since(shown, hit.tick) < 0
+			|| !showing(hit.tick)
+			|| self.landed.iter().any(|landed| landed.hit.tick == hit.tick)
 		{
 			return;
 		}
-		let Some((x, y)) = project(world, hit.at) else {
+		let Some(at) = screen_point(world, hit.at, view) else {
 			return;
 		};
-		self.numbers.update(|numbers| {
-			// Only numbers still rising are kept.
-			numbers.retain(|number| hit.tick - number.tick < 60);
-			numbers.push(Number {
-				tick: hit.tick,
-				x,
-				y,
-				damage: hit.damage,
-				crit: hit.crit,
+		// The shot crossed the screen from the muzzle; anything else is
+		// taken to come up from the hand, low and to the right.
+		let toward = on_screen(place(props.archetype, pose).muzzle, view)
+			.map(|from| (at.0 - from.0, at.1 - from.1))
+			.filter(|(across, down)| across.hypot(*down) > 1.0)
+			.map_or((-0.6, -0.8), |(across, down)| {
+				let length = across.hypot(down);
+				(across / length, down / length)
 			});
+		let figure = crate::app::messages().hunt_hit_figure(hit.damage);
+		let slip = blow::slip_size(figure.chars().count(), blow::figure_size(hit.cadence));
+		let tag = match self.landed.last() {
+			Some(last) if hit.tick - last.hit.tick < blow::STACK_BEATS => {
+				blow::keep_clear((last.tag.0, last.tag.1 - blow::STACK), view, slip)
+			}
+			_ => blow::tag_place(at, hit.tick, view, slip),
+		};
+		self.landed.push(Landed {
+			hit,
+			from_husk: sub(hit.at, world.husk),
+			toward,
+			tag,
+			slip,
 		});
+		if self.landed.len() > blow::MOST_TAGS {
+			self.landed.remove(0);
+		}
+	}
+
+	/// Adds the splats of the blows that landed to `print`, with the sight
+	/// stepped out for the latest, and returns their tags, at the hunt's tick
+	/// `shown`. A splat goes where the husk goes; a tag stays where it was
+	/// put, and rises.
+	fn blows(
+		&self,
+		print: &mut marks::Print,
+		props: &ViewmodelProps,
+		world: &WorldView,
+		shown: f64,
+	) -> Vec<TagLook> {
+		let words = crate::app::messages();
+		let mut out = 0.0_f64;
+		let mut tags = Vec::new();
+		for landed in &self.landed {
+			let hit = landed.hit;
+			let beat = blow::beat(marks::frames_since(shown, hit.tick));
+			out = out.max(blow::sight_out(beat));
+			if blow::coverage(beat) > 0.0
+				&& let Some(at) = screen_point(world, add(world.husk, landed.from_husk), print.view)
+			{
+				print.splats.push(blow::Splat {
+					at,
+					radius: if hit.seal {
+						blow::SEAL_SPLAT
+					} else {
+						blow::BODY_SPLAT
+					},
+					toward: landed.toward,
+					seed: hit.tick,
+					beat,
+				});
+			}
+			if let Some((scale, rise)) = blow::tag(beat) {
+				tags.push(TagLook {
+					tick: hit.tick,
+					centre: (landed.tag.0, landed.tag.1 - rise),
+					slip: landed.slip,
+					turn: blow::tag_turn(hit.tick),
+					scale,
+					figure: words.hunt_hit_figure(hit.damage),
+					size: blow::figure_size(hit.cadence),
+					chip: hit.seal.then(|| words.hunt_hit_seal_chip().to_owned()),
+					spot: props.spot,
+				});
+			}
+		}
+		print.sight = props.sight.map(|(sight, light)| (sight, light, out));
+		tags
+	}
+
+	/// Hands the marks' layer `tags`, if they differ from what it shows.
+	fn show_tags(&self, tags: Vec<TagLook>) {
+		if self.tags.with_untracked(|shown| *shown == tags) {
+			return;
+		}
+		self.tags.set(tags);
 	}
 
 	/// Hands the marks' layer `print`, if it differs from what it shows.
@@ -534,8 +637,9 @@ impl Seam {
 	fn hide_world(&mut self) {
 		self.shards = [None; 2];
 		self.thrown = None;
-		self.numbers.set(Vec::new());
+		self.landed.clear();
 		self.show_print(None);
+		self.show_tags(Vec::new());
 		let Some((key, id, fx)) = &mut self.world else {
 			return;
 		};
@@ -629,6 +733,13 @@ fn project(world: &WorldView, point: Point) -> Option<(f32, f32)> {
 	Some((50.0 + 50.0 * x, 50.0 - 50.0 * y))
 }
 
+/// Where `point`, in the world's scene, is drawn on a view `view` points
+/// wide and high, or `None` behind the eye.
+fn screen_point(world: &WorldView, point: Point, view: marks::At) -> Option<marks::At> {
+	project(world, point)
+		.map(|(x, y)| (f64::from(x) / 100.0 * view.0, f64::from(y) / 100.0 * view.1))
+}
+
 /// Where `point`, in the arms' view, is drawn on a view `view` points wide
 /// and high, or `None` behind the eye.
 fn on_screen(point: Point, view: marks::At) -> Option<marks::At> {
@@ -719,7 +830,11 @@ impl Shot<'_> {
 /// no touches. Every frame's marks are worked out by the seam that
 /// [`viewmodel_view`] keeps ticking.
 pub fn viewmodel_marks() -> Element {
-	let printed = seam().borrow().printed;
+	let (printed, tags) = {
+		let seam = seam();
+		let seam = seam.borrow();
+		(seam.printed, seam.tags)
+	};
 	View()
 		.class("absolute inset-0 overflow-hidden")
 		.test_id("viewmodel-marks")
@@ -733,15 +848,31 @@ pub fn viewmodel_marks() -> Element {
 			.class("absolute inset-0")
 			.aria_hidden(true),
 		)
+		// A blow's tag over its splat: each is placed, turned and scaled by
+		// itself, and made afresh as it moves.
+		.child(
+			For(
+				move || tags.get(),
+				|tag| {
+					(
+						tag.tick,
+						(tag.centre.1 * 4.0).round() as i64,
+						(tag.scale * 100.0).round() as i64,
+					)
+				},
+				blow::tag_view,
+			)
+			.class("absolute inset-0")
+			.aria_hidden(true),
+		)
 }
 
-/// The arms over whatever is under them, and the damage numbers: a box
-/// filling its parent, that takes no touches.
+/// The arms over whatever is under them: a box filling its parent, that
+/// takes no touches.
 pub fn viewmodel_view(props: &ViewmodelProps) -> Element {
 	let seam = seam();
 	viewmodel_show(props);
 	mount(&seam);
-	let numbers = seam.borrow().numbers;
 	let id = scene(VIEWMODEL).id();
 	if let Some(world) = props.world {
 		let target = scene(world.scene).id();
@@ -764,58 +895,6 @@ pub fn viewmodel_view(props: &ViewmodelProps) -> Element {
 			Scene3d(id)
 				.class("absolute inset-0 w-full h-full")
 				.aria_hidden(true),
-		)
-		// The list itself covers the view: each number is placed by a
-		// percentage of it.
-		.child(
-			For(move || numbers.get(), |number| number.tick, number_view)
-				.class("absolute inset-0")
-				.aria_hidden(true),
-		)
-}
-
-/// A damage number: it pops, rises and fades on the platform's own clock.
-/// A critical one is bigger, and gold.
-fn number_view(number: Number) -> Element {
-	let (size, colour, pop) = if number.crit {
-		(34, "#ffc24a".to_owned(), 1.7)
-	} else {
-		(22, BONE.hex(), 1.35)
-	};
-	let rise = Keyframes::new(
-		NUMBER_MILLIS,
-		[
-			Keyframe::at(0.0)
-				.opacity(1.0)
-				.transform(leptoskit::native::Transform::scale(pop))
-				.easing(Easing::EASE_OUT),
-			Keyframe::at(0.18)
-				.opacity(1.0)
-				.transform(leptoskit::native::Transform::IDENTITY),
-			Keyframe::at(0.6).opacity(1.0),
-			Keyframe::at(1.0)
-				.opacity(0.0)
-				.transform(leptoskit::native::Transform::translate(0.0, -44.0)),
-		],
-	);
-	// The anchor sits on the blow; the label is centred on it. At rest it
-	// is unseen, so it is gone once its rise ends.
-	View()
-		.class(format!(
-			"absolute left-[{:.1}%] top-[{:.1}%] w-0 h-0",
-			number.x, number.y
-		))
-		.child(
-			View()
-				.class(
-					"absolute left-[-60px] top-[-24px] w-[120px] h-[48px] items-center justify-center",
-				)
-				.opacity(0.0)
-				.keyframes(rise)
-				.child(
-					Text(number.damage.to_string())
-						.class(format!("text-[{size}px] font-bold text-[{colour}]")),
-				),
 		)
 }
 
@@ -868,6 +947,8 @@ mod tests {
 			at: world.husk,
 			damage: 12,
 			crit: false,
+			seal: false,
+			cadence: 1,
 			color: [0.9, 0.2, 0.3],
 		};
 		assert!(shards(&hit, 119.0).is_none());
@@ -940,6 +1021,124 @@ mod tests {
 		assert!(smear[3].1 > smear[0].1, "the muzzle rose: {smear:?}");
 		// Only the pistol fires so.
 		assert!(shot_print(Archetype::Blade, 101.0, true).is_blank());
+	}
+
+	/// A seal shot on tick 100 for 27, its pistol at rest, on a phone.
+	fn seal_shot() -> (ViewmodelProps, WorldView) {
+		let mut world = world();
+		world.height = 844.0;
+		world.aspect = 390.0 / 844.0;
+		let mut props = ViewmodelProps::at_rest(Archetype::Gun, WeaponKind::Scythe, 100);
+		props.action = ViewAction::Fire;
+		props.action_tick = 100;
+		props.world = Some(world);
+		props.sight = Some((Sight::Seal, BONE_LIGHT));
+		props.hit = Some(HitView {
+			tick: 100,
+			at: world.husk,
+			damage: 27,
+			crit: true,
+			seal: true,
+			cadence: 1,
+			color: [0.9, 0.2, 0.3],
+		});
+		(props, world)
+	}
+
+	const BONE_LIGHT: Rgb = Rgb(0xE9, 0xE4, 0xD4);
+
+	/// What the seam prints for `props` at the hunt's tick `shown`: the
+	/// print, and the tags.
+	fn printed_at(
+		seam: &mut Seam,
+		props: &ViewmodelProps,
+		world: &WorldView,
+		shown: f64,
+	) -> (marks::Print, Vec<TagLook>) {
+		let pose = arms::flowing(props.manner(), ViewAction::Idle, 0.0, 0.0, None, true);
+		let mut print = marks::Print::blank((390.0, 844.0), props.spot);
+		seam.land(props, world, shown, &pose, print.view);
+		let tags = seam.blows(&mut print, props, world, shown);
+		(print, tags)
+	}
+
+	#[test]
+	fn a_blow_keeps_to_the_hit_table_on_the_frame_its_sound_plays() {
+		let (props, world) = seal_shot();
+		let seam = seam();
+		let mut seam = seam.borrow_mut();
+		seam.landed.clear();
+		let mut splats = Vec::new();
+		let mut out = Vec::new();
+		let mut tags = Vec::new();
+		for shown in 100..=152 {
+			let (print, tagged) = printed_at(&mut seam, &props, &world, f64::from(shown));
+			if let Some(splat) = print.splats.first() {
+				splats.push((shown, splat.beat, splat.radius));
+			}
+			if print.sight.is_some_and(|(_, _, stepped)| stepped > 0.0) {
+				out.push(shown);
+			}
+			if let Some(tag) = tagged.first() {
+				tags.push((shown, tag.scale, tag.centre.1));
+			}
+		}
+		// The blow's tick is heard on tick 101, the shot's first frame, with
+		// the impact's sound: the splat lands then, as the bible's f1.
+		assert_eq!(splats.first(), Some(&(101, 1, blow::SEAL_SPLAT)));
+		assert_eq!(
+			splats.last().map(|splat| splat.0),
+			Some(133),
+			"wiped by f34"
+		);
+		assert_eq!(out, [101, 102], "the sight steps out on f1 and f2");
+		assert_eq!(
+			tags.first().map(|tag| (tag.0, tag.1)),
+			Some((102, 1.15)),
+			"f2"
+		);
+		assert_eq!(tags[2].1, 1.0, "f4");
+		assert_eq!(tags.last().map(|tag| tag.0), Some(150), "gone at 850 ms");
+		assert!(tags[30].2 < tags[2].2 - 17.0, "it has risen: {tags:?}");
+		assert!(seam.landed.is_empty(), "and forgotten");
+		// Its tag says what it did.
+		let (_, tagged) = printed_at(&mut seam, &props, &world, 105.0);
+		let tag = &tagged[0];
+		assert_eq!(tag.figure, "−27");
+		assert_eq!(tag.size, 40);
+		assert_eq!(tag.chip.as_deref(), Some("Seal ×2"));
+	}
+
+	#[test]
+	fn a_quick_second_blow_stacks_its_tag_and_a_fourth_sends_the_first() {
+		let (mut props, world) = seal_shot();
+		let seam = seam();
+		let mut seam = seam.borrow_mut();
+		seam.landed.clear();
+		printed_at(&mut seam, &props, &world, 101.0);
+		let mut next = props.hit.unwrap();
+		next.tick = 120;
+		props.hit = Some(next);
+		let (_, tags) = printed_at(&mut seam, &props, &world, 121.0);
+		let first = seam.landed[0].tag;
+		let second = seam.landed[1].tag;
+		assert_eq!(tags.len(), 1, "the second's tag waits for f2");
+		assert!(
+			(second.1 - (first.1 - blow::STACK)).abs() < 1.0e-9,
+			"{first:?} {second:?}"
+		);
+		for tick in [130, 140] {
+			next.tick = tick;
+			props.hit = Some(next);
+			printed_at(&mut seam, &props, &world, tick as f64 + 1.0);
+		}
+		assert_eq!(seam.landed.len(), blow::MOST_TAGS);
+		assert_eq!(seam.landed[0].hit.tick, 120, "the oldest left at once");
+		// A miss lands nothing.
+		seam.landed.clear();
+		props.hit = None;
+		let (print, tags) = printed_at(&mut seam, &props, &world, 101.0);
+		assert!(print.splats.is_empty() && tags.is_empty());
 	}
 
 	#[test]

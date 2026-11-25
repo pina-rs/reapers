@@ -320,7 +320,6 @@ impl Sketch {
 	}
 
 	/// The paths drawn so far, for a drawing of the caller's own.
-	#[cfg(test)]
 	pub(crate) fn into_paths(self) -> Vec<VectorPath> {
 		self.paths
 	}
@@ -628,10 +627,12 @@ fn edge_pointer(sketch: &mut Sketch, lens: &Lens, target: Vec3, light: Rgb, puls
 /// away the husk is.
 const SEAL_RADIUS: f64 = 26.0;
 
-/// Everything over a fight: the ring under the husk, the crosshair, the
-/// seals, the shriek's edge, the orb's ring and the bruise of a blow. The
-/// orb itself is in the world, with the reaper's arms. `show_order` numbers
-/// open seals in the order they opened (the Weigher's perk).
+/// Everything over a fight: the ring under the husk, the seals, the
+/// shriek's edge, the orb's ring and the bruise of a blow. The orb itself is
+/// in the world, with the reaper's arms, and the crosshair is printed with
+/// the marks of their blows ([`crate::seams::viewmodel_marks`]), which step
+/// it out the frame a blow lands. `show_order` numbers open seals in the
+/// order they opened (the Weigher's perk).
 pub fn fight(
 	sketch: &mut Sketch,
 	lens: &Lens,
@@ -664,7 +665,6 @@ pub fn fight(
 			seals(sketch, lens, sim, light, seconds, show_order);
 			if !paused {
 				orb_ring(sketch, lens, sim);
-				crosshair(sketch, lens, sim, light);
 			}
 			if sim.phase() == HuntPhase::Charge
 				&& let Some(at) = seen()
@@ -684,7 +684,6 @@ pub fn fight(
 			husk_ring(sketch, lens, sim, seconds);
 			if !paused {
 				orb_ring(sketch, lens, sim);
-				crosshair(sketch, lens, sim, light);
 			}
 		}
 		HuntPhase::Capture => husk_ring(sketch, lens, sim, seconds),
@@ -927,13 +926,19 @@ impl Sight {
 	}
 }
 
-/// The crosshair at the middle of the screen, where every weapon and every
-/// orb goes: four open arms when a press would miss, arms closed in when it
-/// would strike, a ring round them on an open seal, and a cross when the
-/// husk is too far for the weapon in hand.
-fn crosshair(sketch: &mut Sketch, lens: &Lens, sim: &HuntSim, light: Rgb) {
-	let sight = Sight::of(sim, lens.pose.forward);
-	let (cx, cy) = lens.centre();
+/// The crosshair at `centre`, the middle of the screen, where every weapon
+/// and every orb goes: four open arms when a press would miss, arms closed
+/// in when it would strike, a ring round them on an open seal, and a cross
+/// when the husk is too far for the weapon in hand. Its arms stand `out`
+/// further from the middle, as they do for an instant when a blow lands.
+pub(crate) fn crosshair(
+	sketch: &mut Sketch,
+	centre: (f64, f64),
+	sight: Sight,
+	light: Rgb,
+	out: f64,
+) {
+	let (cx, cy) = centre;
 	let (tint, alpha, width, gap) = match sight {
 		Sight::Off => (BONE, 0.75, 1.6, 7.0),
 		Sight::TooFar => (crate::theme::ASH, 0.9, 1.8, 7.0),
@@ -945,32 +950,37 @@ fn crosshair(sketch: &mut Sketch, lens: &Lens, sim: &HuntSim, light: Rgb) {
 	// room as well as a dark one.
 	let shadow = colour(SHADOW, 0.55);
 	let arm = 9.0;
-	let stroke = |sketch: &mut Sketch, from: (f64, f64), to: (f64, f64)| {
-		sketch.line(from, to, shadow, width + 2.0);
-		sketch.line(from, to, paint, width);
+	// The four arms, as one path drawn twice: its dark edge, then its paint.
+	// The cross of a husk too far meets in the middle; open arms stand off it.
+	let (turn, near) = if sight == Sight::TooFar {
+		(FRAC_PI_2 / 2.0, out)
+	} else {
+		(0.0, gap + out)
 	};
-	if sight == Sight::TooFar {
-		for side in 0..4 {
-			let angle = FRAC_PI_2 / 2.0 + f64::from(side) * FRAC_PI_2;
-			let (dx, dy) = (angle.cos(), angle.sin());
-			stroke(sketch, (cx, cy), (cx + dx * arm, cy + dy * arm));
-		}
-		return;
-	}
+	let mut arms = Vec::with_capacity(8);
 	for side in 0..4 {
-		let angle = f64::from(side) * FRAC_PI_2;
+		let angle = turn + f64::from(side) * FRAC_PI_2;
 		let (dx, dy) = (angle.cos(), angle.sin());
-		stroke(
-			sketch,
-			(cx + dx * gap, cy + dy * gap),
-			(cx + dx * (gap + arm), cy + dy * (gap + arm)),
-		);
+		for (reach, first) in [(near, true), (near + arm, false)] {
+			let at = Point::new(unit(cx + dx * reach), unit(cy + dy * reach));
+			arms.push(if first {
+				PathCommand::MoveTo(at)
+			} else {
+				PathCommand::LineTo(at)
+			});
+		}
+	}
+	sketch.push_commands(arms.clone(), None, Some((shadow, width + 2.0)));
+	sketch.push_commands(arms, None, Some((paint, width)));
+	if sight == Sight::TooFar {
+		return;
 	}
 	sketch.dot((cx, cy), 2.8, shadow);
 	sketch.dot((cx, cy), 1.6, paint);
 	if sight == Sight::Seal {
-		sketch.ring((cx, cy), gap + arm + 5.0, shadow, 3.6);
-		sketch.ring((cx, cy), gap + arm + 5.0, colour(light, 0.9), 1.6);
+		let radius = gap + out + arm + 5.0;
+		sketch.ring((cx, cy), radius, shadow, 3.6);
+		sketch.ring((cx, cy), radius, colour(light, 0.9), 1.6);
 	}
 }
 

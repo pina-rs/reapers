@@ -631,6 +631,17 @@
       "damage": { "type": "int" }
     }
   },
+  "huntHitFigure": "−{damage}",
+  "@huntHitFigure": {
+    "description": "The figure printed on a blow's tag: the ward it took, with a true minus.",
+    "placeholders": {
+      "damage": { "type": "int" }
+    }
+  },
+  "huntHitSealChip": "Seal ×2",
+  "@huntHitSealChip": {
+    "description": "The chip under a blow's tag when it struck an open seal, for twice the harm."
+  },
   "huntMissed": "Miss · keep it in the crosshair",
   "huntPromptWindup": "It is drawing breath.",
   "huntPromptHold": "Do not flinch",
@@ -1361,6 +1372,18 @@
   "armsBenchQuarterSpeed": "Quarter speed",
   "armsBenchLookAround": "Look around",
   "@armsBenchLookAround": { "description": "Turns the view slowly from side to side, so the arms trail it." },
+  "armsBenchHold": "Hold",
+  "@armsBenchHold": { "description": "Stops the bench's clock, so a blow can be stepped through a frame at a time. Debug builds only." },
+  "armsBenchStep": "Step a tick",
+  "@armsBenchStep": { "description": "Moves the held clock on by one sixtieth of a second. Debug builds only." },
+  "armsBenchBlow": "Blow",
+  "@armsBenchBlow": { "description": "What the next blow on the bench strikes." },
+  "armsBenchSeal": "Seal",
+  "@armsBenchSeal": { "description": "The next blow strikes an open seal." },
+  "armsBenchBody": "Body",
+  "@armsBenchBody": { "description": "The next blow strikes the husk's body." },
+  "armsBenchMiss": "Miss",
+  "@armsBenchMiss": { "description": "The next blow strikes nothing." },
   "armsBenchDoing": "Doing",
   "simnetBadBlockhash": "The validator returned an invalid blockhash.",
   "simnetAirdropCannotReplay": "A faucet pays an airdrop; it cannot be sent again.",
