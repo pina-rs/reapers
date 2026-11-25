@@ -7,7 +7,7 @@ for everything the six classes have in common, so they stay one family.
 import math
 
 import bpy
-from mathutils import Matrix, Vector
+from mathutils import Vector
 
 from . import anatomy, cloth, core, motion
 from .core import finish
@@ -152,49 +152,6 @@ def idle_path(calling, side, shoulder, elbow, grip, hand_scale=1.45):
         wrist += lower.inverted() @ (grip - (seen + lower @ (made - elbow)))
 
     return [tuple(shoulder), tuple(elbow), tuple(wrist)]
-
-
-def aim_hold(root, calling, haft, across=None, side="r"):
-    """Turns what a hand holds at rest so that, in the first key of the idle
-    clip (`motion.performance`), the haft it closes on points along `haft`
-    (world) and the hand runs back along the forearm, wrist toward the
-    elbow. `across`, when given, is where the held thing's +X (a blade, a
-    hanging lantern, a beam) points instead, the hand following.
-
-    On the weapon side (`side="r"`) that is `socket_weapon`, which carries
-    the weapon and the hand closed on it. On the other (`side="l"`) it is
-    the hand itself, `arm_l_hand`, so a class can close it on the same
-    staff (build that hand with `arms(..., off_curl=1.0)`).
-
-    The idle clip turns the arm about the shoulder and elbow, which tips a
-    haft held at rest; this is how a class plants a pole upright or holds a
-    beam level in the pose it is seen in. Only the socket or the hand turns:
-    the arm's pivots keep no rest turn, as every clip assumes, and the haft
-    still runs along the socket's own Z (README, "The node layout of a
-    class")."""
-
-    nodes = {node.name: node for node in root.children_recursive}
-    held = nodes["socket_weapon" if side == "r" else "arm_l_hand"]
-    _, turns = motion.performance("idle", 0.0, False, calling)
-    arm = turns["motion"] @ turns["spine"] @ turns[f"arm_{side}"] @ turns[f"elbow_{side}"]
-    forearm = arm @ Vector(nodes[f"wrist_{side}"].location)
-    hand = arm @ turns[f"wrist_{side}"]
-    up = Vector(haft).normalized()
-
-    if across is None:
-        back = -(forearm - up * forearm.dot(up))
-        back.normalize()
-        out = back.cross(up)
-    else:
-        out = Vector(across)
-        out = (out - up * out.dot(up)).normalized()
-        back = up.cross(out)
-
-    frame = Matrix((out, back, up)).transposed()
-    held.rotation_mode = "QUATERNION"
-    held.rotation_quaternion = hand.inverted() @ frame.to_quaternion()
-
-    return held
 
 
 def arms(

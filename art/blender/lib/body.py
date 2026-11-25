@@ -12,7 +12,15 @@ LEG_JOINTS = ("leg_l", "leg_r", "knee_l", "knee_r", "foot_l", "foot_r")
 BOOT_TRIANGLES = 1400
 
 
-def robe_fit(co):
+# How far a humanoid skirt stands off the legs: its (half-width, half-depth)
+# at the hips and at the floor. Most classes wear a bell with room for a
+# sprint's stride; a class whose read is its column or its taper keeps it,
+# and lets a long stride show the legs at the hem.
+SKIRT = ((0.30, 0.27), (0.40, 0.59))
+SKIRTS = {"harvester": ((0.24, 0.2), (0.4, 0.44)), "weigher": ((0.24, 0.2), (0.26, 0.44))}
+
+
+def robe_fit(co, skirt=SKIRT):
     """Leave room for the pelvis and a walking stride beneath hanging cloth.
 
     This is a garment allowance, not skinning: the skirt stays suspended
@@ -21,7 +29,8 @@ def robe_fit(co):
     blend = max(0, min(1, (1.38 - co.z) / 0.27))
     blend = blend * blend * (3 - 2 * blend)
     drop = max(0, min(1, (1.05 - co.z) / 1.0))
-    width, depth = 0.30 + 0.10 * drop, 0.27 + 0.32 * drop
+    (hip_width, hip_depth), (floor_width, floor_depth) = skirt
+    width, depth = hip_width + (floor_width - hip_width) * drop, hip_depth + (floor_depth - hip_depth) * drop
     angle = math.atan2(co.y / depth, co.x / width)
     # Retain small hanging folds even where a narrow spirit robe needs room.
     fold = 1 + 0.025 * math.sin(9 * angle + co.z)
@@ -210,5 +219,5 @@ def build(root, calling):
         for name, source in (("humanoid_robe", node.data.shape_keys.key_blocks["Basis"]), ("humanoid_tunic", short)):
             fitted = node.shape_key_add(name=name)
             for vertex, original in zip(fitted.data, source.data):
-                vertex.co = robe_fit(original.co.copy())
+                vertex.co = robe_fit(original.co.copy(), SKIRTS.get(calling, SKIRT))
             fitted.value = 0

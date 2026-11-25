@@ -5,10 +5,11 @@ all joints, including resting joints, so switching never inherits a stale pose.
 The rig is articulated rigid cloth, matching the existing node-based renderer.
 """
 
+import functools
 import math
 
 import bpy
-from mathutils import Euler, Quaternion, Vector
+from mathutils import Euler, Matrix, Quaternion, Vector
 
 from . import body, combat, core, curves, locomotion
 
@@ -16,6 +17,30 @@ JOINTS = ("motion", "spine", "head", "arm_r", "arm_l", "elbow_r", "elbow_l", "wr
 
 # Subtle timing/size accents preserve silhouettes without losing shared clips.
 AMPLITUDE = {"harvester": 1.0, "ferryman": 0.85, "weigher": 0.8, "chooser": 1.05, "hollow": 1.12, "mourner": 0.75}
+
+# How a class that stands with its weapon planted holds it, which is most of
+# its weapon side at 64 pt: in the first key of idle the haft (the weapon's
+# +Z) points along `haft` and the weapon's +X (a blade, a hanging lantern, a
+# beam) along `across`, in the reaper's frame (+X its left, -Y ahead). The
+# turn is made at the weapon wrist, and carried unchanged through the loops
+# a reaper stands and walks in (`HELD`). Attacks, emotes and every other
+# clip keep the wrist they were authored with, so a strike's path is the
+# same for every class whatever its hold. `across` always keeps some +X: the
+# weapon hand is built round the socket with its wrist along the socket's
+# +Y, and only then does that point back up the forearm.
+HOLDS = {
+    # Leant on like a staff: the foot out at the side, the snath back past
+    # the brim and in over the hat.
+    "harvester": ((0.28, 0.45, 0.85), (1.0, -0.3, 0.0)),
+    # Planted and leant out from the body, foot in and crook out, so the
+    # lantern hangs in space between the crook and the cowl.
+    "ferryman": ((-0.2, 0.0, 0.98), (1.0, 0.2, 0.0)),
+    # Nearly upright, square to the front, the top leant out by the 6
+    # degrees the balance flail's beam has sunk, so the beam hangs dead level
+    # and whatever tops a weapon stands out from the ears.
+    "weigher": ((-0.1045, 0.0, 0.9945), (1.0, 0.1, 0.0)),
+}
+HELD = ("idle", "creep", "walk", "run", "sprint")
 
 
 def pose(**joints):
@@ -197,8 +222,26 @@ def variants(specs):
     return [dict(spec, motion=spec["name"], humanoid=human, name=("humanoid_" if human else "") + spec["name"]) for human in (False, True) for spec in specs]
 
 
-def performance(name, phase, humanoid, calling):
-    """Sample the whole body once, including overlapping chest and head timing."""
+@functools.cache
+def hold_turn(calling):
+    """The turn at the weapon wrist that sets `calling`'s weapon as `HOLDS`
+    says in the first key of idle, or none for a class with no hold."""
+
+    if calling not in HOLDS:
+        return Quaternion()
+
+    haft, across = (Vector(axis).normalized() for axis in HOLDS[calling])
+    across = (across - haft * across.dot(haft)).normalized()
+    _, turns = performance("idle", 0.0, False, calling, held=False)
+    hand = turns["motion"] @ turns["spine"] @ turns["arm_r"] @ turns["elbow_r"] @ turns["wrist_r"]
+    frame = Matrix((across, haft.cross(across), haft)).transposed()
+
+    return hand.inverted() @ frame.to_quaternion()
+
+
+def performance(name, phase, humanoid, calling, held=True):
+    """Sample the whole body once, including overlapping chest and head timing.
+    `held` adds the class's hold (`HOLDS`) to the loops it stands in."""
     value = sample(name, phase)
     wave = math.cos(math.tau * phase)
     if humanoid and name in locomotion.GAITS:
@@ -255,6 +298,8 @@ def performance(name, phase, humanoid, calling):
         if calling == "mourner" and joint == "head":
             gain *= 0.25
         rotations[joint] = Euler(tuple(math.radians(v * gain) for v in a)).to_quaternion()
+    if held and name in HELD:
+        rotations["wrist_r"] = rotations["wrist_r"] @ hold_turn(calling)
     if humanoid:
         root_rotation = rotations["motion"]
         root_position = Vector((0, 0, 1.05)) + move

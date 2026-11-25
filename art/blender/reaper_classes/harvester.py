@@ -1,10 +1,14 @@
 """The harvester: the field hand of death.
 
-Silhouette: a wide hat on a stooped body, the scythe's crescent standing
-over the brim. Narrow shoulders slope away under the brim, which sits almost
-on them, and the robe spreads below to a heavy hem: the shape of a man bent
-by a lifetime of the same work. The head is thrust out ahead of a rounded
-back. The one asymmetry is the brim, broken down on the left.
+Silhouette: a wide straw hat on a body bent double, the scythe leant on
+like a staff with its crescent arching over the brim. Narrow shoulders slope
+away under the brim, which sits almost on them, and the robe spreads below
+to a heavy hem: the shape of a man bent by a lifetime of the same work. The
+head is thrust out ahead of a rounded back. The one asymmetry is the brim,
+broken down on the left.
+
+Three families: the cloth of the robe, the straw of the hat (`rope`, which
+prints pale against the cloth) and the bone of the hands.
 """
 
 import math
@@ -12,19 +16,20 @@ import math
 from mathutils import Vector, noise
 
 from lib import cloth, core
-from lib.figure import VOID_KEEP, aim_hold, arms, finish, idle_path
+from lib.figure import VOID_KEEP, arms, finish, idle_path
 
-# A stooped labourer: the shoulders sit low and are carried ahead of the
-# hips, and the head lower still and further out, on a craned neck.
-SHOULDER = 1.52
-NECK = 1.56
-HEAD = NECK + 0.15
-STOOP = 0.18
-HEAD_FORWARD = 0.32
+# A labourer bent double: the shoulders sit low and are carried well ahead
+# of the hips, and the head lower still and further out, sunk between them,
+# so the brim nearly rests on the shoulders.
+SHOULDER = 1.45
+NECK = SHOULDER + 0.03
+HEAD = NECK + 0.13
+STOOP = 0.29
+HEAD_FORWARD = 0.42
 
 # The rounded back: how far it rises behind the shoulder blades, and where.
-HUMP = 0.1
-HUMP_HEIGHT = 1.4
+HUMP = 0.16
+HUMP_HEIGHT = SHOULDER - 0.13
 
 # Narrow, sloping shoulders over a hem that spreads wide: weight settling.
 ROBE_TOP = SHOULDER + 0.07
@@ -40,12 +45,11 @@ CROWN = 0.145
 DENT_SPREAD = 0.55
 
 # Where the scythe is held in the idle stance: the harvester leans on it
-# like a staff, its butt just off the floor at his right side and the snath
-# leaning back past the brim (0.66 m from the hat's middle where it crosses,
-# outside the widest brim), so the crescent stands over the hat.
-GRIP = Vector((-0.56, -0.3, 1.04))
-SNATH = (-0.08, 0.33, 0.94)
-BLADE = (1.0, 0.1, 0.0)
+# like a staff, its butt planted out at his right side and the snath leant
+# back past the brim and in over the hat (lib/motion.py `HOLDS`), so the
+# crescent arches over the brim's broken side. The snath crosses the brim's
+# height 0.64 m from the hat's middle, outside the widest brim.
+GRIP = Vector((-0.5, -0.2, 0.94))
 HAND_SCALE = 1.55
 
 
@@ -78,25 +82,34 @@ def build():
         )
         finish(_hunched(robe), seed=index)
 
-    # Leaning on the scythe at his side; the other hand hangs heavy and open.
+    # Leaning on the scythe at his side; the other hand hangs at the hip, a
+    # heavy open claw.
     arms(
         root,
-        weapon_side_path=idle_path("harvester", "r", (-0.18, -STOOP, SHOULDER - 0.02), (-0.4, -STOOP + 0.06, 1.3), GRIP, HAND_SCALE),
-        off_side_path=[(0.18, -STOOP, SHOULDER - 0.02), (0.27, -STOOP + 0.03, 1.2), (0.3, -0.17, 0.9)],
+        weapon_side_path=idle_path("harvester", "r", (-0.18, -STOOP, SHOULDER - 0.02), (-0.42, -STOOP + 0.1, 1.2), GRIP, HAND_SCALE),
+        off_side_path=[(0.18, -STOOP, SHOULDER - 0.02), (0.3, -STOOP + 0.06, 1.16), (0.34, -0.2, 0.88)],
         sleeve_shoulder=0.072,
         sleeve_cuff=0.115,
         droop=0.16,
-        off_curl=0.35,
+        off_curl=0.22,
         hand_scale=HAND_SCALE,
         tatter=0.3,
     )
-    aim_hold(root, "harvester", SNATH, across=BLADE)
+    _claw(root)
 
     head = core.empty("head", root, location=(0, -STOOP - 0.02, NECK))
     _heads(head)
     _mantles(root)
 
     return root
+
+
+def _claw(root):
+    """Turns the open off hand palm forward, its fingers spread down and out
+    from the hip, so the bone reads on that side as well as on the snath."""
+
+    hand = next(node for node in root.children_recursive if node.name == "arm_l_hand")
+    hand.rotation_euler = (math.radians(70), math.radians(-25), math.radians(-60))
 
 
 def _spine(z):
@@ -174,32 +187,31 @@ def _hat(name, profile, mat, tip, droop, dent, pinch=0.0, crease=0.0, seed=0.0):
 
 
 def _neck(name, mat):
-    """Cloth wound up a craned neck, from the collar to under the chin, each
-    turn lower at the front, square to the neck."""
+    """Cloth wound twice round a craned neck, from the collar to under the
+    chin: two fat turns, each lower at the front, square to the neck."""
 
     turns = []
 
-    for turn in range(4):
-        share = turn / 3
-        centre_y = -STOOP + (-HEAD_FORWARD + 0.03 + STOOP) * share
-        height = ROBE_TOP - 0.03 + (HEAD - 0.085 - ROBE_TOP + 0.03) * share
-        radius = 0.15 - 0.045 * share
+    for turn in range(2):
+        centre_y = -STOOP + (-HEAD_FORWARD + 0.05 + STOOP) * turn
+        height = ROBE_TOP - 0.02 + 0.05 * turn
+        radius = 0.16 - 0.035 * turn
         path = []
 
         for step in range(33):
             angle = math.tau * step / 32
-            path.append((math.cos(angle) * radius * 1.05, centre_y + math.sin(angle) * radius, height + 0.45 * math.sin(angle) * radius))
+            path.append((math.cos(angle) * radius * 1.05, centre_y + math.sin(angle) * radius, height + 0.4 * math.sin(angle) * radius))
 
-        turns.append(core.tube(f"{name}_{turn}", path, 0.03 - 0.004 * share, mat, sides=10, cap=False, flatten=0.45))
+        turns.append(core.tube(f"{name}_{turn}", path, 0.052 - 0.008 * turn, mat, sides=10, cap=False, flatten=0.7))
 
     return core.shade_smooth(core.join(turns, name))
 
 
 def _heads(head):
-    """Three hats. The brim hides the face in every one, and every one is
-    broken down on the left."""
+    """Three straw hats. The brim hides the face in every one, and every one
+    is broken down on the left."""
 
-    hat_mat = core.material("cloth_alt")
+    hat_mat = core.material("rope")
     band_mat = core.material("cloth")
     offset = Vector(head.location)
 
@@ -355,10 +367,12 @@ def _scarf_end(name, mat, x, width, drop, seed=0.0, rows=16, columns=4):
     return core.shade_smooth(core.loft(name, rings, mat, closed=False), angle=50)
 
 
-def _straw_cape(name, mat, tongues=9, top=ROBE_TOP + 0.01, hem=1.02, rings=14, segments=90):
+def _straw_cape(name, mat, tongues=7, top=ROBE_TOP + 0.01, hem=0.85, rings=14, segments=84):
     """A farmer's straw rain cape: bundles of straw tied at the neck and
-    falling over the shoulders in `tongues` big points, each bundle a ridge
-    that runs down to its point. Hung on the stoop, like the robe."""
+    falling past the elbows in `tongues` big points, each bundle a ridge
+    that runs down to its point. It spreads as it falls, so the shoulder
+    line under the brim slopes out to a wide skirt of straw. Hung on the
+    stoop, like the robe."""
 
     length = top - hem
     # Each tongue's point, a little irregular, so it reads as straw rather
@@ -376,8 +390,8 @@ def _straw_cape(name, mat, tongues=9, top=ROBE_TOP + 0.01, hem=1.02, rings=14, s
             notch = abs(math.sin(bundle)) ** 0.75
             reach = depth * (1 - 0.48 * notch * (0.85 + 0.15 * math.sin(angle * 2 + 1.3)))
             share = reach * reach * (3 - 2 * reach)
-            width = 0.115 + (0.37 - 0.115) * min(1.0, share * 1.35)
-            thick = 0.115 + (0.3 - 0.115) * min(1.0, share * 1.35)
+            width = 0.12 + (0.46 - 0.12) * min(1.0, share * 1.25)
+            thick = 0.12 + (0.34 - 0.12) * min(1.0, share * 1.25)
             ridge = 1 + 0.07 * reach * math.cos(2 * bundle)
             z = top - reach * length
             loop.append((math.cos(angle) * width * ridge, _spine(z) + math.sin(angle) * thick * ridge, z))
@@ -391,11 +405,11 @@ def _mantles(root):
     """What sits on a harvester's shoulders. Each follows the stoop, and none
     of them breaks the symmetry: the brim is the one thing that does."""
 
-    alt = core.material("cloth_alt")
+    straw = core.material("rope")
     cloth_mat = core.material("cloth")
 
-    # A straw rain cape in nine big tongues, laid over the hump.
-    cape = _straw_cape("straw_cape", alt)
+    # A straw rain cape in seven big tongues, laid over the hump.
+    cape = _straw_cape("straw_cape", straw)
     cape.parent = core.empty("mantle_0", root)
     finish(_hunched(cape), seed=3)
 
@@ -419,13 +433,13 @@ def _mantles(root):
             angle = math.tau * step / 40
             path.append((math.cos(angle) * radius * 1.1, centre_y + math.sin(angle) * radius * 0.85, height + 0.03 * math.sin(angle) + 0.012 * math.sin(angle * 2 + coil)))
 
-        coils.append(core.tube(f"coil_{coil}", path, 0.052 - coil * 0.005, alt, sides=10, cap=False, flatten=0.55))
+        coils.append(core.tube(f"coil_{coil}", path, 0.052 - coil * 0.005, cloth_mat, sides=10, cap=False, flatten=0.55))
 
     collar = core.join(coils, "scarf")
     collar.parent = group
     finish(core.shade_smooth(collar), seed=5)
 
     for tail, side in enumerate((-1, 1)):
-        end = _scarf_end(f"scarf_tail_{tail}", alt, side * 0.075, 0.13, 0.6 - 0.05 * tail, seed=tail * 1.7)
+        end = _scarf_end(f"scarf_tail_{tail}", cloth_mat, side * 0.075, 0.13, 0.6 - 0.05 * tail, seed=tail * 1.7)
         end.parent = group
         finish(end, seed=tail)

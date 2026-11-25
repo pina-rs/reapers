@@ -1,10 +1,11 @@
 """The ferryman: the one who carries the dead across and cannot be moved.
 
-Silhouette: a hunched, deep cowl on a broad, low body, the off shoulder
-loaded with a heavy coil of rope, and beside it a pole taller than the
-figure, planted upright on the floor, its lantern hung from the crook. The
-outline reads as a boulder beside a tall vertical line. Three families
-only: the cloth, the rope and the bone of the hands.
+Silhouette: a hunched, deep cowl sunk into a broad, low body, the off
+shoulder loaded high with a heavy coil of rope, and beside it a pole taller
+than the figure, planted at its foot and leant out from the body, its
+lantern hung out in space from the crook. The outline reads as a lopsided
+boulder beside a long slanting line. Three families on show: the cloth,
+the rope (or the pale drape) and the bone of the hands.
 """
 
 import math
@@ -12,11 +13,16 @@ import math
 from mathutils import Vector, noise
 
 from lib import cloth, core
-from lib.figure import NECK_HEIGHT, SHOULDER_HEIGHT, aim_hold, arms, finish, idle_path
+from lib.figure import NECK_HEIGHT, SHOULDER_HEIGHT, arms, finish, idle_path
 
 HUNCH = 0.24
 ROBE_TOP = SHOULDER_HEIGHT + 0.08
 ROBE_HEM = 0.07
+
+# How far the head is sunk into the shoulders below the shared neck: the
+# cowl and the eye line inside it (lib/face.py) go down together.
+SINK = 0.07
+NECK = NECK_HEIGHT - SINK
 
 # Broad at the shoulder, deep through the chest and no narrower below, so the
 # figure stands like a bollard rather than hanging like a coat.
@@ -32,17 +38,16 @@ CAPE_PAD = 0.03
 # clear the sleeve under it, as (height, distance) stops.
 SLEEVE_PAD = ((1.67, 0.0), (1.6, 0.045), (1.5, 0.065), (1.4, 0.105), (1.3, 0.16), (1.2, 0.2))
 
-# Where the pole is held in the idle stance: planted upright at the pole
-# side, out past the robe and the humanoid hem, its shoe just off the floor
-# (the lantern pole's runs 1.09 below the grip). The crook turns in toward
-# the bearer and a little forward, so the lantern hangs clear above the cowl.
-GRIP = Vector((-0.56, -0.44, 1.11))
-CROOK = (1.0, -0.35, 0.0)
+# Where the pole is held in the idle stance: its shoe planted on the floor
+# just before the robe at the pole side (the lantern pole's runs 1.03 below
+# the grip), the pole leant out from the body and the crook turned out, so
+# the lantern hangs in space beyond the hand (lib/motion.py `HOLDS`).
+GRIP = Vector((-0.5, -0.44, 1.07))
 
 # The hem hitched up at the front of the pole side, so the robe does not
 # merge with the floor there (docs/art-bible.md 6.2): how far, round which
 # way, and how far up the robe the lift runs out.
-HITCH = 0.3
+HITCH = 0.45
 HITCH_ANGLE = math.atan2(-0.6, -1.0)
 HITCH_REACH = 0.8
 
@@ -91,9 +96,8 @@ def build():
         droop=0.22,
         hand_scale=1.55,
     )
-    aim_hold(root, "ferryman", (0, 0, 1), across=CROOK)
 
-    head = core.empty("head", root, location=(0, -forward, NECK_HEIGHT))
+    head = core.empty("head", root, location=(0, -forward, NECK))
     _heads(head, cloth_mat, forward)
     _mantles(root)
 
@@ -306,58 +310,60 @@ def _heads(head, mat, forward):
     # Each crest stop is (half-width, how far behind the neck, height), from
     # the brow over the crown and down the back to the hem.
     looks = [
-        # A deep, blunt cowl, heavy on the shoulders.
+        # A deep, blunt cowl, its peak thrust forward and down over the
+        # opening, its cape spread wide over the shoulders: a boulder.
         dict(
             crest=[
-                (0.11, -0.43, 1.91),
-                (0.18, -0.25, 2.07),
-                (0.21, -0.04, 2.09),
-                (0.22, 0.13, 2.01),
-                (0.245, 0.22, 1.88),
-                (0.29, 0.27, 1.76),
-                (0.34, 0.34, 1.64),
-                (0.37, 0.42, 1.51),
-                (0.38, 0.49, 1.37),
+                (0.12, -0.53, 1.81),
+                (0.19, -0.33, 2.0),
+                (0.22, -0.1, 2.03),
+                (0.235, 0.1, 1.96),
+                (0.26, 0.21, 1.83),
+                (0.31, 0.27, 1.7),
+                (0.37, 0.34, 1.58),
+                (0.41, 0.42, 1.45),
+                (0.43, 0.49, 1.31),
             ],
-            bib=[(-0.22, 1.68), (-0.245, 1.57), (-0.19, 1.37)],
+            bib=[(-0.24, 1.61), (-0.26, 1.5), (-0.2, 1.3)],
             arch=0.26,
             cut=0.3,
             tatter=0.08,
             fold=0.035,
         ),
-        # A narrower cowl whose long peak has fallen down its back.
+        # A narrower cowl, as deep, whose long peak has fallen down its back.
         dict(
             crest=[
-                (0.105, -0.41, 1.92),
-                (0.17, -0.25, 2.08),
-                (0.19, -0.05, 2.15),
-                (0.205, 0.15, 2.19),
-                (0.23, 0.245, 1.96),
-                (0.28, 0.27, 1.77),
-                (0.33, 0.33, 1.65),
-                (0.355, 0.4, 1.55),
-                (0.36, 0.45, 1.46),
+                (0.105, -0.51, 1.82),
+                (0.17, -0.33, 2.0),
+                (0.19, -0.1, 2.07),
+                (0.205, 0.12, 2.11),
+                (0.23, 0.235, 1.89),
+                (0.29, 0.27, 1.7),
+                (0.35, 0.33, 1.58),
+                (0.39, 0.4, 1.48),
+                (0.41, 0.45, 1.39),
             ],
-            bib=[(-0.22, 1.68), (-0.245, 1.59), (-0.205, 1.47)],
+            bib=[(-0.24, 1.61), (-0.26, 1.52), (-0.215, 1.4)],
             arch=0.5,
             cut=0.27,
             tatter=0.12,
             fold=0.04,
         ),
-        # A broad cowl whose brow hangs over the opening like a storm flap.
+        # A broad cowl whose brow juts over the opening like a storm flap,
+        # high enough that the eyes still show under it.
         dict(
             crest=[
-                (0.135, -0.5, 1.84),
-                (0.195, -0.3, 2.02),
-                (0.22, -0.08, 2.06),
-                (0.23, 0.13, 2.0),
-                (0.25, 0.23, 1.87),
-                (0.29, 0.28, 1.75),
-                (0.34, 0.35, 1.63),
-                (0.37, 0.43, 1.5),
-                (0.39, 0.49, 1.38),
+                (0.135, -0.52, 1.83),
+                (0.2, -0.32, 1.97),
+                (0.225, -0.1, 2.0),
+                (0.235, 0.12, 1.94),
+                (0.26, 0.23, 1.81),
+                (0.31, 0.28, 1.69),
+                (0.37, 0.35, 1.57),
+                (0.42, 0.43, 1.44),
+                (0.45, 0.49, 1.32),
             ],
-            bib=[(-0.225, 1.69), (-0.245, 1.58), (-0.2, 1.4)],
+            bib=[(-0.24, 1.6), (-0.26, 1.5), (-0.21, 1.33)],
             arch=0.2,
             cut=0.27,
             tatter=0.05,
@@ -382,14 +388,14 @@ def _fallen_peak(mat, forward):
 
     path = core.bezier(
         [
-            (0.0, 0.12 - forward, 2.05),
-            (0.0, 0.215 - forward, 2.09),
-            (-0.01, 0.265 - forward, 2.03),
-            (-0.035, 0.285 - forward, 1.9),
-            (-0.075, 0.29 - forward, 1.78),
-            (-0.115, 0.335 - forward, 1.66),
-            (-0.145, 0.4 - forward, 1.55),
-            (-0.16, 0.45 - forward, 1.46),
+            (0.0, 0.1 - forward, 1.98),
+            (0.0, 0.205 - forward, 2.02),
+            (-0.01, 0.26 - forward, 1.96),
+            (-0.035, 0.285 - forward, 1.83),
+            (-0.075, 0.3 - forward, 1.71),
+            (-0.12, 0.345 - forward, 1.59),
+            (-0.15, 0.41 - forward, 1.48),
+            (-0.165, 0.46 - forward, 1.39),
         ],
         samples=6,
     )
@@ -404,11 +410,28 @@ def _fallen_peak(mat, forward):
 
 def _mantles(root):
     """What a ferryman carries on one shoulder: always the off side, so the
-    pole arm stays clear."""
+    pole arm stays clear, and always standing out past the arm, so the
+    shoulder line goes lopsided."""
 
     _rope_coil(core.empty("mantle_0", root))
-    _half_cape(core.empty("mantle_1", root), core.material("rope"))
+    _half_cape(core.empty("mantle_1", root), core.material("cloth_alt"))
     _net(core.empty("mantle_2", root))
+
+
+# How much higher, and further out, the coil sits on the off shoulder than a
+# line laid round the body would, and how far its turns cross the shoulder on
+# the slant: in on the chest, by the cowl, and out at the back, down the arm,
+# so from the front the coil arches over the shoulder in one round hump
+# instead of ending in a stub.
+COIL_RISE = 0.06
+COIL_OUT = 0.09
+COIL_SLANT = 0.3
+
+
+def _slant(angle):
+    """How far across the body the coil is set at `angle` around it."""
+
+    return COIL_SLANT * math.sin(angle) * max(0.0, math.cos(angle))
 
 
 def _rope_coil(group):
@@ -423,20 +446,25 @@ def _rope_coil(group):
 
     def centre(step):
         angle = fast + math.tau * step / steps
-        height = 1.1 + 0.56 * (0.5 + 0.5 * math.cos(angle)) ** 1.5
+        # Over the shoulder the coil is heaped up and out onto the arm, so the
+        # shoulder line goes lopsided, high on the coil's side.
+        shoulder = max(0.0, math.cos(angle)) ** 2
+        height = 1.1 + 0.56 * (0.5 + 0.5 * math.cos(angle)) ** 1.5 + COIL_RISE * shoulder
         width, depth, middle = _body(height)
 
         # Up on the shoulder the line lies over the sleeve and the cowl's
         # cape, and does not follow the robe in toward the neck.
-        pad = 0.02 + 0.035 * _ease((height - 1.34) / 0.12) + _sleeve_lift(angle, height)
+        pad = 0.02 + 0.035 * _ease((height - 1.34) / 0.12) + _sleeve_lift(angle, height) + COIL_OUT * shoulder
 
-        return Vector((math.cos(angle) * (max(width, 0.31) + pad), middle + math.sin(angle) * (max(depth, 0.22) + pad), height))
+        return Vector((math.cos(angle) * (max(width, 0.31) + pad) + _slant(angle), middle + math.sin(angle) * (max(depth, 0.22) + pad), height))
 
     def frame(step):
         here = centre(step)
         tangent = (centre(step + 1) - centre(step - 1)).normalized()
         out = Vector((here.x, here.y - _body(here.z)[2], 0)).normalized()
-        out = out.lerp(Vector((0, 0, 1)), _ease((here.z - 1.5) / 0.16)).normalized()
+        # Over the shoulder the turns heap up on it, rather than standing out
+        # sideways off it.
+        out = out.lerp(Vector((0, 0, 1)), 0.75 * _ease((here.z - 1.5) / 0.16)).normalized()
         across = tangent.cross(out).normalized()
 
         return here, tangent, across, across.cross(tangent)
@@ -452,8 +480,11 @@ def _rope_coil(group):
         for step in range(steps + 1):
             here, _, across, out = frame(step)
             angle = math.tau * step / steps
-            wander = 0.16 * math.sin(angle * 3 + turn * 1.9)
-            rise = 0.1 * abs(math.sin(angle * 2 + turn * 2.6))
+            # On the shoulder the turns lie close in one rounded heap; away
+            # from it they work loose a little.
+            loose = 1 - max(0.0, math.cos(fast + angle)) ** 2
+            wander = 0.08 * math.sin(angle * 3 + turn * 1.9) * loose
+            rise = 0.1 * abs(math.sin(angle * 2 + turn * 2.6)) * loose
 
             path.append(here + across * ((shift + wander) * pitch) + out * ((lift + rise) * pitch + thickness))
 
@@ -476,7 +507,7 @@ def _rope_coil(group):
 
     # The free end falls from the hitch and ends in a stopper knot.
     fall = [here + out * (pitch * 3.0) - tangent * 0.06]
-    fall += [_around(fast - 0.06, height, 0.035) for height in (1.36, 1.24, 1.1)]
+    fall += [_around(fast - 0.06, height, 0.035) + Vector((_slant(fast), 0, 0)) for height in (1.36, 1.24, 1.1)]
     parts.append(core.tube("coil_end", core.bezier(fall, samples=6), thickness * 0.8, rope, sides=6))
 
     knot = core.revolve(
@@ -494,25 +525,30 @@ def _rope_coil(group):
 
 
 def _half_cape(group, mat):
-    """A cape of old sailcloth over the off shoulder: stiff, creased and cut
-    on the slant, held by a line around the body. It prints pale, like the
-    rope, so the load on that shoulder is one family whatever it is."""
+    """A drape of old sailcloth thrown over the off shoulder: it lies on the
+    cowl's cape at the neck, stands out past the arm in one stiff fold and
+    falls to the thigh there, so the shoulder line runs on out over the arm.
+    Cut on the slant: short over the chest, long over the arm and down the
+    back. It prints a step paler than the robe (`cloth_alt`)."""
 
-    start, end = math.radians(-64), math.radians(100)
+    start, end = math.radians(-72), math.radians(118)
     top = 1.745
-    columns, rows = 44, 24
+    columns, rows = 40, 22
+    # Where along the drape the off shoulder is, and so the arm under it.
+    arm = -start / (end - start)
 
     def hem(along):
-        """Short over the chest and the arm, long down the back."""
+        """Short over the chest, longest over the arm, long down the back."""
 
         crack = 0.03 * abs(noise.noise(Vector((along * 9.0, 3.0, 1.0))))
+        over_arm = math.exp(-(((along - arm) / 0.22) ** 2))
 
-        return 1.44 - 0.12 * _ease(along / 0.45) - 0.27 * _ease((along - 0.45) / 0.5) + crack
+        return 1.36 - 0.2 * _ease(along / 0.5) - 0.3 * over_arm + crack
 
     def crease(along):
         """Tarred cloth does not ripple: it breaks into flat planes."""
 
-        return abs((along * 5.5 + 0.3) % 1.0 - 0.5) * 2
+        return abs((along * 4.5 + 0.3) % 1.0 - 0.5) * 2
 
     grid = []
 
@@ -523,9 +559,12 @@ def _half_cape(group, mat):
             along = column / columns
             height = top - (top - hem(along)) * row / rows
             hang = _ease((1.42 - height) / 0.3)
+            angle = start + (end - start) * along
+            # Over the arm it stands out in a stiff fold, wider as it falls.
+            flare = 0.16 * math.exp(-((angle / 0.62) ** 2)) * _ease((top - height) / 0.4)
 
             # Lower down it stands off the robe, whose folds move under it.
-            line.append(_over_shoulder(start + (end - start) * along, height, 0.009 + hang * (0.035 + 0.03 * crease(along))))
+            line.append(_over_shoulder(angle, height, 0.009 + flare + hang * (0.035 + 0.03 * crease(along))))
 
         grid.append(line)
 
@@ -533,35 +572,24 @@ def _half_cape(group, mat):
 
     # A bound edge, which is what makes it read as cut cloth and not a shell.
     border = [line[0] for line in grid] + grid[-1][1:] + [line[-1] for line in reversed(grid[:-1])]
-    welt = core.tube("half_cape_welt", border, 0.009, mat, sides=6)
+    welt = core.tube("half_cape_welt", border, 0.011, mat, sides=6)
 
     cape = core.join([cape, welt], "half_cape")
     cape.parent = group
     finish(core.shade_smooth(cape, angle=40), seed=7)
 
-    # The line runs from the cape's front edge under the pole arm and round
-    # to its back edge. It starts flat to the chest, under the cowl's cape.
-    line = []
-
-    for step in range(41):
-        share = step / 40
-        angle = start - (math.tau - (end - start)) * share
-
-        line.append(_around(angle, 1.47 - 0.2 * math.sin(share * math.pi) - 0.12 * share, 0.013 + 0.015 * _ease(share * 6)))
-
-    finish(core.tube("half_cape_line", line, 0.012, core.material("rope"), group, sides=7))
-
 
 def _net(group):
-    """A net thrown over the off shoulder, weighted with floats: a coarse
-    mesh of thick cord, a hand's width to a cell, so it reads as a net at a
-    phone's size rather than as a grey film."""
+    """A net thrown over the off shoulder: a coarse mesh of heavy cord, six
+    cells round and four down, standing out over the arm, with its floats
+    hung below its foot on short drops, where they break the outline at the
+    side and the back."""
 
     rope = core.material("rope")
-    start, end = math.radians(-66), math.radians(150)
+    start, end = math.radians(-62), math.radians(140)
     top = 1.73
-    cells = 10
-    rows = 5
+    cells = 6
+    rows = 4
     strands = []
     floats = []
 
@@ -570,10 +598,12 @@ def _net(group):
         the floats and is drawn up at each."""
 
         along = column / cells
-        hem = 1.32 - 0.24 * math.sin(along * math.pi) ** 0.7 - 0.05 * abs(math.sin(along * cells * math.pi / 2))
+        hem = 1.24 - 0.22 * math.sin(along * math.pi) ** 0.7 - 0.06 * abs(math.sin(along * cells * math.pi / 2))
         height = top - (top - hem) * row / rows
+        angle = start + (end - start) * along
+        flare = 0.1 * math.exp(-((angle / 0.7) ** 2)) * _ease((top - height) / 0.4)
 
-        return _over_shoulder(start + (end - start) * along, height, 0.012 + 0.05 * _ease((1.42 - height) / 0.25))
+        return _over_shoulder(angle, height, 0.015 + flare + 0.05 * _ease((1.42 - height) / 0.25))
 
     def strand(points, radius, name):
         path = core.bezier(points, samples=4)
@@ -592,24 +622,30 @@ def _net(group):
                     path.append(knot(column, row))
 
             if len(path) > 1:
-                strands.append(strand(path, 0.011, f"net_{lean}_{start_column}"))
+                strands.append(strand(path, 0.016, f"net_{lean}_{start_column}"))
 
-    for line, (row, radius) in enumerate(((0, 0.014), (rows, 0.017))):
+    for line, (row, radius) in enumerate(((0, 0.019), (rows, 0.022))):
         strands.append(strand([knot(column / 2, row) for column in range(cells * 2 + 1)], radius, f"net_line_{line}"))
 
     mesh = core.join(strands, "net")
     mesh.parent = group
     finish(core.shade_smooth(mesh), wear_boost=1.5)
 
+    # A float on a short drop under every other knot of the foot, the drops
+    # longest at the side, so the floats hang out past the arm and the hem
+    # of the net.
     for column in range(0, cells + 1, 2):
+        foot = knot(column, rows)
+        drop = 0.1 + 0.1 * math.sin(column / cells * math.pi)
         cork = core.revolve(
             f"float_{column}",
-            [(0.0, 0.05), (0.028, 0.044), (0.048, 0.014), (0.048, -0.014), (0.028, -0.044), (0.0, -0.05)],
+            [(0.0, 0.065), (0.036, 0.057), (0.06, 0.018), (0.06, -0.018), (0.036, -0.057), (0.0, -0.065)],
             rope,
             segments=10,
         )
-        cork.location = knot(column, rows) + Vector((0, 0, -0.05))
+        cork.location = foot + Vector((0, 0, -drop - 0.06))
         floats.append(cork)
+        floats.append(core.tube(f"float_line_{column}", [foot, foot + Vector((0, 0, -drop))], 0.008, rope, sides=5))
 
     corks = core.join(floats, "net_floats")
     corks.parent = group
