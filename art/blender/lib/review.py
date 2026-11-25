@@ -208,6 +208,12 @@ def hold_weapons(root, kinds=WEAPON_KINDS):
     socket = find(root, "socket_weapon")
     held = {}
 
+    # A sheet drawn again in another look builds its weapons again: hide the
+    # ones an earlier look built, or the last it showed stays in every sheet.
+    for earlier in socket.children:
+        if earlier.name.startswith("weapon_"):
+            hide_tree(earlier, True)
+
     for kind in kinds:
         weapon = importlib.import_module(f"weapon_kinds.{kind}").build()
         weapon.parent = socket

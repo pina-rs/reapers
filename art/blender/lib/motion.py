@@ -25,6 +25,7 @@ What makes it move like one body rather than a set of rods:
   degrees in a thirtieth of a second draws an arc, not a polyline.
 """
 
+import functools
 import math
 
 import bpy
@@ -58,7 +59,30 @@ MOST_LEAD = 0.25
 ON_THE_BLOW = ("pelvis", "spine", "arm", "elbow")
 LINKS = {"head": "head", "arm_r": "arm", "arm_l": "arm", "elbow_r": "elbow", "elbow_l": "elbow", "wrist_r": "wrist", "wrist_l": "wrist"}
 
+# How a class that stands with its weapon planted holds it, which is most of
+# its weapon side at 64 pt: in the first key of idle the haft (the weapon's
+# +Z) points along `haft` and the weapon's +X (a blade, a hanging lantern, a
+# beam) along `across`, in the reaper's frame (+X its left, -Y ahead). The
+# turn is made at the weapon wrist, and carried unchanged through the loops
+# a reaper stands and walks in (`HELD`). Attacks, emotes and every other
+# clip keep the wrist they were authored with, so a strike's path is the
+# same for every class whatever its hold. `across` always keeps some +X: the
+# weapon hand is built round the socket with its wrist along the socket's
+# +Y, and only then does that point back up the forearm.
+HOLDS = {
+    # Leant on like a staff: the foot out at the side, the snath back past
+    # the brim and in over the hat.
+    "harvester": ((0.28, 0.45, 0.85), (1.0, -0.3, 0.0)),
+    # Planted and leant out from the body, foot in and crook out, so the
+    # lantern hangs in space between the crook and the cowl.
+    "ferryman": ((-0.2, 0.0, 0.98), (1.0, 0.2, 0.0)),
+    # Nearly upright, square to the front, the top leant out by the 6
+    # degrees the balance flail's beam has sunk, so the beam hangs dead level
+    # and whatever tops a weapon stands out from the ears.
+    "weigher": ((-0.1045, 0.0, 0.9945), (1.0, 0.1, 0.0)),
+}
 LOOPS = ("idle", "creep", "walk", "run", "sprint")
+HELD = LOOPS
 
 # Each clip's length in seconds, by name, from the specs `variants` read.
 TIMINGS = {}
@@ -542,8 +566,26 @@ def _mirrored(values):
     return out
 
 
-def performance(name, phase, humanoid, calling, seconds):
-    """Sample the whole body once, each link at its own time (`lead`)."""
+@functools.cache
+def hold_turn(calling):
+    """The turn at the weapon wrist that sets `calling`'s weapon as `HOLDS`
+    says in the first key of idle, or none for a class with no hold."""
+
+    if calling not in HOLDS:
+        return Quaternion()
+
+    haft, across = (Vector(axis).normalized() for axis in HOLDS[calling])
+    across = (across - haft * across.dot(haft)).normalized()
+    _, turns = performance("idle", 0.0, False, calling, TIMINGS["idle"], held=False)
+    hand = turns["motion"] @ turns["spine"] @ turns["arm_r"] @ turns["elbow_r"] @ turns["wrist_r"]
+    frame = Matrix((across, haft.cross(across), haft)).transposed()
+
+    return hand.inverted() @ frame.to_quaternion()
+
+
+def performance(name, phase, humanoid, calling, seconds, held=True):
+    """Sample the whole body once, each link at its own time (`lead`).
+    `held` adds the class's hold (`HOLDS`) to the loops it stands in."""
 
     poses = {}
     mirror = name in MIRRORED.get(calling, ())
@@ -595,6 +637,9 @@ def performance(name, phase, humanoid, calling, seconds):
             gain *= 0.25
 
         rotations[joint] = curves.quaternion(value * gain)
+
+    if held and name in HELD:
+        rotations["wrist_r"] = rotations["wrist_r"] @ hold_turn(calling)
 
     if humanoid:
         root_rotation = rotations["motion"]

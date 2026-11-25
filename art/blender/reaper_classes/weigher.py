@@ -1,11 +1,16 @@
 """The weigher: the judge who measures a spirit before taking it.
 
 Silhouette: the figure is a balance. A tall, narrow column of a body with
-square, level shoulders is the post; the beam crosses it just below the
-shoulders, well clear of the head, with a pan hanging out past each side; a
-faceless gilt mask in a long hood, under two tall gilt ears, is its finial.
-Both hands rest on the staff, planted before the body. Everything is level
-and symmetrical but the beam, which has already tipped.
+square, level shoulders, a flat chest and a hard step in at the waist, is
+the post; two tall gilt ears are its finial, over a faceless bone mask in a
+long hood. Everything about it is level and symmetrical but its one
+asymmetry: the staff, planted upright off its centre line on the weapon
+side, so the beam crosses it below the shoulders, well clear of the head,
+one pan hanging out far past that side and the other before the chest.
+
+Three families on show: the cloth of the robe, the hood and the mantles;
+the gilt of the ears, the class's light; and the bone of the mask and the
+hands, the pale planes the eye goes to.
 """
 
 import math
@@ -14,7 +19,7 @@ import bpy
 from mathutils import Vector
 
 from lib import cloth, core
-from lib.figure import aim_hold, arms, finish, idle_path
+from lib.figure import arms, finish, idle_path
 
 # The weigher stands taller than the other classes, the head lifted on a
 # long cowl so the beam, which the planted staff holds 1.65 m up at its
@@ -34,17 +39,33 @@ MASK_BULGE = 0.075
 HOOD_CENTRE = Vector((0, 0.02, HEAD + 0.02))
 HOOD_RADII = (0.15, 0.165, 0.205)
 
-# The robe: a straight column, square at the shoulder.
+# The robe: a carved post. Square at the shoulder, a flat chest, then a
+# hard step in at the waist (`WAIST`, 14% narrower) to a straight fluted
+# skirt.
 ROBE_TOP = SHOULDER + 0.07
 ROBE_HEM = 0.05
-ROBE_PROFILE = ((0.0, 0.13, 0.11), (0.022, 0.29, 0.155), (0.1, 0.29, 0.165), (0.3, 0.255, 0.16), (1.0, 0.27, 0.185))
+WAIST = 1.1
+ROBE_PROFILE = (
+    (0.0, 0.12, 0.11),
+    (0.022, 0.265, 0.165),
+    (0.1, 0.265, 0.18),
+    (0.355, 0.255, 0.18),
+    (0.39, 0.22, 0.155),
+    (1.0, 0.24, 0.185),
+)
+# Where the chest is cut flat, in front of the middle, and how far down it
+# runs: to the waist.
+CHEST_PLANE = -0.135
 
-# Where the staff stands in the idle stance: on the figure's centre line,
-# upright, its foot on the floor (the balance-flail's runs 0.95 below its
-# grip), the beam turned a little toward the three-quarter view so it reads
-# at full length there and from the front.
-STAFF_GRIP = Vector((-0.02, -0.36, 0.975))
-STAFF_ACROSS = (1.0, 0.35, 0.0)
+# Where the staff stands in the idle stance: off the centre line on the
+# weapon side, held out a hand's width past the robe's line so a gap of
+# ground shows between staff and column from the front, and any weapon held
+# there stands clear of the body, its foot on the floor (the balance-flail's
+# runs 0.95 below its grip). The staff leans out by the beam's own tip, so
+# the beam hangs level and square to the front (lib/motion.py `HOLDS`): its
+# far pan hangs out past the weapon side, the near one before the chest.
+STAFF_GRIP = Vector((-0.41, -0.4, 0.975))
+SHOULDER_X = 0.215
 
 
 def build():
@@ -62,42 +83,67 @@ def build():
     ]
 
     for index, hem in enumerate(hems):
-        finish(
-            cloth.robe(
-                f"robe_{index}",
-                cloth_mat,
-                root,
-                top=ROBE_TOP,
-                hem=ROBE_HEM,
-                profile=ROBE_PROFILE,
-                rings=40,
-                segments=96,
-                **hem,
-            ),
-            seed=index,
+        robe = cloth.robe(
+            f"robe_{index}",
+            cloth_mat,
+            root,
+            top=ROBE_TOP,
+            hem=ROBE_HEM,
+            profile=ROBE_PROFILE,
+            rings=60,
+            segments=96,
+            **hem,
         )
+        finish(_carved(robe), seed=index)
 
-    # Both hands close on the staff, planted on the centre line before the
-    # body: the weapon hand at the hip, the other a fist above it. The elbows
+    # The weapon hand closes on the staff off the centre line; the other arm
+    # hangs straight down the side, a fist, as a statue's does. The elbows
     # stay inside the robe's line, so the column runs straight.
     arms(
         root,
-        weapon_side_path=idle_path("weigher", "r", (-0.235, 0, SHOULDER - 0.03), (-0.205, -0.13, 1.31), STAFF_GRIP),
-        off_side_path=idle_path("weigher", "l", (0.235, 0, SHOULDER - 0.03), (0.205, -0.13, 1.31), STAFF_GRIP + Vector((0, 0, 0.19))),
+        weapon_side_path=idle_path("weigher", "r", (-SHOULDER_X, 0, SHOULDER - 0.03), (-0.3, -0.1, 1.3), STAFF_GRIP),
+        off_side_path=idle_path("weigher", "l", (SHOULDER_X, 0, SHOULDER - 0.03), (0.25, -0.03, 1.3), Vector((0.26, -0.1, 0.98))),
         sleeve_shoulder=0.078,
         sleeve_cuff=0.1,
         droop=0.1,
-        off_curl=1.0,
+        off_curl=0.85,
         tatter=0.12,
     )
-    aim_hold(root, "weigher", (0, 0, 1), across=STAFF_ACROSS)
-    aim_hold(root, "weigher", (0, 0, 1), across=STAFF_ACROSS, side="l")
 
     head = core.empty("head", root, location=(0, 0, NECK))
     _heads(head)
     _mantles(root)
 
     return root
+
+
+def _carved(robe):
+    """Cuts the chest flat: in front of `CHEST_PLANE`, from the shoulders to
+    the waist, the robe is pressed back onto one plane, which takes a single
+    band, and its folds with it. The same press is made in every shape key,
+    so the game's sway keeps it."""
+
+    vertices = robe.data.vertices
+    moves = []
+
+    for vertex in vertices:
+        co = vertex.co
+        # Full height of the chest, easing out over the step at the waist.
+        reach = max(0.0, min(1.0, (co.z - WAIST) / 0.08))
+        proud = min(0.0, co.y - CHEST_PLANE)
+        moves.append(-proud * 0.85 * reach * reach * (3 - 2 * reach))
+
+    for vertex, move in zip(vertices, moves):
+        vertex.co.y += move
+
+    if robe.data.shape_keys:
+        for block in robe.data.shape_keys.key_blocks:
+            for point, move in zip(block.data, moves):
+                point.co.y += move
+
+    robe.data.update()
+
+    return robe
 
 
 def _mask_row(share):
@@ -113,7 +159,7 @@ def _mask_row(share):
 
 
 def _mask(name, mat, parent=None, rows=18, segments=28):
-    """A faceless gilt mask cut in planes: two broad cheeks meeting at a
+    """A faceless bone mask cut in planes: two broad cheeks meeting at a
     ridge down the middle, a brow shelf across the top, the whole of it a
     blunt shield. Planes take a band edge cleanly; relief would print as
     mud."""
@@ -227,9 +273,11 @@ def _cowl(name, mat, opening, fall, rings=20, segments=40):
 
 
 def _heads(head):
-    """Three gilt heads. The mask never changes; the ears do."""
+    """Three heads, each a bone mask in a close hood under gilt ears. The
+    mask never changes; the ears do."""
 
     gold = core.material("gold")
+    bone = core.material("bone")
     hood = core.material("cloth")
     offset = Vector(head.location)
 
@@ -253,7 +301,7 @@ def _heads(head):
         group = core.empty(f"head_{index}", head)
 
         # The mask and its ears outlast the figure: hollowing never eats them.
-        mask = _mask(f"mask_{index}", gold)
+        mask = _mask(f"mask_{index}", bone)
         place(finish(mask, hollow=lambda co: 1.0, wear_boost=1.4, seed=index), group)
 
         # Gilt and lining are separate parts: the game draws a part in one
@@ -346,22 +394,22 @@ def _plumb(name, top, mat, drop=0.11, girth=0.024):
 
 
 def _mantles(root):
-    """What sits on a weigher's shoulders. Every one squares them."""
+    """What sits on a weigher's shoulders. Every one squares them, and every
+    one is the robe's cloth, so the gilt stays on the ears and the pans."""
 
-    gold = core.material("gold")
-    hood = core.material("cloth")
+    cloth_mat = core.material("cloth")
 
-    # A stiff gilt stole: two bands from behind the neck down the chest,
+    # A stiff stole: two broad bands from behind the neck down the chest,
     # level and straight, each held plumb by a weight.
     group = core.empty("mantle_0", root)
     parts = []
 
     for side in (-1, 1):
         x = side * 0.115
-        knots = [(x * 0.6, 0.12, ROBE_TOP + 0.005), (x * 0.92, -0.02, ROBE_TOP - 0.015), (x, -0.135, SHOULDER - 0.07), (x, -0.165, 1.3), (x, -0.17, 0.92)]
+        knots = [(x * 0.6, 0.12, ROBE_TOP + 0.005), (x * 0.92, -0.02, ROBE_TOP - 0.015), (x, -0.135, SHOULDER - 0.07), (x, -0.155, 1.3), (x, -0.16, 0.92)]
         path = core.bezier(knots, samples=5)
-        parts.append(_band(f"stole_{side}", path, [(1, 0, 0)] * len(path), 0.085, gold))
-        parts.append(_plumb(f"stole_weight_{side}", (x, -0.17, 0.92), gold))
+        parts.append(_band(f"stole_{side}", path, [(1, 0, 0)] * len(path), 0.1, cloth_mat))
+        parts.append(_plumb(f"stole_weight_{side}", (x, -0.16, 0.92), cloth_mat, drop=0.14, girth=0.034))
 
     mantle = core.join(parts, "stole")
     mantle.parent = group
@@ -385,7 +433,7 @@ def _mantles(root):
         """Lays the plate over the body: square over the shoulders, falling
         down the chest and back."""
 
-        wide = 0.12 + 0.22 * share
+        wide = 0.12 + 0.2 * share
         deep = 0.11 + 0.06 * share
         across, along = math.cos(angle), math.sin(angle)
         # A superellipse: the sides run straight out over the shoulders.
@@ -395,44 +443,75 @@ def _mantles(root):
 
         return radius, height + lift
 
-    plate = core.revolve("collar", profile, gold, group, segments=64, shape=collar)
+    plate = core.revolve("collar", profile, cloth_mat, group, segments=64, shape=collar)
     finish(core.shade_smooth(plate, angle=40), wear_boost=1.6, seed=4)
 
     counterweight = core.plate(
         "collar_counterweight",
         [(-0.02, 1.62), (0.02, 1.62), (0.024, 1.42), (0.055, 1.3), (0.032, 1.2), (0.0, 1.17), (-0.032, 1.2), (-0.055, 1.3), (-0.024, 1.42)],
         0.016,
-        gold,
+        cloth_mat,
         group,
         bevel=0.004,
     )
     counterweight.location = (0, 0.18, 0)
     finish(counterweight, wear_boost=1.6)
 
-    # A short square cape, stiff as board, its hem cut straight across above
-    # the beam: it makes the shoulders a lintel.
-    group = core.empty("mantle_2", root)
-    rows, columns = 10, 64
-    grid = []
+    _tabbed_cape(core.empty("mantle_2", root), cloth_mat)
 
-    for row in range(rows + 1):
-        share = row / rows
-        line = []
 
-        for column in range(columns):
-            angle = math.tau * column / columns
-            across, along = math.cos(angle), math.sin(angle)
-            # The cape stands out over the shoulders and falls to a flat hem.
-            wide = 0.13 + 0.24 * min(1.0, share * 2.2)
-            deep = 0.12 + 0.07 * min(1.0, share * 2.2)
-            radius = 1 / ((abs(across) / wide) ** 5 + (abs(along) / deep) ** 5) ** 0.2
-            fall = ROBE_TOP + 0.02 - 0.05 * min(1.0, share * 2.2) - 0.24 * max(0.0, share - 0.45) / 0.55
-            # A shallow box pleat at front and back.
-            pleat = 0.012 * max(0.0, math.cos(angle * 4)) ** 8 * share
-            line.append((math.cos(angle) * (radius + pleat), math.sin(angle) * (radius + pleat), fall))
+def _tabbed_cape(group, mat):
+    """A stiff cape cut as a tabard: a short yoke, wide and square over the
+    shoulders, and hung from it three long panels before the body and one
+    behind, each drawn in to its foot. It makes the shoulders a lintel with
+    lappets hung from it, symmetrical, and every panel one plane."""
 
-        grid.append(line)
+    top = ROBE_TOP + 0.02
+    yoke = ROBE_TOP - 0.13
 
-    cape = core.loft("cape", grid, hood, group)
-    cape = core.apply_modifier(cape, "SOLIDIFY", thickness=0.016, offset=1.0)
-    finish(core.shade_smooth(cape, angle=45), seed=6)
+    def ring(angle, z):
+        """The point on the cape at `angle` round the body and height `z`:
+        out over the shoulders at once below the neck, then drawn in."""
+
+        spread = _ease((top - z) / 0.09)
+        taper = max(0.0, (yoke - z) / 0.4)
+        wide = 0.12 + 0.22 * spread - 0.06 * taper
+        deep = 0.12 + 0.085 * spread + 0.01 * taper
+        across, along = math.cos(angle), math.sin(angle)
+        radius = 1 / ((abs(across) / wide) ** 5 + (abs(along) / deep) ** 5) ** 0.2
+
+        return Vector((across * radius, along * radius, z))
+
+    # The yoke, all the way round.
+    columns = 72
+    rows = [[ring(math.tau * column / columns, top - (top - yoke) * row / 5) for column in range(columns)] for row in range(6)]
+    parts = [core.loft("cape_yoke", rows, mat)]
+
+    # The panels, as (angle round the body, half-width in radians at the
+    # yoke, how far below the yoke they hang). Each narrows to 60% at its
+    # foot, cut straight across.
+    panels = ((-math.pi / 2, 0.3, 0.42), (-math.pi / 2 - 0.92, 0.3, 0.32), (-math.pi / 2 + 0.92, 0.3, 0.32), (math.pi / 2, 0.62, 0.36))
+
+    for index, (centre, half, depth) in enumerate(panels):
+        grid = []
+
+        for row in range(9):
+            share = row / 8
+            z = yoke + 0.02 - (depth + 0.02) * share
+            width = half * (1 - 0.4 * share)
+            grid.append([ring(centre + width * (2 * column / 8 - 1), z) for column in range(9)])
+
+        parts.append(core.loft(f"cape_panel_{index}", grid, mat, closed=False))
+
+    cape = core.join(parts, "cape")
+    cape.parent = group
+    cape = core.apply_modifier(cape, "SOLIDIFY", thickness=0.02, offset=1.0)
+    finish(core.shade_smooth(cape, angle=40), seed=6)
+
+
+def _ease(value):
+    """A smooth step from 0 to 1."""
+
+    value = max(0.0, min(1.0, value))
+
+    return value * value * (3 - 2 * value)
