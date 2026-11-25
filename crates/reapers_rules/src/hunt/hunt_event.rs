@@ -92,7 +92,7 @@ pub enum ReapGrade {
 	/// An orb thrown without a hold, or off the husk.
 	Ragged,
 
-	/// A nice or a great throw.
+	/// A great throw.
 	Clean,
 
 	/// An excellent throw.

@@ -41,7 +41,7 @@ named_enum!(Gait {
 /// The body a dead NFT wears in the spirit realm.
 ///
 /// Every supported collection has a creature of its own: an ape for a
-/// collection of apes, a whale for a collection of whales. The creature is
+/// collection of apes, a penguin for a collection of penguins. The creature is
 /// an original model; an NFT's own colours and traits dress it. The numbers
 /// here are the single source for the rules and for the models: the art
 /// build reads them when it shapes each body.

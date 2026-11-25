@@ -17,10 +17,10 @@ pub struct ReaperStats {
 	/// Ward removed by one landed strike.
 	pub strike: i64,
 
-	/// How far from a seal a tap may land and still count.
+	/// How far off a seal the crosshair may sit and still count as on it.
 	pub reach: i64,
 
-	/// How long a broken husk stays open to the reap.
+	/// How long a broken husk stays open to an orb.
 	pub capture: i64,
 
 	/// How many flinches a reaper survives before the husk slips away.
@@ -39,7 +39,7 @@ impl ReaperStats {
 /// The one rule each class bends during a hunt.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ClassPerk {
-	/// A strike also lands on every other open seal near the tap.
+	/// A strike also lands on every other open seal.
 	Cleave,
 
 	/// The first flinch of a hunt costs no resolve.
@@ -54,7 +54,7 @@ pub enum ClassPerk {
 	/// Cadence builds to double strength instead of one and a half.
 	Chain,
 
-	/// Each unflinching hold lengthens the reap window.
+	/// Each unflinching hold lengthens the broken window.
 	Toll,
 }
 

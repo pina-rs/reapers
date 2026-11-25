@@ -44,7 +44,7 @@ impl Rarity {
 		}
 	}
 
-	/// Experience for absorbing it with a clean reap.
+	/// Experience for absorbing it with a plain throw.
 	pub const fn xp(self) -> i64 {
 		match self {
 			Self::Common => 40,
@@ -54,7 +54,7 @@ impl Rarity {
 		}
 	}
 
-	/// Anima for absorbing it with a clean reap.
+	/// Anima for absorbing it with a plain throw.
 	pub const fn anima(self) -> i64 {
 		match self {
 			Self::Common => 16,

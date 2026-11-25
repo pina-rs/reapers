@@ -12,7 +12,7 @@ use crate::hunt::hunt_stats::HuntStats;
 pub struct RiftRules;
 
 impl RiftRules {
-	/// Anima for the same.
+	/// Anima for a ragged cut and a full share of the work.
 	pub const ANIMA: i64 = 90;
 	/// Absorbed NFTs from a rift's collection needed before it opens for a
 	/// reaper.
@@ -67,9 +67,9 @@ impl RiftRules {
 	/// at the site itself.
 	pub const SITE_METRES: f64 = 250.0;
 	/// What a reaper who was still standing but made no cut earns, as a
-	/// share of a clean cut.
+	/// share of a ragged cut.
 	pub const UNCUT_SHARE: f64 = 0.75;
-	/// Experience for sealing a rift with a clean cut and a full share of
+	/// Experience for sealing a rift with a ragged cut and a full share of
 	/// the work: about what one epic husk is worth. A rift costs no NFT to
 	/// enter, so it must not pay better than the hunts that do.
 	pub const XP: i64 = 220;
