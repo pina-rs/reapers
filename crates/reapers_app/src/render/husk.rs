@@ -585,9 +585,10 @@ impl HuskRig {
 		self.punch = 1.0;
 	}
 
-	/// Holds the husk still for `frames` sixtieths of a second, as a blow
-	/// lands: the impact frame, on the husk alone (art bible §11.2). Its print
-	/// and its flash hold with it.
+	/// Holds the husk's animation still for `frames` sixtieths of a second,
+	/// as a blow lands: the impact frame, on the husk alone (art bible §11.2).
+	/// Its reaction, gait, face and flash hold; where the rules put it does
+	/// not, so a husk on the move goes on being carried with them.
 	pub fn stop(&mut self, frames: u32) {
 		self.stopped = self.stopped.max(f64::from(frames) / 60.0);
 	}
@@ -663,6 +664,12 @@ impl HuskRig {
 		// The seals are drawn where the rules put them: while the ward
 		// holds, nothing that moves the body under them may play.
 		self.gait.set_bouncy(!plight.ward_holds());
+		// Where the rules put it moves on in real time, held or not: a hold
+		// stops what the husk does, never where it is, or it would stand
+		// still and then leap the hold's whole way in one frame, off its
+		// splat. Carried toward their place over one of their ticks, so a
+		// display faster than the rules draws it moving, not stepping.
+		self.carried = (self.carried + delta * HuntRules::TICK_RATE as f64).min(1.0);
 		let delta = self.hold(delta);
 		let reaction = &mut self.reaction;
 		reaction.step(delta, plight);
@@ -697,9 +704,6 @@ impl HuskRig {
 			Some(_) => self.carriage,
 			None => Carriage::REST,
 		};
-		// Carried toward where the rules put it over one of their ticks, so a
-		// display faster than the rules draws it moving, not stepping.
-		self.carried = (self.carried + delta * HuntRules::TICK_RATE as f64).min(1.0);
 		let placed = self.drawn_place();
 		if !frozen {
 			self.express(&carriage, f64::from(placed.1), mood, played);
@@ -1304,6 +1308,71 @@ mod tests {
 				assert_eq!(printed, 4 * per, "{fps} fps: four sixtieths in spot");
 				assert_eq!(held, stopped * per, "{fps} fps: held {frames} frames");
 			}
+		}
+		let _ = scene.take_ops();
+	}
+
+	/// A blow holds what the husk is doing, never where it is: one on the
+	/// move goes on being carried with the rules through the hold, so it
+	/// neither stands still nor pops forward when the hold ends, and its
+	/// splat, pinned where the rules put it, stays on it.
+	#[test]
+	fn a_husk_held_by_a_blow_keeps_its_place_with_the_rules() {
+		let scene = Scene::new(leptoskit::scene3d::SceneId(42));
+		let nft = market_listings()[0];
+		let vessel = nft.collection.vessel();
+		// Metres a second: under a bolting husk's 3.2.
+		let speed = 3.0;
+		for fps in [60.0, 120.0] {
+			let mut rig = HuskRig::spawn(&scene, vessel, &nft);
+			let place = |rig: &mut HuskRig, x: f64| {
+				rig.place(&HuskPose::new(
+					vessel,
+					reapers_rules::Vec3::new(x, 0.0, -2.0),
+					std::f64::consts::PI,
+				));
+			};
+			let mut x = 0.0;
+			place(&mut rig, x);
+			let mut drawn = Vec::new();
+			let mut behind: f64 = 0.0;
+			let per_tick = fps / 60.0;
+			for frame in 0..(24.0 * per_tick) as usize {
+				// The rules move the husk once a tick.
+				if frame % per_tick as usize == 0 {
+					x += speed / 60.0;
+					place(&mut rig, x);
+				}
+				if frame == (8.0 * per_tick) as usize {
+					rig.print([0.9, 0.6, 0.2]);
+					rig.stop(5);
+				}
+				rig.animate(
+					&scene,
+					1.0 / fps,
+					HuskMood::default(),
+					HuskPlight::default(),
+				);
+				let at = f64::from(rig.drawn_place().0[0]);
+				behind = behind.max(x - at);
+				drawn.push(at);
+			}
+			let steps: Vec<f64> = drawn.windows(2).map(|pair| pair[1] - pair[0]).collect();
+			let normal = speed / fps;
+			let biggest = steps.iter().copied().fold(0.0, f64::max);
+			let least = steps.iter().copied().fold(f64::MAX, f64::min);
+			assert!(
+				biggest < 1.5 * normal,
+				"{fps} fps: the husk pops {biggest} m in one frame: {steps:.3?}"
+			);
+			assert!(
+				least > 0.5 * normal,
+				"{fps} fps: the husk stands still: {steps:.3?}"
+			);
+			assert!(
+				behind <= speed / 60.0 + 1.0e-6,
+				"{fps} fps: the husk trails the rules by {behind} m"
+			);
 		}
 		let _ = scene.take_ops();
 	}
