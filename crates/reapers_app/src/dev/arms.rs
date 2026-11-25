@@ -37,7 +37,6 @@ use crate::render::husk::HuskMood;
 use crate::render::husk::HuskRig;
 use crate::render::juice::dive_zoom;
 use crate::render::juice::zoomed_fov;
-use crate::render::look::linear;
 use crate::render::orb::soul_taken;
 use crate::render::orb::stage_began;
 use crate::render::reaction::HuskPlight;
@@ -93,7 +92,7 @@ const MISS_AT: [f64; 3] = [1.1, -1.32, 4.6];
 /// The class weapon in the bench's heavy slot.
 const HEAVY: WeaponKind = WeaponKind::Scythe;
 /// The spot the bench's marks print in: the Ferryman's lantern.
-const SPOT: crate::theme::Rgb = crate::ink::LANTERN;
+const SPOT: Rgb = crate::ink::LANTERN;
 
 /// How a throw on the bench ends. In a hunt, the rules decide.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -438,8 +437,7 @@ impl Bench {
 				match felt {
 					Felt::Flash(strength) => husk.flash(strength),
 					Felt::Shot { seal } => {
-						let Rgb(red, green, blue) = SPOT;
-						husk.print(linear(u32::from_be_bytes([0, red, green, blue])));
+						husk.print(crate::render::husk::struck_ink());
 						husk.stop(if seal { 5 } else { 3 });
 					}
 				}

@@ -76,7 +76,7 @@ const RIM: f32 = 0.12;
 
 /// How fast a strike's flash fades, as a share lost each second.
 const FLASH_DECAY: f64 = 7.0;
-/// How long a blow prints the husk in the reaper's spot: four frames.
+/// How long a blow prints the husk flat in ink: four frames.
 pub const PRINT_SECONDS: f64 = 4.0 / 60.0;
 /// The least time from one print's start to the next: 21 frames. A print
 /// changes the colour of much of the screen, so it may come at most 60 / 21,
@@ -84,6 +84,14 @@ pub const PRINT_SECONDS: f64 = 4.0 / 60.0;
 /// allows (art bible §2, rule 9). The pistol fires every 18 ticks, so at
 /// most every other shot prints.
 pub const PRINT_GAP_SECONDS: f64 = 21.0 / 60.0;
+
+/// The ink a shot that lands prints the husk in, linear RGB: key, flat, so
+/// the splat in the reaper's spot reads on it, and a dark husk barely
+/// changes how bright it is (art bible §3.2, §11.2).
+pub fn struck_ink() -> [f32; 3] {
+	let crate::theme::Rgb(red, green, blue) = crate::ink::KEY;
+	linear(u32::from_be_bytes([0, red, green, blue]))
+}
 
 /// How dark a shadow is at its darkest, under a body standing on it.
 const SHADOW_OPACITY: f64 = 0.55;
@@ -219,7 +227,7 @@ pub struct HuskRig {
 	effort: f64,
 	flash: f64,
 	punch: f64,
-	/// A blow's print in the reaper's spot, and how long it has left, in
+	/// A blow's print, the ink it is in, and how long it has left, in
 	/// seconds; how long ago the last one began, in real time; and how long
 	/// the husk is held still by a blow.
 	print: Option<([f32; 3], f64)>,
@@ -452,13 +460,13 @@ impl HuskRig {
 				}
 			}
 		};
-		// A blow prints it flat in the reaper's spot, lit as it is lit, with
+		// A blow prints it flat in its ink, lit as it is lit, with
 		// no rim and no glow of its own: ink on the dead (art bible §11.2).
 		// Its mouth and sockets stay key, and its eyes and seals their own.
-		if let Some((spot, _)) = self.print
+		if let Some((ink, _)) = self.print
 			&& !matches!(material, "dark" | "accent" | "glow")
 		{
-			change.color = Some([spot[0], spot[1], spot[2], 1.0]);
+			change.color = Some([ink[0], ink[1], ink[2], 1.0]);
 			// An override left empty keeps what was last sent: the rim is
 			// put out, not left.
 			change.rim = rim(0.0);
@@ -593,19 +601,19 @@ impl HuskRig {
 		self.punch = self.punch.max(strength);
 	}
 
-	/// Prints the husk flat in the reaper's `spot`, linear RGB, for
+	/// Prints the husk flat in `ink`, linear RGB, for
 	/// [`PRINT_SECONDS`], as a blow lands (art bible §11.2). A print never
 	/// begins within [`PRINT_GAP_SECONDS`] of the last, so it cannot flash,
 	/// nor for a player who asks for less motion, who has the splat without
 	/// the whole husk changing colour (§14). Either way the blow punches it.
-	pub fn print(&mut self, spot: [f32; 3]) {
+	pub fn print(&mut self, ink: [f32; 3]) {
 		self.punch = 1.0;
 		// Counted in whole frames, as the print is: a gap less than half a
 		// frame short is the gap.
 		if crate::platform::reduced_motion() || self.printed_ago < PRINT_GAP_SECONDS - 0.5 / 60.0 {
 			return;
 		}
-		self.print = Some((spot, PRINT_SECONDS));
+		self.print = Some((ink, PRINT_SECONDS));
 		self.printed_ago = 0.0;
 	}
 
@@ -613,14 +621,20 @@ impl HuskRig {
 	/// as a blow lands: the impact frame, on the husk alone (art bible §11.2).
 	/// Its reaction, gait, face and flash hold; where the rules put it does
 	/// not, so a husk on the move goes on being carried with them.
+	pub fn stop(&mut self, frames: u32) {
+		self.stopped = self.stopped.max(f64::from(frames) / 60.0);
+	}
+
+	/// The ink a blow prints the husk in now, if one does.
+	#[cfg(test)]
+	pub fn printed_in(&self) -> Option<[f32; 3]> {
+		self.print.map(|(ink, _)| ink)
+	}
+
 	/// How long the husk is still held for, in frames at sixty a second.
 	#[cfg(test)]
 	pub fn held_frames(&self) -> f64 {
 		self.stopped * 60.0
-	}
-
-	pub fn stop(&mut self, frames: u32) {
-		self.stopped = self.stopped.max(f64::from(frames) / 60.0);
 	}
 
 	/// Counts a blow's hold and print down by `delta` seconds, and returns
@@ -634,7 +648,7 @@ impl HuskRig {
 		self.printed_ago += delta;
 		self.print = self
 			.print
-			.map(|(spot, left)| (spot, left - delta))
+			.map(|(ink, left)| (ink, left - delta))
 			.filter(|(_, left)| *left > -delta / 2.0);
 		if stopping { 0.0 } else { delta }
 	}
@@ -1336,14 +1350,14 @@ mod tests {
 					held += usize::from(format!("{:?}", rig.reaction) == before);
 				}
 				let per = fps as usize / 60;
-				assert_eq!(printed, 4 * per, "{fps} fps: four sixtieths in spot");
+				assert_eq!(printed, 4 * per, "{fps} fps: four sixtieths in ink");
 				assert_eq!(held, stopped * per, "{fps} fps: held {frames} frames");
 			}
 		}
 		let _ = scene.take_ops();
 	}
 
-	/// A blow prints the husk flat in the spot, as ink: the colour, lit as the
+	/// A blow prints the husk flat in its ink: the colour, lit as the
 	/// husk is lit, with its rim put out and no glow; its mouth stays key and
 	/// its eyes and seals their own. Shot after shot at the pistol's fastest
 	/// it prints at most every 21 frames, under three times a second, and

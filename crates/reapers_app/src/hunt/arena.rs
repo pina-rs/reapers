@@ -497,12 +497,11 @@ impl Arena {
 				} => {
 					// A shot's impact frame (art bible §11.2): the husk alone
 					// is held, three frames on the body and five on a seal, and
-					// printed flat in the reaper's spot, no more often than it
-					// may without flashing. Its reaction is never held again on
-					// top, so the hold is the frames it says.
-					let Rgb(red, green, blue) = self.spot;
-					let spot = u32::from_be_bytes([0, red, green, blue]);
-					self.rig.print(crate::render::look::linear(spot));
+					// printed flat in key, no more often than it may without
+					// flashing, so the splat in the reaper's spot reads on it.
+					// Its reaction is never held again on top, so the hold is
+					// the frames it says.
+					self.rig.print(crate::render::husk::struck_ink());
 					self.rig.stop(if seal.is_some() { 5 } else { 3 });
 					self.rig.hit(
 						*seal,
@@ -859,6 +858,11 @@ mod tests {
 			)]);
 			let held = arena.rig.held_frames();
 			assert!((held - frames).abs() < 1.0e-9, "{seal:?}: {held} frames");
+			// Printed flat in key, the ground the splat in the spot reads on.
+			assert_eq!(
+				arena.rig.printed_in(),
+				Some(crate::render::husk::struck_ink())
+			);
 		}
 	}
 
