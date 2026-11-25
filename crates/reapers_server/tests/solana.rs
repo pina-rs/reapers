@@ -1220,3 +1220,60 @@ async fn a_rotated_keeper_signs_no_other_numbers_than_the_settlement_did() {
 
 	assert_eq!(error.status(), 500, "{error:?}");
 }
+
+#[tokio::test]
+async fn a_retried_settlement_of_an_escrowed_husk_answers_with_its_burn_again() {
+	let world = escrowing().await;
+	let wallet = Wallet::new(1);
+	let player = holder(&world, &wallet).await;
+
+	escrow_on_chain(&world.chain, wallet.address(), mint());
+
+	let released = world
+		.call(
+			player,
+			Release {
+				nft: SAINT.into(),
+				escrow: Some(mint().to_string()),
+			},
+		)
+		.await
+		.unwrap();
+	let sighting = released.sightings()[0];
+
+	world.surface_everything(player).await;
+
+	let before = world.call(player, Load {}).await.unwrap();
+	let log = packed(&play(&before, &sighting));
+	let settle = || {
+		SettleHunt {
+			sighting: sighting.id,
+			log: log.clone(),
+		}
+	};
+	let keyed = || {
+		let mut identity = world
+			.identity(Some(player))
+			.with_caller("the player's session");
+
+		identity.context = identity.context.with(reapers_server::keeper::RequestKey(
+			"0123456789abcdef0123456789abcdef".to_owned(),
+		));
+		identity
+	};
+	let first = leptoskit_rpc::server::call_as(&world.db, keyed(), None, settle())
+		.await
+		.expect("the settlement");
+	let again = leptoskit_rpc::server::call_as(&world.db, keyed(), None, settle())
+		.await
+		.expect("the same settlement, answered again");
+	let receipt = first.receipt.expect("the burn");
+	let rebuilt = again.receipt.expect("the burn, built again");
+
+	assert!(first.settlement.outcome.absorbed());
+	assert_eq!(again.settlement, first.settlement);
+	assert_eq!(rebuilt.message, receipt.message);
+	assert_eq!(rebuilt.signature, receipt.signature);
+	assert!(rebuilt.transaction.is_some());
+	assert_eq!(world.stored(player).await, first.settlement.state);
+}

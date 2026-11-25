@@ -453,14 +453,84 @@ impl Keeper {
 		Ok((wallet, address, recorded))
 	}
 
+	/// Settles the hunt `log` records for `sighting`. With a `key`, the
+	/// settlement is kept with it in the same commit, and a repeat of the
+	/// call (a retry after an answer the network lost) is answered with it
+	/// instead of settling again.
 	async fn settle_hunt(
 		&self,
 		account: Id<Account>,
 		sighting: i64,
 		log: &str,
+		key: Option<SettlementKey>,
 	) -> rpc::Result<SettledHunt> {
 		self.simulation()?;
 
+		let Some(key) = key else {
+			return self.settle_fresh(account, sighting, log, None).await;
+		};
+
+		if let Some(settlement) = key.find(&self.db).await? {
+			return self.settled_again(account, sighting, settlement).await;
+		}
+
+		match self.settle_fresh(account, sighting, log, Some(&key)).await {
+			Ok(settled) => Ok(settled),
+			// A repeat of this call that committed while this one ran.
+			Err(error) => {
+				match key.find(&self.db).await? {
+					Some(settlement) => self.settled_again(account, sighting, settlement).await,
+					None => Err(error),
+				}
+			}
+		}
+	}
+
+	/// What a settled hunt answered, again: the settlement as it was kept,
+	/// and, when it absorbed an escrowed husk the escrow still holds, its
+	/// burn built again on a fresh blockhash. A husk already burned has no
+	/// burn to send.
+	async fn settled_again(
+		&self,
+		account: Id<Account>,
+		sighting: i64,
+		settlement: HuntSettlement,
+	) -> rpc::Result<SettledHunt> {
+		let escrowed = HuskEscrow::query()
+			.filter(|escrow| escrow.account_id.eq(account) & escrow.sighting_id.eq(sighting))
+			.first(&self.db)
+			.await?
+			.filter(|escrow| escrow.absorption.is_some())
+			.and_then(|escrow| escrow.nft);
+		let receipt = match escrowed {
+			Some(nft) => {
+				match self.absorb_transaction(account, &nft).await {
+					Ok(receipt) => Some(receipt),
+					Err(error)
+						if reapers_api::refusal_of(error.message())
+							== Some(Refusal::NotInVault) =>
+					{
+						None
+					}
+					Err(error) => return Err(error),
+				}
+			}
+			None => None,
+		};
+
+		Ok(SettledHunt {
+			settlement,
+			receipt,
+		})
+	}
+
+	async fn settle_fresh(
+		&self,
+		account: Id<Account>,
+		sighting: i64,
+		log: &str,
+		key: Option<&SettlementKey>,
+	) -> rpc::Result<SettledHunt> {
 		// Pre-check base64 size bound before allocating, reading DB, or decoding.
 		if log.len() > MAX_ENCODED_LOG_BYTES {
 			return Err(refused(Refusal::HuntUnproven));
@@ -556,6 +626,7 @@ impl Keeper {
 				bound.as_ref(),
 				&pre_settlement,
 				pre_receipt.as_ref(),
+				key,
 			)
 			.await?;
 
@@ -575,7 +646,8 @@ impl Keeper {
 	/// commits with a single atomic compare-and-swap `UPDATE` (plus escrow
 	/// update if escrowed), falling back to a DB-only `SERIALIZABLE`
 	/// transaction with re-judging if a concurrent mutation modified the row
-	/// or if NFT reaper ledger records must be reconciled.
+	/// or if NFT reaper ledger records must be reconciled. A settlement
+	/// called with a `key` is kept with it in the same commit.
 	#[expect(clippy::too_many_arguments, reason = "internal commit helper")]
 	async fn commit_hunt_settlement(
 		&self,
@@ -591,12 +663,14 @@ impl Keeper {
 		bound: Option<&books::BoundEscrow>,
 		pre_settlement: &HuntSettlement,
 		pre_receipt: Option<&SignedReceipt>,
+		key: Option<&SettlementKey>,
 	) -> rpc::Result<(HuntSettlement, Option<SignedReceipt>)> {
 		// Uncontended non-NFT fast path: 1 atomic CAS UPDATE (0 BEGIN/COMMIT
-		// when no escrow row needs updating; short READ COMMITTED tx if escrowed).
+		// when nothing else is written; short READ COMMITTED tx when an
+		// escrow row or the settlement's idempotency receipt is).
 		if let Some((book_id, expected_json)) = fast_snapshot {
 			let needs_escrow_write = pre_receipt.is_some() && bound.is_some();
-			if !needs_escrow_write {
+			if !needs_escrow_write && key.is_none() {
 				if books::compare_and_swap_state(
 					&self.db,
 					book_id,
@@ -607,7 +681,7 @@ impl Keeper {
 				{
 					return Ok((pre_settlement.clone(), pre_receipt.cloned()));
 				}
-			} else if let (Some(signed_receipt), Some(bound)) = (pre_receipt, bound) {
+			} else {
 				let tx = self.db.begin().await?;
 				let swapped = books::compare_and_swap_state(
 					&tx,
@@ -617,10 +691,15 @@ impl Keeper {
 				)
 				.await?;
 				if swapped {
-					books::record_escrow_absorption(&tx, &bound.id, &signed_receipt.absorption)
-						.await?;
+					if let (Some(signed_receipt), Some(bound)) = (pre_receipt, bound) {
+						books::record_escrow_absorption(&tx, &bound.id, &signed_receipt.absorption)
+							.await?;
+					}
+					if let Some(key) = key {
+						key.write(&tx, pre_settlement).await?;
+					}
 					tx.commit().await?;
-					return Ok((pre_settlement.clone(), Some(signed_receipt.clone())));
+					return Ok((pre_settlement.clone(), pre_receipt.cloned()));
 				}
 				let _ = tx.rollback().await;
 			}
@@ -633,13 +712,16 @@ impl Keeper {
 				let (settlement, receipt) = if &prepared.state == initial_state {
 					(pre_settlement.clone(), pre_receipt.cloned())
 				} else {
-					let rejudged = breach(prepared.state.judge_hunt(
-						sighting,
-						decoded,
-						now,
-						feeding_seed,
-						judging,
-					))?;
+					let rejudged = self
+						.judge_off_worker(
+							prepared.state.clone(),
+							sighting,
+							decoded.clone(),
+							now,
+							feeding_seed,
+							judging.clone(),
+						)
+						.await?;
 					self.sign(&rejudged, player, bound)?
 				};
 				books::commit(tx, &self.gateway, &prepared, settlement.state.clone()).await?;
@@ -648,11 +730,40 @@ impl Keeper {
 					books::record_escrow_absorption(tx, &bound.id, &signed_receipt.absorption)
 						.await?;
 				}
+				if let Some(key) = key {
+					key.write(tx, &settlement).await?;
+				}
 
 				Ok::<_, rpc::Error>((settlement, receipt))
 			}
 			.await
 		})
+	}
+
+	/// Judges the hunt `log` records against `state` on the blocking pool,
+	/// under the replay permits, so a replay never stalls an async worker.
+	async fn judge_off_worker(
+		&self,
+		state: PlayerState,
+		sighting: i64,
+		log: HuntLog,
+		now: Timestamp,
+		feeding_seed: i64,
+		judging: Judging,
+	) -> rpc::Result<HuntSettlement> {
+		let permit = self
+			.replay_permits
+			.clone()
+			.acquire_owned()
+			.await
+			.map_err(|_| rpc::Error::server("hunt replay pool closed"))?;
+
+		tokio::task::spawn_blocking(move || {
+			let _permit = permit;
+			breach(state.judge_hunt(sighting, &log, now, feeding_seed, &judging))
+		})
+		.await
+		.map_err(|_| rpc::Error::server("hunt replay task aborted"))?
 	}
 
 	/// `judged` with the absorption it recorded signed. A husk that got
@@ -1191,6 +1302,138 @@ impl Following {
 	}
 }
 
+/// The `Idempotency-Key` a request came with, as the keeper's identity put
+/// it beside the caller.
+///
+/// `leptoskit_rpc` keeps receipts for mutations only, and `settle_hunt` is
+/// an action, so that its replay and the chain's reads hold no transaction
+/// open. The keeper keeps its receipt itself.
+#[derive(Clone, Debug)]
+pub struct RequestKey(pub String);
+
+/// The receipt a settlement is kept under: in `leptoskit_rpc`'s own
+/// receipts table, by the same rules as a mutation's. A key belongs to its
+/// caller, names one call (the operation and a SHA-256 of its arguments),
+/// and is pruned with the rest.
+pub struct SettlementKey {
+	owner: String,
+	request_id: String,
+	arguments: String,
+}
+
+impl SettlementKey {
+	const OPERATION: &'static str = "settle_hunt";
+
+	/// The key for settling `sighting` with `log`, sent by `caller` as
+	/// `request`.
+	///
+	/// # Errors
+	///
+	/// An invalid request when the key is empty or too long.
+	pub fn new(
+		caller: Option<&str>,
+		request: &RequestKey,
+		sighting: i64,
+		log: &str,
+	) -> rpc::Result<Self> {
+		let request_id = request.0.as_str();
+
+		if request_id.is_empty() || request_id.len() > rpc::server::receipts::MAX_REQUEST_ID_LEN {
+			return Err(rpc::Error::invalid(format!(
+				"an idempotency key is 1 to {} characters long",
+				rpc::server::receipts::MAX_REQUEST_ID_LEN
+			)));
+		}
+
+		let mut hash = Sha256::new();
+		hash.update(Self::OPERATION.as_bytes());
+		hash.update([0]);
+		hash.update(sighting.to_le_bytes());
+		hash.update(log.as_bytes());
+		let arguments = hash
+			.finalize()
+			.iter()
+			.fold(String::with_capacity(64), |mut hex, byte| {
+				use std::fmt::Write as _;
+				let _ = write!(hex, "{byte:02x}");
+				hex
+			});
+
+		Ok(Self {
+			owner: caller
+				.unwrap_or(rpc::server::receipts::ANONYMOUS)
+				.to_owned(),
+			request_id: request_id.to_owned(),
+			arguments,
+		})
+	}
+
+	/// The settlement this call made, if it has run.
+	///
+	/// # Errors
+	///
+	/// A conflict when the key was used for another call.
+	async fn find(&self, db: &impl leptoskit_db::Read) -> rpc::Result<Option<HuntSettlement>> {
+		let receipt = rpc::server::receipts::Receipt::query()
+			.filter(|receipt| {
+				receipt.owner.eq(self.owner.clone())
+					& receipt.request_id.eq(self.request_id.clone())
+			})
+			.first(db)
+			.await?;
+		let Some(receipt) = receipt else {
+			return Ok(None);
+		};
+
+		if receipt.operation != Self::OPERATION || receipt.arguments != self.arguments {
+			return Err(rpc::Error::conflict(
+				"this idempotency key was already used for a different call; use a new key for \
+				 each call",
+			));
+		}
+
+		serde_json::from_value(receipt.result.0)
+			.map(Some)
+			.map_err(|_| {
+				rpc::Error::conflict(
+					"the stored result of this call no longer fits `settle_hunt`; use a new \
+					 idempotency key",
+				)
+			})
+	}
+
+	/// Keeps `settlement` under this key, in the settlement's own commit.
+	async fn write(
+		&self,
+		tx: &impl leptoskit_db::Connection,
+		settlement: &HuntSettlement,
+	) -> rpc::Result<()> {
+		let result = serde_json::to_value(settlement)
+			.map_err(|_| rpc::Error::server("a settlement that is not JSON"))?;
+
+		// The table's own insert is private to `leptoskit_rpc`; a key used
+		// twice meets its unique (owner, request_id) index all the same.
+		tx.execute(leptoskit_db::Statement {
+			sql: "INSERT INTO \"rpc\".\"receipts\" (\"id\", \"owner\", \"request_id\", \
+			      \"operation\", \"arguments\", \"result\", \"created_at\") \
+			      VALUES ($1, $2, $3, $4, $5, $6, $7)"
+				.to_owned(),
+			args: vec![
+				leptoskit_db::Value::Uuid(Id::<rpc::server::receipts::Receipt>::new().uuid()),
+				leptoskit_db::Value::Text(self.owner.clone()),
+				leptoskit_db::Value::Text(self.request_id.clone()),
+				leptoskit_db::Value::Text(Self::OPERATION.to_owned()),
+				leptoskit_db::Value::Text(self.arguments.clone()),
+				leptoskit_db::Value::Json(result),
+				leptoskit_db::Value::Timestamp(leptoskit_db::now()),
+			],
+		})
+		.await?;
+
+		Ok(())
+	}
+}
+
 /// The keeper, as the operations' bodies reach it.
 #[derive(Clone, Debug)]
 pub struct Shared(pub Arc<Keeper>);
@@ -1222,7 +1465,17 @@ impl reapers_api::keeper::Keeper for Shared {
 		sighting: i64,
 		log: String,
 	) -> BoxFuture<'a, rpc::Result<SettledHunt>> {
-		Box::pin(async move { self.0.settle_hunt(me(cx.identity())?, sighting, &log).await })
+		Box::pin(async move {
+			let account = me(cx.identity())?;
+			let key = cx
+				.get::<RequestKey>()
+				.map(|request| {
+					SettlementKey::new(cx.identity().caller.as_deref(), request, sighting, &log)
+				})
+				.transpose()?;
+
+			self.0.settle_hunt(account, sighting, &log, key).await
+		})
 	}
 
 	fn absorb_transaction<'a>(

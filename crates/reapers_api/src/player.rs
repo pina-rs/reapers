@@ -91,6 +91,13 @@ pub async fn release(
 /// replay walks the husk through the same room.
 /// The verdict is the replay's; nothing the game claims about how the hunt
 /// went is read.
+///
+/// An action, so that the replay and the chain's reads hold no transaction
+/// open, yet as safe to send again as a mutation: a call with an
+/// `Idempotency-Key` header keeps its settlement with the key in the same
+/// commit, and a repeat with the same key and arguments is answered with
+/// that settlement (its burn, if any, built again on a fresh blockhash)
+/// rather than settled twice. The game sends one key per hunt.
 #[rpc::action]
 pub async fn settle_hunt(
 	cx: &rpc::ActionCx,
