@@ -105,9 +105,10 @@ KEYS = {
         (
             0.26,
             pose(move=(0, 0, -0.05), motion=(12, 0, 0), head=(10, 0, 0), arm_r=(-10, 14, 0), arm_l=(-25, -22, 0), elbow_r=(-30, 0, 0), elbow_l=(-30, 0, 0)),
-            # The hips give on past the floor; the chest bows through the
-            # key without a stop, or the weapon would turn a corner there.
-            {"*": AUTO, "move": stab(0.08, 0.14)},
+            # The hips give on past the floor at the speed they fell, not
+            # driven faster, and the chest bows through the key without a
+            # stop: either would turn the weapon's tip a corner there.
+            {"*": AUTO, "move": over(0.08, 0.07, 0.16)},
         ),
         (0.62, pose(move=(0, 0, 0.04), motion=(-4, 0, 0), head=(-3, 0, 0), arm_r=(0, 6, 0), arm_l=(-6, -8, 0), elbow_r=(-16, 0, 0), elbow_l=(-18, 0, 0))),
         (1, REST, STOP),
