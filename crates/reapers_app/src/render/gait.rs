@@ -21,6 +21,7 @@ use reapers_rules::Vec3;
 use reapers_rules::Vessel;
 
 use super::spring::Spring;
+use super::spring::inertia;
 
 /// What a limb is to the body.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -246,6 +247,12 @@ const TELEPORT: f64 = 0.5;
 /// Left where it is for longer than this, in seconds, by rules that move it
 /// sixty times a second, a body is standing.
 const STILL_AFTER: f64 = 0.05;
+/// How long the body blends out of how it was held when its state changes
+/// (a crouch into a leap, a leap into a landing), in seconds.
+const CHANGE_BLEND: f64 = 0.12;
+/// How many numbers a carriage holds besides its gaze, which follows on a
+/// spring of its own.
+const CHANNELS: usize = 4 + 2 * MAX_LIMBS;
 
 /// A smooth step from 0 to 1.
 fn smooth(t: f64) -> f64 {
@@ -293,6 +300,15 @@ pub struct Footwork {
 	fall: f64,
 	/// The head's turn and tip, as they follow what it looks at.
 	look: [Spring; 2],
+	/// The state of its walk on the grid, and whether it is in a leap: a
+	/// change of either can change how it is held at once.
+	act: Option<(Option<HuskMotionState>, bool)>,
+	/// The carriage last shown, and how fast each of its numbers moved.
+	shown: Option<([f64; CHANNELS], [f64; CHANNELS])>,
+	/// What a change left to blend out of: how far the carriage before it
+	/// was from the new one, how fast that was changing, and how long ago
+	/// the change came, in seconds.
+	change: Option<([f64; CHANNELS], [f64; CHANNELS], f64)>,
 }
 
 impl Footwork {
@@ -309,6 +325,9 @@ impl Footwork {
 			apex: f64::NEG_INFINITY,
 			fall: 0.0,
 			look: [Spring::new(GAZE_FREQUENCY, 0.0); 2],
+			act: None,
+			shown: None,
+			change: None,
 		}
 	}
 
@@ -363,12 +382,60 @@ impl Footwork {
 		} else if pose.leaping {
 			tuck(build, 1.0, 0.0, &mut carriage);
 		}
+		self.blend(state, pose.leaping, delta, &mut carriage);
 		let target = Self::gaze(pose);
 		carriage.look = (
 			self.look[0].step(target.0, delta),
 			self.look[1].step(target.1, delta),
 		);
 		carriage
+	}
+
+	/// Carries `carriage` on from the one shown before when the body's state
+	/// changed, so a crouch, a take-off or a landing that changes how it is
+	/// held at once is not a cut: the difference, and the speed it was
+	/// changing at, die away over [`CHANGE_BLEND`].
+	fn blend(
+		&mut self,
+		state: Option<HuskMotionState>,
+		leaping: bool,
+		delta: f64,
+		carriage: &mut Carriage,
+	) {
+		let act = (state, leaping);
+		let raw = channels(carriage);
+		if self.act.is_some_and(|before| before != act)
+			&& let Some((shown, speed)) = self.shown
+		{
+			let offset = std::array::from_fn(|slot| shown[slot] - raw[slot]);
+			self.change = Some((offset, speed, 0.0));
+		}
+		self.act = Some(act);
+		let mut blended = raw;
+		if let Some((offset, speed, since)) = &mut self.change {
+			*since += delta;
+			if *since >= CHANGE_BLEND {
+				self.change = None;
+			} else {
+				for (slot, value) in blended.iter_mut().enumerate() {
+					*value += f64::from(inertia(
+						offset[slot] as f32,
+						speed[slot] as f32,
+						CHANGE_BLEND as f32,
+						*since as f32,
+					));
+				}
+			}
+		}
+		let speed = match self.shown {
+			Some((shown, _)) if delta > 0.0 => {
+				std::array::from_fn(|slot| (blended[slot] - shown[slot]) / delta)
+			}
+			Some((_, speed)) => speed,
+			None => [0.0; CHANNELS],
+		};
+		self.shown = Some((blended, speed));
+		set_channels(carriage, blended);
 	}
 
 	/// How far the body covered over the ground since last frame, counting
@@ -521,6 +588,25 @@ impl Footwork {
 			right.atan2(ahead).clamp(-GAZE_TURN, GAZE_TURN),
 			(-way.y).atan2(flat).clamp(-GAZE_UP, GAZE_DOWN),
 		)
+	}
+}
+
+/// A carriage's numbers besides its gaze, in one order.
+fn channels(carriage: &Carriage) -> [f64; CHANNELS] {
+	let mut all = [0.0; CHANNELS];
+	all[..4].copy_from_slice(&[carriage.squash, carriage.pitch, carriage.roll, carriage.bob]);
+	for (slot, (swing, spread)) in carriage.limbs.iter().enumerate() {
+		all[4 + 2 * slot] = *swing;
+		all[5 + 2 * slot] = *spread;
+	}
+	all
+}
+
+fn set_channels(carriage: &mut Carriage, all: [f64; CHANNELS]) {
+	[carriage.squash, carriage.pitch, carriage.roll, carriage.bob] =
+		[all[0], all[1], all[2], all[3]];
+	for (slot, limb) in carriage.limbs.iter_mut().enumerate() {
+		*limb = (all[4 + 2 * slot], all[5 + 2 * slot]);
 	}
 }
 
@@ -680,8 +766,8 @@ mod tests {
 		assert!(footwork.stride_length(&pose, 0.1) > 0.0);
 	}
 
-	/// The carriage of a penguin `fraction` through `state`, after a leap
-	/// that fell `fall` metres.
+	/// The carriage of a penguin held `fraction` through `state`, once it has
+	/// blended into it, after a leap that fell `fall` metres.
 	fn holding(state: HuskMotionState, fraction: f64, fall: f64) -> Carriage {
 		let mut footwork = Footwork::new(Vessel::Penguin);
 		// Up in the air, then down, so it knows how far it fell.
@@ -693,7 +779,42 @@ mod tests {
 			&penguin(Vec3::new(0.0, -1.0, 2.0), HuskMotionState::Land, 0.0),
 			FRAME,
 		);
-		footwork.step(&penguin(Vec3::new(0.0, -1.0, 2.0), state, fraction), FRAME)
+		let held = penguin(Vec3::new(0.0, -1.0, 2.0), state, fraction);
+		for _ in 0..10 {
+			footwork.step(&held, FRAME);
+		}
+		footwork.step(&held, FRAME)
+	}
+
+	#[test]
+	fn a_change_of_state_carries_on_how_the_body_was_held() {
+		// Reaching for the ground at the end of a leap, then landing: the
+		// legs are not snapped from their reach to their brace.
+		let mut footwork = Footwork::new(Vessel::Penguin);
+		let at = Vec3::new(0.0, -1.0, 2.0);
+		let mut reaching = Carriage::REST;
+		for fraction in [0.9, 0.95, 0.99] {
+			reaching = footwork.step(&penguin(at, HuskMotionState::Air, fraction), FRAME);
+		}
+		let landed = footwork.step(&penguin(at, HuskMotionState::Land, 0.0), FRAME);
+		let mut fresh = Footwork::new(Vessel::Penguin);
+		let raw = fresh.step(&penguin(at, HuskMotionState::Land, 0.0), FRAME);
+		let jump = (raw.limbs[0].0 - reaching.limbs[0].0).abs();
+		assert!(jump > 0.15, "a cut to blend: {jump}");
+		// A frame on, it has gone on the way it was going, not jumped.
+		let moved = (landed.limbs[0].0 - reaching.limbs[0].0).abs();
+		assert!(moved < 0.5 * jump, "{moved} of {jump}");
+		// Once the blend is over, the landing is held as it would be anyway.
+		let mut later = landed;
+		for _ in 0..4 {
+			later = footwork.step(&penguin(at, HuskMotionState::Land, 0.0), FRAME);
+		}
+		for _ in 0..4 {
+			fresh.step(&penguin(at, HuskMotionState::Land, 0.0), FRAME);
+		}
+		let settled = fresh.step(&penguin(at, HuskMotionState::Land, 0.0), FRAME);
+		assert!((later.limbs[0].0 - settled.limbs[0].0).abs() < 1e-9);
+		assert!((later.squash - settled.squash).abs() < 1e-9);
 	}
 
 	#[test]

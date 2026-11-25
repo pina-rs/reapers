@@ -225,6 +225,8 @@ struct Seam {
 	/// The hunt's tick the arms were last shown at: the rules' tick, and as
 	/// far past it as the display has run since.
 	shown: Option<f64>,
+	/// The action the latest one cut short, for the arms to blend out of.
+	cut: Option<arms::Cut>,
 	rig: Option<ViewmodelRig>,
 	/// The effects, and the scene they were spawned in: a world scene that
 	/// was forgotten and made afresh needs them again.
@@ -251,6 +253,7 @@ fn seam() -> Rc<RefCell<Seam>> {
 			Rc::new(RefCell::new(Seam {
 				props: None,
 				shown: None,
+				cut: None,
 				rig: None,
 				world: None,
 				trailing: arms::Trailing::default(),
@@ -272,7 +275,31 @@ pub fn viewmodel_show(props: &ViewmodelProps) {
 	if seam.props.as_ref() == Some(props) {
 		return;
 	}
+	if let Some(before) = seam.props {
+		seam.cut = next_cut(&before, props, seam.cut);
+	}
 	seam.props = Some(*props);
+}
+
+/// What the arms blend out of once `after` follows `before`, which blended
+/// out of `cut`: a new action cuts the one before short where it had got
+/// to; the same action goes on blending; a hunt shown from an earlier tick
+/// (a bench scrubbing back) has nothing to blend out of.
+fn next_cut(
+	before: &ViewmodelProps,
+	after: &ViewmodelProps,
+	cut: Option<arms::Cut>,
+) -> Option<arms::Cut> {
+	if (after.action, after.action_tick) == (before.action, before.action_tick) {
+		return cut;
+	}
+	if after.action_tick < before.action_tick || after.now < before.now {
+		return None;
+	}
+	Some(arms::Cut {
+		from: before.action,
+		played: before.action_seconds(after.action_tick as f64),
+	})
 }
 
 /// The hunt's tick to show after `shown` once `delta` more seconds have
@@ -332,7 +359,7 @@ impl Seam {
 		let tick = shown + f64::from(seconds) * f64::from(props.rate);
 		let since = props.action_seconds(tick);
 		let clock = (props.juice.motion_tick(tick) / f64::from(TICKS_PER_SECOND)) as f32;
-		let mut pose = arms::pose(props.manner(), props.action, since, clock);
+		let mut pose = arms::flowing(props.manner(), props.action, since, clock, self.cut);
 		// The arms' own clock over the frame, which a hit-stop holds.
 		let before = tick - f64::from(seconds) * f64::from(props.rate);
 		let moved = ((props.juice.motion_tick(tick) - props.juice.motion_tick(before))
@@ -755,6 +782,29 @@ mod tests {
 		assert_eq!(shown_tick(Some(100.2), 1.0, 100, 60.0), 101.0);
 		// A clock held still, as the bench's frozen frames are, shows its tick.
 		assert_eq!(shown_tick(Some(55.5), 1.0 / 60.0, 12, 0.0), 12.0);
+	}
+
+	#[test]
+	fn a_new_action_cuts_the_one_before_short_where_it_had_got_to() {
+		let mut firing = ViewmodelProps::at_rest(Archetype::Gun, WeaponKind::Scythe, 100);
+		firing.action = ViewAction::Fire;
+		firing.action_tick = 94;
+		let mut later = firing;
+		later.now = 101;
+		assert_eq!(next_cut(&firing, &later, None), None, "the same shot");
+		let mut reload = later;
+		reload.action = ViewAction::Reload;
+		reload.action_tick = 103;
+		reload.now = 103;
+		let cut = next_cut(&later, &reload, None).unwrap();
+		assert_eq!(cut.from, ViewAction::Fire);
+		assert!((cut.played - 9.0 / 60.0).abs() < 1e-6, "{}", cut.played);
+		// Shown again from earlier, as a bench scrubs back: no blend.
+		assert_eq!(next_cut(&reload, &firing, Some(cut)), None);
+		// The reload going on keeps blending out of the shot.
+		let mut on = reload;
+		on.now = 104;
+		assert_eq!(next_cut(&reload, &on, Some(cut)), Some(cut));
 	}
 
 	#[test]

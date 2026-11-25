@@ -31,6 +31,7 @@ use super::curves::key;
 use super::curves::knock;
 use super::curves::sample;
 use super::spring::Spring;
+use super::spring::inertia;
 use super::swings::shape;
 
 /// The manner the weapon in hand swings in. A class weapon in the heavy
@@ -276,6 +277,167 @@ pub fn pose(manner: Swing, action: ViewAction, since: f32, clock: f32) -> Pose {
 		ViewAction::Throw => throw(&mut pose, since),
 	}
 	pose
+}
+
+/// An action the arms were in when another cut it short: what it was, and
+/// how far it had played, in seconds, when the cut came.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Cut {
+	pub from: ViewAction,
+	pub played: f32,
+}
+
+/// How long the arms blend out of whatever `action` cut short, in seconds:
+/// about a tenth of a second, and always over before the action's blow, so
+/// the weapon is exactly where the rules land it when they do. A strike
+/// lands on the press, so it cuts straight to its blow.
+pub fn blend_seconds(action: ViewAction) -> f32 {
+	match action {
+		ViewAction::Strike => 0.0,
+		ViewAction::Stab { .. } => BLEND_SECONDS.min(STAB_SECONDS),
+		ViewAction::Swing { .. } => BLEND_SECONDS.min(CONTACT),
+		_ => BLEND_SECONDS,
+	}
+}
+
+/// Whether `action` begins with a jolt: a shot's kick, a dry fire's
+/// twitch, a blow taken. Its own sudden start is the point of it, so a blend
+/// into it carries on the motion before without smoothing the jolt away.
+const fn jolts(action: ViewAction) -> bool {
+	matches!(
+		action,
+		ViewAction::Fire | ViewAction::Empty | ViewAction::Struck
+	)
+}
+
+/// How long a blend out of a cut takes, at most.
+const BLEND_SECONDS: f32 = 0.1;
+/// The step the speeds at a cut are measured over, in seconds.
+const BLEND_STEP: f32 = 1.0e-4;
+
+/// Everything at `since` seconds into `action`, as [`pose`] has it, carried
+/// on from the action `cut` short: at the cut the arms are where the action
+/// before had them and moving as it moved them, and the difference dies
+/// away over [`blend_seconds`]. An action that [`jolts`] keeps its own
+/// sudden start on top of the motion carried on. It is a function of time
+/// alone, like [`pose`]: held by a hit-stop, sampled anywhere.
+pub fn flowing(
+	manner: Swing,
+	action: ViewAction,
+	since: f32,
+	clock: f32,
+	cut: Option<Cut>,
+) -> Pose {
+	let mut now = pose(manner, action, since, clock);
+	let blend = blend_seconds(action);
+	let Some(cut) = cut else {
+		return now;
+	};
+	if since >= blend {
+		return now;
+	}
+	let before = |at: f32| pose(manner, cut.from, at, clock);
+	let after = |at: f32| pose(manner, action, at, clock);
+	let back = cut.played.min(BLEND_STEP);
+	let (was, was_back) = (before(cut.played), before(cut.played - back));
+	let (start, start_on) = (after(0.0), after(BLEND_STEP));
+	let carry = |was: f32, was_back: f32, start: f32, start_on: f32, wrap: bool| {
+		let mut offset = was - start;
+		if wrap {
+			offset = (offset + PI).rem_euclid(TAU) - PI;
+		}
+		let speed_before = if back > 0.0 {
+			(was - was_back) / back
+		} else {
+			0.0
+		};
+		let speed_after = if jolts(action) {
+			0.0
+		} else {
+			(start_on - start) / BLEND_STEP
+		};
+		inertia(offset, speed_before - speed_after, blend, since)
+	};
+	let channels = arm_channels(&now.arm);
+	let mut blended = channels;
+	let [was, was_back, start, start_on] =
+		[&was.arm, &was_back.arm, &start.arm, &start_on.arm].map(arm_channels);
+	for (slot, value) in blended.iter_mut().enumerate() {
+		*value += carry(
+			was[slot],
+			was_back[slot],
+			start[slot],
+			start_on[slot],
+			slot == SPIN,
+		);
+	}
+	set_arm_channels(&mut now.arm, blended);
+	if let (Some(left), Some(was), Some(was_back), Some(start), Some(start_on)) = (
+		now.left.as_mut(),
+		before(cut.played).left,
+		before(cut.played - back).left,
+		after(0.0).left,
+		after(BLEND_STEP).left,
+	) {
+		let [was, was_back, start, start_on] =
+			[&was, &was_back, &start, &start_on].map(left_channels);
+		let mut channels = left_channels(left);
+		for (slot, value) in channels.iter_mut().enumerate() {
+			*value += carry(
+				was[slot],
+				was_back[slot],
+				start[slot],
+				start_on[slot],
+				false,
+			);
+		}
+		left.at = [channels[0], channels[1], channels[2]];
+		left.pitch = channels[3];
+		left.yaw = channels[4];
+		left.roll = channels[5];
+	}
+	now
+}
+
+/// The arm's spin in its fist, among [`arm_channels`]: an angle that wraps.
+const SPIN: usize = 9;
+
+/// The arm's every number, in one order.
+const fn arm_channels(arm: &ArmPose) -> [f32; 10] {
+	[
+		arm.x,
+		arm.y,
+		arm.z,
+		arm.pitch,
+		arm.yaw,
+		arm.roll,
+		arm.wrist_pitch,
+		arm.wrist_yaw,
+		arm.wrist_roll,
+		arm.spin,
+	]
+}
+
+const fn set_arm_channels(arm: &mut ArmPose, channels: [f32; 10]) {
+	[
+		arm.x,
+		arm.y,
+		arm.z,
+		arm.pitch,
+		arm.yaw,
+		arm.roll,
+		arm.wrist_pitch,
+		arm.wrist_yaw,
+		arm.wrist_roll,
+		arm.spin,
+	] = channels;
+}
+
+/// The left hand's place and turn, in one order.
+const fn left_channels(left: &LeftPose) -> [f32; 6] {
+	[
+		left.at[0], left.at[1], left.at[2], left.pitch, left.yaw, left.roll,
+	]
 }
 
 /// When `action` has finished moving and holds still, in seconds, with a
@@ -770,6 +932,103 @@ mod tests {
 	fn a_player_who_asked_for_less_motion_keeps_the_hand_square() {
 		for (bare, trailed) in swept(60.0, false, &[0.1, 0.2, 0.3, 0.5]) {
 			assert_eq!(trailed, bare);
+		}
+	}
+
+	const ACTIONS: [ViewAction; 17] = [
+		ViewAction::Idle,
+		ViewAction::Draw,
+		ViewAction::Fire,
+		ViewAction::Empty,
+		ViewAction::Reload,
+		ViewAction::ActiveReload,
+		ViewAction::Jam,
+		ViewAction::DiveIn,
+		ViewAction::Stab {
+			nth: 1,
+			dived: true,
+		},
+		ViewAction::DiveOut,
+		ViewAction::Swing { dived: false },
+		ViewAction::Swing { dived: true },
+		ViewAction::Strike,
+		ViewAction::Parry,
+		ViewAction::Struck,
+		ViewAction::Raise,
+		ViewAction::Throw,
+	];
+
+	#[test]
+	fn a_cut_carries_on_from_where_the_arms_were_and_how_they_moved() {
+		let step = 1e-4;
+		for manner in [Swing::Sweep, Swing::Stab, Swing::Shoot, Swing::Toll] {
+			for from in ACTIONS {
+				for to in ACTIONS {
+					if blend_seconds(to) <= 0.0 {
+						continue;
+					}
+					for played in [0.05, 0.13, 0.3] {
+						let cut = Some(Cut { from, played });
+						let at_cut = arm_channels(&flowing(manner, to, 0.0, 1.0, cut).arm);
+						let just_after = arm_channels(&flowing(manner, to, step, 1.0, cut).arm);
+						let was = arm_channels(&pose(manner, from, played, 1.0).arm);
+						let was_back =
+							arm_channels(&pose(manner, from, played - BLEND_STEP, 1.0).arm);
+						for slot in 0..10 {
+							let mut gap = at_cut[slot] - was[slot];
+							if slot == SPIN {
+								gap = (gap + PI).rem_euclid(TAU) - PI;
+							}
+							assert!(
+								gap.abs() < 1e-4,
+								"{manner:?} {from:?} to {to:?} at {played}: {slot} jumps {gap}"
+							);
+							let speed = (just_after[slot] - at_cut[slot]) / step;
+							let mut speed_before = (was[slot] - was_back[slot]) / BLEND_STEP;
+							if jolts(to) {
+								// Its own jolt goes on top.
+								let own = arm_channels(&pose(manner, to, step, 1.0).arm)[slot]
+									- arm_channels(&pose(manner, to, 0.0, 1.0).arm)[slot];
+								speed_before += own / step;
+							}
+							assert!(
+								(speed - speed_before).abs() < 0.15 + 0.03 * speed_before.abs(),
+								"{manner:?} {from:?} to {to:?} at {played}: {slot} moves at {speed}, was {speed_before}"
+							);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	#[test]
+	fn a_blend_is_over_before_the_blow_lands() {
+		for from in ACTIONS {
+			let cut = Some(Cut { from, played: 0.2 });
+			let swing = ViewAction::Swing { dived: false };
+			assert_eq!(
+				flowing(Swing::Sweep, swing, CONTACT, 0.5, cut),
+				pose(Swing::Sweep, swing, CONTACT, 0.5)
+			);
+			let stab = ViewAction::Stab {
+				nth: 2,
+				dived: true,
+			};
+			assert_eq!(
+				flowing(Swing::Stab, stab, STAB_SECONDS, 0.5, cut),
+				pose(Swing::Stab, stab, STAB_SECONDS, 0.5)
+			);
+			// A strike lands on the press: it cuts straight to its blow.
+			assert_eq!(
+				flowing(Swing::Sweep, ViewAction::Strike, 0.0, 0.5, cut),
+				pose(Swing::Sweep, ViewAction::Strike, 0.0, 0.5)
+			);
+			// Past its blend, an action is untouched.
+			assert_eq!(
+				flowing(Swing::Shoot, ViewAction::Fire, BLEND_SECONDS, 0.5, cut),
+				pose(Swing::Shoot, ViewAction::Fire, BLEND_SECONDS, 0.5)
+			);
 		}
 	}
 

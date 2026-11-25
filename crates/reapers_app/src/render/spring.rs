@@ -1,10 +1,11 @@
 //! Motion that follows other motion, the same at any frame rate: a
 //! critically damped spring that trails what it follows and settles without
-//! a wobble.
+//! a wobble, and an inertial blend that carries a cut's difference and speed
+//! across it and lets them die away.
 //!
-//! It is exact over the time it is stepped across, so a motion stepped
+//! Both are exact over the time they are stepped across, so a motion stepped
 //! thirty, sixty or a hundred and twenty times a second lands in the same
-//! place. It decides nothing: it is for show, never for the rules.
+//! place. Neither decides anything: they are for show, never for the rules.
 
 use std::f64::consts::TAU;
 
@@ -70,6 +71,34 @@ impl Spring {
 		self.velocity = 0.0;
 		self.target = Some(value);
 	}
+}
+
+/// What is left, `since` seconds after a cut, of a difference `offset`
+/// that was changing at `velocity` a second as the cut came: it starts with
+/// exactly that value and speed and dies away to nothing by `duration`,
+/// with no speed or acceleration left there either. Added to the motion
+/// that begins at the cut, it carries on from the one the cut ended, and
+/// from `duration` on the new motion is untouched.
+///
+/// It is the quintic of an inertialised blend: a function of time alone, so
+/// what it is added to can still be held, slowed or sampled at any moment.
+pub fn inertia(offset: f32, velocity: f32, duration: f32, since: f32) -> f32 {
+	if duration <= 0.0 || since.is_nan() || since >= duration {
+		return 0.0;
+	}
+	let time = since.max(0.0);
+	let span = duration;
+	// The acceleration it starts with is chosen so that the curve's jerk is
+	// least; the rest follows from ending flat at `duration`.
+	let start = (-8.0 * velocity * span - 20.0 * offset) / (span * span);
+	let fifth =
+		-(start * span * span + 6.0 * velocity * span + 12.0 * offset) / (2.0 * span.powi(5));
+	let fourth =
+		(3.0 * start * span * span + 16.0 * velocity * span + 30.0 * offset) / (2.0 * span.powi(4));
+	let third = -(3.0 * start * span * span + 12.0 * velocity * span + 20.0 * offset)
+		/ (2.0 * span.powi(3));
+	((((fifth * time + fourth) * time + third) * time + 0.5 * start) * time + velocity) * time
+		+ offset
 }
 
 #[cfg(test)]
@@ -142,5 +171,20 @@ mod tests {
 		assert!((spring.value - 1.0).abs() < 1e-6, "no time, no move");
 		spring.settle(-0.5);
 		assert_eq!(spring.step(-0.5, 1.0 / 60.0), -0.5);
+	}
+
+	#[test]
+	fn an_inertial_blend_starts_with_the_cut_and_ends_flat() {
+		let (offset, velocity, duration) = (0.3, -2.0, 0.1);
+		assert!((inertia(offset, velocity, duration, 0.0) - offset).abs() < 1e-6);
+		let step = 1e-4;
+		let speed = (inertia(offset, velocity, duration, step) - offset) / step;
+		assert!((speed - velocity).abs() < 0.05, "{speed}");
+		let late = inertia(offset, velocity, duration, duration - step);
+		let later = inertia(offset, velocity, duration, duration - 2.0 * step);
+		assert!(late.abs() < 1e-6 && ((late - later) / step).abs() < 1e-3);
+		assert_eq!(inertia(offset, velocity, duration, duration), 0.0);
+		assert_eq!(inertia(offset, velocity, duration, 1.0), 0.0);
+		assert_eq!(inertia(offset, velocity, 0.0, 0.0), 0.0, "no blend, a cut");
 	}
 }
