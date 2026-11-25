@@ -1,18 +1,23 @@
 """The penguin: Pesky Penguins.
 
-A squat, stylized upright bird with a heavy sculpted brow, sleek streamlined
-flippers, hooked curved bill, and chunky three-toed webbed feet. It waddles,
-so the two legs are the parts that matter most.
+A squat upright bird cut in planes: a barrel with a hard shoulder where its
+sides turn in to the neck and a flat white belly laid on its front, a head
+with a raised blaze up the forehead that carries the brow seal, a hooked
+bill whose short lower half drops clear of the bib, flippers that stand
+off its sides with their tips splayed out, and chunky three-toed webbed
+feet. It waddles, so the two legs are the parts that matter most.
 
 It wears a ribbed knit beanie or a jewelled royal crown.
 """
 
 import math
 
-import bmesh
 from mathutils import Vector
 
 from lib import core, creature
+
+HEAD = Vector((0, 0, 0.2))
+ARM = Vector((0.27, 0.1, 0.15))
 
 
 def build(spec):
@@ -24,22 +29,28 @@ def build(spec):
     accent = core.material("accent", color=(1.0, 1.0, 1.0), roughness=0.25)
     floor = creature.floor(spec)
 
-    # Plump, smooth emperor-penguin barrel tapering cleanly to the shoulders
-    # and rounding smoothly into the lower stance.
-    _torso(root, body, trim)
+    torso, belly = _torso(root, body, trim)
 
     # A crisp feathered tail stub that wags as it walks.
     tail = creature.pivot("tail", root, (0, 0.21, -0.28))
     _tail_fan(tail, body)
 
-    _head(root, body, trim, detail, dark, accent)
+    head, blaze = _head(root, body, trim, detail, dark, accent)
 
     for side, name in ((1, "l"), (-1, "r")):
-        arm = creature.pivot(f"arm_{name}", root, (side * 0.235, 0.0, 0.13))
+        arm = creature.pivot(f"arm_{name}", root, creature.mirrored(ARM, side))
         _flipper(arm, side, name, body)
 
         leg = creature.pivot(f"leg_{name}", root, (side * 0.115, 0.0, -0.30))
         _foot(leg, side, name, floor + 0.30, detail)
+
+    # The seals' sockets: the brow's on the blaze, the belly's on the white,
+    # the flanks' in front of the flippers and the back's between them.
+    creature.seat("seat_0", spec, 0, detail, head, [blaze], radius=0.041, rise=0.008, lobes=7, scallop=0.16)
+    creature.seat("seat_1", spec, 1, detail, root, [belly], radius=0.05, rise=0.01)
+
+    for index in (2, 3, 4):
+        creature.seat(f"seat_{index}", spec, index, detail, root, [torso], radius=0.046, rise=0.01)
 
     creature.studs(root, spec)
     creature.shadow(root, spec)
@@ -48,59 +59,51 @@ def build(spec):
 
 
 def _torso(root, body, trim):
-    """Lofted sleek barrel torso and curved pale belly shield."""
+    """The barrel and the belly laid on it. The barrel is boxy enough that
+    its sides are planes, and it turns in hard at the shoulder, a step the
+    light breaks on; the belly is a flat white plane from the bib to the
+    feet."""
 
-    # (z, half_x, front_y, back_y) stops from lower rump up to shoulder collar.
-    stops = [
-        (-0.37, 0.10, 0.09, 0.10),
-        (-0.33, 0.195, 0.185, 0.20),
-        (-0.24, 0.255, 0.235, 0.245),
-        (-0.12, 0.272, 0.255, 0.256),
-        (0.02, 0.250, 0.238, 0.262),
-        (0.10, 0.226, 0.212, 0.246),
-        (0.17, 0.192, 0.180, 0.212),
-        (0.23, 0.160, 0.152, 0.165),
-        (0.27, 0.11, 0.105, 0.105),
-    ]
-    segments = 32
-    rings = []
-    for z, rx, fy, by in stops:
-        ring = []
-        for step in range(segments):
-            angle = math.tau * step / segments
-            ca, sa = math.cos(angle), math.sin(angle)
-            ry = by if sa > 0 else fy
-            # Subtle proud chest curve in front.
-            chest = 0.014 * max(0.0, -sa) ** 2 * max(0.0, 1.0 - abs(z + 0.06) / 0.28)
-            ring.append((ca * rx, sa * ry - chest, z))
-        rings.append(ring)
+    torso = creature.shell(
+        "torso",
+        [
+            ((0, 0.0, -0.37), 0.1, 0.09, 0.1, 2.2),
+            ((0, 0.0, -0.33), 0.2, 0.18, 0.2, 2.6),
+            ((0, 0.0, -0.24), 0.27, 0.225, 0.245, 3.0),
+            ((0, 0.0, -0.1), 0.29, 0.235, 0.255, 3.0),
+            ((0, 0.0, 0.02), 0.285, 0.225, 0.255, 3.2),
+            ((0, 0.0, 0.11), 0.265, 0.205, 0.245, 3.4),
+            ((0, 0.0, 0.16), 0.205, 0.165, 0.2, 3.0),
+            ((0, 0.0, 0.23), 0.15, 0.13, 0.15, 2.6),
+            ((0, 0.0, 0.27), 0.1, 0.09, 0.09, 2.2),
+        ],
+        body,
+        root,
+        sides=24,
+        start=0.02,
+        end=0.02,
+        crease=38,
+    )
 
-    torso = core.loft("torso", rings, body, root, cap_start=True, cap_end=True)
-    creature.finish(core.shade_smooth(torso))
+    belly = creature.shell(
+        "belly",
+        [
+            ((0, -0.15, -0.33), 0.07, 0.035, 0.03, 2.2),
+            ((0, -0.195, -0.26), 0.16, 0.04, 0.05, 2.8),
+            ((0, -0.215, -0.14), 0.205, 0.04, 0.05, 3.6),
+            ((0, -0.22, -0.02), 0.195, 0.04, 0.05, 3.6),
+            ((0, -0.2, 0.08), 0.16, 0.035, 0.05, 3.2),
+            ((0, -0.165, 0.14), 0.1, 0.03, 0.045, 2.6),
+        ],
+        trim,
+        root,
+        sides=24,
+        start=0.012,
+        end=0.02,
+        crease=38,
+    )
 
-    # Crisp arched pale chest/belly panel hugging the front of the barrel.
-    belly_stops = [
-        (-0.33, 0.072, -0.145),
-        (-0.26, 0.156, -0.228),
-        (-0.14, 0.188, -0.250),
-        (-0.01, 0.175, -0.232),
-        (0.11, 0.140, -0.214),
-        (0.20, 0.088, -0.168),
-    ]
-    b_rings = []
-    b_segs = 28
-    for z, half_w, front_y in belly_stops:
-        ring = []
-        for step in range(b_segs):
-            angle = math.tau * step / b_segs
-            ca, sa = math.cos(angle), math.sin(angle)
-            x = ca * half_w
-            y = front_y + (0.038 * sa if sa < 0 else 0.085 * sa) + 0.056 * (ca * ca)
-            ring.append((x, y, z))
-        b_rings.append(ring)
-
-    belly = core.loft("belly", b_rings, trim, root, cap_start=True, cap_end=True)
-    creature.finish(core.shade_smooth(belly))
+    return torso, belly
 
 
 def _tail_fan(parent, body):
@@ -127,39 +130,30 @@ def _tail_fan(parent, body):
 
 
 def _flipper(parent, side, name, body):
-    """Streamlined hydrofoil penguin flipper curving cleanly down and back."""
+    """A flipper: thick at the shoulder, thinning to its tip, standing a
+    finger's width off the barrel's side all the way down and splayed out
+    from it toward the tip, so it reads as its own shape."""
 
-    # Stations: (t, x_off, y_off, z_off, chord_y, thick_x)
-    stations = [
-        (0.0, -0.052, 0.008, 0.024, 0.048, 0.020),
-        (0.14, 0.002, 0.004, -0.015, 0.078, 0.028),
-        (0.32, 0.034, 0.002, -0.085, 0.088, 0.029),
-        # The elbow kinks out and the tip comes back in to the hip: a
-        # flipper on its hip, the pest's attitude.
-        (0.56, 0.062, 0.012, -0.17, 0.084, 0.026),
-        (0.74, 0.058, 0.03, -0.235, 0.07, 0.022),
-        (0.88, 0.03, 0.045, -0.27, 0.05, 0.016),
-        (1.0, 0.0, 0.05, -0.285, 0.018, 0.008),
-    ]
-    rings = []
-    segs = 14
-    for _, xo, yo, zo, chord, thick in stations:
-        ring = []
-        for s in range(segs):
-            a = math.tau * s / segs
-            # Airfoil-ish cross-section: plumper leading edge (-Y), tapered trailing edge (+Y).
-            ca = math.cos(a)
-            sa = math.sin(a)
-            local_y = sa * chord
-            foil_taper = 1.0 - 0.35 * max(0.0, sa)
-            local_x = ca * thick * foil_taper
-            # Slight concave inner cup toward the body.
-            cup = -side * 0.008 * (1.0 - sa * sa)
-            ring.append((side * xo + local_x + cup, yo + local_y, zo))
-        rings.append(ring)
+    def at(x, y, z):
+        return creature.mirrored((x, y, z), side) - creature.mirrored(ARM, side)
 
-    flipper = core.loft(f"flipper_{name}", rings, body, parent, cap_start=True, cap_end=True)
-    creature.finish(core.shade_smooth(flipper, angle=55))
+    creature.shell(
+        f"flipper_{name}",
+        [
+            (at(0.245, 0.1, 0.16), 0.034, 0.05, 0.05, 2.2),
+            (at(0.29, 0.105, 0.115), 0.034, 0.068, 0.058, 2.4),
+            (at(0.322, 0.115, 0.02), 0.026, 0.074, 0.058, 2.4),
+            (at(0.342, 0.13, -0.08), 0.019, 0.064, 0.048, 2.4),
+            (at(0.362, 0.148, -0.16), 0.012, 0.044, 0.034, 2.4),
+        ],
+        body,
+        parent,
+        sides=14,
+        start=0.0,
+        end=0.04,
+        crease=50,
+        forward=(0, -1, 0),
+    )
 
 
 def _foot(parent, side, name, ground_z, detail):
@@ -189,66 +183,73 @@ def _foot(parent, side, name, ground_z, detail):
 
 
 def _head(root, body, trim, detail, dark, accent):
-    head = creature.pivot("head", root, (0, 0, 0.2))
+    head = creature.pivot("head", root, HEAD)
 
-    # Clean stylized rounded-bevel penguin head with sculpted brow overhang
-    # and cheek contour (no raw protruding cube corners!).
-    skull_stops = [
-        (-0.02, 0.145, 0.138, 0.140, 0.0),
-        (0.03, 0.184, 0.178, 0.174, 0.0),
-        (0.09, 0.194, 0.188, 0.180, 0.008),
-        (0.145, 0.188, 0.188, 0.175, 0.024),
-        (0.182, 0.174, 0.184, 0.166, 0.020),
-        (0.218, 0.146, 0.148, 0.145, 0.004),
-        (0.248, 0.098, 0.098, 0.098, 0.0),
-        (0.264, 0.038, 0.038, 0.038, 0.0),
-    ]
-    segs = 32
-    rings = []
-    for z, rx, fy, by, brow in skull_stops:
-        ring = []
-        for s in range(segs):
-            a = math.tau * s / segs
-            ca, sa = math.cos(a), math.sin(a)
-            # Soft squircle profile keeps the chunky Pesky silhouette without harsh cube seams.
-            sx = math.copysign(abs(ca) ** 0.88, ca) * rx
-            ry = by if sa > 0 else fy
-            sy = math.copysign(abs(sa) ** 0.88, sa) * ry
-            if sa < 0:
-                # Sculpted brow ledge projecting over the eyes.
-                front = -sa
-                sy -= brow * (front**1.6) * (0.75 + 0.25 * math.cos(a * 2))
-            ring.append((sx, sy - 0.012, z))
-        rings.append(ring)
+    # A chunky head, boxy enough to take broad planes, its forehead set
+    # back a little so the blaze stands proud of it.
+    skull = creature.shell(
+        "skull",
+        [
+            ((0, -0.012, -0.02), 0.145, 0.13, 0.14, 2.4),
+            ((0, -0.012, 0.03), 0.184, 0.168, 0.175, 2.8),
+            ((0, -0.012, 0.09), 0.196, 0.168, 0.18, 3.0),
+            ((0, -0.012, 0.145), 0.19, 0.162, 0.176, 3.0),
+            ((0, -0.012, 0.185), 0.172, 0.148, 0.166, 2.8),
+            ((0, -0.012, 0.222), 0.142, 0.12, 0.142, 2.6),
+            ((0, -0.012, 0.25), 0.094, 0.08, 0.094, 2.4),
+        ],
+        body,
+        head,
+        sides=24,
+        start=0.02,
+        end=0.024,
+        crease=40,
+    )
 
-    skull = core.loft("skull", rings, body, head, cap_start=True, cap_end=True)
-    creature.finish(core.shade_smooth(skull, angle=58))
-
-    # Crisp sculpted white facial cheek masks framing the eyes and beak,
-    # seated cleanly behind the dark eye sockets so eyes pop crisply.
+    # The white of the face round the eyes and over the bill.
     creature.form(
         "face",
         [
-            ("sphere", (0.072, -0.146, 0.062), (0.068, 0.038, 0.06), (0, 0, math.radians(-14))),
-            ("sphere", (-0.072, -0.146, 0.062), (0.068, 0.038, 0.06), (0, 0, math.radians(14))),
-            ("sphere", (0.0, -0.156, 0.026), (0.084, 0.032, 0.036)),
-            # The blaze: a lozenge up the forehead that the seal is set
-            # in, so it reads as a badge, not a third eye.
-            ("cube", (0.0, -0.17, 0.1), (0.034, 0.03, 0.034), (0, math.radians(45), 0)),
+            ("sphere", (0.074, -0.146, 0.062), (0.068, 0.038, 0.06), (0, 0, math.radians(-14))),
+            ("sphere", (-0.074, -0.146, 0.062), (0.068, 0.038, 0.06), (0, 0, math.radians(14))),
+            ("sphere", (0.0, -0.152, 0.026), (0.084, 0.032, 0.036)),
         ],
         trim,
         head,
-        triangles=620,
+        triangles=560,
         voxel=0.011,
     )
 
-    # Dark recessed eye sockets, glowing eyes, and sculpted expressive brow ledges.
+    # The blaze: a raised stripe of the white from the bill up over the
+    # forehead to the crown, the plate the brow seal is set in. A stripe,
+    # not a spot, so the seal on it never reads as a third eye.
+    blaze = creature.shell(
+        "blaze",
+        [
+            ((0, -0.166, 0.042), 0.026, 0.012, 0.012, 2.4),
+            ((0, -0.174, 0.07), 0.036, 0.016, 0.014, 3.0),
+            ((0, -0.174, 0.1), 0.05, 0.016, 0.014, 3.2),
+            ((0, -0.168, 0.13), 0.048, 0.016, 0.014, 3.2),
+            ((0, -0.152, 0.165), 0.04, 0.016, 0.014, 3.0),
+            ((0, -0.122, 0.2), 0.03, 0.016, 0.014, 2.8),
+            ((0, -0.08, 0.228), 0.018, 0.014, 0.012, 2.4),
+        ],
+        trim,
+        head,
+        sides=16,
+        start=0.008,
+        end=0.012,
+        crease=40,
+    )
+
     for side in (1, -1):
         creature.form(f"socket_{side}", [("sphere", (side * 0.074, -0.178, 0.072), (0.036, 0.022, 0.038))], dark, head, triangles=120)
         creature.eye(side, head, (side * 0.074, -0.195, 0.072), (0.017, 0.011, 0.018), accent)
-        creature.brow(side, head, (side * 0.08, -0.2, 0.118), (0.052, 0.02, 0.016), dark, rotation=(0, 0, math.radians(side * 12)))
+        # Out to either side of the blaze, clear of the seal's socket.
+        creature.brow(side, head, (side * 0.094, -0.196, 0.122), (0.046, 0.02, 0.016), dark, rotation=(0, 0, math.radians(side * 12)))
 
-    # Sculpted curved penguin beak (upper ridge + hooked tip, lower hinged bill).
+    # The hooked upper bill, and a short lower one hinged high at the back
+    # of the mouth, so it drops forward of the bib and not into it.
     _beak(
         "beak_upper",
         Vector((0.0, -0.17, 0.014)),
@@ -260,21 +261,54 @@ def _head(root, body, trim, detail, dark, accent):
         parent=head,
     )
 
-    jaw = creature.pivot("jaw", head, (0, -0.167, 0.002))
+    # The inside of the mouth under the upper bill, which shows as a dark
+    # wedge when the lower one drops.
+    creature.shell(
+        "mouth",
+        [
+            ((0, -0.165, 0.012), 0.05, 0.006, 0.006, 2.4),
+            ((0, -0.22, 0.01), 0.04, 0.006, 0.006, 2.4),
+            ((0, -0.27, 0.004), 0.02, 0.005, 0.005, 2.2),
+        ],
+        dark,
+        head,
+        sides=12,
+        start=0.0,
+        end=0.008,
+        forward=(0, 0, 1),
+    )
+
+    jaw = creature.pivot("jaw", head, (0, -0.158, 0.008))
     _beak(
         "beak_lower",
         Vector((0.0, 0.0, 0.0)),
-        length=0.110,
+        length=0.088,
         width=lambda t: 0.046 * (1.0 - t**2.2) + 0.004,
         top=lambda t: 0.004 * (1.0 - t),
-        bottom=lambda t: -0.022 * (1.0 - t**1.4) - 0.004,
+        bottom=lambda t: -0.02 * (1.0 - t**1.4) - 0.004,
         mat=detail,
         parent=jaw,
         keel=True,
     )
+    creature.shell(
+        "mouth_floor",
+        [
+            ((0, -0.006, 0.004), 0.036, 0.004, 0.004, 2.4),
+            ((0, -0.05, 0.003), 0.03, 0.004, 0.004, 2.4),
+            ((0, -0.075, 0.002), 0.014, 0.003, 0.003, 2.2),
+        ],
+        dark,
+        jaw,
+        sides=12,
+        start=0.0,
+        end=0.006,
+        forward=(0, 0, 1),
+    )
 
     _beanie(creature.pivot("trait_1", head, (0, 0, 0)), detail, trim)
     _crown(creature.pivot("trait_2", head, (0, 0, 0)), detail)
+
+    return head, blaze
 
 
 def _beak(name, origin, length, width, top, bottom, mat, parent, keel=False, steps=9):
