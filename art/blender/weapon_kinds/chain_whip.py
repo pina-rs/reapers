@@ -1,22 +1,28 @@
 """The chain whip: the hollow's weapon.
 
-A spine on a handle. Its links hang plumb from the fist, trail out across the
-ground and end in a hook, so nothing the hollow carries ever rises into the
-space where its head should be.
+A skull dragged on a chain (art bible 6.4). The links, iron vertebrae cast
+twice the size a lash's would be, hang plumb from the fist, trail out across
+the ground and end in a skull of bone, so nothing the hollow carries ever
+rises into the space where its own head should be: it drags one instead.
+The skull's eyes are the one light on it. A band of the owner's gold rings
+the handle under the grip.
 """
 
 import math
 
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 from lib import core
-from lib.armoury import binding, finish, haft
+from lib.armoury import band, binding, finish, haft
 
 # Where the lash runs, as (x, z) from the foot of the handle to the barb.
 LASH = [(0.0, -0.15), (-0.014, -0.4), (0.0, -0.66), (0.06, -0.87), (0.2, -0.975), (0.42, -1.0), (0.6, -0.975), (0.72, -0.91)]
-FIRST_LINK = 0.096
-LAST_LINK = 0.036
-LIT_JOINTS = 6
+FIRST_LINK = 0.17
+LAST_LINK = 0.085
+# The skull at the lash's end: how big, and which way its face turns, out
+# toward the bearer's front and up off the ground.
+SKULL = 0.085
+FACE = Vector((0.45, -0.8, 0.4))
 
 
 def build():
@@ -26,7 +32,8 @@ def build():
     metal = core.material("metal")
 
     haft("whip_handle", root, bottom=-0.12, top=0.15, radius=0.021, bow=0.0)
-    binding("whip_grip", root, -0.085, 0.11, radius=0.0255, turns=6)
+    binding("whip_grip", root, -0.068, 0.11, radius=0.0255, turns=6)
+    band("whip_band", root, -0.086, -0.066, radius=0.0255)
 
     # A spiked cap over the fist, and a socket under it that the lash hangs
     # from.
@@ -53,17 +60,18 @@ def build():
 
     at, length = _measured(core.bezier([(x, 0, z) for x, z in LASH], samples=14))
     links = []
-    joints = []
     start = 0.0
 
-    while True:
-        size = _link_size(start / length)
+    # The skull takes the lash's last stretch.
+    reach = length - SKULL * 1.6
 
-        if start + size > length:
+    while True:
+        size = _link_size(start / reach)
+
+        if start + size > reach:
             break
 
         links.append(_vertebra(len(links), at, start, size, metal))
-        joints.append(start + size * 0.91)
         start += size
 
     # A cord through every link, so the gaps between them are joints rather
@@ -80,26 +88,7 @@ def build():
 
     finish(spine, wear_boost=1.6)
 
-    # The last few joints are lit from inside.
-    lit = []
-
-    for joint in joints[-LIT_JOINTS:]:
-        size = _link_size(joint / length)
-        tangent = _tangent(at, joint)
-
-        lit.append(
-            core.tube(
-                "whip_joint",
-                [at(joint) - tangent * size * 0.07, at(joint) + tangent * size * 0.07],
-                size * 0.2,
-                core.material("accent"),
-                sides=8,
-            )
-        )
-
-    core.join(lit, "whip_embers").parent = root
-
-    _barb(root, at(start), _tangent(at, start), metal)
+    _skull(root, at(start), _tangent(at, start))
 
     return root
 
@@ -163,10 +152,10 @@ def _vertebra(index, at, start, size, metal):
             f"whip_spur_{index}",
             [
                 middle + inward * radius * 0.5,
-                middle + inward * radius * 1.4 + tangent * radius * 0.4,
-                middle + inward * radius * 2.0 + tangent * radius * 1.3,
+                middle + inward * radius * 1.05 + tangent * radius * 0.25,
+                middle + inward * radius * 1.4 + tangent * radius * 0.8,
             ],
-            lambda t: radius * 0.55 * (1 - 0.9 * t),
+            lambda t: radius * 0.42 * (1 - 0.9 * t),
             metal,
             sides=5,
             flatten=0.5,
@@ -177,8 +166,8 @@ def _vertebra(index, at, start, size, metal):
         parts.append(
             core.tube(
                 f"whip_wing_{index}_{side}",
-                [middle + across * side * radius * 0.5, middle + across * side * radius * 1.8 + tangent * radius * 0.6],
-                lambda t: radius * 0.4 * (1 - 0.85 * t),
+                [middle + across * side * radius * 0.5, middle + across * side * radius * 1.35 + tangent * radius * 0.4],
+                lambda t: radius * 0.32 * (1 - 0.85 * t),
                 metal,
                 sides=4,
             )
@@ -187,24 +176,94 @@ def _vertebra(index, at, start, size, metal):
     return core.join(parts, f"whip_vertebra_{index}")
 
 
-def _barb(root, tip, tangent, metal):
-    """The hook the lash ends in, curled up and back like a sting so that it
-    catches on the way out."""
+def _skull(root, neck, tangent):
+    """The skull the lash ends in: a cranium and a muzzle of bone with a
+    jaw under it, the last link through the back of its head at `neck`, its
+    face turned out toward `FACE`. Its eyes, in deep sockets, are the
+    hollow's one light."""
 
-    inward = tangent.cross(Vector((0, 1, 0)))
-    centre = tip + inward * 0.075
-    spine = []
-    edge = []
+    bone = core.material("bone")
+    face = FACE.normalized()
+    up = (Vector((0, 0, 1)) - face * face.z).normalized()
+    side = face.cross(up)
+    # The back of the head sits on the end of the lash.
+    centre = neck + tangent * SKULL * 0.7 + face * SKULL * 0.25 + up * SKULL * 0.35
 
-    for step in range(13):
-        share = step / 12
-        angle = share * 2.8
-        radial = tangent * math.sin(angle) - inward * math.cos(angle)
-        width = 0.026 * (1 - share) ** 0.7
-        outer = centre + radial * (0.075 + width)
-        inner = centre + radial * (0.075 - width * 0.6)
+    def at(forward, rise, across=0.0):
+        return centre + face * forward * SKULL + up * rise * SKULL + side * across * SKULL
 
-        spine.append((outer.x, outer.z))
-        edge.append((inner.x, inner.z))
+    parts = []
 
-    finish(core.blade("whip_barb", spine, edge, 0.016, metal, root), wear_boost=2.0)
+    # The cranium: a box of planes, rounded only by its facets.
+    cranium = core.revolve(
+        "whip_cranium",
+        [(0.0, -0.95), (0.62, -0.82), (0.95, -0.35), (1.0, 0.15), (0.86, 0.62), (0.5, 0.92), (0.0, 1.0)],
+        bone,
+        segments=8,
+    )
+    cranium.data.transform(_frame(centre - face * SKULL * 0.12 + up * SKULL * 0.12, face, up, side, SKULL * 0.92, SKULL * 1.06, SKULL * 0.88))
+    parts.append(cranium)
+
+    # The face, from the brow down to the teeth: broad across the cheeks,
+    # narrowing to the upper teeth.
+    parts.append(
+        core.loft(
+            "whip_muzzle",
+            [
+                [at(0.42, rise, across) for across, rise in ((-0.82, 0.28), (0.82, 0.28), (0.78, -0.30), (0.42, -0.80), (-0.42, -0.80), (-0.78, -0.30))],
+                [at(0.96, rise, across) for across, rise in ((-0.74, 0.24), (0.74, 0.24), (0.66, -0.26), (0.30, -0.70), (-0.30, -0.70), (-0.66, -0.26))],
+            ],
+            bone,
+            cap_start=True,
+            cap_end=True,
+        )
+    )
+
+    # The jaw: hung a little open under the teeth.
+    parts.append(
+        core.loft(
+            "whip_jaw",
+            [
+                [at(0.10, rise, across) for across, rise in ((-0.72, -0.50), (0.72, -0.50), (0.62, -0.78), (-0.62, -0.78))],
+                [at(0.86, rise, across) for across, rise in ((-0.34, -0.92), (0.34, -0.92), (0.28, -1.14), (-0.28, -1.14))],
+            ],
+            bone,
+            cap_start=True,
+            cap_end=True,
+        )
+    )
+
+    skull = core.join(parts, "whip_skull")
+    skull.parent = root
+
+    for polygon in skull.data.polygons:
+        polygon.use_smooth = False
+
+    finish(skull, wear_boost=1.6)
+
+    # Two sockets of void in the brow, and in each a coal of light.
+    void = core.material("void")
+    accent = core.material("accent")
+    sockets = []
+    eyes = []
+
+    for index, across in enumerate((-0.38, 0.38)):
+        socket = at(0.96, -0.02, across)
+        sockets.append(core.tube(f"whip_socket_{index}", [socket - face * SKULL * 0.06, socket + face * SKULL * 0.02], SKULL * 0.29, void, sides=6))
+        eyes.append(core.tube(f"whip_eye_{index}", [socket - face * SKULL * 0.04, socket + face * SKULL * 0.034], SKULL * 0.15, accent, sides=6))
+
+    # The nose: a notch of void under the eyes.
+    nose = at(0.96, -0.40, 0.0)
+    sockets.append(core.tube("whip_nose", [nose - face * SKULL * 0.06, nose + face * SKULL * 0.018], SKULL * 0.13, void, sides=3))
+
+    core.join(sockets, "whip_sockets").parent = root
+    core.join(eyes, "whip_eyes").parent = root
+
+
+def _frame(origin, face, up, side, forward_size, up_size, side_size):
+    """The matrix that carries a shape made about Z (as `core.revolve`
+    turns it) onto a skull: its Z along `face`, scaled to the given sizes."""
+
+    rotation = Matrix((side, up, face)).transposed().to_4x4()
+
+    return Matrix.Translation(origin) @ rotation @ Matrix.Diagonal((side_size, up_size, forward_size, 1.0))

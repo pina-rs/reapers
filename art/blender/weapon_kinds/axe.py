@@ -1,104 +1,137 @@
 """The axe: a heavy head no class starts with.
 
-A forged bearded head with tapered wedge cheeks on a short haft, backed by a
-curved forged armor-piercing beak. The whole curve of its edge is the one
-light on it.
+Its one idea is the death's-head moth (art bible 6.4 asks each Bought weapon
+for one): a labrys whose two bits are a moth's wings, spread from a body
+forged round the haft. Each bit is a pair, a forewing swept up to a pointed
+apex over a smaller, rounder hindwing, with a notch between them, so the
+head is a moth at rest at any distance. The bit across the body (+X) is the
+main one: its whole margin is the cutting edge, with a seam of light along
+it, the one light on the axe. The back bit is the same pair, smaller. The
+eye is the moth's head, its broad thorax between the wings and its ringed
+abdomen tapering down the haft. Head iron, haft wood, a band of the owner's
+gold at the grip.
 """
 
 from lib import core
-from lib.armoury import binding, finish, haft
+from lib.armoury import band, binding, finish, haft
 
-HEAD_LOW = 0.34
-HEAD_HIGH = 0.6
-TOP = 0.66
+TOP = 0.70
 BUTT = -0.52
 
+# Each bit is a pair of wings, as a moth's are seen from above: a forewing
+# swept up to a pointed apex and a smaller, rounder hindwing below it, with a
+# notch between. Each is given as its root along the eye, top to bottom, and
+# its margin from the apex round to the bottom, (x, z). The main bit, across
+# the body (+X), is the cutting one.
+MAIN_ROOT = [(0.036, z) for z in (0.650, 0.612, 0.574, 0.540, 0.505, 0.470, 0.430, 0.392, 0.360)]
+MAIN_MARGIN = [(0.300, 0.805), (0.334, 0.715), (0.318, 0.625), (0.262, 0.548), (0.170, 0.512), (0.214, 0.470), (0.226, 0.418), (0.186, 0.370), (0.100, 0.340)]
+# The back bit: the same pair of wings, smaller.
+BACK_SCALE = 0.68
 
 def build():
-    """A forged bearded axe head and back beak on a short haft."""
+    """A moth-winged labrys on a short haft."""
 
     root = core.empty("weapon_axe")
     metal = core.material("metal")
 
     haft("axe_haft", root, bottom=BUTT, top=TOP, radius=0.022, bow=0.018)
     binding("axe_grip", root, -0.12, 0.13, radius=0.027)
-    binding("axe_lashing", root, HEAD_LOW - 0.07, HEAD_LOW - 0.01, radius=0.027, turns=4)
+    band("axe_band", root, -0.158, -0.124, radius=0.0275)
+    binding("axe_lashing", root, 0.22, 0.275, radius=0.027, turns=4)
 
-    # Forged tapered bearded axe blade: thick socket neck flaring smoothly to a
-    # keen crescent edge with sweeping lower beard.
-    edge_pts = core.bezier([(0.26, HEAD_HIGH + 0.065), (0.315, 0.51), (0.305, 0.375), (0.205, 0.225)], samples=12)
-    edge = [(p.x, p.y) for p in edge_pts]
-    n = len(edge)
-    # Spine runs along the eye/neck face so core.blade() tapers cleanly from thick eye to razor edge!
-    spine = [
-        (
-            0.032 + 0.022 * (1.0 - abs(2.0 * (i / max(n - 1, 1)) - 1.0)),
-            (HEAD_HIGH + 0.005) + ((HEAD_LOW + 0.025) - (HEAD_HIGH + 0.005)) * (i / max(n - 1, 1)),
-        )
-        for i in range(n)
-    ]
+    margin = core.bezier(MAIN_MARGIN, samples=2)
+    finish(_wing("axe_head", core.bezier(MAIN_ROOT, samples=2), margin, 0.036, metal, root), wear_boost=2.0)
 
-    finish(core.blade("axe_head", spine, edge, 0.030, metal, root), wear_boost=2.0)
-
-    lit = core.tube(
+    # The cutting edge, the main bit's whole margin, is the one light.
+    core.tube(
         "axe_edge",
-        [(x + 0.003, 0, z) for x, z in edge],
-        lambda t: 0.0038 + 0.0022 * (1 - abs(2 * t - 1)),
+        [(point.x + 0.002, 0, point.y) for point in margin[1:-1]],
+        lambda t: 0.0048 + 0.002 * (1 - abs(2 * t - 1)),
         core.material("accent"),
         root,
         sides=6,
     )
-    lit.location = (0, 0, 0)
 
-    # Molded octagonal iron eye collar the haft passes through.
-    finish(
-        core.shade_smooth(
-            core.revolve(
-                "axe_eye",
-                [
-                    (0.0, HEAD_LOW + 0.012),
-                    (0.033, HEAD_LOW + 0.018),
-                    (0.041, HEAD_LOW + 0.035),
-                    (0.037, (HEAD_LOW + HEAD_HIGH) * 0.5),
-                    (0.042, HEAD_HIGH - 0.012),
-                    (0.034, HEAD_HIGH + 0.012),
-                    (0.018, HEAD_HIGH + 0.026),
-                    (0.0, HEAD_HIGH + 0.032),
-                ],
-                metal,
-                root,
-                segments=16,
-            ),
-            angle=42,
-        ),
-        wear_boost=1.8,
+    # The back bit: the main one's wings mirrored behind the haft and made
+    # smaller about the thorax.
+    middle = 0.53
+
+    def back(points):
+        return [(-x * BACK_SCALE, middle + (z - middle) * (0.4 + 0.6 * BACK_SCALE)) for x, z in points]
+
+    finish(_wing("axe_hindwing", core.bezier(back(MAIN_ROOT), samples=2), core.bezier(back(MAIN_MARGIN), samples=2), 0.03, metal, root), wear_boost=1.8)
+
+    # The moth's body round the haft: a head, a broad thorax between the
+    # wings and a ringed abdomen tapering down the haft.
+    body = core.revolve(
+        "axe_eye",
+        [
+            (0.0, TOP + 0.034),
+            (0.024, TOP + 0.028),
+            (0.034, TOP + 0.006),
+            (0.028, 0.676),
+            (0.054, 0.652),
+            (0.060, 0.590),
+            (0.054, 0.520),
+            (0.058, 0.452),
+            (0.046, 0.396),
+            (0.038, 0.386),
+            (0.046, 0.372),
+            (0.036, 0.352),
+            (0.042, 0.340),
+            (0.032, 0.318),
+            (0.036, 0.306),
+            (0.026, 0.286),
+            (0.0, 0.280),
+        ],
+        metal,
+        root,
+        segments=8,
     )
 
-    # Forged curved gothic war-beak behind the eye.
-    beak_spine = core.bezier([(-0.032, 0.525), (-0.095, 0.530), (-0.165, 0.485), (-0.215, 0.415)], samples=6)
-    beak_edge = core.bezier([(-0.032, 0.465), (-0.090, 0.480), (-0.150, 0.455), (-0.215, 0.415)], samples=6)
-    b_count = min(len(beak_spine), len(beak_edge))
-    finish(
-        core.blade(
-            "axe_spike",
-            [(p.x, p.y) for p in beak_spine[:b_count]],
-            [(p.x, p.y) for p in beak_edge[:b_count]],
-            0.022,
-            metal,
-            root,
-        ),
-        wear_boost=1.8,
-    )
+    for polygon in body.data.polygons:
+        polygon.use_smooth = False
 
-    # Faceted spiked pommel cap on the butt of the haft.
+    finish(body, wear_boost=1.8)
+
+    # Faceted cap on the butt of the haft.
     cap = core.revolve(
         "axe_butt",
         [(0.0, 0.034), (0.028, 0.030), (0.033, 0.008), (0.028, -0.018), (0.016, -0.038), (0.0, -0.056)],
         metal,
         root,
-        segments=14,
+        segments=8,
     )
     cap.location = (0.005, 0, BUTT)
-    finish(core.shade_smooth(cap, angle=45), wear_boost=1.6)
+
+    for polygon in cap.data.polygons:
+        polygon.use_smooth = False
+
+    finish(cap, wear_boost=1.6)
 
     return root
+
+
+def _wing(name, root, margin, thickness, mat, parent):
+    """A wing of iron from `root` (along the eye) out to `margin`, both
+    running top to bottom: thick at the root and ground in two planes on
+    each face to a keen margin. Flat-shaded, so each plane prints whole."""
+
+    rings = []
+
+    for (rx, rz), (mx, mz) in zip(root, margin):
+        half = thickness / 2
+
+        def at(share):
+            return rx + (mx - rx) * share, rz + (mz - rz) * share
+
+        (ax, az), (bx, bz) = at(0.35), at(0.8)
+        rings.append([(rx, -half, rz), (ax, -half * 0.8, az), (bx, -half * 0.3, bz), (mx, 0, mz), (bx, half * 0.3, bz), (ax, half * 0.8, az), (rx, half, rz)])
+
+    wing = core.loft(name, rings, mat, parent, closed=True, cap_start=True, cap_end=True)
+
+    for polygon in wing.data.polygons:
+        polygon.use_smooth = False
+
+    return wing
+

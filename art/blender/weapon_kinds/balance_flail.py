@@ -1,16 +1,20 @@
 """The balance-flail: the weigher's weapon.
 
-A scale on a staff: a beam across the top of a haft like a tall "T", with a
-shallow pan hanging on three chains from each end. The beam has already
-tipped, so one pan hangs lower than the other.
+A scale on a staff: an iron beam across the top of a haft like a tall "T",
+with a shallow pan of the owner's gold hanging on three chains from each end
+(art bible 6.4). The chains' links are cast twice the size a chain would
+be, so they read as links and not as a line. The beam has already tipped,
+so one pan hangs lower than the other. It turns on a stone set through the
+fulcrum, the one light on it, and a band of gold rings the staff at the
+grip.
 """
 
 import math
 
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 from lib import core
-from lib.armoury import binding, finish, haft
+from lib.armoury import band, binding, finish, haft
 
 BEAM_HEIGHT = 0.59
 BEAM_REACH = 0.6
@@ -25,16 +29,18 @@ def build():
 
     root = core.empty("weapon_balanceFlail")
     gold = core.material("gold")
+    metal = core.material("metal")
 
     haft("flail_haft", root, bottom=-0.88, top=BEAM_HEIGHT, bow=0.01)
     binding("flail_grip", root, -0.09, 0.12, turns=5)
+    band("flail_band", root, -0.13, -0.096, radius=0.026)
 
     # A shod foot, so the staff can be set down like a gavel.
     finish(
         core.revolve(
             "flail_foot",
             [(0.0, -0.95), (0.012, -0.915), (0.024, -0.88), (0.022, -0.77), (0.0, -0.77)],
-            gold,
+            metal,
             root,
             segments=10,
         ),
@@ -44,7 +50,7 @@ def build():
         core.revolve(
             "flail_socket",
             [(0.0, BEAM_HEIGHT - 0.03), (0.031, BEAM_HEIGHT - 0.04), (0.034, BEAM_HEIGHT - 0.075), (0.027, BEAM_HEIGHT - 0.2), (0.0, BEAM_HEIGHT - 0.21)],
-            gold,
+            metal,
             root,
             segments=12,
         ),
@@ -60,7 +66,7 @@ def build():
             "flail_beam",
             [_on_beam(station * BEAM_REACH, 0.02 * (1 - station * station)) for station in stations],
             lambda t: depths[round(t * (len(depths) - 1))],
-            gold,
+            metal,
             root,
             sides=10,
             flatten=0.5,
@@ -75,22 +81,26 @@ def build():
             "flail_pivot",
             [pivot + Vector((0, depth, 0)) for depth in (-0.03, -0.024, 0.024, 0.03)],
             lambda t: 0.034 + 0.01 * (1 - abs(2 * t - 1)) ** 0.25,
-            gold,
+            metal,
             root,
             sides=14,
         ),
         wear_boost=1.8,
     )
 
-    # The pin the beam turns on is the one light.
-    core.tube(
-        "flail_pin",
-        [pivot + Vector((0, depth, 0)) for depth in (-0.04, -0.034, 0.034, 0.04)],
-        lambda t: 0.009 + 0.008 * (1 - abs(2 * t - 1)) ** 0.25,
+    # The beam turns on a stone set through the fulcrum, cut in facets and
+    # standing proud of both faces: the one light.
+    stone = core.revolve(
+        "flail_stone",
+        [(0.0, -0.048), (0.017, -0.036), (0.022, -0.012), (0.022, 0.012), (0.017, 0.036), (0.0, 0.048)],
         core.material("accent"),
         root,
-        sides=8,
+        segments=6,
     )
+    stone.data.transform(Matrix.Translation(pivot) @ Matrix.Rotation(math.pi / 2, 4, "X"))
+
+    for polygon in stone.data.polygons:
+        polygon.use_smooth = False
 
     for side, label in ((-1, "risen"), (1, "sunk")):
         tip = _on_beam(side * BEAM_REACH * 0.975, 0.0)
@@ -160,7 +170,7 @@ def _pan(name, rim, mat, parent, segments=32):
     return core.loft(name, rings, mat, parent)
 
 
-def _link(name, centre, along, across, length, width, wire=0.0048, steps=6, sides=4):
+def _link(name, centre, along, across, length, width, wire=0.0085, steps=6, sides=4):
     """One chain link: a closed oval of wire, long in the `along` direction."""
 
     out = along.cross(across)
@@ -182,7 +192,7 @@ def _link(name, centre, along, across, length, width, wire=0.0048, steps=6, side
     return core.loft(name, rings, core.material("metal"))
 
 
-def _chain(name, start, end, pitch=0.043):
+def _chain(name, start, end, pitch=0.086):
     """Links from `start` to `end`, every other one turned a quarter so that
     each passes through the next."""
 
@@ -193,6 +203,6 @@ def _chain(name, start, end, pitch=0.043):
     step = (end - start).length / count
 
     return [
-        _link(f"{name}_{index}", start.lerp(end, (index + 0.5) / count), along, flat if index % 2 else edge, step + 0.014, 0.022)
+        _link(f"{name}_{index}", start.lerp(end, (index + 0.5) / count), along, flat if index % 2 else edge, step + 0.026, 0.044)
         for index in range(count)
     ]
