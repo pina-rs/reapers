@@ -1,14 +1,22 @@
 """The mourner: the voice that announces a death before it arrives.
 
 Silhouette: a floor-length veil that makes the whole figure one tall
-triangle with no arms, and a handbell hanging below one edge. Nothing else
-sticks out, so everything a mourner wears lies on that one slope.
+column with no arms, and a handbell held out from one side of it. The bell
+is the only shape that breaks the column (docs/art-bible.md 6.2): every
+head carries the veil on up, every hem reaches the floor, and everything a
+mourner wears lies on the veil's one slope. At rest the bell is tipped up
+toward the viewer, so its mouth, and the clapper's light inside it, faces
+them.
+
+Three families show: the veil (`cloth`), what lies over it (`cloth_alt`)
+and the bones of the hands (`bone`). The bell is the one asymmetry; the
+second arm stays inside the veil until a gesture brings it out.
 """
 
 import math
 import random
 
-from mathutils import Vector, noise
+from mathutils import Matrix, Vector, noise
 
 from lib import anatomy, cloth, core
 from lib.figure import HEAD_HEIGHT, HEAD_RADIUS, NECK_HEIGHT, SHOULDER_HEIGHT, finish
@@ -20,7 +28,7 @@ from lib.figure import HEAD_HEIGHT, HEAD_RADIUS, NECK_HEIGHT, SHOULDER_HEIGHT, f
 CROWN = (1.97, 0.09, 0.09)
 NECK = (NECK_HEIGHT + 0.02, 0.115, 0.11)
 SHOULDER = (SHOULDER_HEIGHT - 0.02, 0.18, 0.135)
-GROUND = (0.06, 0.39, 0.35)
+GROUND = (0.06, 0.34, 0.31)
 
 # The widest part of the head, and how far the skull rises above it.
 BROW = HEAD_HEIGHT + 0.01
@@ -30,7 +38,7 @@ SKULL = 0.14
 # `MANTLE_LAYER` outside the veil. The cloth of a head stands `HEAD_LAYER`
 # outside it at the brow and comes down to `FLUSH` at the shoulders, where
 # the slope changes and its hem shows least, so a mantle comes out from
-# under it. Only cords lie over the cloth of a head.
+# under it. Nothing lies over the cloth of a head.
 MANTLE_LAYER = 0.005
 FLUSH = 0.008
 HEAD_LAYER = 0.027
@@ -38,21 +46,29 @@ HEAD_LAYER = 0.027
 # Straight ahead, as an angle around the figure.
 FRONT = -math.pi / 2
 
+# The weapon arm in the idle pose's first key (lib/motion.py, at the
+# mourner's amplitude of 0.75 there), and how far the bell is tipped from
+# hanging mouth down toward the viewer at rest.
+IDLE_SHOULDER_R = math.radians(8 * 0.75)
+IDLE_ELBOW_R = math.radians(-24 * 0.75)
+BELL_TIP = math.radians(-38)
+
 
 def build():
-    """The voice that announces a death: one tall triangle and a bell."""
+    """The voice that announces a death: one tall column and a bell."""
 
     root = core.empty("reaper")
     cloth_mat = core.material("cloth")
     alt = core.material("cloth_alt")
 
+    # Every hem reaches the floor, so the column stands on it whole.
     hems = [
         # Pooling, and barely torn.
         dict(hem=0.03, tatter=0.07, tears=4, slits=2, fold_depth=0.17, seed=31),
-        # Burned away, ending ragged well above the ground.
-        dict(hem=0.46, tatter=0.36, tears=16, slits=22, fold_depth=0.14, seed=32),
+        # Worn into long strips from the knee down.
+        dict(hem=0.07, tatter=0.34, tears=6, slits=18, fold_depth=0.14, seed=32),
         # Long trailing points.
-        dict(hem=0.05, tatter=0.5, tears=14, slits=4, fold_depth=0.15, seed=33),
+        dict(hem=0.05, tatter=0.46, tears=10, slits=4, fold_depth=0.15, seed=33),
         # Leaning, as if in a slow wind.
         dict(hem=0.07, tatter=0.2, tears=6, slits=7, fold_depth=0.16, seed=34),
     ]
@@ -65,7 +81,8 @@ def build():
             top=CROWN[0],
             profile=_slope(CROWN[0], hem["hem"]),
             folds=(5, 8, 13),
-            segments=144,
+            rings=46,
+            segments=120,
             **hem,
         )
 
@@ -294,18 +311,9 @@ def _hung(height, extra=0.0):
     return tuple(low + (high - low) * share + extra for low, high in zip(_veil(min(height, SHOULDER[0]), FLUSH), _veil(BROW, HEAD_LAYER)))
 
 
-def _tent(height, angle, extra=0.0):
-    """A point on cloth that hangs straight from the brow to the shoulders."""
-
-    share = max(0.0, min(1.0, (height - SHOULDER[0]) / (BROW - SHOULDER[0])))
-    width, thickness = _hung(height, extra + _pleats(angle, share))
-
-    return Vector((math.cos(angle) * width, math.sin(angle) * thickness - _face(height, _aside(angle)), height))
-
-
 def _heads(head, mat):
-    """Three things the veil hangs from. The face under each is never more
-    than a shape in the cloth."""
+    """Three things the veil hangs from, each carrying the column on above
+    the head. The face under each is never more than a shape in the cloth."""
 
     offset = Vector(head.location)
 
@@ -322,20 +330,11 @@ def _heads(head, mat):
 
         return core.revolve(f"void_{index}", profile, core.material("void"), segments=16)
 
-    def skull(height, across):
-        """Half the depth of the veiled figure at `height`, `across` from
-        its middle: the skull above the brow, hanging cloth below."""
+    def hood(depth, dome, angle):
+        """Below the brow every head is the same: cloth that clings down to
+        the shoulders. `dome` is the share of the cloth's length above it."""
 
-        width, thickness = _hung(height)
-
-        if height >= BROW:
-            ring = math.sqrt(max(0.0, 1 - ((height - BROW) / SKULL) ** 2))
-            width, thickness = width * ring, thickness * ring
-
-        if abs(across) >= width:
-            return 0.0
-
-        return thickness * math.sqrt(1 - (across / width) ** 2)
+        return _hood(BROW + (SHOULDER[0] - BROW) * (depth - dome) / (1 - dome), angle)
 
     # A plain head: the veil lies straight over the skull, held by a band.
     # The skull takes the first share of the cloth's length.
@@ -343,7 +342,7 @@ def _heads(head, mat):
 
     def plain(depth, angle):
         if depth >= dome:
-            return _hood(BROW + (SHOULDER[0] - BROW) * (depth - dome) / (1 - dome), angle)
+            return hood(depth, dome, angle)
 
         turn = depth / dome * math.pi / 2
         height = BROW + SKULL * math.cos(turn)
@@ -356,17 +355,16 @@ def _heads(head, mat):
         )
 
     group = core.empty("head_0", head)
-    place(finish(_drape("veil_0", mat, plain, rows=30, segments=120, uneven=0.05, seed=41), seed=4), group)
+    place(finish(_drape("veil_0", mat, plain, rows=30, segments=112, uneven=0.05, seed=41), seed=4), group)
 
-    # The gothic circlet sits low on the brow in front and high behind, with a
-    # pointed diadem peak centered over the forehead.
+    # A band of the mantle's cloth round the head, low on the brow in front
+    # and high behind.
     band = []
 
     for step in range(65):
         angle = math.tau * step / 64
         front = max(0.0, math.cos(_aside(angle)))
-        peak = 0.024 * (front**10) + 0.009 * (max(0.0, math.cos(_aside(angle) * 3)) ** 6) * (front**2)
-        height = BROW + 0.044 + 0.03 * math.sin(angle) + peak
+        height = BROW + 0.044 + 0.03 * math.sin(angle)
         ring = math.sqrt(max(0.05, 1 - ((height - BROW) / SKULL) ** 2))
         width, thickness = _veil(BROW, HEAD_LAYER + 0.005)
         push = _face(height, 0.0) * (front**2)
@@ -374,90 +372,91 @@ def _heads(head, mat):
         band.append((math.cos(angle) * width * ring, math.sin(angle) * thickness * ring - push, height))
 
     place(
-        finish(
-            core.tube(
-                "circlet_0",
-                band,
-                lambda t: 0.010 + 0.006 * (max(0.0, math.cos((t - 0.75) * math.tau)) ** 6),
-                core.material("metal"),
-                sides=8,
-                cap=False,
-                flatten=0.38,
-            ),
-            wear_boost=1.8,
-        ),
+        finish(core.tube("circlet_0", band, 0.016, core.material("cloth_alt"), sides=8, cap=False, flatten=0.32)),
         group,
     )
     place(void(0), group)
 
-    # A tall pointed frame: the same slope, carried up to a point.
-    apex = 2.6
+    # A mantilla on a tall comb: the veil carried up over a comb wider than
+    # the head and as tall again as it, and hung from the comb's edges
+    # straight down to the shoulders. The face is no more than a shape in
+    # the cloth hanging in front of it. From the front the head is an arch
+    # on the column, with no neck, so the column runs unbroken from the
+    # floor to the top of the comb; the comb's three lobes press through
+    # the cloth at the top, which makes the arch a trefoil. From the side
+    # the crest is a thin blade leaning back.
+    crest = 0.4
+    top = BROW + crest
+    arch = 0.165
+    spring = top - arch
+    shoulder = _veil(SHOULDER[0], FLUSH)[0]
 
-    def spire(depth, angle):
-        height = apex + (SHOULDER[0] - apex) * depth**0.85
+    def mantilla(depth, angle):
+        height = top - (top - SHOULDER[0]) * depth**1.25
+
+        if height >= spring:
+            width = math.sqrt(max(0.0, arch**2 - (height - spring) ** 2))
+        else:
+            width = arch + (shoulder - arch) * ((spring - height) / (spring - SHOULDER[0])) ** 2
+
+        lean = 0.0
+
+        if height > spring:
+            # The comb's lobes: one in the middle and one either side.
+            across = math.cos(angle) * width / arch
+            height -= 0.05 * (height - spring) / arch * (1 - math.cos(3 * math.pi * across)) / 2
 
         if height <= BROW:
-            return _tent(height, angle)
+            share = (height - SHOULDER[0]) / (BROW - SHOULDER[0])
+            thickness = _hung(height, _pleats(angle, share))[1]
+        else:
+            rise = (height - BROW) / crest
+            thickness = _hung(BROW)[1] * math.sqrt(max(0.0, 1 - rise**2))
+            lean = 0.04 * rise**2
 
-        rise = (height - BROW) / (apex - BROW)
+        return (math.cos(angle) * width, math.sin(angle) * thickness + lean - _face(height, _aside(angle)), height)
+
+    group = core.empty("head_1", head)
+    place(finish(_drape("veil_1", mat, mantilla, rows=36, segments=104, uneven=0.04, seed=42), seed=5), group)
+    place(void(1), group)
+
+    # A veil thrown over a crown: a tall band with five short points round
+    # the front, the middle one the tallest. The cloth is lifted at each
+    # point and sags between, so the column ends in a coronet; the points
+    # are kept short and many, so that none reads as an ear.
+    points = tuple((FRONT + step * 0.62, 0.13 - 0.022 * abs(step)) for step in (-2, -1, 0, 1, 2))
+    band = 0.1
+    tall = 0.5
+
+    def crowned(depth, angle):
+        if depth >= tall:
+            return hood(depth, tall, angle)
+
         width, thickness = _veil(BROW, HEAD_LAYER)
-        # The ribs of the frame stand proud and the cloth sags between them.
-        sag = 1 - 0.16 * math.sin(rise * math.pi) ** 0.7 * (1 - abs(math.cos(angle * 2.5 + 0.4)) ** 0.6)
-        taper = (0.008 / width + (1 - 0.008 / width) * (1 - rise)) * sag
+        peak = max(lift * max(0.0, math.cos((angle - point + math.pi) % math.tau - math.pi)) ** 40 for point, lift in points)
+        rim = BROW + band + peak
+        share = depth / tall
+
+        if share < 0.55:
+            # Over the top of the crown, from its sagging middle out to the
+            # rim, rising steeply to each point.
+            out = share / 0.55
+            height = BROW + band - 0.012 + (rim - BROW - band + 0.012) * out**3
+            reach = 0.94 * out
+        else:
+            # Down the band of the crown from the rim to the brow.
+            down = (share - 0.55) / 0.45
+            height = rim + (BROW - rim) * down
+            reach = 0.94 + 0.06 * down
 
         return (
-            math.cos(angle) * width * taper + 0.015 * rise**2,
-            math.sin(angle) * thickness * taper + 0.035 * rise**2 - _face(height, _aside(angle)),
+            math.cos(angle) * width * reach,
+            math.sin(angle) * thickness * reach - _face(height, _aside(angle)),
             height,
         )
 
-    group = core.empty("head_1", head)
-    place(finish(_drape("veil_1", mat, spire, rows=36, segments=96, uneven=0.03, seed=42), seed=5), group)
-    place(void(1), group)
-
-    # A wide low frame: a bar across the top of the head. The veil hangs
-    # from its two ends and falls straight until the slope meets it, which
-    # cuts the point off the triangle and leaves it flat shoulders. The head
-    # shows only as a shape pressing through the cloth.
-    bar = 0.22
-    rod = 0.016
-    lid = BROW + SKULL
-    fall = SHOULDER[0] - (bar - FLUSH - SHOULDER[1]) / (GROUND[1] - SHOULDER[1]) * (SHOULDER[0] - GROUND[0])
-
-    def yoke(depth, angle):
-        height = lid + (fall - lid) * depth
-        chest = _veil(SHOULDER[0], FLUSH)[1] - 0.03
-
-        # The cloth is a flat tent hung from the bar, deepening down to the
-        # shoulders, and below them thinning to the two folds that hang at
-        # its sides. Its free edges are drawn in a little.
-        if height > SHOULDER[0]:
-            tent = rod + (chest - rod) * (lid - height) / (lid - SHOULDER[0])
-        else:
-            tent = rod + (chest - rod) * ((height - fall) / (SHOULDER[0] - fall)) ** 2
-
-        x = math.cos(angle) * (bar - 0.016 * math.sin(depth * math.pi))
-        hung = abs(math.sin(angle)) ** 0.7 * tent
-        # Where the figure stands further out than the tent, the cloth
-        # takes its shape, and bridges softly between the two.
-        pressed = skull(height, x)
-
-        if math.sin(angle) < 0 and pressed > 0:
-            pressed += _face(height, x / 0.125)
-
-        soft = 0.02 * min(1.0, (1 - depth) * 5) + 1e-9
-        reach = max(hung, pressed) + max(0.0, soft - abs(hung - pressed)) ** 2 / (4 * soft)
-        # Pleats hang from the bar, clear of the figure, and are pressed
-        # flat where the cloth comes to rest.
-        clear = min(1.0, max(0.0, hung - pressed + 0.03) / 0.06)
-        reach += 0.016 * math.sin(depth * math.pi) ** 0.6 * clear * (0.5 + 0.5 * math.sin(x * 95 + 0.8))
-        # The bar stands a little crooked and bows toward its ends.
-        droop = (0.05 * x + 0.014 * (x / bar) ** 2) * max(0.0, 1 - depth * 2)
-
-        return (x, math.copysign(reach, math.sin(angle)), height - droop)
-
     group = core.empty("head_2", head)
-    place(finish(_drape("veil_2", mat, yoke, rows=44, segments=112, uneven=0.05, seed=43), seed=6), group)
+    place(finish(_drape("veil_2", mat, crowned, rows=36, segments=120, uneven=0.04, seed=43), seed=6), group)
     place(void(2), group)
 
 
@@ -472,7 +471,12 @@ def _arms(root):
     elbow = core.empty("elbow_r", pivot, location=elbow_at - shoulder)
     finish(anatomy.forearm("arm_r_upper", pivot, elbow_at - shoulder, Vector()), wear_boost=1.6)
     wrist_pivot = core.empty("wrist_r", elbow, location=reach - elbow_at)
+
+    # The bell is tipped up toward the viewer, turned back by the idle
+    # pose's first key so that it is at rest, and the hand turns with it.
     socket = core.empty("socket_weapon", wrist_pivot)
+    socket.rotation_mode = "XYZ"
+    socket.rotation_euler = (Matrix.Rotation(-IDLE_ELBOW_R, 3, "X") @ Matrix.Rotation(-IDLE_SHOULDER_R, 3, "Y") @ Matrix.Rotation(BELL_TIP, 3, "X")).to_euler()
     turn = math.pi / 2 + 0.2
 
     # Thumb up and the wrist turned in toward the body, so the bell hangs
@@ -485,22 +489,26 @@ def _arms(root):
     wrist = reach + Vector((math.sin(turn), -math.cos(turn), 0)) * 0.18
     finish(anatomy.forearm("arm_r_forearm", elbow, wrist - elbow_at, Vector()), wear_boost=1.6)
 
-    # The second hand rests inside the veil and emerges for two-handed poses.
-    left_shoulder = Vector((0.17, 0, SHOULDER[0]))
-    left_elbow = Vector((0.14, 0.03, 1.25))
-    left_grip = Vector((0.14, -0.02, 1.10))
+    # The second hand rests against the breast inside the veil, and comes
+    # out only for the poses that need two hands. It is kept near the middle
+    # of the figure, where the idle pose's outward swing cannot carry it
+    # through the cloth.
+    left_shoulder = Vector((0.15, 0, SHOULDER[0]))
+    left_elbow = Vector((0.11, 0.03, 1.28))
+    left_grip = Vector((0.04, -0.02, 1.17))
     left = core.empty("arm_l", root, location=left_shoulder)
     left_joint = core.empty("elbow_l", left, location=left_elbow - left_shoulder)
     finish(anatomy.forearm("arm_l_upper", left, left_elbow - left_shoulder, Vector()), wear_boost=1.6)
     left_wrist = core.empty("wrist_l", left_joint, location=left_grip - left_elbow)
     finish(anatomy.forearm("arm_l_forearm", left_joint, left_grip - left_elbow, Vector()), wear_boost=1.6)
-    hand = anatomy.hand("arm_l_hand", left_wrist, curl=0.25, side=-1, scale=1.45)
-    hand.rotation_euler = (math.radians(100), 0, math.radians(-18))
+    hand = anatomy.hand("arm_l_hand", left_wrist, curl=0.6, side=-1, scale=1.45)
+    hand.rotation_euler = (math.radians(100), 0, math.radians(-30))
     finish(hand, wear_boost=1.6)
 
 
 def _mantles(root, alt):
-    """What lies over a mourner's veil."""
+    """What lies over a mourner's veil. Each lies flat on its slope and is
+    the same on both sides: the bell is the figure's one asymmetry."""
 
     # A second, shorter veil over the first, ragged at its edge.
     top = CROWN[0] - 0.04
@@ -518,82 +526,57 @@ def _mantles(root, alt):
         slits=14,
         seed=51,
         rings=26,
-        segments=128,
+        segments=112,
     )
     over.shape_key_clear()
     group = core.empty("mantle_0", root)
     over.parent = group
     finish(over, seed=7)
 
-    # Knotted cords tied at the brow, hanging down the front of the veil to
-    # different lengths.
+    # A stole: two long bands that come out from under the cloth of the
+    # head at the shoulders and hang straight down the front of the veil,
+    # either side of the middle, each ending in a point below the knee.
     group = core.empty("mantle_1", root)
-    rope = core.material("rope")
-    generator = random.Random(9)
-    tie = BROW + 0.022
-    cords = []
-    weights = []
+    rows = []
+    start, end = SHOULDER[0] + 0.01, 0.6
 
-    def lie(angle, height):
-        """Where a cord rests: over the cloth of the head, then standing
-        further off the veil the lower it hangs, clear of its folds."""
+    for row in range(41):
+        fallen = row / 40
+        height = start + (end - start) * fallen
+        # Under the cloth of the head at the top, a little proud of the
+        # veil below it, so that it clears every fold.
+        layer = MANTLE_LAYER - 0.001 + 0.006 * min(1.0, fallen * 6)
+        width, _ = _veil(height, layer)
+        point = min(1.0, (1 - fallen) / 0.09)
+        half = (0.05 + 0.012 * fallen) * point / width
+        row_points = []
 
-        return _tent(height, angle, extra=0.009 + 0.022 * max(0.0, SHOULDER[0] - height))
+        for side in (-1, 1):
+            middle = FRONT + side * 0.46
 
-    for strand in range(7):
-        across = (strand - 3) / 3
-        angle = FRONT + across * 0.58 + generator.uniform(-0.04, 0.04)
-        end = 1.52 - 0.42 * max(0.0, 1 - abs(across - 0.3) * 1.1) + generator.uniform(-0.05, 0.05)
-        drift = generator.uniform(0, math.tau)
-        knots = generator.randint(4, 6)
-        path = []
+            for column in range(7):
+                across = column / 6 * 2 - 1
+                row_points.append(_on_veil(middle + side * across * half, height, layer + 0.002 * (1 - across * across)))
 
-        for step in range(41):
-            height = tie + (end - tie) * step / 40
-            path.append(lie(angle + 0.012 * math.sin(height * 9 + drift), height))
+        rows.append(row_points)
 
-        cords.append(
-            core.tube(
-                f"cord_{strand}",
-                path,
-                lambda t, knots=knots: 0.0048 * (1 + 1.1 * max(0.0, math.cos(t * math.pi * 2 * knots)) ** 10),
-                rope,
-                sides=6,
-            )
-        )
+    # The two bands are skinned as one sheet with a cut between them.
+    bands = [core.loft(f"stole_{side}", [row[7 * side : 7 * side + 7] for row in rows], alt, closed=False) for side in (0, 1)]
+    stole = core.join(bands, "stole")
+    stole = core.apply_modifier(stole, "SOLIDIFY", thickness=0.004, offset=0.0)
+    stole.parent = group
+    finish(stole, seed=10)
 
-        # Each cord ends in a small lead weight.
-        tip = path[-1]
-        weights.append(
-            core.tube(
-                f"weight_{strand}",
-                [tip + (tip - path[-2]).normalized() * 0.05 * share for share in (0.0, 0.2, 0.5, 0.8, 1.0)],
-                lambda t: 0.004 + 0.006 * math.sin(t * math.pi) ** 0.7,
-                core.material("metal"),
-                sides=7,
-            )
-        )
-
-    loop = [lie(math.tau * step / 48, tie + 0.012 * math.sin(math.tau * step / 48 + 2.0)) for step in range(49)]
-    cords.append(core.tube("cord_tie", loop, 0.006, rope, sides=6, cap=False))
-
-    strings = core.join(cords, "cords")
-    strings.parent = group
-    finish(core.shade_smooth(strings))
-    drops = core.join(weights, "cord_weights")
-    drops.parent = group
-    finish(core.shade_smooth(drops), wear_boost=1.5)
-
-    # A shawl over the far shoulder, gathered into a knot at the other hip,
-    # which gives the triangle its one uneven edge.
+    # A shawl wrapped round the shoulders from behind, its two ends crossed
+    # and knotted on the breast.
     group = core.empty("mantle_2", root)
-    gather = -0.12
-    knot = 1.14
+    gather = FRONT
+    knot = 1.3
 
     def shawl(across, angle):
         near = 0.5 + 0.5 * math.cos(angle - gather)
-        middle = 1.41 - (1.41 - knot) * near**1.5
-        half = 0.19 - 0.15 * near**4
+        middle = 1.44 - (1.44 - knot) * near**1.5
+        half = 0.17 - 0.13 * near**4
         fringe = 1 + 0.08 * noise.noise(Vector((math.cos(angle) * 3.0, math.sin(angle) * 3.0, 7.0))) * across
         height = middle + half * (1 - 2 * across * fringe)
         # The folds run around the body and crowd together at the knot.
@@ -609,9 +592,9 @@ def _mantles(root, alt):
         core.sculpt(
             "shawl_knot",
             [
-                ("sphere", _on_veil(gather, knot, 0.035), (0.034, 0.04, 0.042), (0.3, 0.0, 0.2)),
-                ("sphere", _on_veil(gather + 0.07, knot + 0.03, 0.04), (0.026, 0.026, 0.03)),
-                ("sphere", _on_veil(gather - 0.05, knot - 0.035, 0.035), (0.028, 0.03, 0.03)),
+                ("sphere", _on_veil(gather, knot, 0.035), (0.036, 0.04, 0.042)),
+                ("sphere", _on_veil(gather + 0.08, knot + 0.025, 0.035), (0.026, 0.026, 0.03)),
+                ("sphere", _on_veil(gather - 0.08, knot + 0.025, 0.035), (0.026, 0.026, 0.03)),
             ],
             alt,
             group,
@@ -620,8 +603,9 @@ def _mantles(root, alt):
         seed=9,
     )
 
-    for tail, (lean, end, seed) in enumerate(((-1, 0.6, 3.0), (1, 0.78, 5.0))):
+    for tail, (lean, seed) in enumerate(((-1, 3.0), (1, 5.0))):
         rows = []
+        end = 0.76
 
         for row in range(19):
             fallen = row / 18
@@ -632,7 +616,7 @@ def _mantles(root, alt):
                 ragged = 1 - 0.22 * abs(noise.noise(Vector((side * 2.3, seed, tail))))
                 reach = fallen * ragged
                 height = knot - 0.02 - (knot - 0.02 - end) * reach
-                angle = gather + lean * (0.03 + 0.13 * reach) + side * (0.035 + 0.2 * reach)
+                angle = gather + lean * (0.05 + 0.13 * reach) + side * (0.035 + 0.16 * reach)
                 pleat = 0.5 + 0.5 * math.sin(side * math.pi * 2.5 + seed)
 
                 line.append(_on_veil(angle, height, 0.03 - 0.008 * reach + 0.016 * pleat * (0.4 + 0.6 * reach)))
