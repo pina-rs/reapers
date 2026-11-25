@@ -55,9 +55,10 @@ const BURST_EDGE: f64 = 1.8;
 /// whole rather than half over the iron.
 pub const BURST_AHEAD: f64 = 18.0;
 /// The smear's edge in paper (§11.4), and how wide it is from the muzzle
-/// back along the three frames before, each side of its middle.
+/// back along the three frames before, each side of its middle: about the
+/// barrel's width at the muzzle, about 3 pt across at its tail.
 const SMEAR_EDGE: f64 = 1.25;
-const SMEAR_WIDTHS: [f64; 4] = [4.5, 3.2, 2.0, 0.8];
+const SMEAR_WIDTHS: [f64; 4] = [12.0, 8.5, 5.0, 1.5];
 
 /// Whether a shot's burst is printed on its `frame`: the first two (§11.6),
 /// or only the first for a player who asks for less motion (§14).
