@@ -1528,6 +1528,63 @@ mod tests {
 		assert!(rpc.calls.borrow().is_empty());
 	}
 
+	/// A receipt the keeper signed for another player is refused for naming
+	/// that player, before the transaction is read: here in transactions the
+	/// linked wallet pays for, one with the other player as a second signer
+	/// and one with the wallet in the player's slot of `AbsorbCore`.
+	#[test]
+	fn absorb_refuses_a_receipt_for_another_player_in_a_transaction_the_wallet_pays() {
+		use std::cell::Cell;
+
+		use futures::executor::block_on;
+		use solana_kit_core::crypto::Keypair;
+
+		let wallet = Keypair::from_seed(&[6; 32]);
+		let other_player = Address::from_bytes([42; 32]);
+		let keeper = Keypair::from_seed(&[5; 32]);
+		let receipt = sample_receipt(&other_player, &Address::from_bytes([2; 32]));
+		let receipt_bytes = receipt.encode();
+		let receipt_sig = keeper.sign(&receipt_bytes);
+		let co_signed = program::absorb_core(
+			&keeper.address(),
+			receipt_sig.as_bytes(),
+			&receipt,
+			Some(&saint_collection()),
+		);
+		let mut wallet_as_player = co_signed.clone();
+		wallet_as_player[1].accounts[0].address = wallet.address();
+
+		for ixs in [co_signed, wallet_as_player] {
+			let tx = encode_tx(Version::Legacy, wallet.address(), &ixs);
+			let rpc = Rc::new(RecordingRpc {
+				calls: RefCell::new(Vec::new()),
+			});
+			let cluster = Cluster::new(ClusterName::Devnet, "http://rpc", rpc.clone())
+				.with_pause(Rc::new(|_| Box::pin(async { true })));
+			let prover = CountingWallet {
+				keypair: Keypair::from_seed(&[6; 32]),
+				signed: Cell::new(0),
+			};
+			let status = devnet_status(&wallet.address(), saint_manifest());
+			let result = block_on(cluster.absorb(
+				&status,
+				&prover,
+				&wallet.address(),
+				Nft::parse("degenApes:1").unwrap(),
+				&tx,
+				&receipt_bytes,
+				receipt_sig.as_bytes(),
+				&keeper.address().to_string(),
+			));
+			assert_eq!(prover.signed.get(), 0);
+			assert!(rpc.calls.borrow().is_empty());
+			assert!(
+				matches!(&result, Err(ChainFailure::Rejected(detail)) if detail.contains("receipt player")),
+				"refused for another reason than the receipt's player: {result:?}"
+			);
+		}
+	}
+
 	#[test]
 	fn absorb_refuses_v0_message() {
 		use std::cell::Cell;
