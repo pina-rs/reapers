@@ -1,16 +1,17 @@
 """The bird: Thugbirdz.
 
-A street pigeon built like a bouncer: a barrel of a body with a puffed chest
-shield stuck out under its chin, a big flat-topped head with a wraparound
-visor and two narrow glints behind it, and a heavy hooked beak cut in
-planes. It hangs in the air on two wings held up and out like a crest, each
-a fan of a few big feathers turned to whoever it faces, and steers with a
-short square tail. A ducktail sticks out of the back of its head.
+A street pigeon built like a bouncer: a big round barrel of a body with a
+puffed chest, a small hard head thrust out ahead of it on a short neck, and
+a pair of black wraparound shades across the face, the one shape you see
+first. A heavy hooked beak juts under the shades and drops open on its
+hinge at the cheek. It hangs in the air on short wings held out, drooped
+and swept back, so the body reads from the side, and cocks a fan of tail
+up behind it.
 
 Every part is lofted through boxy sections (`creature.shell`) or cut as a
 thick blade (`creature.blade`), so it prints in a few big planes.
 
-It wears a snapback turned backwards or a heavy chain.
+It wears a snapback turned to one side or a heavy chain.
 """
 
 import math
@@ -19,12 +20,14 @@ from mathutils import Vector
 
 from lib import core, creature
 
-# The middle of the head, which it turns about.
-SKULL = Vector((0.0, 0.02, 0.17))
-# The left wing's root, on the shoulder; the right mirrors it.
-WING_ROOT = Vector((0.16, 0.05, 0.13))
-TAIL_ROOT = Vector((0.0, 0.17, -0.13))
-JAW = Vector((0.0, -0.095, 0.112))
+# The middle of the head, which it turns about: forward of the body, so the
+# head and the beak stand clear of the chest in profile.
+SKULL = Vector((0.0, -0.04, 0.2))
+# The left wing's root, high on the shoulder; the right mirrors it.
+WING_ROOT = Vector((0.12, 0.05, 0.135))
+TAIL_ROOT = Vector((0.0, 0.15, -0.2))
+# The beak's hinge, back at the cheek under the shades.
+JAW = Vector((0.0, -0.11, 0.112))
 
 
 def build(spec):
@@ -35,16 +38,24 @@ def build(spec):
     dark = core.material("dark", color=(1.0, 1.0, 1.0), roughness=0.10, metallic=0.22)
     accent = core.material("accent", color=(1.0, 1.0, 1.0), roughness=0.20)
 
-    _torso(root, body, trim)
+    torso, chest = _torso(root, body, trim)
     _feet(root, detail)
     _tail(root, body)
 
     for side in (1, -1):
-        _wing(root, side, body, trim)
+        _wing(root, side, body)
 
-    head = _head(root, body, trim, detail, dark, accent)
+    head, skull = _head(root, body, trim, detail, dark, accent)
 
-    _snapback(creature.pivot("trait_1", head, (0, 0, 0)), detail)
+    # The seals' sockets: the brow's on the forehead over the shades, the
+    # chest's on the shield, the flanks' and the back's on the barrel.
+    creature.seat("seat_0", spec, 0, detail, head, [skull], radius=0.048, rise=0.01)
+    creature.seat("seat_1", spec, 1, detail, root, [chest], radius=0.054, rise=0.01)
+
+    for index in (2, 3, 4):
+        creature.seat(f"seat_{index}", spec, index, detail, root, [torso], radius=0.052, rise=0.01)
+
+    _snapback(creature.pivot("trait_1", head, (0, 0, 0)), detail, skull)
     _chain(creature.pivot("trait_2", root, (0, 0, 0)), detail, root)
 
     creature.studs(root, spec)
@@ -53,74 +64,85 @@ def build(spec):
 
 
 def _torso(root, body, trim):
-    """The barrel, and the chest shield puffed out in front of it."""
+    """The barrel, round and deep, and the chest shield puffed out low in
+    front of it. Its sides meet the flank seals and its hunched back the
+    back seal; above them it narrows hard into the neck."""
 
-    creature.shell(
+    torso = creature.shell(
         "torso",
         [
-            ((0, 0.05, -0.255), 0.06, 0.05, 0.06, 2.0),
-            ((0, 0.035, -0.225), 0.135, 0.125, 0.15, 2.2),
-            ((0, 0.02, -0.14), 0.19, 0.17, 0.19, 2.5),
-            ((0, 0.01, -0.04), 0.21, 0.18, 0.197, 2.6),
-            ((0, 0.0, 0.06), 0.201, 0.17, 0.200, 2.6),
-            ((0, 0.02, 0.125), 0.155, 0.12, 0.18, 2.6),
-            ((0, 0.04, 0.165), 0.095, 0.06, 0.11, 2.4),
+            ((0, 0.03, -0.272), 0.06, 0.05, 0.06, 2.0),
+            ((0, 0.025, -0.235), 0.15, 0.14, 0.16, 2.4),
+            ((0, 0.015, -0.15), 0.218, 0.185, 0.205, 3.0),
+            ((0, 0.005, -0.05), 0.232, 0.19, 0.205, 3.4),
+            ((0, 0.0, 0.05), 0.2, 0.17, 0.2, 3.4),
+            ((0, 0.005, 0.1), 0.162, 0.13, 0.184, 3.0),
+            ((0, 0.0, 0.13), 0.1, 0.08, 0.13, 2.4),
+            ((0, -0.01, 0.15), 0.055, 0.05, 0.065, 2.2),
         ],
         body,
         root,
-        sides=24,
+        sides=20,
         start=0.012,
-        end=0.02,
+        end=0.012,
         axis=(0, 0, 1),
     )
 
-    creature.shell(
+    # The shield: proudest low on the chest, where its seal is, and falling
+    # back into the throat so the beak swings clear of it.
+    chest = creature.shell(
         "front",
         [
-            ((0, -0.04, -0.2), 0.03, 0.05, 0.03, 2.0),
-            ((0, -0.055, -0.15), 0.09, 0.112, 0.05, 2.0),
-            ((0, -0.06, -0.04), 0.155, 0.141, 0.05, 2.4),
-            ((0, -0.06, 0.04), 0.168, 0.152, 0.05, 2.8),
-            ((0, -0.05, 0.1), 0.15, 0.118, 0.04, 3.0),
+            ((0, -0.035, -0.215), 0.04, 0.05, 0.03, 2.0),
+            ((0, -0.05, -0.17), 0.11, 0.12, 0.05, 2.4),
+            ((0, -0.055, -0.07), 0.165, 0.138, 0.05, 3.0),
+            ((0, -0.055, 0.0), 0.168, 0.136, 0.05, 3.2),
+            ((0, -0.05, 0.06), 0.142, 0.115, 0.05, 3.0),
+            ((0, -0.04, 0.105), 0.09, 0.075, 0.04, 2.6),
         ],
         trim,
         root,
         sides=24,
         start=0.01,
-        end=0.02,
+        end=0.012,
         axis=(0, 0, 1),
     )
+
+    return torso, chest
 
 
 def _head(root, body, trim, detail, dark, accent):
     head = creature.pivot("head", root, SKULL)
 
-    # A big flat-topped head, square at the brow, set back so the face
-    # stands over the chest.
+    # A small hard head: a flat face for the shades, a brow that slopes back
+    # over them to the crown, a pinch of neck under the jaw.
     skull = creature.shell(
         "skull",
         [
-            (Vector((0, 0.0, 0.06)) - SKULL, 0.11, 0.1, 0.1, 2.2),
-            (Vector((0, 0.01, 0.11)) - SKULL, 0.15, 0.125, 0.125, 2.6),
-            (Vector((0, 0.02, 0.17)) - SKULL, 0.158, 0.13, 0.13, 2.9),
-            (Vector((0, 0.025, 0.225)) - SKULL, 0.142, 0.103, 0.115, 2.9),
-            (Vector((0, 0.03, 0.27)) - SKULL, 0.1, 0.062, 0.08, 2.6),
+            (Vector((0, -0.01, 0.09)) - SKULL, 0.07, 0.065, 0.065, 2.2),
+            (Vector((0, -0.03, 0.12)) - SKULL, 0.11, 0.12, 0.09, 2.6),
+            (Vector((0, -0.04, 0.155)) - SKULL, 0.166, 0.13, 0.125, 3.2),
+            (Vector((0, -0.035, 0.19)) - SKULL, 0.168, 0.112, 0.135, 3.2),
+            (Vector((0, -0.025, 0.215)) - SKULL, 0.155, 0.05, 0.135, 3.0),
+            (Vector((0, -0.012, 0.25)) - SKULL, 0.138, 0.03, 0.125, 2.8),
+            (Vector((0, 0.0, 0.282)) - SKULL, 0.098, 0.026, 0.09, 2.5),
+            (Vector((0, 0.005, 0.3)) - SKULL, 0.045, 0.015, 0.045, 2.2),
         ],
         body,
         head,
         sides=24,
         start=0.01,
-        end=0.016,
+        end=0.012,
         axis=(0, 0, 1),
     )
 
     tree = creature.surface([skull])
-    _visor(head, tree, dark, accent)
-    _brows(head, tree, trim)
+    _shades(head, tree, dark, accent)
+    _brows(head, tree, detail)
     _beak(head, detail, dark)
     _ducktail(head, body)
 
-    return head
+    return head, skull
 
 
 def _around(tree, angle, height, lift):
@@ -130,25 +152,27 @@ def _around(tree, angle, height, lift):
 
     turn = math.radians(angle)
     direction = Vector((math.sin(turn), -math.cos(turn), 0.0))
-    centre = Vector((0.0, 0.02, height))
+    centre = Vector((0.0, SKULL.y, height))
 
     return creature.onto(tree, centre + direction * 0.5, -direction, missing=centre) + direction * lift - SKULL
 
 
-def _visor(head, tree, dark, accent):
-    """Wraparound shades: a band round the face, deepest over the beak and
-    tapering to points at the temples, with a narrow glint for each eye."""
+def _shades(head, tree, dark, accent):
+    """Wraparound shades: one broad black band across the face and round to
+    the cheeks, deepest over the beak, with a short thin glint on each lens
+    and nothing else. It is the bird's read, so it is the biggest shape on
+    the face."""
 
-    reach = 74.0
-    steps = 28
+    reach = 84.0
+    steps = 30
     rings = []
 
     for step in range(steps + 1):
         angle = -reach + 2 * reach * step / steps
         u = abs(angle) / reach
-        top = 0.205 + 0.006 * math.sin(min(u / 0.35, 1.0) * math.pi / 2) - 0.03 * u**2.4
-        bottom = 0.118 + 0.045 * u**1.7
-        inner, outer = -0.008, 0.012 - 0.008 * u**2
+        top = 0.198 - 0.014 * u**2
+        bottom = 0.138 + 0.022 * u**1.8
+        inner, outer = -0.006, 0.013 - 0.006 * u**2
         rings.append(
             [
                 _around(tree, angle, bottom, inner),
@@ -160,23 +184,23 @@ def _visor(head, tree, dark, accent):
             ]
         )
 
-    visor = core.loft("visor", rings, dark, head, cap_start=True, cap_end=True)
-    creature.finish(core.shade_smooth(visor, angle=40))
+    shades = core.loft("visor", rings, dark, head, cap_start=True, cap_end=True)
+    creature.finish(core.shade_smooth(shades, angle=40))
 
-    # The glints: two slits on the lens, their inner ends low, a scowl.
-    middle = _around(tree, 0.0, 0.164, 0.015)
+    # The glints: a short slit on each lens, its inner end low, a scowl.
+    middle = _around(tree, 0.0, 0.172, 0.016)
     eyes = creature.pivot("eyes", head, middle)
     strips = []
 
     for side in (1, -1):
         rings = []
 
-        for step in range(7):
-            t = step / 6
-            angle = side * (10 + 36 * t)
-            height = 0.154 + 0.02 * t
-            half = 0.005 + 0.007 * math.sin(t * math.pi) ** 0.7
-            rings.append([_around(tree, angle, height + way * half, lift) - middle for way, lift in ((-1, 0.011), (1, 0.011), (1, 0.016), (-1, 0.016))])
+        for step in range(5):
+            t = step / 4
+            angle = side * (22 + 22 * t)
+            height = 0.17 + 0.012 * t
+            half = 0.0028 + 0.0024 * math.sin(t * math.pi)
+            rings.append([_around(tree, angle, height + way * half, lift) - middle for way, lift in ((-1, 0.014), (1, 0.014), (1, 0.018), (-1, 0.018))])
 
         strips.append(core.loft(f"glint_{side}", rings, accent, cap_start=True, cap_end=True))
 
@@ -185,30 +209,32 @@ def _visor(head, tree, dark, accent):
     core.shade_smooth(band, angle=40)
 
 
-def _brows(head, tree, trim):
-    """A thick feathered brow over each lens, level, so the game tilts it."""
+def _brows(head, tree, detail):
+    """A heavy brow over each lens, just above the shades' top edge, level,
+    so the game tilts it."""
 
     for side in (1, -1):
-        path = [_around(tree, side * angle, 0.212, 0.01) for angle in (5, 19, 34, 50)]
+        path = [_around(tree, side * angle, 0.214, 0.008) for angle in (22, 38, 54, 70)]
         middle = path[1].lerp(path[2], 0.5)
         brow = creature.pivot(f"brow_{creature.SIDES[side]}", head, middle)
         creature.blade(
             f"brow_{side}",
             [point - middle for point in path],
-            lambda t: 0.02 + 0.006 * math.sin(t * math.pi) - 0.008 * t,
+            lambda t: 0.021 + 0.006 * math.sin(t * math.pi) - 0.008 * t,
             0.026,
-            trim,
+            detail,
             brow,
-            up=(0, -1, 0.3),
-            tip=0.014,
+            up=(0, -1, 0.5),
+            tip=0.012,
             crease=45,
         )
 
 
 def _beak(head, detail, dark):
     """A heavy hooked beak cut in planes: a ridge along the top, flat sides,
-    and a hook that drops over the lower half. The lower half hangs from the
-    jaw, and a dark mouth shows when it drops."""
+    and a hook over the tip of the lower half. The lower half reaches the
+    hook and hangs from the hinge at the cheek, so it drops well clear; the
+    inside of both halves is dark, so an open beak is a black wedge."""
 
     def at(x, y, z):
         return Vector((x, y, z)) - SKULL
@@ -216,12 +242,12 @@ def _beak(head, detail, dark):
     creature.shell(
         "beak_upper",
         [
-            (at(0, -0.088, 0.128), 0.066, 0.044, 0.018, 1.8),
-            (at(0, -0.15, 0.128), 0.056, 0.042, 0.012, 1.7),
-            (at(0, -0.205, 0.116), 0.042, 0.034, 0.009, 1.7),
-            (at(0, -0.248, 0.096), 0.026, 0.026, 0.008, 1.7),
-            (at(0, -0.268, 0.072), 0.015, 0.017, 0.007, 1.8),
-            (at(0, -0.265, 0.05), 0.007, 0.008, 0.005, 2.0),
+            (at(0, -0.12, 0.122), 0.06, 0.026, 0.01, 1.9),
+            (at(0, -0.19, 0.122), 0.052, 0.028, 0.009, 1.8),
+            (at(0, -0.245, 0.11), 0.04, 0.025, 0.008, 1.8),
+            (at(0, -0.29, 0.088), 0.026, 0.02, 0.007, 1.8),
+            (at(0, -0.31, 0.06), 0.015, 0.014, 0.006, 1.9),
+            (at(0, -0.303, 0.04), 0.007, 0.007, 0.005, 2.0),
         ],
         detail,
         head,
@@ -232,13 +258,14 @@ def _beak(head, detail, dark):
         crease=38,
     )
 
-    # The roof of the mouth, tucked inside the upper beak.
+    # The roof of the mouth, the whole width of the upper beak's underside.
     creature.shell(
         "mouth",
         [
-            (at(0, -0.086, 0.108), 0.054, 0.014, 0.01, 2.2),
-            (at(0, -0.165, 0.11), 0.042, 0.012, 0.008, 2.2),
-            (at(0, -0.225, 0.096), 0.022, 0.008, 0.006, 2.2),
+            (at(0, -0.11, 0.115), 0.054, 0.005, 0.005, 2.4),
+            (at(0, -0.19, 0.115), 0.046, 0.005, 0.005, 2.4),
+            (at(0, -0.25, 0.103), 0.032, 0.004, 0.004, 2.4),
+            (at(0, -0.285, 0.083), 0.017, 0.004, 0.004, 2.2),
         ],
         dark,
         head,
@@ -256,24 +283,25 @@ def _beak(head, detail, dark):
     creature.shell(
         "beak_lower",
         [
-            (low(0, -0.09, 0.11), 0.058, 0.004, 0.032, 2.0),
-            (low(0, -0.15, 0.106), 0.048, 0.004, 0.028, 1.9),
-            (low(0, -0.2, 0.097), 0.033, 0.004, 0.021, 1.9),
-            (low(0, -0.234, 0.088), 0.016, 0.004, 0.012, 2.0),
+            (low(0, -0.11, 0.106), 0.056, 0.005, 0.028, 2.4),
+            (low(0, -0.175, 0.106), 0.048, 0.005, 0.026, 2.2),
+            (low(0, -0.235, 0.1), 0.035, 0.004, 0.02, 2.0),
+            (low(0, -0.28, 0.088), 0.02, 0.004, 0.012, 2.0),
         ],
         detail,
         jaw,
         sides=12,
         start=0.0,
-        end=0.008,
+        end=0.01,
         forward=(0, 0, 1),
         crease=38,
     )
     creature.shell(
         "mouth_floor",
         [
-            (low(0, -0.088, 0.112), 0.047, 0.004, 0.006, 2.2),
-            (low(0, -0.19, 0.102), 0.028, 0.004, 0.006, 2.2),
+            (low(0, -0.11, 0.11), 0.048, 0.003, 0.004, 2.6),
+            (low(0, -0.175, 0.11), 0.041, 0.003, 0.004, 2.6),
+            (low(0, -0.238, 0.103), 0.026, 0.003, 0.004, 2.4),
         ],
         dark,
         jaw,
@@ -288,35 +316,36 @@ def _ducktail(head, body):
     """Three swept feathers out of the back of the head, under where a cap
     would sit: the street in the silhouette from the side."""
 
-    for index, (across, lift, length) in enumerate(((0.0, 0.0, 0.14), (0.04, -0.016, 0.11), (-0.04, -0.016, 0.11))):
-        start = Vector((across, 0.1, 0.2 + lift)) - SKULL
-        sweep = Vector((across * 1.4, 1.0, 0.36)).normalized()
+    for index, (across, lift, length) in enumerate(((0.0, 0.0, 0.11), (0.042, -0.02, 0.085), (-0.042, -0.02, 0.085))):
+        start = Vector((across, 0.06, 0.24 + lift)) - SKULL
+        sweep = Vector((across * 1.6, 1.0, 0.3)).normalized()
         path = [start + sweep * length * t + Vector((0, 0, 0.035 * t * t)) for t in (0.0, 0.4, 0.75, 1.0)]
-        creature.blade(f"tuft_{index}", path, lambda t: 0.034 * (1 - t**1.4) + 0.004, 0.018, body, head, up=(0, -0.3, 1), tip=0.022, crease=45)
+        creature.blade(f"tuft_{index}", path, lambda t: 0.042 * (1 - t**1.3) + 0.005, 0.02, body, head, up=(0, -0.3, 1), tip=0.016, crease=45)
 
 
-def _wing(root, side, body, trim):
-    """A wing held up and out like a crest: a thick covert along its arm,
-    secondaries hanging from it, and four primaries fanned from the wrist
-    like the fingers of a hand, the whole fan turned to the front so it
-    reads from there as well as from the side."""
+def _wing(root, side, body):
+    """A short wing held out from the shoulder, drooped and swept back: a
+    thick covert along its arm, three broad secondaries trailing from it
+    and three primaries from the wrist, longest outermost. Its feathers
+    trail back more than down, so from the side it is a wedge behind the
+    shoulder, not a sail over the body."""
 
     name = creature.SIDES[side]
     root_at = creature.mirrored(WING_ROOT, side)
     wing = creature.pivot(f"wing_{name}", root, root_at)
-    span = creature.mirrored((1.0, 0.5, 0.55), side).normalized()
-    hang = Vector((0.0, 0.5, -1.0))
-    chord = (hang - span * hang.dot(span)).normalized()
+    span = creature.mirrored((1.0, 0.5, -0.36), side).normalized()
+    trail = Vector((0.0, 0.4, -1.0))
+    chord = (trail - span * trail.dot(span)).normalized()
     face = span.cross(chord).normalized() * side
-    wrist = span * 0.3
+    wrist = span * 0.24
     parts = [
         creature.shell(
             f"covert_{name}",
             [
-                (span * 0.01 - chord * 0.01, 0.06, 0.032, 0.03, 2.4),
-                (span * 0.12 - chord * 0.012, 0.075, 0.036, 0.03, 2.6),
-                (span * 0.24 - chord * 0.01, 0.065, 0.03, 0.026, 2.6),
-                (wrist + span * 0.04, 0.042, 0.022, 0.02, 2.4),
+                (span * 0.0 + chord * 0.005, 0.055, 0.032, 0.03, 2.6),
+                (span * 0.1, 0.07, 0.036, 0.03, 2.8),
+                (span * 0.19 + chord * 0.004, 0.06, 0.03, 0.026, 2.8),
+                (wrist + span * 0.035, 0.04, 0.022, 0.02, 2.4),
             ],
             body,
             sides=16,
@@ -326,21 +355,23 @@ def _wing(root, side, body, trim):
         )
     ]
 
-    # Secondaries, square-tipped, hanging from the forearm.
-    for index, (along, length) in enumerate(((0.05, 0.16), (0.12, 0.175), (0.19, 0.185), (0.255, 0.19))):
-        base = span * along + chord * 0.03
-        direction = (chord + span * (0.05 + 0.1 * index)).normalized()
+    # Secondaries, square-tipped, trailing from the forearm.
+    for index, (along, length) in enumerate(((0.05, 0.13), (0.125, 0.15), (0.2, 0.16))):
+        base = span * along + chord * 0.028
+        direction = (chord + span * (0.06 + 0.12 * index)).normalized()
         path = [base + direction * length * t for t in (0.0, 0.35, 0.7, 1.0)]
-        parts.append(creature.blade(f"secondary_{name}_{index}", path, lambda t: 0.04 + 0.012 * math.sin(t * math.pi * 0.8), 0.018, body, up=face, tip=0.008))
+        parts.append(creature.blade(f"secondary_{name}_{index}", path, lambda t: 0.046 + 0.012 * math.sin(t * math.pi * 0.8), 0.02, body, up=face, tip=0.008))
 
-    # Primaries from the wrist, longest outermost, splayed apart at their
-    # tips like fingers.
-    for index, (turn, length) in enumerate(((8, 0.24), (30, 0.23), (52, 0.215), (74, 0.2))):
+    # Primaries from the wrist, splayed like fingers and turned back up to
+    # the level of the shoulder, so the drooped arm and the lifted hand make
+    # the gull's kink that says bird in a silhouette.
+    lift = Vector((0.0, 0.0, 1.0))
+    for index, (turn, length) in enumerate(((2, 0.21), (30, 0.19), (58, 0.17))):
         angle = math.radians(turn)
-        base = wrist - span * 0.02 * index + chord * 0.02
-        direction = span * math.cos(angle) + chord * math.sin(angle)
+        base = wrist - span * 0.025 * index + chord * 0.02
+        direction = (span * math.cos(angle) + chord * math.sin(angle) + lift * (0.3 - 0.3 * index / 2)).normalized()
         path = [base + direction * length * t for t in (0.0, 0.3, 0.62, 0.86, 1.0)]
-        parts.append(creature.blade(f"primary_{name}_{index}", path, lambda t: 0.04 * (1.0 - 0.4 * t**2.2) + 0.006, 0.018, body, up=face, tip=0.024))
+        parts.append(creature.blade(f"primary_{name}_{index}", path, lambda t: 0.04 * (1.0 - 0.45 * t**2.2) + 0.006, 0.02, body, up=face, tip=0.026))
 
     feathers = core.join(parts, f"feathers_{name}")
     feathers.parent = wing
@@ -348,17 +379,20 @@ def _wing(root, side, body, trim):
 
 
 def _tail(root, body):
-    """A short square tail: three broad feathers fanned back and down, and
-    a short one either side."""
+    """A broad square tail spread down and back from the rump, as a bird
+    brakes in the air: five feathers in a shallow bowl, so it shows as a
+    fan under the body from behind and as a wedge from the side."""
 
     tail = creature.pivot("tail", root, TAIL_ROOT)
     parts = []
 
-    for index, (spread, length, wide) in enumerate(((-34, 0.15, 0.05), (-14, 0.2, 0.06), (0, 0.22, 0.064), (14, 0.2, 0.06), (34, 0.15, 0.05))):
+    for index, (spread, length, wide) in enumerate(((-36, 0.17, 0.058), (-18, 0.2, 0.064), (0, 0.215, 0.068), (18, 0.2, 0.064), (36, 0.17, 0.058))):
         swing = math.radians(spread)
-        direction = Vector((math.sin(swing), math.cos(swing), -0.6)).normalized()
-        path = [Vector((math.sin(swing) * 0.03, -0.05, 0.0)) + direction * length * t for t in (0.0, 0.35, 0.7, 1.0)]
-        parts.append(creature.blade(f"tail_{index}", path, lambda t, w=wide: w * (0.75 + 0.3 * t), 0.02, body, up=(math.sin(swing) * 0.3, 0.6, 1.0), tip=0.004))
+        rise = 0.5 * abs(math.sin(swing)) / math.sin(math.radians(36))
+        direction = Vector((math.sin(swing) * 0.95, math.cos(swing), -0.55 + rise)).normalized()
+        path = [Vector((math.sin(swing) * 0.03, -0.02, 0.0)) + direction * length * t for t in (0.0, 0.35, 0.7, 1.0)]
+        roll = Vector((math.sin(swing) * 0.5, 0.45, 1.0))
+        parts.append(creature.blade(f"tail_{index}", path, lambda t, w=wide: w * (0.7 + 0.35 * t), 0.022, body, up=roll, tip=0.004))
 
     fan = core.join(parts, "tail_fan")
     fan.parent = tail
@@ -372,71 +406,82 @@ def _feet(root, detail):
     parts = []
 
     for side in (1, -1):
-        ankle = Vector((side * 0.075, 0.0, -0.215))
-        parts.append(creature.shell(f"shank_{side}", [(ankle, 0.026, 0.026, 0.026, 2.0), (ankle + Vector((0, -0.02, -0.045)), 0.022, 0.022, 0.022, 2.0)], detail, sides=10, start=0.0, end=0.01))
+        ankle = Vector((side * 0.08, -0.005, -0.235))
+        parts.append(creature.shell(f"shank_{side}", [(ankle, 0.027, 0.027, 0.027, 2.0), (ankle + Vector((0, -0.02, -0.045)), 0.023, 0.023, 0.023, 2.0)], detail, sides=10, start=0.0, end=0.01))
 
         for toe in (-1, 0, 1):
-            base = ankle + Vector((toe * 0.02, -0.03, -0.052))
-            path = [base, base + Vector((toe * 0.012, -0.035, -0.006)), base + Vector((toe * 0.016, -0.06, 0.006)), base + Vector((toe * 0.016, -0.07, 0.024))]
-            parts.append(creature.blade(f"talon_{side}_{toe}", path, lambda t: 0.013 * (1 - 0.6 * t), 0.017, detail, up=(0, 0, 1), tip=0.008))
+            base = ankle + Vector((toe * 0.021, -0.03, -0.052))
+            path = [base, base + Vector((toe * 0.012, -0.036, -0.006)), base + Vector((toe * 0.016, -0.062, 0.006)), base + Vector((toe * 0.016, -0.072, 0.024))]
+            parts.append(creature.blade(f"talon_{side}_{toe}", path, lambda t: 0.014 * (1 - 0.6 * t), 0.018, detail, up=(0, 0, 1), tip=0.008))
 
     feet = core.join(parts, "feet")
     feet.parent = root
     core.shade_smooth(feet, angle=45)
 
 
-def _snapback(parent, cloth):
-    """A snapback turned backwards: a crown pushed back on the head, its
-    front edge clear of the brow, and the flat bill sticking out behind."""
+def _snapback(parent, cloth, skull):
+    """A snapback pushed back on the head and turned to the side: its crown
+    sits on the skull behind the forehead seal, and its flat peak sticks
+    out over the left ear, so the hat reads from the front and the side."""
 
-    def at(x, y, z):
-        return Vector((x, y, z)) - SKULL
+    tree = creature.surface([skull])
+    axis = Vector((0, 0.75, 1)).normalized()
+    centre = Vector((0, 0.0, 0.232))
+    forward = Vector((0, -1, 0))
+    front = (forward - axis * forward.dot(axis)).normalized()
+    left = axis.cross(front).normalized()
+    sides = 24
+    rim = []
 
-    creature.shell(
-        "cap",
-        [
-            (at(0, 0.035, 0.2), 0.165, 0.128, 0.142, 2.6),
-            (at(0, 0.035, 0.24), 0.156, 0.118, 0.132, 2.6),
-            (at(0, 0.037, 0.282), 0.125, 0.09, 0.105, 2.4),
-            (at(0, 0.04, 0.31), 0.075, 0.05, 0.062, 2.2),
-        ],
-        cloth,
-        parent,
-        sides=24,
-        start=None,
-        end=0.012,
-        axis=(0, 0.42, 1),
-    )
+    for step in range(sides):
+        turn = math.tau * step / sides
+        direction = front * math.cos(turn) - left * math.sin(turn)
+        rim.append(creature.onto(tree, centre + direction * 0.4, -direction, lift=-0.002, missing=centre + direction * 0.12) + direction * 0.01)
 
+    rings = [rim]
+
+    for rise, scale in ((0.03, 0.97), (0.058, 0.85), (0.078, 0.6), (0.088, 0.3)):
+        rings.append([centre + axis * rise + (point - centre) * scale for point in rim])
+
+    crown = core.loft("cap", [[point - SKULL for point in ring] for ring in rings], cloth, parent, cap_end=True)
+    creature.finish(core.shade_smooth(crown, angle=40))
+
+    # The peak, a flat curved slab out over the left ear and a little back.
+    turn = math.radians(82)
+    out = Vector((math.sin(turn), math.cos(turn), 0.0)).normalized()
+    across = Vector((0, 0, 1)).cross(out).normalized()
+    base = creature.onto(tree, centre + out * 0.4, -out, missing=centre + out * 0.13) + Vector((0, 0, 0.004))
     rings = []
 
     for step in range(6):
         t = step / 5
-        span = 0.11 * (1.0 - 0.3 * t**1.6)
-        y = 0.15 + 0.12 * t
-        z = 0.205 + 0.01 * t
-        rings.append([at(u * span, y - 0.02 * u * u, z + 0.007 - 0.012 * u * u) for u in (-1, -0.5, 0, 0.5, 1)] + [at(u * span, y - 0.02 * u * u, z - 0.007 - 0.012 * u * u) for u in (1, 0.5, 0, -0.5, -1)])
+        half = 0.08 * (1.0 - 0.3 * t**1.6)
+        middle = base + out * (0.11 * t - 0.03) - Vector((0, 0, 0.018 * t))
+        rings.append(
+            [middle + across * u * half - Vector((0, 0, 0.012 * u * u - 0.007)) for u in (-1, -0.5, 0, 0.5, 1)]
+            + [middle + across * u * half - Vector((0, 0, 0.012 * u * u + 0.007)) for u in (1, 0.5, 0, -0.5, -1)]
+        )
 
-    bill = core.loft("cap_bill", rings, cloth, parent, cap_start=True, cap_end=True)
+    bill = core.loft("cap_bill", [[point - SKULL for point in ring] for ring in rings], cloth, parent, cap_start=True, cap_end=True)
     creature.finish(core.shade_smooth(bill, angle=40))
 
 
 def _chain(parent, metal, root):
-    """A heavy chain: fourteen fat links lying round the neck and over the
+    """A heavy chain: twelve fat links lying round the neck and over the
     top of the chest shield, every other one turned flat."""
 
     body = [node for node in root.children_recursive if node.type == "MESH" and node.name in ("torso", "front", "skull")]
     tree = creature.surface(body)
-    count = 14
+    count = 12
     links = []
     points = []
 
     for index in range(count):
         angle = math.tau * index / count
         front = (1 + math.cos(angle)) / 2
-        height = 0.1 - 0.07 * front**2
+        height = 0.11 - 0.08 * front**2
         direction = Vector((math.sin(angle), -math.cos(angle), 0.0))
-        axis = Vector((0, 0.0, height))
+        axis = Vector((0, -0.01, height))
         points.append((creature.onto(tree, axis + direction * 0.5, -direction, missing=axis + direction * 0.2), axis))
 
     for index, (point, axis) in enumerate(points):
@@ -462,8 +507,8 @@ def _link(centre, along, across, mat):
     for step in range(10):
         angle = math.tau * step / 10
         out = along * math.cos(angle) + across * math.sin(angle)
-        middle = centre + along * math.cos(angle) * 0.036 + across * math.sin(angle) * 0.022
-        rings.append([middle + (out.normalized() * math.cos(turn) + normal * math.sin(turn)) * 0.01 for turn in (0, math.pi / 2, math.pi, math.pi * 1.5)])
+        middle = centre + along * math.cos(angle) * 0.038 + across * math.sin(angle) * 0.023
+        rings.append([middle + (out.normalized() * math.cos(turn) + normal * math.sin(turn)) * 0.011 for turn in (0, math.pi / 2, math.pi, math.pi * 1.5)])
 
     rings.append(rings[0])
 
