@@ -1,71 +1,108 @@
-"""Render every exported performance against a floor in five timed poses.
+"""Renders every exported performance against a floor in five timed poses.
 
-Blender CLI: --class harvester --form humanoid --out art/build/motion-review
-The resulting 32 labelled strips are an inspection aid, not a quality score.
-It reads the full-size models `cargo xtask build-art` leaves in `art/build/models`.
+    blender --background --python-exit-code 1 --python art/blender/review_catalogue.py -- \\
+      --class harvester --form humanoid --out art/build/motion-review
+
+Each clip is a labelled row of five poses (its start, two breakdowns, its
+contact and its recovery; quarters for a loop), eight clips to a page, in
+`page-<n>.png`. It is an inspection aid, not a quality score: Workbench, so
+the whole catalogue renders in a minute, with every surface in its flat
+colour from `art/blender/cel.toml`. It reads the full-size models a build
+leaves in `art/build/models` (or `--models`).
 """
 
 import argparse
 import json
 import os
 import sys
+
 import bpy
-import numpy
 
-sys.path.insert(0, os.path.dirname(__file__))
-from lib import core, preview
-from reapers import show_variant, hold_weapon, CLASSES
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from lib import cel, preview, review  # noqa: E402
 
-def activate_clip(name, seconds, phase):
-    """Mute all other NLA tracks, including facial tracks, then sample."""
-    for obj in bpy.data.objects:
-        animations = [obj.animation_data]
-        if obj.type == "MESH" and obj.data.shape_keys:
-            animations.append(obj.data.shape_keys.animation_data)
-        for animation in animations:
-            if animation:
-                animation.action = None
-                for track in animation.nla_tracks:
-                    track.mute = track.name != name
-    frame = 1 + phase * seconds * bpy.context.scene.render.fps
-    bpy.context.scene.frame_set(int(frame), subframe=frame % 1)
+WIDTH, HEIGHT = 300, 380
+CLIPS_PER_PAGE = 8
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--class", dest="calling", default="harvester", choices=CLASSES)
-    parser.add_argument("--form", choices=("spirit", "humanoid"), default="humanoid")
+    parser = argparse.ArgumentParser(prog="review_catalogue.py")
+    parser.add_argument("--class", dest="calling", default="harvester", choices=tuple(review.CLASS_WEAPONS))
+    parser.add_argument("--form", choices=review.FORMS, default="humanoid")
     parser.add_argument("--out", required=True)
-    parser.add_argument("--only", help="Comma-separated clip names")
+    parser.add_argument("--only", help="comma-separated clip names")
     parser.add_argument("--clothing", choices=("robe", "tunic"), default="tunic")
     parser.add_argument("--rear", action="store_true")
-    parser.add_argument("--variant", type=int, choices=range(4), default=0)
+    parser.add_argument("--variant", type=int, choices=range(review.VARIANTS), default=0)
     parser.add_argument("--gaunt", type=float, default=0)
-    options = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
+    parser.add_argument("--models", default="art/build/models")
+    parser.add_argument("--motions", default="art/build/motions.json")
+    options = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else [])
     os.makedirs(options.out, exist_ok=True)
-    core.reset_scene()
-    bpy.ops.import_scene.gltf(filepath=f"art/build/models/reaper_{options.calling}.glb")
-    root = bpy.data.objects["reaper"]
-    show_variant(root, 0, 0, options.variant)
-    for obj in root.children_recursive:
-        if obj.name in ("humanoid_form", "spirit_form"):
-            hidden = obj.name != options.form + "_form"
-            obj.hide_render = hidden
-            for child in obj.children_recursive:
-                child.hide_render = hidden
-        if obj.name.startswith("robe_") and obj.type == "MESH":
-            keys = obj.data.shape_keys.key_blocks
-            if options.form == "humanoid":
-                keys["humanoid_" + options.clothing].value = 1
-            elif options.clothing == "tunic":
-                keys["short_robe"].value = 1
-            keys["gaunt"].value = options.gaunt
-    weapons = {kind: hold_weapon(root, kind) for kind in {CLASSES[options.calling], "spear", "scythe"}}
+
+    with open(options.motions, encoding="utf-8") as source:
+        specs = json.load(source)
+
+    wanted = set(options.only.split(",")) if options.only else {spec["name"] for spec in specs}
+    unknown = wanted - {spec["name"] for spec in specs}
+
+    if unknown:
+        raise SystemExit(f"Unknown clips: {', '.join(sorted(unknown))}")
+
+    root, weapons = review.reaper_for_motion(options.models, options.calling)
+    review.dress(root, options.variant, options.form, weapons, None, options.clothing)
+
+    for node in root.children_recursive:
+        if review.base(node).startswith("robe_") and node.type == "MESH":
+            node.data.shape_keys.key_blocks["gaunt"].value = options.gaunt
+
+    _stage(options.rear)
+    label = _label()
+    rows = []
+
+    for index, spec in enumerate(specs):
+        if spec["name"] not in wanted:
+            continue
+
+        clip = ("humanoid_" if options.form == "humanoid" else "") + spec["name"]
+        phases = [0, 0.125, 0.25, 0.5, 0.75] if spec["loops"] else [0, 0.15, 0.45, 0.65, 0.85]
+
+        if spec.get("impact") is not None:
+            phases[2] = spec["impact"]
+
+        review.dress(root, options.variant, options.form, weapons, review.held_kind(spec, options.calling), options.clothing)
+        tiles = []
+
+        for phase in phases:
+            review.play(clip, phase)
+            label.data.body = f"{index + 1:02d} {spec['name']}\n{phase * 100:g}%"
+            path = os.path.join(options.out, f"{spec['name']}-{phase}.png")
+            bpy.context.scene.render.filepath = path
+
+            if phase == phases[0]:
+                # Workbench keeps stale shadow buffers after visibility
+                # changes: prime them before the clip's first capture.
+                bpy.ops.render.render()
+
+            bpy.ops.render.render(write_still=True)
+            tiles.append((path, None))
+
+        rows.append(tiles)
+
+    for start in range(0, len(rows), CLIPS_PER_PAGE):
+        preview.compose(rows[start : start + CLIPS_PER_PAGE], os.path.join(options.out, f"page-{start // CLIPS_PER_PAGE + 1}.png"), WIDTH, HEIGHT)
+
+    print(f"REVIEWED {len(rows)} clips in {options.out}")
+
+
+def _stage(rear):
+    """Workbench, a floor, a camera, and every surface in its flat colour."""
+
     scene = bpy.context.scene
     scene.render.engine = "BLENDER_WORKBENCH"
-    scene.render.resolution_x = 300
-    scene.render.resolution_y = 380
+    scene.render.resolution_x = WIDTH
+    scene.render.resolution_y = HEIGHT
     scene.render.resolution_percentage = 100
     scene.render.image_settings.file_format = "PNG"
     scene.display.shading.light = "STUDIO"
@@ -75,69 +112,37 @@ def main():
     scene.display.shading.background_type = "WORLD"
     scene.world = bpy.data.worlds.new("ReviewWorld")
     scene.world.color = (0.045, 0.055, 0.07)
+
+    palette = cel.load()
+
+    for mat in bpy.data.materials:
+        name = cel.base_name(mat)
+        mat.diffuse_color = (*palette["surfaces"].get(name, palette["surfaces"]["fallback"]), 1)
+
     bpy.ops.mesh.primitive_plane_add(size=200)
     floor = bpy.context.object
     floor.name = "review_floor"
-    floor.data.materials.append(core.material("floor", color=(0.12, 0.15, 0.18)))
-    camera = preview._camera((3.8, 6.5 if options.rear else -6.5, 2.4), (0, 0, 1.15), lens=58)
-    label_data = bpy.data.curves.new("review_label", "FONT")
-    label_data.size = 0.1
-    label = bpy.data.objects.new("review_label", label_data)
+    ground = bpy.data.materials.new("review_floor")
+    ground.diffuse_color = (0.12, 0.15, 0.18, 1)
+    floor.data.materials.append(ground)
+    preview._camera((3.8, 6.5 if rear else -6.5, 2.4), (0, 0, 1.15), lens=58)
+
+
+def _label():
+    data = bpy.data.curves.new("review_label", "FONT")
+    data.size = 0.1
+    label = bpy.data.objects.new("review_label", data)
     bpy.context.collection.objects.link(label)
-    label.parent = camera
+    label.parent = bpy.context.scene.camera
     label.location = (-0.65, 0.79, -3)
-    label.data.materials.append(core.material("label", color=(1, 1, 1)))
-    specs = json.load(open("art/build/motions.json"))
-    wanted = set(options.only.split(",")) if options.only else {spec["name"] for spec in specs}
-    unknown = wanted - {spec["name"] for spec in specs}
-    if unknown:
-        raise ValueError(f"Unknown clips: {sorted(unknown)}")
-    strips = []
-    for index, spec in enumerate(specs):
-        if spec["name"] not in wanted:
-            continue
-        clip = ("humanoid_" if options.form == "humanoid" else "") + spec["name"]
-        phases = [0, 0.15, 0.45, 0.65, 0.85] if not spec["loops"] else [0, 0.125, 0.25, 0.5, 0.75]
-        if spec.get("impact") is not None:
-            phases[2] = spec["impact"]
-        tiles = []
-        kind = {"finisherImpale": "spear", "finisherReap": "scythe"}.get(spec["name"], CLASSES[options.calling])
-        for phase in phases:
-            activate_clip(clip, spec["seconds"], phase)
-            for weapon_kind, weapon in weapons.items():
-                hidden = spec["unarmed"] or weapon_kind != kind
-                weapon.hide_render = hidden
-                for child in weapon.children_recursive:
-                    child.hide_render = hidden
-            bpy.context.view_layer.update()
-            label_data.body = f'{index+1:02d} {spec["name"]}\n{phase:.0%}'
-            path = os.path.join(options.out, f'{spec["name"]}-{phase}.png')
-            scene.render.filepath = path
-            if phase == 0:
-                # Workbench retains stale shadow buffers after object visibility
-                # changes. Prime them before capturing the new performance.
-                bpy.ops.render.render()
-            bpy.ops.render.render(write_still=True)
-            tiles.append(path)
-        path = os.path.join(options.out, f'{index+1:02d}-{spec["name"]}.png')
-        preview._stitch(tiles, path, 300, 380)
-        strips.append(path)
-    # Four pages keep all poses readable when reviewing the whole catalogue.
-    for start in range(0, len(strips), 8):
-        chunk = strips[start : start + 8]
-        sheet = numpy.zeros((380 * len(chunk), 1500, 4), dtype=numpy.float32)
-        for row, path in enumerate(reversed(chunk)):
-            img = bpy.data.images.load(path)
-            pixels = numpy.empty(1500 * 380 * 4, dtype=numpy.float32)
-            img.pixels.foreach_get(pixels)
-            sheet[row * 380 : (row + 1) * 380] = pixels.reshape(380, 1500, 4)
-            bpy.data.images.remove(img)
-        result = bpy.data.images.new("Catalogue", 1500, 380 * len(chunk), alpha=False)
-        result.pixels.foreach_set(sheet.ravel())
-        result.filepath_raw = os.path.join(options.out, f"page-{start//8+1}.png")
-        result.file_format = "PNG"
-        result.save()
-    print(f"REVIEWED {len(strips)} clips in {options.out}")
+    # A caption, not a thing on the floor: it casts no shadow (Workbench
+    # reads the object's display setting, not its render visibility).
+    label.display.show_shadows = False
+    mat = bpy.data.materials.new("review_label")
+    mat.diffuse_color = (1, 1, 1, 1)
+    data.materials.append(mat)
+
+    return label
 
 
 if __name__ == "__main__":

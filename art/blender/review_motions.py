@@ -1,84 +1,71 @@
-"""Render contact poses from the exported GLBs, not the authoring scene.
+"""Renders one pose of an exported clip, from three angles.
 
-It reads the full-size models `cargo xtask build-art` leaves in `art/build/models`.
+    blender --background --python-exit-code 1 --python art/blender/review_motions.py -- \\
+      --class harvester --clip finisherReap --phase 0.52 --out art/build/previews/finisher_reap.png
 
-    blender --background --python art/blender/review_motions.py -- \
-      --class harvester --clip finisherReap --phase 0.52 --out art/build/contact.png
+It reads the full-size models a build leaves in `art/build/models` (or
+`--models`) and the clips' timings in `art/build/motions.json` (or
+`--motions`), so it shows the model as exported, not the authoring scene.
+`--phase` is how far through the clip, 0 at its start and 1 at its end;
+`--face` frames the face instead of the figure; `--cel` renders it in the
+cel look of `art/blender/cel.toml` instead.
 """
 
 import argparse
-import json
 import os
 import sys
 
 import bpy
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from lib import core, preview
-from reapers import hold_weapon, show_variant, CLASSES
+
+from lib import cel, preview, review  # noqa: E402
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--class", dest="calling", choices=CLASSES, required=True)
+    parser = argparse.ArgumentParser(prog="review_motions.py")
+    parser.add_argument("--class", dest="calling", choices=tuple(review.CLASS_WEAPONS), required=True)
     parser.add_argument("--clip", required=True)
     parser.add_argument("--phase", type=float, default=0.5)
     parser.add_argument("--out", required=True)
     parser.add_argument("--face", action="store_true")
     parser.add_argument("--humanoid", action="store_true")
     parser.add_argument("--clothing", choices=("robe", "tunic", "none"), default="robe")
-    parser.add_argument("--weapon", choices=tuple(CLASSES.values()))
-    options = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
-    clip_name = ("humanoid_" if options.humanoid else "") + options.clip
-    core.reset_scene()
-    bpy.ops.import_scene.gltf(filepath=f"art/build/models/reaper_{options.calling}.glb")
-    root = bpy.data.objects["reaper"]
-    show_variant(root, 0, 0, 0)
-    for obj in root.children_recursive:
-        if obj.name in ("humanoid_form", "spirit_form"):
-            hidden = (obj.name == "humanoid_form") != options.humanoid
-            obj.hide_render = hidden
-            for child in obj.children_recursive:
-                child.hide_render = hidden
-        if obj.name == "robe_0":
-            obj.hide_render = options.clothing == "none"
-            if options.humanoid and options.clothing != "none":
-                obj.data.shape_keys.key_blocks["humanoid_" + options.clothing].value = 1
-            elif options.clothing == "tunic":
-                obj.data.shape_keys.key_blocks["short_robe"].value = 1
-        if options.clothing == "none" and ("_sleeve" in obj.name or obj.name.endswith("_cuff")):
-            obj.hide_render = True
-    with open("art/build/motions.json") as source:
-        spec = next(item for item in json.load(source) if item["name"] == options.clip)
-    for obj in bpy.data.objects:
-        if obj.animation_data:
-            obj.animation_data.action = None
-            for track in obj.animation_data.nla_tracks:
-                track.mute = track.name != clip_name
-        if obj.type == "MESH" and obj.data.shape_keys and obj.data.shape_keys.animation_data:
-            animation = obj.data.shape_keys.animation_data
-            animation.action = None
-            for track in animation.nla_tracks:
-                track.mute = track.name != clip_name
-    # glTF import uses the current scene FPS and puts the first sample at 1.
-    frame = 1 + options.phase * spec["seconds"] * bpy.context.scene.render.fps
-    bpy.context.scene.frame_set(int(frame), subframe=frame % 1)
-    if not spec.get("unarmed", False):
-        kind = options.weapon or {"finisherImpale": "spear", "finisherReap": "scythe"}.get(options.clip, CLASSES[options.calling])
-        hold_weapon(root, kind)
-    # GLB import changes Blender material names; the preview restores its light.
-    os.makedirs(os.path.dirname(options.out), exist_ok=True)
-    centre = bpy.data.objects["face_0"].matrix_world.translation if options.face else (0, 0, 1.35)
-    preview.render_sheet(
-        options.out,
-        centre=centre,
-        distance=1.5 if options.face else 8.5,
-        width=420,
-        height=560,
-        views=("front", "threequarter", "side"),
-        eye_height=0.04 if options.face else -0.25,
-        view_rotation=bpy.data.objects["face_0"].matrix_world.to_quaternion() if options.face else None,
-    )
+    parser.add_argument("--weapon", choices=review.WEAPON_KINDS)
+    parser.add_argument("--variant", type=int, choices=range(review.VARIANTS), default=0)
+    parser.add_argument("--cel", action="store_true")
+    parser.add_argument("--models", default="art/build/models")
+    parser.add_argument("--motions", default="art/build/motions.json")
+    options = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else [])
+
+    if not 0 <= options.phase <= 1:
+        raise SystemExit(f"--phase is a fraction of the clip, from 0 to 1, not {options.phase}")
+
+    spec = review.motion_spec(options.motions, options.clip)
+    form = "humanoid" if options.humanoid else "spirit"
+    root, weapons = review.reaper_for_motion(options.models, options.calling)
+    review.dress(root, options.variant, form, weapons, review.held_kind(spec, options.calling, options.weapon), "robe" if options.clothing == "none" else options.clothing)
+
+    if options.clothing == "none":
+        # The spectral body under the robe, with no outer cloth.
+        for node in root.children_recursive:
+            name = review.base(node)
+
+            if name.startswith("robe_") or "_sleeve" in name or name.endswith("_cuff"):
+                node.hide_render = True
+
+    review.play(("humanoid_" if options.humanoid else "") + options.clip, options.phase)
+    os.makedirs(os.path.dirname(os.path.abspath(options.out)), exist_ok=True)
+    look = cel.load() if options.cel else None
+    tiles = [preview.row(f"{options.calling} {options.clip} {options.phase:.0%}", None, ("front", "threequarter", "side"))]
+
+    if options.face:
+        face = review.find(root, f"face_{min(options.variant, 2)}")
+        rotation = face.matrix_world.to_quaternion()
+        preview.render_grid(options.out, tiles, tile=(420, 560), cel_look=look, framing=(face.matrix_world.translation, 1.5, 0.04), view_rotation=rotation)
+    else:
+        preview.render_grid(options.out, tiles, tile=(420, 560), cel_look=look)
+
     print(f"BUILT {options.out}")
 
 
