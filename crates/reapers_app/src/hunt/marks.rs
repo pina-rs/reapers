@@ -50,6 +50,10 @@ const BURST_TIPS: usize = 10;
 const BURST_OUTER: f64 = 17.0;
 const BURST_INNER: f64 = 6.0;
 const BURST_EDGE: f64 = 1.8;
+/// How far past the pistol's muzzle, along its barrel, the burst's middle
+/// is printed: clear of the barrel's flared mouth, so the star is seen
+/// whole rather than half over the iron.
+pub const BURST_AHEAD: f64 = 18.0;
 /// The smear's edge in paper (§11.4), and how wide it is from the muzzle
 /// back along the three frames before, each side of its middle.
 const SMEAR_EDGE: f64 = 1.25;

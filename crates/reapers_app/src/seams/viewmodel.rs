@@ -80,6 +80,7 @@ use crate::render::turn::inverse;
 use crate::render::turn::rotate;
 use crate::render::turn::sub;
 use crate::render::turn::view_turn;
+use crate::render::viewmodel::MUZZLE;
 use crate::render::viewmodel::VIEWMODEL_FOV;
 use crate::render::viewmodel::ViewmodelRig;
 use crate::render::viewmodel::place;
@@ -749,7 +750,10 @@ impl Shot<'_> {
 			return print;
 		};
 		if marks::burst_shows(frame, self.lively) {
-			print.burst = Some((now, props.action_tick));
+			print.burst = Some((
+				burst_at(props.archetype, pose, view).unwrap_or(now),
+				props.action_tick,
+			));
 		}
 		if marks::smear_shows(frame, self.lively) {
 			// Where the muzzle was each frame before, without the trail, moved
@@ -777,6 +781,24 @@ impl Shot<'_> {
 		}
 		print
 	}
+}
+
+/// Where a shot's burst is printed with the arms at `pose`, on a view `view`
+/// points big: [`marks::BURST_AHEAD`] past the pistol's muzzle, along the
+/// barrel as it is drawn. `None` behind the eye.
+fn burst_at(archetype: Archetype, pose: &arms::Pose, view: marks::At) -> Option<marks::At> {
+	let placed = place(archetype, pose);
+	let muzzle = on_screen(placed.muzzle, view)?;
+	let further = on_screen(placed.weapon.point(add(MUZZLE, [0.0, 0.0, 0.05])), view)?;
+	let (across, down) = (further.0 - muzzle.0, further.1 - muzzle.1);
+	let length = across.hypot(down);
+	if length < 1.0 {
+		return Some(muzzle);
+	}
+	Some((
+		muzzle.0 + across / length * marks::BURST_AHEAD,
+		muzzle.1 + down / length * marks::BURST_AHEAD,
+	))
 }
 
 /// The marks the reaper's blows print flat over the view: a box filling its
@@ -973,8 +995,10 @@ mod tests {
 			shot_print(Archetype::Gun, 103.0, true).is_blank(),
 			"f2: gone"
 		);
-		// The burst is at the muzzle, low and right of the sight, and the smear
-		// runs from it back down the kick.
+		// The burst is low and right of the sight, past the muzzle along the
+		// barrel, which points up and in toward the sight, so the star clears
+		// the barrel's mouth. The smear runs from the muzzle back down the
+		// kick.
 		let first = shot_print(Archetype::Gun, 101.0, true);
 		let (burst, seed) = first.burst.unwrap();
 		assert_eq!(seed, 100, "turned the same way each frame of the shot");
@@ -983,7 +1007,13 @@ mod tests {
 			"{burst:?}"
 		);
 		let smear = first.smear.unwrap();
-		assert_eq!(smear[0], burst);
+		let muzzle = smear[0];
+		let ahead = (burst.0 - muzzle.0).hypot(burst.1 - muzzle.1);
+		assert!((ahead - marks::BURST_AHEAD).abs() < 1.0e-9, "{ahead} pt");
+		assert!(
+			burst.0 < muzzle.0 && burst.1 < muzzle.1,
+			"{burst:?} past {muzzle:?}"
+		);
 		assert!(smear[3].1 > smear[0].1, "the muzzle rose: {smear:?}");
 		// Only the pistol fires so.
 		assert!(shot_print(Archetype::Blade, 101.0, true).is_blank());
