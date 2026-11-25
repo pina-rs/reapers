@@ -238,6 +238,7 @@ pub fn light_sanctum(scene: &Scene) {
 		intensity: 4.6,
 		ambient: 0.55,
 		shadow: 0.55,
+		camera_space: false,
 	}));
 	scene.push(Op::SetBackdrop(Backdrop::Transparent));
 	scene.push(Op::SetExposure(1.3));
@@ -254,6 +255,7 @@ pub fn light_hunt(scene: &Scene, camera: bool) {
 		intensity: 1.7,
 		ambient: 0.6,
 		shadow: 0.6,
+		camera_space: false,
 	}));
 	scene.push(Op::SetBackdrop(if camera {
 		Backdrop::Camera

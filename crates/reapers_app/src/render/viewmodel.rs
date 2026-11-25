@@ -352,6 +352,7 @@ impl ViewmodelRig {
 			intensity: 3.2,
 			ambient: 0.7,
 			shadow: 0.0,
+			camera_space: false,
 		}));
 		scene.push(Op::SetBackdrop(Backdrop::Transparent));
 		let mut puppet = Puppet::spawn(scene, VIEWMODEL_MODEL, None);

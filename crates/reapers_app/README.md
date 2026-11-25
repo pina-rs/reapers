@@ -9,7 +9,7 @@ Every rule is `reapers_rules`'; this crate keeps the books, draws the ledger, an
 You need the leptoskit CLI at the revision the workspace pins:
 
 ```sh
-cargo install --locked --git https://github.com/leptoskit/leptoskit --rev baadbbc4d0764fc5a509061fc8c241324e91c921 leptoskit_cli
+cargo install --locked --git https://github.com/leptoskit/leptoskit --rev debd27427560e219874f1a0294bafbc1a01d95a0 leptoskit_cli
 cd crates/reapers_app
 leptoskit dev --platform web             # the browser, live
 leptoskit build --platform web           # dist/, for any static host
