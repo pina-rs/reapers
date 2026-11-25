@@ -1,0 +1,66 @@
+# The look the review sheets judge a model in when they are rendered with
+# `--cel`: flat colour bands from one key light, a tinted shade, and an ink
+# outline drawn as an inverted hull.
+#
+# This is the art direction in one place. Change it here and re-render the
+# sheets (`art/blender/review.py`, see art/blender/README.md); no model is
+# rebuilt. It is a preview of the target look, not the game's renderer: the
+# game does not read this file.
+#
+# Colours are sRGB hex, as a paint program shows them.
+
+[ink]
+# The outline's colour.
+colour = "#1b1620"
+# How thick the outline is, in pixels of a sheet's tile, measured at the
+# middle of the model. Parts nearer the camera draw a little thicker.
+width = 2.4
+# How much the width swings along the line, so it reads drawn by hand:
+# 0 is a ruled line, 1 lets it swing from nothing to twice the width.
+wobble = 0.45
+# How many swings per metre of model.
+wobble_scale = 7.0
+
+[bands]
+# How many flat steps the light falls in, from shade to full light.
+count = 3
+# The shade is the surface colour multiplied by this, so shadows lean cool
+# instead of going grey.
+shade_tint = "#5d5683"
+# Where the key light comes from, in the camera's frame: x to the right,
+# y up, z toward the viewer. Fixed to the camera, so every view of a sheet
+# is lit the same way.
+key = [-0.55, 0.62, 0.56]
+
+[paper]
+# The ground behind the model.
+colour = "#efe7d6"
+
+# The flat colour of each surface, by material name. A creature's `body`,
+# `trim`, `detail` and `accent` come from the NFT look it is dressed in when
+# it has one; these are what they fall back to.
+[surfaces]
+cloth = "#3b3650"
+cloth_alt = "#6b4a32"
+bone = "#d8ceb2"
+metal = "#6e7584"
+gold = "#d9a441"
+wood = "#7a5136"
+rope = "#a88d60"
+feather = "#2c2c3c"
+paper = "#d4c6a4"
+void = "#08070b"
+spirit = "#2f6170"
+frame = "#8c7656"
+canvas = "#9a9a9a"
+body = "#5f8f8c"
+trim = "#ece6d8"
+detail = "#e19b4c"
+dark = "#0d0b10"
+shadow = "#1b1620"
+# The one colour that glows: eyes, a blade's edge, soul light. Drawn flat,
+# with no shade and no ink.
+accent = "#a6fff0"
+glow = "#a6fff0"
+# Any material this table does not name.
+fallback = "#8a8a8a"

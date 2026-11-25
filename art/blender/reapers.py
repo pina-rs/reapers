@@ -35,17 +35,10 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(HERE)
 
-from lib import body, core, face, motion, preview  # noqa: E402
+from lib import body, core, face, motion, review  # noqa: E402
 
-# Each class and the weapon kind it is shown holding in a review sheet.
-CLASSES = {
-    "harvester": "scythe",
-    "ferryman": "lantern_pole",
-    "weigher": "balance_flail",
-    "chooser": "spear",
-    "hollow": "chain_whip",
-    "mourner": "bell",
-}
+# The classes, in build order.
+CLASSES = tuple(review.CLASS_WEAPONS)
 
 
 def main():
@@ -53,6 +46,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", required=True)
     parser.add_argument("--preview")
+    parser.add_argument("--cel", action="store_true", help="also render each review sheet in the cel look")
     parser.add_argument("--specs")
     parser.add_argument("--only")
     parser.add_argument("--motions", default="art/build/motions.json")
@@ -62,7 +56,7 @@ def main():
 
     os.makedirs(options.out, exist_ok=True)
 
-    for name, weapon in CLASSES.items():
+    for name in CLASSES:
         if options.only and options.only != name:
             continue
 
@@ -80,59 +74,12 @@ def main():
         print(f"BUILT {path} triangles={core.triangle_count(root)}")
 
         if options.preview:
+            # From the model as exported, at rest: the authoring scene is
+            # left wherever the clip bake ended.
             os.makedirs(options.preview, exist_ok=True)
-            hold_weapon(root, weapon)
 
-            for variant in range(3):
-                show_variant(root, head=variant, mantle=variant, robe=variant)
-                preview.render_sheet(os.path.join(options.preview, f"reaper_{name}_{variant}.png"))
-
-
-def hold_weapon(root, kind):
-    """Puts the class's weapon in its hand, for the review sheet only."""
-
-    if not os.path.exists(os.path.join(HERE, "weapon_kinds", f"{kind}.py")):
-        return
-
-    socket = find(root, "socket_weapon")
-    weapon = importlib.import_module(f"weapon_kinds.{kind}").build()
-    weapon.parent = socket
-    return weapon
-
-
-def find(node, name):
-    if node.name == name:
-        return node
-
-    for child in node.children:
-        found = find(child, name)
-
-        if found is not None:
-            return found
-
-    return None
-
-
-def show_variant(root, head, mantle, robe):
-    """Hides every variant but the chosen ones, as the game would."""
-
-    def visit(node):
-        if node.name == "humanoid_form":
-            hide_tree(node, True)
-        for prefix, chosen in (("head_", head), ("mantle_", mantle), ("robe_", robe)):
-            if node.name.startswith(prefix) and node.name[len(prefix) :].isdigit():
-                hide_tree(node, int(node.name[len(prefix) :]) != chosen)
-
-        for child in node.children:
-            visit(child)
-
-    def hide_tree(node, hidden):
-        node.hide_render = hidden
-
-        for child in node.children:
-            hide_tree(child, hidden)
-
-    visit(root)
+            for look in review.looks(options.cel):
+                review.reaper(path, name, options.preview, look)
 
 
 if __name__ == "__main__":

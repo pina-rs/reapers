@@ -5,10 +5,12 @@ shape, silhouette and the painted masks rather than on final colour.
 """
 
 import math
+import os
 
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
+from . import cel
 from .core import COLOR_ATTRIBUTE
 
 # Roughly what the game's palette does to each material slot, so that a
@@ -36,10 +38,8 @@ PREVIEW_COLORS = {
 }
 ACCENT = (0.75, 0.95, 1.0)
 
-# Materials that show an NFT's image in the game. A preview shows Blender's
-# numbered colour grid on them instead, which makes stretched, flipped or
-# misplaced texture coordinates obvious.
-IMAGE_MATERIALS = ("canvas", "paper", "shard", "ribbon")
+# Materials that show an NFT's image in the game: see `cel.IMAGE_MATERIALS`.
+IMAGE_MATERIALS = cel.IMAGE_MATERIALS
 
 
 def _linear(colour):
@@ -75,10 +75,23 @@ def _dress(look):
     return colours, _linear(look["accent"])
 
 
-def _style_materials(silhouette, look=None):
+def _style_materials(silhouette, look=None, review=False):
+    """Restyles every material for a render. Portraits use the default;
+    review sheets pass `review`, which leaves the review's own materials
+    alone, shows the first-person palette instead of a colour by name, and
+    leaves out the masks on meshes that have none, which would otherwise
+    multiply them black."""
+
     colours, accent = _dress(look)
+    masked = cel.masked_materials() if review else {}
 
     for mat in bpy.data.materials:
+        if review:
+            if mat.name.startswith(cel.REVIEW_PREFIX):
+                continue
+
+            cel.sources(mat)
+
         mat.use_nodes = True
         tree = mat.node_tree
         if "_pina_authored_metallic" not in mat:
@@ -125,6 +138,10 @@ def _style_materials(silhouette, look=None):
             tree.links.new(shader.outputs["BSDF"], output.inputs["Surface"])
             continue
 
+        if review and cel.palette_image(mat) is not None:
+            _style_palette(tree, output, mat)
+            continue
+
         name = mat.name.split(".")[0]
         pbr_kind = mat.get("_pina_pbr_kind")
         base = colours.get(name, PREVIEW_COLORS.get(name, (0.3, 0.3, 0.3)))
@@ -142,7 +159,12 @@ def _style_materials(silhouette, look=None):
         wear.blend_type = "ADD"
         wear.inputs["B"].default_value = (base[0] * 1.45 + 0.04, base[1] * 1.45 + 0.04, base[2] * 1.45 + 0.04, 1)
 
-        tree.links.new(masks.outputs["Color"], split.inputs["Color"])
+        if not review or masked.get(mat.name, True):
+            tree.links.new(masks.outputs["Color"], split.inputs["Color"])
+        else:
+            # A mesh without masks would read them as black: show its
+            # colour clean and unworn instead.
+            split.inputs["Color"].default_value = (1, 1, 0, 1)
         tree.links.new(split.outputs["Red"], tint.inputs["B"])
         tree.links.new(tint.outputs["Result"], wear.inputs["A"])
         tree.links.new(split.outputs["Blue"], wear.inputs["Factor"])
@@ -173,6 +195,30 @@ def _style_materials(silhouette, look=None):
         else:
             shader.inputs["Metallic"].default_value = authored_metallic
             shader.inputs["Roughness"].default_value = 0.72 if pbr_kind == "plumage" else min(authored_roughness, 0.84)
+
+
+def _style_palette(tree, output, mat):
+    """The first-person parts: their palette texture, lit, with its emissive
+    half glowing (`viewmodel_parts/common.py`)."""
+
+    shader = tree.nodes.new("ShaderNodeBsdfPrincipled")
+    base = tree.nodes.new("ShaderNodeTexImage")
+    base.image = cel.palette_image(mat)
+    base.interpolation = "Closest"
+    tree.links.new(base.outputs["Color"], shader.inputs["Base Color"])
+    shader.inputs["Roughness"].default_value = 0.6
+    shader.inputs["Metallic"].default_value = 0.0
+
+    glow = cel.glow_image(mat)
+
+    if glow is not None:
+        emissive = tree.nodes.new("ShaderNodeTexImage")
+        emissive.image = glow
+        emissive.interpolation = "Closest"
+        tree.links.new(emissive.outputs["Color"], shader.inputs["Emission Color"])
+        shader.inputs["Emission Strength"].default_value = 6.0
+
+    tree.links.new(shader.outputs["BSDF"], output.inputs["Surface"])
 
 
 def _light(name, kind, location, energy, color, size=1.0, target=(0, 0, 1.1)):
@@ -208,66 +254,322 @@ def _camera(location, target, lens=70):
     return camera
 
 
-def render_sheet(path, centre=(0, 0, 1.4), distance=7.4, width=560, height=840, views=("front", "threequarter", "back", "silhouette"), look=None, eye_height=-0.25, view_rotation=None):
-    """Renders the scene from several angles into one side-by-side image.
+# The angle each view looks from, turning about the model from its front.
+ANGLES = {"front": 0.0, "threequarter": 32.0, "side": 90.0, "back": 180.0, "silhouette": 0.0, "top": 0.0}
 
-    `look` dresses a creature in one NFT's colours and trait, so the sheet
-    shows it as the game will.
+# Every view a model sheet shows.
+VIEWS = ("front", "threequarter", "side", "back", "silhouette")
+
+# How tall, in pixels, a silhouette is shown at the size a phone shows a
+# model in a list or a card, so it can be judged where it is hardest to read.
+THUMBNAIL = 96
+
+# The lights of the normal look, about the model's middle, for a camera
+# `REFERENCE` metres away at the front. They turn with the camera.
+REFERENCE = 7.4
+LIGHTS = (
+    ("Key", (-3.2, -4.2, 2.3), 900, (1.0, 0.94, 0.86), 3.0),
+    ("Rim", (2.6, 3.8, 1.9), 1500, (0.55, 0.75, 1.0), 2.0),
+    ("Fill", (3.5, -3.0, -0.7), 140, (0.6, 0.7, 0.9), 4.0),
+)
+BACKGROUND = (0.012, 0.014, 0.02)
+SILHOUETTE_GROUND = (0.45, 0.45, 0.45)
+
+
+def sheet_path(directory, stem, cel_look=None):
+    """Where a sheet goes: cel sheets end in `_cel`, beside the normal ones."""
+
+    return os.path.join(directory, f"{stem}{'_cel' if cel_look else ''}.png")
+
+
+def row(label, setup, views=VIEWS, look=None):
+    """One row of a sheet: the same scene, `setup()`, from each view."""
+
+    return [{"label": f"{view}  {label}".strip(), "setup": setup, "view": view, "look": look} for view in views]
+
+
+def render_sheet(path, centre=(0, 0, 1.4), distance=7.4, width=560, height=840, views=("front", "threequarter", "back", "silhouette"), look=None, eye_height=-0.25, view_rotation=None, cel_look=None):
+    """Renders the scene from several angles into one side-by-side image,
+    from a camera placed by hand. `render_grid` frames the model itself."""
+
+    render_grid(
+        path,
+        [row("", None, views, look)],
+        tile=(width, height),
+        cel_look=cel_look,
+        framing=(centre, distance, eye_height),
+        view_rotation=view_rotation,
+        labels=False,
+    )
+
+
+def render_grid(path, rows, tile=(400, 600), cel_look=None, lens=70, elevation=-2.0, margin=1.15, framing=None, view_rotation=None, labels=True, skip=("shadow",), same_scale=True):
+    """Renders a sheet: rows of tiles, each a view of the scene as a tile's
+    `setup()` leaves it, and stitches them into one image at `path`.
+
+    Each row is framed on its own, from the bounds of every visible mesh in
+    each of its views, at one distance for the whole row, so the tiles of a
+    row are at one scale and nothing leaves the frame; `same_scale=False`
+    frames every tile on its own instead, for a model much longer than it
+    is wide. `framing` is
+    `(centre, distance, eye_height)` to place the camera by hand instead.
+
+    A tile's `look` dresses a creature in one NFT's colours and trait. A
+    `silhouette` tile is the model in black, with the same silhouette at
+    phone-thumbnail size in its corner. `cel_look` is a palette from
+    `cel.load()`: the sheet is drawn in that look.
     """
 
+    width, height = tile
     scene = bpy.context.scene
     scene.render.engine = "BLENDER_EEVEE"
     scene.render.resolution_x = width
     scene.render.resolution_y = height
+    scene.render.resolution_percentage = 100
     scene.render.film_transparent = False
-    scene.view_settings.view_transform = "AgX"
-    scene.view_settings.look = "AgX - Medium High Contrast"
+    scene.render.image_settings.file_format = "PNG"
+    scene.eevee.taa_render_samples = 16
+    if hasattr(scene.eevee, "use_raytracing"):
+        scene.eevee.use_raytracing = False
+    scene.view_settings.view_transform = "Standard" if cel_look else "AgX"
+    scene.view_settings.look = "None" if cel_look else "AgX - Medium High Contrast"
 
-    world = bpy.data.worlds.new("PreviewWorld")
+    world = bpy.data.worlds.get("PreviewWorld") or bpy.data.worlds.new("PreviewWorld")
     world.use_nodes = True
     scene.world = world
     background = world.node_tree.nodes["Background"]
+    background.inputs["Strength"].default_value = 1.0
 
-    lights = [
-        _light("Key", "AREA", (-3.2, -4.2, 3.6), 900, (1.0, 0.94, 0.86), size=3.0, target=centre),
-        _light("Rim", "AREA", (2.6, 3.8, 3.2), 1500, (0.55, 0.75, 1.0), size=2.0, target=centre),
-        _light("Fill", "AREA", (3.5, -3.0, 0.6), 140, (0.6, 0.7, 0.9), size=4.0, target=centre),
-    ]
-    angles = {"front": 0.0, "side": 90.0, "back": 180.0, "threequarter": 32.0}
-    tiles = []
+    lights = [_light(name, "AREA", (0, 0, 0), energy, colour, size=size) for name, _, energy, colour, size in LIGHTS]
+    label = _label() if labels else None
 
-    for view in views:
-        silhouette = view == "silhouette"
-        angle = math.radians(angles.get(view, 24.0))
+    if cel_look:
+        cel.add_ink(cel_look)
 
-        _style_materials(silhouette, look)
-        background.inputs["Color"].default_value = (0.45, 0.45, 0.45, 1) if silhouette else (0.012, 0.014, 0.02, 1)
-        background.inputs["Strength"].default_value = 1.0
+    half_wide, half_high = _half_view(lens, width, height)
+    styled = None
+    grid = []
 
+    try:
+        for tiles in rows:
+            placed = [_place(tile, lens, half_wide, half_high, elevation, margin, framing, skip) for tile in tiles]
+            widest = max(distance for _, distance, _ in placed)
+            paths = []
+
+            for tile, (centre, own, eye_height) in zip(tiles, placed):
+                distance = widest if same_scale else own
+                if tile["setup"] is not None:
+                    tile["setup"]()
+
+                silhouette = tile["view"] == "silhouette"
+                mode = ("silhouette" if silhouette else "cel" if cel_look else "normal", id(tile["look"]))
+
+                if mode != styled:
+                    _style(silhouette, tile["look"], cel_look)
+                    styled = mode
+
+                ground = SILHOUETTE_GROUND if silhouette else cel_look["paper"] if cel_look else BACKGROUND
+                background.inputs["Color"].default_value = (*ground, 1)
+                camera = _aim(centre, distance, tile["view"], elevation, eye_height, lens, view_rotation)
+
+                for (_, offset, energy, _, size), light in zip(LIGHTS, lights):
+                    _place_light(light, centre, distance, tile["view"], offset, energy, size)
+                    light.hide_render = silhouette or bool(cel_look)
+
+                if cel_look:
+                    cel.aim_key(cel_look, camera)
+                    cel.set_ink(cel_look["width"] * 2 * half_high * distance / height, shown=not silhouette)
+
+                if label is not None:
+                    ink = (0.1, 0.1, 0.12) if silhouette or cel_look else (0.6, 0.62, 0.66)
+                    _caption(label, camera, tile["label"], ink, half_wide, half_high, height)
+
+                tile_path = f"{path}.{len(grid)}.{len(paths)}.png"
+                scene.render.filepath = tile_path
+                bpy.ops.render.render(write_still=True)
+                inset = None
+
+                if silhouette and THUMBNAIL < height:
+                    if label is not None:
+                        label.hide_render = True
+                    inset = f"{tile_path}.thumb.png"
+                    scene.render.resolution_x = round(THUMBNAIL * width / height)
+                    scene.render.resolution_y = THUMBNAIL
+                    scene.render.filepath = inset
+                    bpy.ops.render.render(write_still=True)
+                    scene.render.resolution_x = width
+                    scene.render.resolution_y = height
+                    if label is not None:
+                        label.hide_render = False
+
+                paths.append((tile_path, inset))
+                bpy.data.objects.remove(camera, do_unlink=True)
+
+            grid.append(paths)
+    finally:
+        if cel_look:
+            cel.remove_ink()
         for light in lights:
-            light.hide_render = silhouette
+            bpy.data.objects.remove(light, do_unlink=True)
+        if label is not None:
+            bpy.data.objects.remove(label, do_unlink=True)
 
-        eye = (
-            centre[0] + math.sin(angle) * distance,
-            centre[1] - math.cos(angle) * distance,
-            centre[2] + eye_height,
+    compose(grid, path, width, height)
+
+
+def _style(silhouette, look, cel_look):
+    if cel_look and not silhouette:
+        colours, accent = _dress(look)
+        cel.style(cel_look, colours, accent if look is not None else None)
+    else:
+        _style_materials(silhouette, look, review=True)
+
+
+def _half_view(lens, width, height):
+    """How far the camera sees either side of its middle, across and up, at
+    one metre: the 36 mm sensor spans the longer side."""
+
+    longer = 18 / lens
+    shorter = longer * min(width, height) / max(width, height)
+
+    return (longer, shorter) if width >= height else (shorter, longer)
+
+
+def _direction(view, elevation):
+    """From the model's middle toward the camera, for a view."""
+
+    if view == "top":
+        # Straight down, the front of the model at the bottom of the frame.
+        return Vector((0.0, -1e-3, 1.0)).normalized()
+
+    angle = math.radians(ANGLES.get(view, 24.0))
+    rise = math.radians(elevation)
+
+    return Vector((math.sin(angle) * math.cos(rise), -math.cos(angle) * math.cos(rise), math.sin(rise)))
+
+
+def _place(tile, lens, half_wide, half_high, elevation, margin, framing, skip):
+    """Where a tile's camera looks and how far back it must stand for every
+    visible mesh to fit, with `margin` to spare."""
+
+    if framing is not None:
+        return framing
+
+    if tile["setup"] is not None:
+        tile["setup"]()
+    _dress(tile["look"])
+    bpy.context.view_layer.update()
+
+    corners = visible_corners(skip)
+
+    if not corners:
+        raise ValueError(f"nothing to render for {tile['label']!r}: every mesh is hidden")
+
+    low = Vector(map(min, *corners)) if len(corners) > 1 else corners[0]
+    high = Vector(map(max, *corners)) if len(corners) > 1 else corners[0]
+    centre = (low + high) / 2
+    back = _direction(tile["view"], elevation)
+    right = Vector((0, 0, 1)).cross(back).normalized()
+    up = back.cross(right).normalized()
+    distance = 0.0
+
+    for corner in corners:
+        offset = corner - centre
+        toward = offset.dot(back)
+        distance = max(
+            distance,
+            toward + abs(offset.dot(right)) * margin / half_wide,
+            toward + abs(offset.dot(up)) * margin / half_high,
         )
-        if view_rotation is not None:
-            eye = Vector(centre) + view_rotation @ (Vector(eye) - Vector(centre))
-        camera = _camera(eye, centre)
-        if view_rotation is not None:
-            local_direction = view_rotation.inverted() @ (Vector(centre) - Vector(eye))
-            camera.rotation_euler = (view_rotation @ local_direction.to_track_quat("-Z", "Y")).to_euler()
-        tile = f"{path}.{view}.png"
-        scene.render.filepath = tile
-        bpy.ops.render.render(write_still=True)
-        tiles.append(tile)
-        bpy.data.objects.remove(camera, do_unlink=True)
 
-    _stitch(tiles, path, width, height)
+    return centre, distance, None
 
-    for light in lights:
-        bpy.data.objects.remove(light, do_unlink=True)
+
+def visible_corners(skip):
+    """The world corners of the bounds of every mesh that will render, but
+    those whose names start with any of `skip`."""
+
+    corners = []
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+
+    for obj in bpy.data.objects:
+        if obj.type != "MESH" or obj.hide_render or (skip and obj.name.startswith(tuple(skip))):
+            continue
+
+        evaluated = obj.evaluated_get(depsgraph)
+        corners.extend(evaluated.matrix_world @ Vector(corner) for corner in evaluated.bound_box)
+
+    return corners
+
+
+def _aim(centre, distance, view, elevation, eye_height, lens, view_rotation):
+    centre = Vector(centre)
+
+    if eye_height is None:
+        eye = centre + _direction(view, elevation) * distance
+    else:
+        angle = math.radians(ANGLES.get(view, 24.0))
+        eye = Vector((centre.x + math.sin(angle) * distance, centre.y - math.cos(angle) * distance, centre.z + eye_height))
+
+    if view_rotation is not None:
+        eye = centre + view_rotation @ (eye - centre)
+
+    camera = _camera(tuple(eye), tuple(centre), lens=lens)
+    camera.data.clip_start = 0.01
+
+    if view_rotation is not None:
+        local_direction = view_rotation.inverted() @ (centre - eye)
+        camera.rotation_euler = (view_rotation @ local_direction.to_track_quat("-Z", "Y")).to_euler()
+
+    bpy.context.view_layer.update()
+
+    return camera
+
+
+def _place_light(light, centre, distance, view, offset, energy, size):
+    """Puts a light where it sits for a front view, turned with the camera
+    and scaled with its distance, so every view and every size of model is
+    lit alike."""
+
+    scale = distance / REFERENCE
+    turn = Matrix.Rotation(math.radians(ANGLES.get(view, 24.0)), 3, "Z")
+    location = Vector(centre) + turn @ (Vector(offset) * scale)
+    light.location = location
+    light.rotation_euler = (Vector(centre) - location).to_track_quat("-Z", "Y").to_euler()
+    light.data.energy = energy * scale * scale
+    light.data.size = size * scale
+
+
+def _label():
+    """A caption the camera carries in its top left corner."""
+
+    data = bpy.data.curves.new("review_label", "FONT")
+    data.align_y = "TOP"
+    label = bpy.data.objects.new("review_label", data)
+    bpy.context.scene.collection.objects.link(label)
+    label.visible_shadow = False
+
+    mat = bpy.data.materials.get("review_label") or bpy.data.materials.new("review_label")
+    mat.use_nodes = True
+    tree = mat.node_tree
+    tree.nodes.clear()
+    output = tree.nodes.new("ShaderNodeOutputMaterial")
+    emission = tree.nodes.new("ShaderNodeEmission")
+    emission.inputs["Color"].default_value = (0.55, 0.55, 0.58, 1)
+    tree.links.new(emission.outputs["Emission"], output.inputs["Surface"])
+    data.materials.append(mat)
+
+    return label
+
+
+def _caption(label, camera, text, colour, half_wide, half_high, height, depth=0.05, pixels=15):
+    label.data.body = text
+    label.data.materials[0].node_tree.nodes["Emission"].inputs["Color"].default_value = (*colour, 1)
+    label.data.size = 2 * half_high * depth * pixels / height
+    label.parent = camera
+    label.matrix_parent_inverse.identity()
+    label.location = (-half_wide * depth * 0.95, half_high * depth * 0.96, -depth)
+    label.rotation_euler = (0, 0, 0)
 
 
 def frame(skip=("shadow",), margin=1.12, lens=70):
@@ -365,25 +667,62 @@ def render_portrait(path, look, size=384):
         obj.hide_render = was
 
 
-def _stitch(tiles, path, width, height):
-    """Places the rendered tiles next to each other in one image."""
-
-    import os
+def compose(grid, path, width, height):
+    """Places rendered tiles in rows, top row first, and removes them. A
+    silhouette's thumbnail goes in a narrow panel of its own beside it, at
+    its own size, so it never covers the silhouette."""
 
     import numpy
 
-    sheet = numpy.zeros((height, width * len(tiles), 4), dtype=numpy.float32)
-
-    for index, tile in enumerate(tiles):
-        image = bpy.data.images.load(tile)
-        pixels = numpy.empty(width * height * 4, dtype=numpy.float32)
+    def load(file):
+        image = bpy.data.images.load(file)
+        w, h = image.size
+        pixels = numpy.empty(w * h * 4, dtype=numpy.float32)
         image.pixels.foreach_get(pixels)
-        sheet[:, index * width : (index + 1) * width, :] = pixels.reshape(height, width, 4)
         bpy.data.images.remove(image)
-        os.remove(tile)
+        os.remove(file)
 
-    result = bpy.data.images.new("Sheet", width * len(tiles), height, alpha=False)
+        return pixels.reshape(h, w, 4)
+
+    rows = []
+
+    for paths in grid:
+        pieces = []
+
+        for tile, inset in paths:
+            pixels = load(tile)
+            pieces.append(pixels)
+
+            if inset is not None:
+                small = load(inset)
+                h, w = small.shape[:2]
+                gap = 12
+                panel = numpy.empty((height, w + 2 * gap, 4), dtype=numpy.float32)
+                # The silhouette's own ground, as it was rendered.
+                panel[:] = pixels[-1, -1]
+                # A thin light frame round the thumbnail, at the bottom of
+                # the panel, so it reads as the picture a phone shows.
+                y = gap
+                panel[y - 2 : y + h + 2, gap - 2 : gap + w + 2] = (0.85, 0.85, 0.85, 1.0)
+                panel[y : y + h, gap : gap + w] = small
+                pieces.append(panel)
+
+        rows.append(numpy.concatenate(pieces, axis=1))
+
+    sheet_width = max(row.shape[1] for row in rows)
+    sheet = numpy.zeros((height * len(rows), sheet_width, 4), dtype=numpy.float32)
+
+    for index, pixels in enumerate(rows):
+        # Blender's images start at the bottom row. A row narrower than the
+        # widest runs on in the ground of its last tile.
+        bottom = (len(rows) - 1 - index) * height
+        sheet[bottom : bottom + height] = pixels[-1, -1]
+        sheet[bottom : bottom + height, : pixels.shape[1]] = pixels
+
+    result = bpy.data.images.new("Sheet", sheet_width, height * len(rows), alpha=False)
     result.pixels.foreach_set(sheet.ravel())
     result.filepath_raw = path
     result.file_format = "PNG"
     result.save()
+    bpy.data.images.remove(result)
+    print(f"SHEET {path}")

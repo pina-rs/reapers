@@ -22,9 +22,9 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(HERE)
 
-from lib import core, preview  # noqa: E402
+from lib import core, review  # noqa: E402
 
-KINDS = ["scythe", "lantern_pole", "balance_flail", "spear", "chain_whip", "bell", "greatsword", "axe"]
+KINDS = review.WEAPON_KINDS
 
 
 def main():
@@ -32,6 +32,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", required=True)
     parser.add_argument("--preview")
+    parser.add_argument("--cel", action="store_true", help="also render each review sheet in the cel look")
     parser.add_argument("--specs")
     parser.add_argument("--only")
     options = parser.parse_args(arguments)
@@ -60,21 +61,8 @@ def main():
     if options.preview:
         os.makedirs(options.preview, exist_ok=True)
 
-        # Spread out for the review sheet only; export already happened at the origin.
-        for index, weapon in enumerate(built):
-            weapon.location = ((index - (len(built) - 1) / 2) * 1.5, 0, 1.05)
-
-        preview.render_sheet(
-            os.path.join(options.preview, f"weapon_{options.only}.png" if options.only else "weapons.png"),
-            centre=(0, 0, 1.3),
-            distance=9.5,
-            width=1500,
-            height=840,
-            views=("front", "silhouette"),
-        )
-
-        for weapon in built:
-            weapon.location = (0, 0, 0)
+        for look in review.looks(options.cel):
+            review.weapons(built, options.preview, look, lineup=not options.only)
 
 
 if __name__ == "__main__":

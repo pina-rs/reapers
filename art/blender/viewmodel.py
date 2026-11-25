@@ -35,7 +35,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(HERE)
 
-from lib import core, preview  # noqa: E402
+from lib import core, review  # noqa: E402
 
 # The most triangles the first-person view may show at once.
 TRIANGLE_BUDGET = 6000
@@ -59,6 +59,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", required=True)
     parser.add_argument("--preview")
+    parser.add_argument("--cel", action="store_true", help="also render each review sheet in the cel look")
     parser.add_argument("--specs")
     options = parser.parse_args(arguments)
 
@@ -104,7 +105,10 @@ def _build_viewmodel(options):
     _export(options, root, "viewmodel.glb")
 
     if options.preview:
-        _sheet(options, "viewmodel", root)
+        os.makedirs(options.preview, exist_ok=True)
+
+        for look in review.looks(options.cel):
+            review.first_person(MOMENTS, options.preview, cel_look=look)
 
 
 def _build_orb(options):
@@ -119,7 +123,7 @@ def _build_orb(options):
     _export(options, root, "viewmodel_orb.glb")
 
     if options.preview:
-        _sheet(options, "viewmodel_orb", root)
+        _sheet(options, "viewmodel_orb")
 
 
 def _build_fx(options):
@@ -133,6 +137,9 @@ def _build_fx(options):
         raise SystemExit(f"The effects have {triangles} triangles; the budget is {FX_TRIANGLE_BUDGET}")
 
     _export(options, root, "viewmodel_fx.glb")
+
+    if options.preview:
+        _sheet(options, "viewmodel_fx")
 
 
 def _triangles(root):
@@ -150,18 +157,11 @@ def _triangles(root):
     return counts
 
 
-def _sheet(options, name, root):
+def _sheet(options, name):
     os.makedirs(options.preview, exist_ok=True)
-    centre, distance = preview.frame(margin=1.05)
-    preview.render_sheet(
-        os.path.join(options.preview, f"{name}.png"),
-        centre=centre,
-        distance=distance,
-        width=520,
-        height=520,
-        views=("front", "threequarter", "side", "silhouette"),
-        eye_height=distance * 0.18,
-    )
+
+    for look in review.looks(options.cel):
+        review.whole(options.preview, name, cel_look=look)
 
 
 def _export(options, root, file):

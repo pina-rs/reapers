@@ -31,7 +31,7 @@ import bmesh  # noqa: E402
 import bpy  # noqa: E402
 from mathutils import Vector  # noqa: E402
 
-from lib import core, creature, preview  # noqa: E402
+from lib import core, creature, preview, review  # noqa: E402
 
 # Vessels built by a module in creature_kinds/, in build order.
 CREATURES = ("ape", "bird", "penguin", "llama", "robot")
@@ -211,6 +211,7 @@ def main():
     parser.add_argument("--out", required=True)
     parser.add_argument("--specs", required=True)
     parser.add_argument("--preview")
+    parser.add_argument("--cel", action="store_true", help="also render each review sheet in the cel look")
     parser.add_argument("--portraits")
     parser.add_argument("--only")
     options = parser.parse_args(arguments)
@@ -237,21 +238,8 @@ def main():
         if options.preview:
             os.makedirs(options.preview, exist_ok=True)
 
-            # One sheet for each thing the creature can wear, so both can be
-            # judged; the first also shows the silhouette.
-            for trait in range(1, creature.TRAITS + 1) if looks else (0,):
-                look = {**looks[trait % len(looks)], "trait": trait} if looks else None
-                suffix = "" if trait <= 1 else f"_trait{trait}"
-
-                centre, distance = preview.frame()
-
-                preview.render_sheet(
-                    os.path.join(options.preview, f"husk_{name}{suffix}.png"),
-                    centre=centre,
-                    distance=distance * 1.25,
-                    views=("front", "threequarter", "side", "back", "silhouette") if trait <= 1 else ("front", "threequarter", "side"),
-                    look=look,
-                )
+            for look in review.looks(options.cel):
+                review.husk(name, looks, options.preview, creature.TRAITS, cel_look=look)
 
         if options.portraits and looks:
             os.makedirs(options.portraits, exist_ok=True)
