@@ -414,6 +414,9 @@ pub fn splat(plates: &mut Plates, splat: &Splat) {
 		.into_iter()
 		.filter(|(drop, _)| left >= 1.0 || along(*drop) <= cut)
 		.collect();
+	// The blob's key edge prints `offset` out of register. Its drops' edges
+	// never do: slipped 2 pt, the edge of a drop 2.4 to 6 pt across stands
+	// beside it as a ring.
 	let shapes = |offset: At| {
 		let mut commands = Vec::with_capacity(kept.len() + 2 + drops.len() * 6);
 		let moved: Vec<At> = kept
@@ -422,7 +425,7 @@ pub fn splat(plates: &mut Plates, splat: &Splat) {
 			.collect();
 		outline(&mut commands, &moved);
 		for (drop, size) in &drops {
-			Sketch::append_circle(&mut commands, drop.0 + offset.0, drop.1 + offset.1, *size);
+			Sketch::append_circle(&mut commands, drop.0, drop.1, *size);
 		}
 		commands
 	};
@@ -743,6 +746,40 @@ mod tests {
 		for seed in 0..40 {
 			assert!((-8.0..=-2.0).contains(&tag_turn(seed)));
 		}
+	}
+
+	#[test]
+	fn a_splats_drops_print_in_register_while_its_blob_does_not() {
+		let mut plates = Plates::default();
+		splat(
+			&mut plates,
+			&Splat {
+				at: (200.0, 300.0),
+				radius: SEAL_SPLAT,
+				toward: (0.6, -0.8),
+				seed: 42,
+				beat: 1,
+				lively: true,
+			},
+		);
+		let blob = plates
+			.spot
+			.iter()
+			.position(|command| matches!(command, PathCommand::Close))
+			.unwrap()
+			+ 1;
+		assert_eq!(plates.spot.len(), plates.edge.len());
+		assert!(plates.spot.len() > blob, "it threw drops");
+		assert_ne!(
+			plates.spot[..blob],
+			plates.edge[..blob],
+			"the blob's edge is out of register"
+		);
+		assert_eq!(
+			plates.spot[blob..],
+			plates.edge[blob..],
+			"its drops' edges are not"
+		);
 	}
 
 	#[test]
