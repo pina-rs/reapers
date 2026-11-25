@@ -262,14 +262,17 @@ pub fn surface(material: &str, husk: bool) -> Surface {
 pub const PALETTE_MATERIAL: &str = "viewmodel";
 
 /// Each part drawn in the palette, whole, in the family most of it is made
-/// of (`art/blender/viewmodel_parts`). The bone forearms print as their
-/// sleeves, and the pistol's bone grip, gilt band and chambers as its iron.
+/// of on screen (`art/blender/viewmodel_parts`). The right forearm's bones
+/// print as its sleeve, and the pistol's bone grip, gilt band and chambers
+/// as its iron.
 const PALETTE: [(&str, Family); 11] = [
 	// The bone hand.
 	("arm_r", Family::Bone),
 	// The sleeve, and the forearm's bones inside it.
 	("arm_r_forearm", Family::Cloth),
-	("arm_l", Family::Cloth),
+	// The hand that holds the orb, with its forearm and sleeve in one draw:
+	// only the hand comes up into the view, so it prints as bone.
+	("arm_l", Family::Bone),
 	("pistol", Family::Metal),
 	("pistol_drum", Family::Metal),
 	// One long fang.
@@ -539,6 +542,15 @@ mod tests {
 		assert_eq!(surface("fx_glow", false), Surface::Light);
 		assert_eq!(surface("fx_shade", false), Surface::Shade);
 		assert_eq!(surface("shadow", true), Surface::Shadow);
+	}
+
+	#[test]
+	fn both_hands_print_as_bone_and_the_right_sleeve_as_cloth() {
+		// The bible's arm: a bone hand coming out of a sleeve in the class
+		// cloth. The left arm is one draw, and only its hand shows.
+		assert_eq!(palette("arm_r"), Family::Bone);
+		assert_eq!(palette("arm_l"), Family::Bone);
+		assert_eq!(palette("arm_r_forearm"), Family::Cloth);
 	}
 
 	#[test]
