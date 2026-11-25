@@ -33,6 +33,7 @@ use crate::seams::Juice;
 use crate::seams::ViewAction;
 use crate::seams::ViewmodelProps;
 use crate::seams::WorldView;
+use crate::theme::Rgb;
 
 /// Ticks from a stab to its thrust reaching the husk: where the blow is
 /// felt and its shards fly.
@@ -284,12 +285,14 @@ impl Arms {
 	}
 
 	/// The viewmodel's props at the rules' tick now, in the room `world`,
-	/// with the view turning at `turn_rate` (radians a second, right and up).
+	/// with the view turning at `turn_rate` (radians a second, right and up),
+	/// for a reaper whose marks print in `spot`.
 	pub fn props(
 		&self,
 		sim: &HuntSim,
 		world: Option<WorldView>,
 		turn_rate: [f32; 2],
+		spot: Rgb,
 	) -> ViewmodelProps {
 		let archetype = Arsenal::archetype_of(sim.selected_slot()).unwrap_or(Archetype::Gun);
 		ViewmodelProps {
@@ -304,6 +307,7 @@ impl Arms {
 			orb: sim.orb(),
 			world,
 			hit: self.hit,
+			spot,
 		}
 	}
 }

@@ -51,6 +51,7 @@ use crate::render::pointer::Gesture;
 use crate::render::pointer::on_gesture;
 use crate::render::scene::RIFT;
 use crate::seams::RiftViewProps;
+use crate::seams::viewmodel_marks;
 use crate::seams::viewmodel_view;
 use crate::theme::ASH;
 use crate::theme::BONE;
@@ -169,6 +170,7 @@ impl RiftState {
 			cfg!(feature = "native"),
 		);
 		arena.height = size.1;
+		arena.spot = crate::ink::light(loadout.reaper_class);
 		let shared = Shared {
 			environment: arena.environment.clone(),
 			scene: Some(arena.scene.id().0),
@@ -570,6 +572,10 @@ pub fn rift_view(props: &RiftViewProps) -> Element {
 				false,
 			);
 			root = root.child(marks.into_view(state.size.0, state.size.1));
+			if state.arena.viewmodel().is_some() {
+				// The marks of the reaper's blows, printed over the room's.
+				root = root.child(viewmodel_marks());
+			}
 			let live = state.shared.live.borrow();
 			let afterword = match controller.sim().outcome() {
 				Some(outcome) if outcome.grade().is_some() => words.rift_cut_made(),

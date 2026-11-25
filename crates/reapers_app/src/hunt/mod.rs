@@ -12,6 +12,7 @@ pub mod controls;
 pub mod environment;
 pub mod hud;
 pub mod lessons;
+pub mod marks;
 pub mod overlay;
 pub mod pose;
 pub mod view;

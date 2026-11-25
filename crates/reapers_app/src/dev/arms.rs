@@ -52,6 +52,7 @@ use crate::seams::ViewmodelProps;
 use crate::seams::WorldView;
 use crate::seams::dive;
 use crate::seams::shake_turn;
+use crate::seams::viewmodel_marks;
 use crate::seams::viewmodel_show;
 use crate::seams::viewmodel_view;
 use crate::theme::ASH;
@@ -86,6 +87,8 @@ const MISS_AT: [f64; 3] = [1.1, -1.32, 4.6];
 const CRIT_EVERY: u32 = 4;
 /// The class weapon in the bench's heavy slot.
 const HEAVY: WeaponKind = WeaponKind::Scythe;
+/// The spot the bench's marks print in: the Ferryman's lantern.
+const SPOT: crate::theme::Rgb = crate::ink::LANTERN;
 
 /// How a throw on the bench ends. In a hunt, the rules decide.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -487,10 +490,12 @@ impl Bench {
 				camera: self.camera.0,
 				fov_y: self.camera.1,
 				aspect: VIEW_WIDTH / VIEW_HEIGHT,
+				height: VIEW_HEIGHT,
 				husk,
 				ground,
 			}),
 			hit: self.hit,
+			spot: SPOT,
 		}
 	}
 }
@@ -589,7 +594,8 @@ pub fn page() -> Element {
 				.class("absolute inset-0 w-full h-full")
 				.aria_hidden(true),
 		)
-		.child(viewmodel_view(&props));
+		.child(viewmodel_view(&props))
+		.child(viewmodel_marks());
 	let column = View()
 		.class("w-full max-w-[520px] self-center px-5 pt-2 pb-10")
 		.test_id("arms-bench")

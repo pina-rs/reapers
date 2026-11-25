@@ -56,8 +56,9 @@ use reapers_rules::OrbView;
 use reapers_rules::WeaponKind;
 use reapers_world::pose::to_platform;
 
+use crate::hunt::marks;
+use crate::ink;
 use crate::render::arms;
-use crate::render::arms::FLASH_FRAME_SECONDS;
 use crate::render::arms::TICKS_PER_SECOND;
 pub use crate::render::arms::ViewAction;
 use crate::render::camera::Point;
@@ -83,12 +84,14 @@ use crate::render::viewmodel::VIEWMODEL_FOV;
 use crate::render::viewmodel::ViewmodelRig;
 use crate::render::viewmodel::place;
 use crate::theme::BONE;
+use crate::theme::Rgb;
 
 /// The arms' own scene.
 pub const VIEWMODEL: Key = Key::Fixed("viewmodel");
 
-/// How many guest frames a tracer lasts.
+/// How many frames a tracer lasts, and how long each is.
 const TRACER_FRAMES: f32 = 4.0;
+const TRACER_FRAME_SECONDS: f32 = 1.0 / 30.0;
 /// How long a burst of shards flies, in seconds.
 const SHARD_SECONDS: f32 = 0.4;
 /// How long a damage number floats, in milliseconds.
@@ -105,6 +108,8 @@ pub struct WorldView {
 	pub fov_y: f32,
 	/// The view's width over its height. The arms' view fills the same box.
 	pub aspect: f32,
+	/// The view's height in layout points, for the marks printed over it.
+	pub height: f32,
 	/// The middle of the husk, and the ground under it, in the scene.
 	pub husk: Point,
 	pub ground: Point,
@@ -151,6 +156,8 @@ pub struct ViewmodelProps {
 	pub world: Option<WorldView>,
 	/// The latest blow that struck.
 	pub hit: Option<HitView>,
+	/// The reaper's spot, the second ink its marks are printed in.
+	pub spot: Rgb,
 }
 
 impl ViewmodelProps {
@@ -169,6 +176,7 @@ impl ViewmodelProps {
 			orb: None,
 			world: None,
 			hit: None,
+			spot: ink::CHAFF,
 		}
 	}
 
@@ -239,6 +247,11 @@ struct Seam {
 	/// The latest two blows: two bursts of shards in flight at once.
 	shards: [Option<HitView>; 2],
 	numbers: RwSignal<Vec<Number>>,
+	/// What was last printed over the view, and the print the marks' layer
+	/// shows, numbered so that a changed print replaces the last.
+	print: Option<marks::Print>,
+	prints: u64,
+	printed: RwSignal<Vec<(u64, marks::Print)>>,
 	mounted: u32,
 	ticking: bool,
 }
@@ -260,6 +273,9 @@ fn seam() -> Rc<RefCell<Seam>> {
 				thrown: None,
 				shards: [None; 2],
 				numbers: crate::ui::lasting(|| RwSignal::new(Vec::new())),
+				print: None,
+				prints: 0,
+				printed: crate::ui::lasting(|| RwSignal::new(Vec::new())),
 				mounted: 0,
 				ticking: false,
 			}))
@@ -361,6 +377,7 @@ impl Seam {
 		let clock = (props.juice.motion_tick(tick) / f64::from(TICKS_PER_SECOND)) as f32;
 		let lively = !crate::platform::reduced_motion();
 		let mut pose = arms::flowing(props.manner(), props.action, since, clock, self.cut, lively);
+		let untrailed = pose;
 		// The arms' own clock over the frame, which a hit-stop holds.
 		let before = tick - f64::from(seconds) * f64::from(props.rate);
 		let moved = ((props.juice.motion_tick(tick) - props.juice.motion_tick(before))
@@ -368,6 +385,17 @@ impl Seam {
 		.max(0.0) as f32;
 		self.trailing
 			.follow(&mut pose, props.turn_rate, seconds, moved, lively);
+		let print = props.world.map(|world| {
+			let shot = Shot {
+				props: &props,
+				since,
+				clock,
+				cut: self.cut,
+				lively,
+			};
+			shot.print(&world, shown, &untrailed, &pose)
+		});
+		self.show_print(print);
 		let arms_scene = scene(VIEWMODEL);
 		let ops = arms_scene.ops();
 		let rig = self.rig.get_or_insert_with(|| ViewmodelRig::spawn(ops));
@@ -489,11 +517,25 @@ impl Seam {
 		});
 	}
 
+	/// Hands the marks' layer `print`, if it differs from what it shows.
+	fn show_print(&mut self, print: Option<marks::Print>) {
+		let print = print.filter(|print| !print.is_blank());
+		if self.print == print {
+			return;
+		}
+		self.print.clone_from(&print);
+		self.prints += 1;
+		let number = self.prints;
+		self.printed
+			.set(print.map(|print| (number, print)).into_iter().collect());
+	}
+
 	/// Hides every effect in the world.
 	fn hide_world(&mut self) {
 		self.shards = [None; 2];
 		self.thrown = None;
 		self.numbers.set(Vec::new());
+		self.show_print(None);
 		let Some((key, id, fx)) = &mut self.world else {
 			return;
 		};
@@ -516,7 +558,7 @@ fn tracer(
 	tick: f64,
 ) -> Option<Tracer> {
 	let frames = ((tick - props.action_tick as f64) / f64::from(TICKS_PER_SECOND)) as f32
-		/ FLASH_FRAME_SECONDS;
+		/ TRACER_FRAME_SECONDS;
 	if !(0.0..TRACER_FRAMES).contains(&frames) {
 		return None;
 	}
@@ -585,6 +627,112 @@ fn project(world: &WorldView, point: Point) -> Option<(f32, f32)> {
 	let x = local[0] / (depth * tan * world.aspect.max(0.01));
 	let y = local[1] / (depth * tan);
 	Some((50.0 + 50.0 * x, 50.0 - 50.0 * y))
+}
+
+/// Where `point`, in the arms' view, is drawn on a view `view` points wide
+/// and high, or `None` behind the eye.
+fn on_screen(point: Point, view: marks::At) -> Option<marks::At> {
+	let depth = f64::from(-point[2]);
+	if depth < 0.01 {
+		return None;
+	}
+	let focal = view.1 / 2.0 / f64::from((VIEWMODEL_FOV * 0.5).tan());
+	Some((
+		view.0 / 2.0 + focal * f64::from(point[0]) / depth,
+		view.1 / 2.0 - focal * f64::from(point[1]) / depth,
+	))
+}
+
+/// A shot, as the arms show it on one frame: what its marks are worked out
+/// from.
+struct Shot<'a> {
+	props: &'a ViewmodelProps,
+	/// Seconds into the shot, and the arms' own clock, as the frame shows them.
+	since: f32,
+	clock: f32,
+	/// What the shot cut short.
+	cut: Option<arms::Cut>,
+	/// Whether the arms move freely: not for a player who asks for less
+	/// motion.
+	lively: bool,
+}
+
+impl Shot<'_> {
+	/// What is printed over `world` at the hunt's tick `shown`, with the arms
+	/// at `pose`, which trails the view's turn, and at `untrailed` before it
+	/// did: the pistol's burst at its muzzle, and the smear of its kick from
+	/// where the muzzle was the three frames before.
+	fn print(
+		&self,
+		world: &WorldView,
+		shown: f64,
+		untrailed: &arms::Pose,
+		pose: &arms::Pose,
+	) -> marks::Print {
+		let props = self.props;
+		let view = (
+			f64::from(world.height * world.aspect),
+			f64::from(world.height),
+		);
+		let mut print = marks::Print::blank(view, props.spot);
+		if props.archetype != Archetype::Gun || props.action != ViewAction::Fire {
+			return print;
+		}
+		let frame = marks::frames_since(shown, props.action_tick);
+		let muzzle = |pose: &arms::Pose| on_screen(place(props.archetype, pose).muzzle, view);
+		let Some(now) = muzzle(pose) else {
+			return print;
+		};
+		if marks::burst_shows(frame) {
+			print.burst = Some((now, props.action_tick));
+		}
+		if self.lively && marks::smear_shows(frame) {
+			// Where the muzzle was each frame before, without the trail, moved
+			// as far as the trail moves it now.
+			let Some(still) = muzzle(untrailed) else {
+				return print;
+			};
+			let trail = (now.0 - still.0, now.1 - still.1);
+			let mut points = [now; 4];
+			for (back, point) in points.iter_mut().enumerate().skip(1) {
+				let ago = back as f32 / TICKS_PER_SECOND;
+				let then = arms::flowing(
+					props.manner(),
+					props.action,
+					(self.since - ago).max(0.0),
+					self.clock - ago,
+					self.cut,
+					self.lively,
+				);
+				if let Some(at) = muzzle(&then) {
+					*point = (at.0 + trail.0, at.1 + trail.1);
+				}
+			}
+			print.smear = Some(points);
+		}
+		print
+	}
+}
+
+/// The marks the reaper's blows print flat over the view: a box filling its
+/// parent, over the room's marks and under the thumbs' controls, that takes
+/// no touches. Every frame's marks are worked out by the seam that
+/// [`viewmodel_view`] keeps ticking.
+pub fn viewmodel_marks() -> Element {
+	let printed = seam().borrow().printed;
+	View()
+		.class("absolute inset-0 overflow-hidden")
+		.test_id("viewmodel-marks")
+		.aria_hidden(true)
+		.child(
+			For(
+				move || printed.get(),
+				|(number, _)| *number,
+				|(_, print)| marks::print_view(&print),
+			)
+			.class("absolute inset-0")
+			.aria_hidden(true),
+		)
 }
 
 /// The arms over whatever is under them, and the damage numbers: a box
@@ -681,6 +829,7 @@ mod tests {
 			camera: Transform::IDENTITY,
 			fov_y: 62_f32.to_radians(),
 			aspect: 0.5,
+			height: 800.0,
 			husk: [0.0, -0.4, -3.0],
 			ground: [0.0, -1.2, -3.0],
 		}
@@ -730,6 +879,67 @@ mod tests {
 				.all(|(shown, own)| (shown - own).abs() < 1.0e-6)
 		}));
 		assert!(shards(&hit, 120.0 + 0.4 * 60.0).is_none());
+	}
+
+	/// What a shot on tick 100 prints at the hunt's tick `shown`, on a phone
+	/// 390 × 844 points, with the arms moving freely or not.
+	fn shot_print(archetype: Archetype, shown: f64, lively: bool) -> marks::Print {
+		let mut world = world();
+		world.height = 844.0;
+		world.aspect = 390.0 / 844.0;
+		let mut props =
+			ViewmodelProps::at_rest(archetype, WeaponKind::Scythe, shown.floor() as i64);
+		props.action = ViewAction::Fire;
+		props.action_tick = 100;
+		let since = props.action_seconds(shown);
+		let pose = arms::flowing(props.manner(), props.action, since, since, None, lively);
+		let shot = Shot {
+			props: &props,
+			since,
+			clock: since,
+			cut: None,
+			lively,
+		};
+		shot.print(&world, shown, &pose, &pose)
+	}
+
+	#[test]
+	fn a_shot_prints_its_burst_for_two_frames_and_its_smear_for_one() {
+		assert!(
+			shot_print(Archetype::Gun, 100.0, true).is_blank(),
+			"not yet heard"
+		);
+		// Its first frame, at sixty frames a second and at a hundred and twenty.
+		for shown in [101.0, 101.5] {
+			let first = shot_print(Archetype::Gun, shown, true);
+			assert!(
+				first.burst.is_some() && first.smear.is_some(),
+				"f0 at {shown}"
+			);
+		}
+		let second = shot_print(Archetype::Gun, 102.0, true);
+		assert!(
+			second.burst.is_some() && second.smear.is_none(),
+			"f1: the burst alone"
+		);
+		assert!(
+			shot_print(Archetype::Gun, 103.0, true).is_blank(),
+			"f2: gone"
+		);
+		// The burst is at the muzzle, low and right of the sight, and the smear
+		// runs from it back down the kick.
+		let first = shot_print(Archetype::Gun, 101.0, true);
+		let (burst, seed) = first.burst.unwrap();
+		assert_eq!(seed, 100, "turned the same way each frame of the shot");
+		assert!(
+			burst.0 > 215.0 && burst.1 > 422.0 + marks::CLEAR,
+			"{burst:?}"
+		);
+		let smear = first.smear.unwrap();
+		assert_eq!(smear[0], burst);
+		assert!(smear[3].1 > smear[0].1, "the muzzle rose: {smear:?}");
+		// Only the pistol fires so.
+		assert!(shot_print(Archetype::Blade, 101.0, true).is_blank());
 	}
 
 	#[test]

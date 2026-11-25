@@ -100,6 +100,8 @@ pub struct Arena {
 	pub fov: f64,
 	/// The view's width over its height.
 	pub aspect: f64,
+	/// The reaper's spot, the second ink its blows print in.
+	pub spot: crate::theme::Rgb,
 	/// The camera last sent, so a still view sends nothing, and its turn.
 	camera: Option<([i32; 10], i32)>,
 	turned: [f32; 4],
@@ -166,6 +168,7 @@ impl Arena {
 			over_for: 0.0,
 			fov: HUNT_FOV,
 			aspect,
+			spot: crate::ink::CHAFF,
 			camera: None,
 			turned: [0.0, 0.0, 0.0, 1.0],
 			room_frame: None,
@@ -394,6 +397,7 @@ impl Arena {
 			},
 			fov_y: self.view_fov() as f32,
 			aspect: self.aspect as f32,
+			height: self.height as f32,
 			husk: marks.scene_point(husk.position),
 			ground: marks.scene_point(Vec3::new(
 				husk.position.x,
@@ -402,7 +406,7 @@ impl Arena {
 			)),
 		};
 		let turn = self.turn_rate.map(|rate| rate as f32);
-		Some(arms.props(sim, Some(world), turn))
+		Some(arms.props(sim, Some(world), turn, self.spot))
 	}
 
 	fn marks(&self) -> HuskMarks {

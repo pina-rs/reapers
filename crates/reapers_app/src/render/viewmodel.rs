@@ -306,7 +306,8 @@ fn held(hold: Hold) -> Frame {
 	}
 }
 
-/// The muzzle flash's three frames.
+/// The muzzle flash's three frames, in the model. They are never shown: a
+/// shot's burst is printed flat over the view instead (`hunt::marks`).
 const FLASHES: [&str; 3] = ["vm_flash_0", "vm_flash_1", "vm_flash_2"];
 
 /// Every part the rig shows or hides, and whether it shows for `pose`, with
@@ -320,9 +321,9 @@ pub fn visibility(archetype: Archetype, pose: &Pose) -> [(&'static str, bool); 1
 		(KNIFE, held == Some(KNIFE)),
 		(SCYTHE, held == Some(SCYTHE)),
 		("pistol_drum", pose.drum_drop < DRUM_GONE),
-		(FLASHES[0], pose.flash == Some(0)),
-		(FLASHES[1], pose.flash == Some(1)),
-		(FLASHES[2], pose.flash == Some(2)),
+		(FLASHES[0], false),
+		(FLASHES[1], false),
+		(FLASHES[2], false),
 		("vm_left", pose.left.is_some()),
 		("viewmodel_soul_cylinder", holds == LeftHolds::Drum),
 		("viewmodel_orb_held", holds == LeftHolds::Orb),
@@ -354,16 +355,14 @@ impl ViewmodelRig {
 		}));
 		scene.push(Op::SetBackdrop(Backdrop::Transparent));
 		let mut puppet = Puppet::spawn(scene, VIEWMODEL_MODEL, None);
-		// The flash and the trail are light: added to what is behind them,
-		// in the soul's colour.
-		for part in FLASHES.into_iter().chain(["vm_trail"]) {
-			scene.push(Op::SetBlend {
-				node: puppet.node,
-				part: Some(part.to_owned()),
-				blend: Blend::Additive,
-			});
-			puppet.material(scene, part, glow(1.0));
-		}
+		// A heavy swing's trail is light: added to what is behind it, in the
+		// soul's colour.
+		scene.push(Op::SetBlend {
+			node: puppet.node,
+			part: Some("vm_trail".to_owned()),
+			blend: Blend::Additive,
+		});
+		puppet.material(scene, "vm_trail", glow(1.0));
 		Self { puppet }
 	}
 

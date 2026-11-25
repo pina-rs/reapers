@@ -114,7 +114,9 @@ impl Sketch {
 		self.paths.push(path);
 	}
 
-	fn push_commands(
+	/// One path through `commands`, filled and edged as asked: many shapes
+	/// in one path cost one draw.
+	pub(crate) fn push_commands(
 		&mut self,
 		commands: Vec<PathCommand>,
 		fill: Option<Color>,
@@ -128,8 +130,10 @@ impl Sketch {
 		}
 	}
 
+	/// A circle added to `commands`, to be drawn with whatever else they
+	/// hold.
 	#[inline]
-	fn append_circle(commands: &mut Vec<PathCommand>, x: f64, y: f64, radius: f64) {
+	pub(crate) fn append_circle(commands: &mut Vec<PathCommand>, x: f64, y: f64, radius: f64) {
 		let cx = unit(x);
 		let cy = unit(y);
 		let r = radius.max(0.5) as f32;
@@ -313,6 +317,12 @@ impl Sketch {
 
 	pub fn is_empty(&self) -> bool {
 		self.paths.is_empty()
+	}
+
+	/// The paths drawn so far, for a drawing of the caller's own.
+	#[cfg(test)]
+	pub(crate) fn into_paths(self) -> Vec<VectorPath> {
+		self.paths
 	}
 }
 

@@ -169,8 +169,6 @@ pub struct Pose {
 	/// How far the pistol's drum has fallen out, in metres; past
 	/// [`DRUM_GONE`] it is not drawn.
 	pub drum_drop: f32,
-	/// The muzzle flash's frame, while it shows.
-	pub flash: Option<usize>,
 	/// How bright a heavy swing's trail is, while it shows.
 	pub trail: f32,
 }
@@ -236,8 +234,6 @@ pub const STRUCK_SECONDS: f32 = 0.45;
 pub const THROW_SECONDS: f32 = 0.62;
 pub const THROW_RELEASE: f32 = 0.3;
 const RAISE_SECONDS: f32 = 0.25;
-/// The flash shows each of its three frames for one of the rig's ticks.
-pub const FLASH_FRAME_SECONDS: f32 = 1.0 / 30.0;
 
 /// Everything at `since` seconds into `action`, with a weapon in hand that
 /// swings in `manner`, `clock` seconds into the hunt (for breathing).
@@ -644,14 +640,13 @@ fn draw(arm: &mut ArmPose, since: f32) {
 	arm.roll += 0.35 * rest;
 }
 
+/// A shot: the kick and the drum's turn. Its burst and smear are printed
+/// flat over the view (`hunt::marks`), not drawn in light on the pistol.
 fn fire(pose: &mut Pose, since: f32) {
 	recoil(&mut pose.arm, since);
 	// The drum turns a chamber, smoothly, over six frames. It has six, so a
 	// turn of a sixth looks like none once it is done.
 	pose.drum_spin = Ease::InOut.apply(since / DRUM_TURN_SECONDS) * TAU / 6.0;
-	if since < FLASH_FRAME_SECONDS * 3.0 {
-		pose.flash = Some((since / FLASH_FRAME_SECONDS) as usize);
-	}
 }
 
 /// A shot's kick on the arm, `since` seconds after it: the muzzle rises

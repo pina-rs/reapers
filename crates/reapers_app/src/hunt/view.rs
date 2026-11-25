@@ -63,6 +63,7 @@ use crate::render::pointer::on_gesture;
 use crate::render::scene::HUNT;
 use crate::seams::HuntBrief;
 use crate::seams::HuntViewProps;
+use crate::seams::viewmodel_marks;
 use crate::seams::viewmodel_view;
 use crate::theme::ASH;
 use crate::theme::BONE;
@@ -251,6 +252,7 @@ impl HuntState {
 			cfg!(feature = "native"),
 		);
 		arena.height = size.1;
+		arena.spot = crate::ink::light(props.brief.loadout.reaper_class);
 		let shared = Shared {
 			environment: arena.environment.clone(),
 			scene: Some(arena.scene.id().0),
@@ -888,6 +890,11 @@ pub fn hunt_view(props: &HuntViewProps) -> Element {
 	}
 	if !marks.is_empty() {
 		root = root.child(marks.into_view(state.size.0, state.size.1));
+	}
+	if state.stage == Stage::Fighting && state.arena.viewmodel().is_some() {
+		// The marks of the reaper's blows, printed over the room's: the seam
+		// prints them every frame the display draws.
+		root = root.child(viewmodel_marks());
 	}
 	root = match &state.stage {
 		Stage::Briefing => root.child(briefing(&state, props)),
