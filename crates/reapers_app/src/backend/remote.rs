@@ -442,12 +442,21 @@ impl<A: ReapersApi + 'static> RemoteBackend<A> {
 		};
 		let status = self.status_cached().await?;
 		let address = linked(&status)?;
-		if receipt.wallet != address.to_string() {
+		if receipt.wallet.parse::<solana_kit_core::Address>().ok() != Some(address) {
 			return Err(ChainFailure::WrongWallet.into());
 		}
+		let mint: solana_kit_core::Address = receipt
+			.mint
+			.parse()
+			.map_err(|_| ChainFailure::Rejected("invalid receipt mint".into()))?;
 		let message = STANDARD
 			.decode(&receipt.message)
 			.map_err(|error| ChainFailure::Rejected(error.to_string()))?;
+		let decoded = crate::receipt::Receipt::decode(&message)
+			.map_err(|error| ChainFailure::Rejected(error.to_string()))?;
+		if solana_kit_core::Address::from_bytes(decoded.mint) != mint {
+			return Err(ChainFailure::Rejected("receipt mint mismatch".into()).into());
+		}
 		let signature = STANDARD
 			.decode(&receipt.signature)
 			.map_err(|error| ChainFailure::Rejected(error.to_string()))?;
@@ -872,6 +881,28 @@ mod tests {
 			block_on(offline.finish_burn(saint)),
 			Err(KeeperError::Unavailable(_))
 		));
+	}
+
+	#[test]
+	fn finish_burn_refuses_mismatched_chain_receipt_mint() {
+		let keypair = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]);
+		let address = keypair.address();
+		let saint = Nft::parse("degenApes:1").unwrap();
+		let rpc = Rc::new(Burning::default());
+		let mut burn = saint_burn(&address);
+		burn.mint = solana_kit_core::Address::from_bytes([99; 32]).to_string();
+		let keeper = RemoteBackend::new(Refusing {
+			chain: Some(linked_to(&address)),
+			burn: Some(burn),
+			..Refusing::default()
+		})
+		.with_cluster(cluster(&rpc), Rc::new(Wallet(Some(keypair))));
+
+		assert!(matches!(
+			block_on(keeper.finish_burn(saint)),
+			Err(KeeperError::Chain(ChainFailure::Rejected(_)))
+		));
+		assert!(rpc.calls.borrow().is_empty(), "nothing reached the cluster");
 	}
 
 	#[test]
