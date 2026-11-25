@@ -1277,3 +1277,79 @@ async fn a_retried_settlement_of_an_escrowed_husk_answers_with_its_burn_again() 
 	assert!(rebuilt.transaction.is_some());
 	assert_eq!(world.stored(player).await, first.settlement.state);
 }
+
+/// `holder`'s saint, released without an escrow and then bound to
+/// `arbitrary` as a keeper that checked no manifest would have bound it,
+/// surfaced: the player and the hunt that settles it.
+async fn bound_outside_the_manifest(
+	world: &World,
+	arbitrary: Address,
+) -> (Id<Account>, SettleHunt) {
+	let wallet = Wallet::new(1);
+	let player = holder(world, &wallet).await;
+
+	escrow_on_chain(&world.chain, wallet.address(), arbitrary);
+
+	let released = world
+		.call(
+			player,
+			Release {
+				nft: SAINT.into(),
+				escrow: None,
+			},
+		)
+		.await
+		.unwrap();
+	let sighting = released.sightings()[0];
+
+	reapers_server::tables::NewHuskEscrow {
+		account_id: player,
+		sighting_id: sighting.id,
+		mint_key: format!("{}:{arbitrary}", solana().chain),
+		mint: arbitrary.to_string(),
+		wallet: wallet.address().to_string(),
+		nft: None,
+		absorption: None,
+	}
+	.insert(&world.db)
+	.await
+	.unwrap();
+
+	world.surface_everything(player).await;
+
+	let before = world.call(player, Load {}).await.unwrap();
+
+	(
+		player,
+		SettleHunt {
+			sighting: sighting.id,
+			log: packed(&play(&before, &sighting)),
+		},
+	)
+}
+
+/// The manifest is checked again when a bound husk is settled: a binding a
+/// keeper wrote while it ran without one earns no receipt for whatever mint
+/// it names, and the hunt changes nothing.
+#[tokio::test]
+async fn a_binding_settled_without_a_manifest_earns_no_receipt() {
+	// `solana()` names the program and no demo husk manifest.
+	let world = World::new().await;
+	let (player, settle) = bound_outside_the_manifest(&world, Address::from_bytes([77; 32])).await;
+	let before = world.stored(player).await;
+
+	assert_refused(world.call(player, settle).await, Refusal::ChainUnconfigured);
+	assert_eq!(world.stored(player).await, before, "nothing was settled");
+}
+
+/// A binding to a mint that is not the manifest's asset for its husk earns
+/// no receipt either.
+#[tokio::test]
+async fn a_binding_the_manifest_does_not_vouch_for_earns_no_receipt() {
+	let world = escrowing().await;
+	let (player, settle) = bound_outside_the_manifest(&world, Address::from_bytes([77; 32])).await;
+	let before = world.stored(player).await;
+
+	assert_refused(world.call(player, settle).await, Refusal::NotInVault);
+	assert_eq!(world.stored(player).await, before, "nothing was settled");
+}

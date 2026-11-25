@@ -393,7 +393,8 @@ impl Keeper {
 	/// Checks `mint` is the asset the demo husk manifest says the husk `nft`
 	/// stands for, so a cheap asset cannot be burned for a rare husk's pay.
 	/// Without a manifest no mint stands for any husk, and an escrowed
-	/// release is refused as `chainUnconfigured`.
+	/// release is refused as `chainUnconfigured`. A bound husk is held to it
+	/// again when its hunt is settled.
 	fn demo_husk(&self, nft: &str, mint: &str) -> rpc::Result<()> {
 		let config = self.gateway.config();
 
@@ -581,7 +582,13 @@ impl Keeper {
 			_ => self.change_alone(account, Ok).await?,
 		};
 
-		breach(initial_state.huntable(sighting, now))?;
+		let husk = breach(initial_state.huntable(sighting, now))?;
+
+		// The binding is held to the manifest again, as `release` held it: a
+		// row written by a keeper that checked none earns no receipt.
+		if let Some(bound) = &bound {
+			self.demo_husk(&husk.nft.id(), &bound.mint)?;
+		}
 
 		// Run base64 decoding + deterministic replay off the Tokio worker pool
 		// and completely outside any PostgreSQL transaction.

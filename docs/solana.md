@@ -14,7 +14,7 @@ These are public server environment values, not secrets:
 | `REAPERS_REAPER_COLLECTION` | Verified Metaplex Core collection address. Without it, NFT import is unavailable. |
 | `REAPERS_REAPER_MARKET_URL` | HTTPS page where users can buy or trade this collection. Omit to disable the marketplace action. |
 | `REAPERS_PROGRAM_ID` | The Reapers program husks are escrowed with and burned by. Read by the Rust keeper only. Without it, a release that names an escrowed mint is refused. |
-| `REAPERS_DEMO_HUSKS` | The path of the demo husk manifest `reapers_ops mint-demo` writes. The game lists the wallet's husks from it, and a release must escrow the very asset its husk stands for; without it, every escrowed release is refused as `chainUnconfigured`. Rust keeper only. |
+| `REAPERS_DEMO_HUSKS` | The path of the demo husk manifest `reapers_ops mint-demo` writes. The game lists the wallet's husks from it, and a release must escrow the very asset its husk stands for, and a hunt that settles a bound husk is held to it again; without it, every escrowed release and every settlement of a bound husk is refused as `chainUnconfigured`. Rust keeper only. |
 
 Each imported asset must be a non-executable account owned by the Core program, decode as AssetV1, belong to that collection and be owned by the proved wallet. Its URI must be exactly the identity URI resolved against `reapers/<genome code>.json`; the genome parser validates every trait. The server does not fetch arbitrary metadata URLs. It freezes that genome on first import, and refuses later collection or genome changes. Publish matching metadata before minting; this code does not mint a collection.
 
