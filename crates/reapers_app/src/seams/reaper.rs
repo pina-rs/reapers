@@ -68,10 +68,10 @@ pub fn reaper_stage(props: &ReaperStageProps) -> Element {
 }
 
 /// The bound reaper as the sanctum's hero: the same stage, the camera
-/// closer, so the reaper stands about 380 pt tall, lit from behind so its
-/// rim carries the silhouette (art bible §9). It neither turns by itself
-/// nor moves in on the face: `turns_on_its_own` and `focus_face` are not
-/// read.
+/// closer, so the reaper and what it holds stand about 400 pt tall, lit
+/// from behind so its rim carries the silhouette (art bible §9). It
+/// neither turns by itself nor moves in on the face: `turns_on_its_own`
+/// and `focus_face` are not read.
 #[track_caller]
 pub fn reaper_hero(props: &ReaperStageProps) -> Element {
 	let key = Key::caller();

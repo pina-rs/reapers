@@ -94,11 +94,13 @@ pub const STAGE_DISTANCE: f32 = 8.4;
 pub const STUDIO_DISTANCE: f32 = 7.6;
 
 /// Where the sanctum's camera stands for its hero: close, and nearly level
-/// with the reaper's middle, so the bound reaper stands about 380 pt tall
-/// on the stage and a little above the eye (art bible §9).
-pub const HERO_DISTANCE: f32 = 4.8;
-const HERO_EYE: f32 = 1.05;
-const HERO_TARGET: Point = [0.0, 1.12, 0.0];
+/// with the reaper's middle. The 30° lens then holds 0.1 m to 3.05 m, so
+/// the bound reaper and the tallest thing it holds stand about 400 pt tall
+/// in the sanctum's 52vh stage, whole, and a little above the eye (art
+/// bible §9).
+pub const HERO_DISTANCE: f32 = 5.5;
+const HERO_EYE: f32 = 1.34;
+const HERO_TARGET: Point = [0.0, 1.58, 0.0];
 
 /// The stage's lens: 30° tall.
 pub const STAGE_FOV: f32 = 30.0 * std::f32::consts::PI / 180.0;
@@ -242,7 +244,7 @@ mod tests {
 			unreachable!()
 		};
 		close(transform.translation, [0.0, HERO_EYE, HERO_DISTANCE]);
-		const { assert!(HERO_DISTANCE < STAGE_DISTANCE * 0.6) };
+		const { assert!(HERO_DISTANCE < STAGE_DISTANCE * 0.7) };
 		let forward = rotate(transform.rotation, [0.0, 0.0, -1.0]);
 		assert!(forward[1] > 0.0 && forward[1] < 0.05, "{forward:?}");
 	}
