@@ -506,7 +506,7 @@ pub struct TagLook {
 	/// The figure, and its size.
 	pub figure: String,
 	pub size: u32,
-	/// The chip under it on a seal: "Seal ×2".
+	/// The chip under it on a seal: "Seal".
 	pub chip: Option<String>,
 	pub spot: Rgb,
 }

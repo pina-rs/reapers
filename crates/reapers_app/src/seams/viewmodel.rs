@@ -1114,7 +1114,7 @@ mod tests {
 		let tag = &tagged[0];
 		assert_eq!(tag.figure, "−27");
 		assert_eq!(tag.size, 40);
-		assert_eq!(tag.chip.as_deref(), Some("Seal ×2"));
+		assert_eq!(tag.chip.as_deref(), Some("Seal"));
 	}
 
 	#[test]

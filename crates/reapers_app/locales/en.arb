@@ -638,9 +638,9 @@
       "damage": { "type": "int" }
     }
   },
-  "huntHitSealChip": "Seal ×2",
+  "huntHitSealChip": "Seal",
   "@huntHitSealChip": {
-    "description": "The chip under a blow's tag when it struck an open seal, for twice the harm."
+    "description": "The chip under a blow's tag when it struck an open seal. It gives no multiplier, which a shatter or a perk can raise past two."
   },
   "huntMissed": "Miss · keep it in the crosshair",
   "huntPromptWindup": "It is drawing breath.",

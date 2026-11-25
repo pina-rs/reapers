@@ -597,9 +597,9 @@ pub trait Messages: Send + Sync {
 	fn hunt_hit_figure(&self, damage: i64) -> String;
 	/// `Seal ×2 · ward −{damage}`
 	fn hunt_hit_seal(&self, damage: i64) -> String;
-	/// The chip under a blow's tag when it struck an open seal, for twice the harm.
+	/// The chip under a blow's tag when it struck an open seal. It gives no multiplier, which a shatter or a perk can raise past two.
 	///
-	/// `Seal ×2`
+	/// `Seal`
 	fn hunt_hit_seal_chip(&self) -> &'static str;
 	/// `When its ring turns gold, hold ORB and let go as the ring closes on it. That is the capture.`
 	fn hunt_how_capture(&self) -> &'static str;
@@ -2999,7 +2999,7 @@ impl Messages for En {
 	}
 
 	fn hunt_hit_seal_chip(&self) -> &'static str {
-		"Seal ×2"
+		"Seal"
 	}
 
 	fn hunt_how_capture(&self) -> &'static str {
