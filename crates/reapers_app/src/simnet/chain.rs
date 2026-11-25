@@ -49,10 +49,20 @@ use solana_kit_system::TransferSolAccounts;
 
 use crate::backend::KeeperError;
 use crate::backend::KeeperResult;
+use crate::chain::ChainFailure;
 use crate::platform;
 use crate::platform::Prefs;
 use crate::program;
 use crate::receipt::Receipt;
+
+/// Whether `signature` is `keeper`'s signature over `receipt`: the check the
+/// Ed25519 program makes before a burn is allowed.
+fn signed_by(keeper: &Address, receipt: &[u8], signature: &[u8]) -> bool {
+	let Ok(signature) = Signature::try_from(signature) else {
+		return false;
+	};
+	verify(keeper, receipt, &signature).is_ok()
+}
 
 /// What a simnet transaction does. These are the four things the chain is
 /// meant to do for Reapers (see docs/nfts.md); everything else in the game
@@ -197,13 +207,10 @@ impl SimnetTransaction {
 		) else {
 			return false;
 		};
-		let (Ok(keeper), Ok(signature)) = (
-			keeper.parse::<Address>(),
-			Signature::try_from(signature.as_slice()),
-		) else {
+		let Ok(keeper) = keeper.parse::<Address>() else {
 			return false;
 		};
-		verify(&keeper, receipt, &signature).is_ok()
+		signed_by(&keeper, receipt, signature)
 	}
 
 	/// Whether the wire transaction is well formed and every signature in it
@@ -368,6 +375,7 @@ impl SimnetChain {
 
 	/// Signs and records a transaction, and returns it once it is confirmed.
 	pub async fn submit(&self, post: SimnetPost) -> KeeperResult<SimnetTransaction> {
+		self.check_burn(&post)?;
 		platform::sleep(self.latency).await;
 		let at = (self.clock)();
 		let slot = self.slot_at(at);
@@ -429,6 +437,40 @@ impl SimnetChain {
 			listener(&transaction);
 		}
 		Ok(transaction)
+	}
+
+	/// What the program checks before it burns, which the ledger checks too:
+	/// the receipt is the 98 bytes the program reads, it names this wallet and
+	/// this husk, and the simnet keeper signed exactly those bytes. A burn
+	/// without them is refused here, as a cluster would refuse it, and never
+	/// recorded as a wire-less transaction.
+	fn check_burn(&self, post: &SimnetPost) -> KeeperResult<()> {
+		if post.instruction != SimnetInstruction::Burn {
+			return Ok(());
+		}
+
+		let refused = |reason: &str| KeeperError::Chain(ChainFailure::Rejected(reason.to_owned()));
+		let nft = post.nft.ok_or_else(|| refused("a burn without a husk"))?;
+		let receipt = post
+			.receipt
+			.as_deref()
+			.ok_or_else(|| refused("a burn without a receipt"))?;
+		let receipt =
+			Receipt::decode(receipt).map_err(|_| refused("a receipt the program cannot read"))?;
+		if receipt.player != *self.wallet_key().address().as_bytes() {
+			return Err(refused("a receipt made out to another player"));
+		}
+		if receipt.mint != *Self::mint_for(nft).as_bytes() {
+			return Err(refused("a receipt for another husk"));
+		}
+		let signature = post
+			.receipt_signature
+			.as_deref()
+			.ok_or_else(|| refused("a burn without the keeper's signature"))?;
+		if !signed_by(&Self::keeper(), &receipt.encode(), signature) {
+			return Err(refused("a receipt the keeper did not sign"));
+		}
+		Ok(())
 	}
 
 	/// The same transaction, signed again over a real `blockhash`, for a

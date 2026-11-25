@@ -245,6 +245,7 @@ mod tests {
 
 	use super::*;
 	use crate::backend::SeededDice;
+	use crate::chain::ChainFailure;
 	use crate::platform::MemoryPrefs;
 	use crate::platform::Prefs;
 
@@ -501,6 +502,96 @@ mod tests {
 		assert_eq!(
 			block_on(world.prefs.get(LocalBackend::DEFAULT_STORAGE_KEY)).unwrap(),
 			offline_save
+		);
+	}
+
+	#[test]
+	fn simnet_submit_refuses_burn_with_forged_receipt_signature() {
+		let world = World::new();
+		let chain = world.chain();
+		let keeper = world.keeper(chain.clone());
+
+		block_on(keeper.take_oath()).unwrap();
+		block_on(keeper.acquire(SAINT)).unwrap();
+		block_on(keeper.release(SAINT)).unwrap();
+		world.later(60);
+		hunt(&keeper);
+
+		let valid_burn = chain.transactions().last().unwrap().clone();
+		let mut forged_sig = valid_burn.receipt_signature.clone().unwrap();
+		forged_sig[0] ^= 0xFF;
+
+		let result = block_on(chain.submit(SimnetPost {
+			nft: Some(SAINT),
+			receipt: valid_burn.receipt.clone(),
+			receipt_signature: Some(forged_sig),
+			..SimnetPost::new(SimnetInstruction::Burn, valid_burn.accounts.clone())
+		}));
+		assert!(
+			result.is_err(),
+			"SimnetChain::submit must verify the Ed25519 receipt signature before recording a burn (docs/solana.md:78)"
+		);
+	}
+
+	#[test]
+	fn simnet_submit_refuses_a_burn_whose_receipt_is_not_the_ninety_eight_bytes() {
+		let world = World::new();
+		let chain = world.chain();
+		let keeper = world.keeper(chain.clone());
+
+		block_on(keeper.take_oath()).unwrap();
+		block_on(keeper.acquire(SAINT)).unwrap();
+		block_on(keeper.release(SAINT)).unwrap();
+		world.later(60);
+		hunt(&keeper);
+
+		let valid_burn = chain.transactions().last().unwrap().clone();
+		let mut malformed = valid_burn.receipt.clone().unwrap();
+		malformed.truncate(crate::receipt::LEN - 1);
+		let refused = block_on(chain.submit(SimnetPost {
+			nft: Some(SAINT),
+			receipt: Some(malformed),
+			receipt_signature: valid_burn.receipt_signature.clone(),
+			..SimnetPost::new(SimnetInstruction::Burn, valid_burn.accounts.clone())
+		}))
+		.unwrap_err();
+
+		assert!(
+			matches!(refused, KeeperError::Chain(ChainFailure::Rejected(_))),
+			"a receipt the program cannot read must be refused, not recorded: {refused}"
+		);
+		assert_eq!(
+			chain.transactions().len(),
+			4,
+			"the refused burn is not on the ledger"
+		);
+	}
+
+	#[test]
+	fn simnet_submit_refuses_a_burn_carrying_another_husks_receipt() {
+		let world = World::new();
+		let chain = world.chain();
+		let keeper = world.keeper(chain.clone());
+
+		block_on(keeper.take_oath()).unwrap();
+		block_on(keeper.acquire(SAINT)).unwrap();
+		block_on(keeper.release(SAINT)).unwrap();
+		world.later(60);
+		hunt(&keeper);
+
+		let valid_burn = chain.transactions().last().unwrap().clone();
+		let other = Nft::new(NftCollection::DegenApes, 2);
+		let refused = block_on(chain.submit(SimnetPost {
+			nft: Some(other),
+			receipt: valid_burn.receipt.clone(),
+			receipt_signature: valid_burn.receipt_signature.clone(),
+			..SimnetPost::new(SimnetInstruction::Burn, valid_burn.accounts.clone())
+		}))
+		.unwrap_err();
+
+		assert!(
+			matches!(refused, KeeperError::Chain(ChainFailure::Rejected(_))),
+			"the receipt names its husk, so another husk's receipt must be refused: {refused}"
 		);
 	}
 }
