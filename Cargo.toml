@@ -109,6 +109,11 @@ leptoskit_plugin_store = { version = "=0.3.0" }
 leptoskit_router = { version = "=0.3.0" }
 leptoskit_testing = { version = "=0.3.0" }
 leptoskit_xr = { version = "=0.3.0" }
+# Hand-drawn line, boxes and type. It is `publish = false` upstream, so the
+# `[patch.crates-io]` table below cannot carry it: it is a git dependency
+# here, at the same revision as the rest, and `cargo xtask leptoskit` moves it
+# with them.
+leptoskit_skribble = { git = "https://github.com/leptoskit/leptoskit", rev = "debd27427560e219874f1a0294bafbc1a01d95a0" }
 
 # Solana Kit, at the revision that depends on leptoskit 0.3.0.
 solana_kit_leptoskit = { git = "https://github.com/pina-rs/solana_kit", rev = "17912ee644d2898c9de3ecded026274ada8761e7" }

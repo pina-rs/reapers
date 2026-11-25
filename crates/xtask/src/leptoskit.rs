@@ -8,7 +8,10 @@
 //! leptoskit reaches this workspace from git, and its revision is written in
 //! more than one place: every `leptoskit*` line under `[patch.crates-io]` in
 //! the root `Cargo.toml`, `LEPTOSKIT_REV` in CI, and the revisions the
-//! READMEs tell a person to install the CLI at. This rewrites all of them
+//! READMEs tell a person to install the CLI at. `leptoskit_skribble` is
+//! `publish = false` upstream, so the patch table cannot carry it: it is a git
+//! dependency under `[workspace.dependencies]`, on the same repository, and
+//! it moves with the rest. This rewrites all of them
 //! together, moves the lock's leptoskit entries with `cargo update`, and then
 //! says what to do next: install the CLI at the new revision and run
 //! `cargo xtask check`. See AGENTS.md, "leptoskit and Solana Kit are pinned
@@ -494,6 +497,44 @@ mod tests {
 		);
 	}
 
+	/// `leptoskit_skribble` is a git dependency of `[workspace.dependencies]`,
+	/// not an entry of the patch table, and moves with the patched crates.
+	#[test]
+	fn moves_the_skribble_pin_with_the_patched_crates() {
+		let manifest = format!(
+			"[workspace.dependencies]\n\
+			 leptoskit_skribble = {{ git = \"{ORIGIN}\", rev = \"{OLD}\" }}\n\
+			 solana_kit_core = {{ git = \"https://github.com/pina-rs/solana_kit\", rev = \"{SOLANA_KIT}\" }}\n\
+			 \n\
+			 [patch.crates-io]\n\
+			 leptoskit = {{ git = \"{ORIGIN}\", rev = \"{OLD}\" }}\n"
+		);
+
+		assert_eq!(pinned_revisions(&manifest), [OLD.to_owned()]);
+
+		let moved = replace_revision(&manifest, OLD, NEW);
+
+		assert_eq!(pinned_revisions(&moved), [NEW.to_owned()]);
+		assert!(moved.contains(SOLANA_KIT), "Solana Kit's pin moved");
+		assert!(
+			moved.contains(&format!(
+				"leptoskit_skribble = {{ git = \"{ORIGIN}\", rev = \"{NEW}\" }}"
+			)),
+			"the skribble pin did not move"
+		);
+
+		let stale = manifest.replace(
+			&format!("leptoskit_skribble = {{ git = \"{ORIGIN}\", rev = \"{OLD}\" }}"),
+			&format!("leptoskit_skribble = {{ git = \"{ORIGIN}\", rev = \"{NEW}\" }}"),
+		);
+
+		assert_eq!(
+			pinned_revisions(&stale),
+			[NEW.to_owned(), OLD.to_owned()],
+			"a skribble pin left behind has to read as a divergent pin"
+		);
+	}
+
 	#[test]
 	fn reads_a_divergent_pin_as_more_than_one() {
 		let manifest = format!(
@@ -605,6 +646,14 @@ mod tests {
 
 		assert_eq!(revisions.len(), 1, "{MANIFEST} pins {revisions:?}");
 		let pinned = &revisions[0];
+
+		assert!(
+			manifest.lines().any(|line| {
+				line.starts_with("leptoskit_skribble = ")
+					&& revision_in(line).as_ref() == Some(pinned)
+			}),
+			"{MANIFEST} does not pin leptoskit_skribble at {pinned}"
+		);
 
 		for path in pinned_files(&root).unwrap() {
 			let text = fs::read_to_string(root.join(&path)).unwrap();
