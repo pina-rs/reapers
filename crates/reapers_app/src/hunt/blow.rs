@@ -811,7 +811,11 @@ mod tests {
 			spot: ink::WISP,
 		};
 		let paths = slip(&look).into_paths();
-		let stroked = |index: usize| paths[index].stroke_style().map(|stroke| stroke.color());
+		let stroked = |index: usize| {
+			paths[index]
+				.stroke_style()
+				.map(leptoskit::native::Stroke::color)
+		};
 		let points = |index: usize| -> Vec<(f32, f32)> {
 			paths[index]
 				.data()

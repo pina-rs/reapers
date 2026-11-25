@@ -1072,7 +1072,7 @@ mod tests {
 					.fold(f64::MAX, f64::min);
 				(
 					path.fill_color(),
-					path.stroke_style().map(|stroke| stroke.color()),
+					path.stroke_style().map(leptoskit::native::Stroke::color),
 					nearest,
 				)
 			})

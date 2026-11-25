@@ -383,11 +383,7 @@ impl HuskRig {
 		let frost = self.frost as f32;
 		let burn = self.burn as f32;
 		// A blow's print takes the place of the flash: ink, not light.
-		let flash = if self.print.is_some() {
-			0.0
-		} else {
-			self.flash as f32
-		};
+		let flash = self.print.map_or(self.flash as f32, |_| 0.0);
 		let mut change = match material {
 			"body" => {
 				MaterialOverride {
