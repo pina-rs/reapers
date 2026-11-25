@@ -617,6 +617,12 @@ impl HuskRig {
 	/// as a blow lands: the impact frame, on the husk alone (art bible §11.2).
 	/// Its reaction, gait, face and flash hold; where the rules put it does
 	/// not, so a husk on the move goes on being carried with them.
+	/// How long the husk is still held for, in frames at sixty a second.
+	#[cfg(test)]
+	pub fn held_frames(&self) -> f64 {
+		self.stopped * 60.0
+	}
+
 	pub fn stop(&mut self, frames: u32) {
 		self.stopped = self.stopped.max(f64::from(frames) / 60.0);
 	}

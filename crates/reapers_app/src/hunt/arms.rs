@@ -454,6 +454,47 @@ mod tests {
 	}
 
 	#[test]
+	fn a_blow_on_a_seal_is_marked_as_one() {
+		use reapers_rules::Difficulty;
+		use reapers_rules::HuntLoadout;
+		use reapers_rules::HuntPlan;
+		use reapers_rules::HuntStats;
+		use reapers_rules::market_listings;
+
+		let nft = market_listings()[0];
+		let stats = HuntStats::derive(&HuntLoadout::BORROWED, 1.0).unwrap();
+		let sim = HuntSim::new(
+			3,
+			nft.collection.vessel(),
+			nft.rarity(),
+			nft.rarity().ward(),
+			&stats,
+			HuntPlan::OPEN,
+			Difficulty::default(),
+		)
+		.unwrap();
+		let marks = HuskMarks {
+			origin: [0.0; 3],
+			eye: Vec3::ZERO,
+			light: [1.0; 3],
+		};
+		for seal in [Some(0), None] {
+			let mut arms = Arms::new(&sim, WeaponKind::Scythe);
+			let landed = HuntEvent::HitLanded {
+				weapon: Archetype::Gun,
+				damage: 14.0,
+				cadence: 1,
+				critical: seal.is_some(),
+				empowered: false,
+				seal,
+				cleaved: Vec::new(),
+			};
+			arms.hear(&sim, 10, &landed, &marks);
+			assert_eq!(arms.hit.map(|hit| hit.seal), Some(seal.is_some()));
+		}
+	}
+
+	#[test]
 	fn the_rules_and_every_blow_land_on_the_same_tick_at_any_frame_rate() {
 		// Two hunts the rules' player fights with the pistol, the knife's
 		// dives and its parries, and the orb.

@@ -894,6 +894,28 @@ mod tests {
 	}
 
 	#[test]
+	fn a_press_waiting_for_the_pistol_is_dropped_when_tracking_is_lost() {
+		let mut controller = HuntController::new(Fight::Hunt(sim(3)));
+		controller.press();
+		tick(&mut controller);
+		while controller.sim().cooldown_ticks() > 4 {
+			tick(&mut controller);
+		}
+		let pressed = controller.ticks();
+		controller.press();
+		tick(&mut controller);
+		// The press waits for the pistol; the room is lost before it can fire,
+		// and found again.
+		controller.frame(1.0, &ArPose::AHEAD, FrameEye::Unavailable);
+		let mut heard = Vec::new();
+		for _ in 0..20 {
+			heard.extend(tick(&mut controller));
+		}
+		assert_eq!(shots(&heard), Vec::<i64>::new());
+		assert_eq!(fired_on(&controller, pressed), Vec::<usize>::new());
+	}
+
+	#[test]
 	fn a_press_in_a_reload_is_played_at_once() {
 		let mut controller = HuntController::new(Fight::Hunt(sim(3)));
 		while controller.sim().rounds() > 0 {

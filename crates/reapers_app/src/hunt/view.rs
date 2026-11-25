@@ -1272,6 +1272,30 @@ mod tests {
 		})
 	}
 
+	#[test]
+	fn a_hunt_prints_in_its_reapers_spot() {
+		use reapers_rules::ReaperClass;
+
+		for class in [ReaperClass::Ferryman, ReaperClass::Mourner] {
+			let hunt = HuntState::new(&HuntViewProps {
+				brief: HuntBrief {
+					nft: market_listings()[0],
+					seed: 7,
+					loadout: HuntLoadout {
+						reaper_class: class,
+						..HuntLoadout::BORROWED
+					},
+					sighting_id: None,
+				},
+				difficulty: Difficulty::default(),
+				autoplay: false,
+				on_finished: Arc::new(|_, _| {}),
+				on_difficulty: None,
+			});
+			assert_eq!(hunt.arena.spot, crate::ink::light(class), "{class:?}");
+		}
+	}
+
 	/// A turn of `angle` about the platform's vertical, as a quaternion.
 	fn turned(angle: f64) -> [f64; 4] {
 		[0.0, (angle / 2.0).sin(), 0.0, (angle / 2.0).cos()]

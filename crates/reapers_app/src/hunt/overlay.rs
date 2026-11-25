@@ -1079,6 +1079,20 @@ mod tests {
 			.collect()
 	}
 
+	/// A blow steps the sight's arms out by as much as it says: the arms are
+	/// its first two paths, their dark edge and their paint.
+	#[test]
+	fn a_blow_steps_the_sights_arms_out() {
+		for sight in [Sight::Off, Sight::On, Sight::Seal] {
+			let still = sight_paths(sight, 0.0);
+			let stepped = sight_paths(sight, 3.0);
+			for arm in 0..2 {
+				let out = stepped[arm].2 - still[arm].2;
+				assert!((out - 3.0).abs() < 0.6, "{sight:?}: {out} pt out");
+			}
+		}
+	}
+
 	/// An open seal is told by the ring's shape, key on a paper edge, and by
 	/// nothing in the husk's colour: every stroke and fill is bone, key, paper
 	/// or the dark edge under them all.

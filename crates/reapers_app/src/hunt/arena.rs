@@ -841,6 +841,74 @@ mod tests {
 	}
 
 	#[test]
+	fn a_shot_that_lands_holds_the_husk_three_frames_and_five_on_a_seal() {
+		let nft = penguin();
+		for (seal, frames) in [(None, 3.0), (Some(0), 5.0)] {
+			let mut arena = Arena::new(HUNT, nft.collection.vessel(), &nft, 0.5, true);
+			arena.react(&[(
+				10,
+				HuntEvent::HitLanded {
+					weapon: Archetype::Gun,
+					damage: 14.0,
+					cadence: 1,
+					critical: seal.is_some(),
+					empowered: false,
+					seal,
+					cleaved: Vec::new(),
+				},
+			)]);
+			let held = arena.rig.held_frames();
+			assert!((held - frames).abs() < 1.0e-9, "{seal:?}: {held} frames");
+		}
+	}
+
+	#[test]
+	fn the_sight_is_shown_only_while_the_fight_runs() {
+		use reapers_rules::Difficulty;
+		use reapers_rules::HuntBot;
+		use reapers_rules::HuntLoadout;
+		use reapers_rules::HuntPhase;
+		use reapers_rules::HuntPlan;
+		use reapers_rules::HuntStats;
+
+		let nft = penguin();
+		let stats = HuntStats::derive(&HuntLoadout::BORROWED, 1.0).unwrap();
+		let mut sim = HuntSim::new(
+			7,
+			nft.collection.vessel(),
+			nft.rarity(),
+			nft.rarity().ward(),
+			&stats,
+			HuntPlan::OPEN,
+			Difficulty::default(),
+		)
+		.unwrap();
+		let mut bot = HuntBot::careful(&sim);
+		while sim.phase() != HuntPhase::Fight {
+			assert!(sim.tick() < 10000 && !sim.is_over());
+			bot.step_once(&mut sim);
+		}
+		let mut arena = Arena::new(HUNT, nft.collection.vessel(), &nft, 0.5, true);
+		arena.ground_in_room([1.0, 1.5, -2.0]);
+		arena.anchor([1.0, 1.5, -2.0]);
+		arena.engage(
+			HuntController::new(super::super::controller::Fight::Hunt(sim)),
+			WeaponKind::Scythe,
+		);
+		arena.advance(HuntController::TICK_SECONDS, ArPose::AHEAD, Some(true));
+		assert!(arena.viewmodel().unwrap().sight.is_some(), "fighting");
+		arena.advance(HuntController::TICK_SECONDS, ArPose::AHEAD, Some(false));
+		assert_eq!(
+			arena.controller.as_ref().unwrap().pause_status(),
+			PauseStatus::Tracking
+		);
+		assert!(
+			arena.viewmodel().unwrap().sight.is_none(),
+			"paused while the room is lost"
+		);
+	}
+
+	#[test]
 	fn a_charted_fight_is_drawn_in_the_room_frame() {
 		let nft = penguin();
 		let mut arena = Arena::new(HUNT, nft.collection.vessel(), &nft, 0.5, true);

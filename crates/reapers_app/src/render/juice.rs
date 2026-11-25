@@ -234,6 +234,21 @@ mod tests {
 	}
 
 	#[test]
+	fn each_jolt_holds_the_arms_its_frames() {
+		// A shot never holds the arms, and a landed art holds them two frames.
+		for (jolt, frames) in [
+			(Jolt::Shot, 0),
+			(Jolt::SealShot, 0),
+			(Jolt::ArtHit, 2),
+			(Jolt::Parry, 4),
+			(Jolt::Stab, 5),
+			(Jolt::Kill, 10),
+		] {
+			assert_eq!(jolt.stop_frames(), frames, "{jolt:?}");
+		}
+	}
+
+	#[test]
 	fn a_heavier_class_weapon_holds_the_arms_longer() {
 		let frames = |kind| Jolt::Heavy(kind).stop_frames();
 		assert_eq!(frames(WeaponKind::Scythe), 6);

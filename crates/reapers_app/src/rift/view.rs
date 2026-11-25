@@ -800,3 +800,31 @@ fn lobby(props: &RiftViewProps, state: &RiftState) -> Element {
 		.class("absolute inset-0 pt-safe pb-safe bg-[#07080bc7]")
 		.child(column)
 }
+
+#[cfg(test)]
+mod tests {
+	use reapers_rules::ReaperClass;
+
+	use super::*;
+
+	#[test]
+	fn a_rift_prints_in_its_reapers_spot() {
+		for class in [ReaperClass::Ferryman, ReaperClass::Mourner] {
+			let props = RiftViewProps {
+				site: RiftSite::ALL[0],
+				frame: None,
+				report: Arc::new(|_| {}),
+				on_leave: Arc::new(|| {}),
+				autoplay: false,
+			};
+			let rift = RiftState::new(
+				&props,
+				HuntLoadout {
+					reaper_class: class,
+					..HuntLoadout::BORROWED
+				},
+			);
+			assert_eq!(rift.arena.spot, crate::ink::light(class), "{class:?}");
+		}
+	}
+}
