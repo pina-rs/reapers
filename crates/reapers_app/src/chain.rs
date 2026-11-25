@@ -35,7 +35,6 @@ use reapers_rules::Nft;
 use reapers_rules::NftCollection;
 use serde_json::Value;
 use serde_json::json;
-use solana_kit_core::AccountRole;
 use solana_kit_core::Address;
 use solana_kit_core::Hash;
 use solana_kit_core::Signature;
@@ -527,11 +526,16 @@ struct VerifiedReceipt {
 	mint: Address,
 	keeper: Address,
 	signature: [u8; 64],
-	manifest_collection: Option<Address>,
+	/// The Core collection the manifest names for the husk.
+	collection: Address,
 }
 
 /// Decodes and cryptographically verifies an absorption receipt against
 /// `wallet`, `status.husks`, and `keeper`.
+///
+/// The husk must be one the manifest maps: the game escrows only those, so
+/// a burn of any other was never asked for, and nothing would bind the
+/// receipt's mint or the collection the burn writes to.
 fn verify_absorb_receipt(
 	status: &ChainStatus,
 	wallet: &Address,
@@ -553,10 +557,12 @@ fn verify_absorb_receipt(
 		));
 	}
 	let mint = Address::from_bytes(decoded.mint);
-	let manifest_husk = husk_of(&status.husks, nft);
-	if let Some((expected_mint, _)) = manifest_husk
-		&& mint != expected_mint
-	{
+	let Some((expected_mint, collection)) = husk_of(&status.husks, nft) else {
+		return Err(ChainFailure::Rejected(format!(
+			"{nft} is not a husk of the server's manifest"
+		)));
+	};
+	if mint != expected_mint {
 		return Err(ChainFailure::Rejected(format!(
 			"absorb receipt mint {mint} does not match manifest asset {expected_mint} for {nft}"
 		)));
@@ -578,7 +584,7 @@ fn verify_absorb_receipt(
 		mint,
 		keeper: keeper_addr,
 		signature: sig_bytes,
-		manifest_collection: manifest_husk.map(|(_, collection)| collection),
+		collection,
 	})
 }
 
@@ -586,8 +592,9 @@ fn verify_absorb_receipt(
 /// wallet to sign.
 ///
 /// Rebuilds the expected `[Ed25519SigVerify, AbsorbCore]` legacy message
-/// locally and refuses unless the server's message matches byte for byte and
-/// the keeper's Ed25519 signature over the receipt verifies.
+/// locally, with the manifest's collection, and refuses unless the server's
+/// message matches byte for byte and the keeper's Ed25519 signature over the
+/// receipt verifies.
 fn verify_absorb_transaction(
 	status: &ChainStatus,
 	wallet: &Address,
@@ -627,18 +634,11 @@ fn verify_absorb_transaction(
 		));
 	}
 
-	let collection = resolve_absorb_collection(
-		verified_receipt.manifest_collection,
-		server_msg,
-		&verified_receipt.keeper,
-		&verified_receipt.signature,
-		&verified_receipt.receipt,
-	)?;
 	let expected_instructions = program::absorb_core(
 		&verified_receipt.keeper,
 		&verified_receipt.signature,
 		&verified_receipt.receipt,
-		collection.as_ref(),
+		Some(&verified_receipt.collection),
 	);
 	let expected_message = Message::compile(
 		Version::Legacy,
@@ -661,53 +661,6 @@ fn verify_absorb_transaction(
 		.encode(false)
 		.map_err(|error| ChainFailure::Rejected(format!("{error:?}")))?;
 	Ok((verified, verified_receipt.mint))
-}
-
-/// Determines the expected Core collection account for `AbsorbCore`.
-///
-/// When `status.husks` maps `nft`, its manifest collection is mandatory.
-/// Otherwise, account `[4]` of the server's `AbsorbCore` instruction must be
-/// either `CORE_PROGRAM_ID` (uncollected) or a writable non-aliasing
-/// collection address.
-fn resolve_absorb_collection(
-	manifest_collection: Option<Address>,
-	server_msg: &Message,
-	keeper: &Address,
-	sig_bytes: &[u8; 64],
-	receipt: &Receipt,
-) -> ChainResult<Option<Address>> {
-	if let Some(collection) = manifest_collection {
-		return Ok(Some(collection));
-	}
-	let decompiled = server_msg
-		.decompile(&[])
-		.map_err(|error| ChainFailure::Rejected(format!("{error:?}")))?;
-	let absorb_ix = decompiled
-		.instructions()
-		.get(1)
-		.ok_or_else(|| ChainFailure::Rejected("missing AbsorbCore instruction".into()))?;
-	if absorb_ix.accounts.len() != 7 {
-		return Err(ChainFailure::Rejected(
-			"AbsorbCore instruction must carry exactly 7 accounts".into(),
-		));
-	}
-	let slot = absorb_ix.accounts[4].account_meta();
-	if slot.address == program::core_program() {
-		return Ok(None);
-	}
-	let uncollected = program::absorb_core(keeper, sig_bytes, receipt, None);
-	let aliases_fixed = slot.address == uncollected[0].program_address
-		|| slot.address == uncollected[1].program_address
-		|| uncollected[1]
-			.accounts
-			.iter()
-			.any(|meta| meta.address == slot.address);
-	if aliases_fixed || slot.role != AccountRole::Writable {
-		return Err(ChainFailure::Rejected(
-			"AbsorbCore collection account is invalid".into(),
-		));
-	}
-	Ok(Some(slot.address))
 }
 
 /// A refused transaction's failure, as the program's error when it was the
@@ -941,6 +894,8 @@ fn malformed(method: &str) -> ChainFailure {
 
 #[cfg(test)]
 mod tests {
+	use solana_kit_core::AccountRole;
+
 	use super::*;
 
 	#[test]
@@ -1120,6 +1075,20 @@ mod tests {
 		}
 	}
 
+	/// The collection of the saint, `degenApes:1`.
+	fn saint_collection() -> Address {
+		Address::from_bytes([9; 32])
+	}
+
+	/// A manifest that maps the saint, `degenApes:1`, to the asset `[2; 32]`.
+	fn saint_manifest() -> Vec<Husks> {
+		vec![Husks {
+			collection: "degenApes".into(),
+			address: saint_collection().to_string(),
+			assets: vec![Address::from_bytes([2; 32]).to_string()],
+		}]
+	}
+
 	fn devnet_status(wallet: &Address, husks: Vec<Husks>) -> ChainStatus {
 		ChainStatus {
 			chain: "solana:devnet".into(),
@@ -1193,7 +1162,7 @@ mod tests {
 			keypair: wallet,
 			signed: Cell::new(0),
 		};
-		let status = devnet_status(&prover.keypair.address(), Vec::new());
+		let status = devnet_status(&prover.keypair.address(), saint_manifest());
 
 		let result = block_on(cluster.absorb(
 			&status,
@@ -1231,8 +1200,12 @@ mod tests {
 		let receipt_bytes = receipt.encode();
 		let receipt_sig = keeper.sign(&receipt_bytes);
 
-		let [verify_ix, absorb_ix] =
-			program::absorb_core(&keeper.address(), receipt_sig.as_bytes(), &receipt, None);
+		let [verify_ix, absorb_ix] = program::absorb_core(
+			&keeper.address(),
+			receipt_sig.as_bytes(),
+			&receipt,
+			Some(&saint_collection()),
+		);
 		let drain_ix = TransferSol {
 			amount: 5_000_000_000,
 		}
@@ -1259,7 +1232,7 @@ mod tests {
 			keypair: wallet,
 			signed: Cell::new(0),
 		};
-		let status = devnet_status(&prover.keypair.address(), Vec::new());
+		let status = devnet_status(&prover.keypair.address(), saint_manifest());
 
 		let result = block_on(cluster.absorb(
 			&status,
@@ -1291,29 +1264,42 @@ mod tests {
 		let receipt_sig = keeper.sign(&receipt_bytes);
 
 		// Case 1: tampered account address (config PDA replaced).
-		let [verify_ix, mut bad_account] =
-			program::absorb_core(&keeper.address(), receipt_sig.as_bytes(), &receipt, None);
+		let [verify_ix, mut bad_account] = program::absorb_core(
+			&keeper.address(),
+			receipt_sig.as_bytes(),
+			&receipt,
+			Some(&saint_collection()),
+		);
 		bad_account.accounts[1].address = Address::from_bytes([88; 32]);
 		let bad_account_tx =
 			encode_tx(Version::Legacy, wallet.address(), &[verify_ix, bad_account]);
 
 		// Case 2: tampered account role (readonly config promoted to writable).
-		let [verify_ix, mut bad_role] =
-			program::absorb_core(&keeper.address(), receipt_sig.as_bytes(), &receipt, None);
+		let [verify_ix, mut bad_role] = program::absorb_core(
+			&keeper.address(),
+			receipt_sig.as_bytes(),
+			&receipt,
+			Some(&saint_collection()),
+		);
 		bad_role.accounts[1].role = AccountRole::Writable;
 		let bad_role_tx = encode_tx(Version::Legacy, wallet.address(), &[verify_ix, bad_role]);
 
-		// Case 3: uncollected CORE_PROGRAM_ID sentinel promoted to writable.
-		let [verify_ix, mut writable_core] =
-			program::absorb_core(&keeper.address(), receipt_sig.as_bytes(), &receipt, None);
-		writable_core.accounts[4].role = AccountRole::Writable;
-		let writable_core_tx = encode_tx(
+		// Case 3: the manifest's collection, which the burn writes, demoted to
+		// readonly.
+		let [verify_ix, mut readonly_collection] = program::absorb_core(
+			&keeper.address(),
+			receipt_sig.as_bytes(),
+			&receipt,
+			Some(&saint_collection()),
+		);
+		readonly_collection.accounts[4].role = AccountRole::Readonly;
+		let readonly_collection_tx = encode_tx(
 			Version::Legacy,
 			wallet.address(),
-			&[verify_ix, writable_core],
+			&[verify_ix, readonly_collection],
 		);
 
-		for tx in [bad_account_tx, bad_role_tx, writable_core_tx] {
+		for tx in [bad_account_tx, bad_role_tx, readonly_collection_tx] {
 			let rpc = Rc::new(RecordingRpc {
 				calls: RefCell::new(Vec::new()),
 			});
@@ -1323,7 +1309,7 @@ mod tests {
 				keypair: Keypair::from_seed(&[6; 32]),
 				signed: Cell::new(0),
 			};
-			let status = devnet_status(&prover.keypair.address(), Vec::new());
+			let status = devnet_status(&prover.keypair.address(), saint_manifest());
 			let result = block_on(cluster.absorb(
 				&status,
 				&prover,
@@ -1355,7 +1341,12 @@ mod tests {
 		let receipt_bytes = receipt.encode();
 		let forged_sig = imposter.sign(&receipt_bytes);
 
-		let ixs = program::absorb_core(&keeper.address(), forged_sig.as_bytes(), &receipt, None);
+		let ixs = program::absorb_core(
+			&keeper.address(),
+			forged_sig.as_bytes(),
+			&receipt,
+			Some(&saint_collection()),
+		);
 		let tx = encode_tx(Version::Legacy, wallet.address(), &ixs);
 
 		let rpc = Rc::new(RecordingRpc {
@@ -1367,7 +1358,7 @@ mod tests {
 			keypair: wallet,
 			signed: Cell::new(0),
 		};
-		let status = devnet_status(&prover.keypair.address(), Vec::new());
+		let status = devnet_status(&prover.keypair.address(), saint_manifest());
 
 		let result = block_on(cluster.absorb(
 			&status,
@@ -1489,7 +1480,12 @@ mod tests {
 		let receipt_bytes = receipt.encode();
 		let receipt_sig = keeper.sign(&receipt_bytes);
 
-		let ixs = program::absorb_core(&keeper.address(), receipt_sig.as_bytes(), &receipt, None);
+		let ixs = program::absorb_core(
+			&keeper.address(),
+			receipt_sig.as_bytes(),
+			&receipt,
+			Some(&saint_collection()),
+		);
 		let v0_tx = encode_tx(Version::V0, wallet.address(), &ixs);
 
 		let rpc = Rc::new(RecordingRpc {
@@ -1501,7 +1497,7 @@ mod tests {
 			keypair: wallet,
 			signed: Cell::new(0),
 		};
-		let status = devnet_status(&prover.keypair.address(), Vec::new());
+		let status = devnet_status(&prover.keypair.address(), saint_manifest());
 
 		let result = block_on(cluster.absorb(
 			&status,
@@ -1599,5 +1595,69 @@ mod tests {
 				"getMultipleAccounts"
 			]
 		);
+	}
+
+	/// The game escrows only husks the manifest maps, so a burn for any
+	/// other husk is never one it asked for. Here the server says a Sollamas
+	/// husk (absent from the manifest) was absorbed, with a receipt for this
+	/// player's escrowed Epic `degenApes:8` and a collection of its own
+	/// choosing: the wallet must not be asked to burn it.
+	#[test]
+	fn absorb_refuses_a_husk_the_manifest_does_not_map() {
+		use std::cell::Cell;
+
+		use futures::executor::block_on;
+		use solana_kit_core::crypto::Keypair;
+
+		let wallet = Keypair::from_seed(&[6; 32]);
+		let keeper = Keypair::from_seed(&[5; 32]);
+		let manifest = vec![Husks {
+			collection: "degenApes".into(),
+			address: Address::from_bytes([9; 32]).to_string(),
+			assets: (1..=8_u8)
+				.map(|n| Address::from_bytes([n; 32]).to_string())
+				.collect(),
+		}];
+		let epic_mint = Address::from_bytes([8; 32]);
+		let receipt = sample_receipt(&wallet.address(), &epic_mint);
+		let receipt_bytes = receipt.encode();
+		let receipt_sig = keeper.sign(&receipt_bytes);
+		let chosen_collection = Address::from_bytes([77; 32]);
+		let ixs = program::absorb_core(
+			&keeper.address(),
+			receipt_sig.as_bytes(),
+			&receipt,
+			Some(&chosen_collection),
+		);
+		let tx = encode_tx(Version::Legacy, wallet.address(), &ixs);
+
+		let rpc = Rc::new(RecordingRpc {
+			calls: RefCell::new(Vec::new()),
+		});
+		let cluster = Cluster::new(ClusterName::Devnet, "http://rpc", rpc.clone())
+			.with_pause(Rc::new(|_| Box::pin(async { true })));
+		let prover = CountingWallet {
+			keypair: wallet,
+			signed: Cell::new(0),
+		};
+		let status = devnet_status(&prover.keypair.address(), manifest);
+		let result = block_on(cluster.absorb(
+			&status,
+			&prover,
+			&prover.keypair.address(),
+			Nft::new(NftCollection::Sollamas, 1),
+			&tx,
+			&receipt_bytes,
+			receipt_sig.as_bytes(),
+			&keeper.address().to_string(),
+		));
+		assert_eq!(
+			prover.signed.get(),
+			0,
+			"the wallet was asked to burn {epic_mint} (degenApes:8) for a Sollamas husk the manifest does not name; rpc={:?}",
+			rpc.calls.borrow()
+		);
+		assert!(rpc.calls.borrow().is_empty());
+		assert!(matches!(result, Err(ChainFailure::Rejected(_))));
 	}
 }

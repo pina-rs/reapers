@@ -760,7 +760,9 @@ mod tests {
 	}
 
 	/// What the server answers for the saint's burn, built again: the
-	/// keeper's receipt for `wallet` and its unsigned transaction.
+	/// keeper's receipt for `wallet` and its unsigned transaction. The saint
+	/// is `degenApes:1`, which [`demo_manifest`] maps to the asset `[1; 32]`
+	/// of the collection `[9; 32]`.
 	fn saint_burn(wallet: &solana_kit_core::Address) -> ChainReceipt {
 		use base64::Engine as _;
 		use base64::engine::general_purpose::STANDARD;
@@ -771,7 +773,8 @@ mod tests {
 		use solana_kit_core::transaction::Version;
 
 		let keeper = solana_kit_core::crypto::Keypair::from_seed(&[5; 32]);
-		let mint = solana_kit_core::Address::from_bytes([2; 32]);
+		let mint = solana_kit_core::Address::from_bytes([1; 32]);
+		let collection = solana_kit_core::Address::from_bytes([9; 32]);
 		let receipt = crate::receipt::Receipt {
 			player: *wallet.as_bytes(),
 			mint: *mint.as_bytes(),
@@ -783,8 +786,12 @@ mod tests {
 			nonce: 7,
 		};
 		let signature = keeper.sign(&receipt.encode());
-		let instructions =
-			crate::program::absorb_core(&keeper.address(), signature.as_bytes(), &receipt, None);
+		let instructions = crate::program::absorb_core(
+			&keeper.address(),
+			signature.as_bytes(),
+			&receipt,
+			Some(&collection),
+		);
 		let message = Message::compile(
 			Version::Legacy,
 			*wallet,
@@ -815,7 +822,7 @@ mod tests {
 			collection: None,
 			marketplace_uri: None,
 			program: Some(crate::program::program_id().to_string()),
-			husks: Vec::new(),
+			husks: demo_manifest(),
 		}
 	}
 
