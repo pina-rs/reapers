@@ -39,6 +39,11 @@ WEAPON_KINDS = ("scythe", "lantern_pole", "balance_flail", "spear", "chain_whip"
 # where there are fewer (`variant_counts`).
 VARIANTS = 4
 VARIANT_PARTS = ("head_", "mantle_", "robe_", "face_")
+
+# What a reaper's sheets show it in: the first key of its idle clip, by form.
+# A reaper file's own rest transforms put every joint at its parent's
+# origin, which is no pose at all, and the game always plays a clip.
+STANCES = {"spirit": "idle", "humanoid": "humanoid_idle"}
 FORMS = ("spirit", "humanoid")
 
 
@@ -71,7 +76,9 @@ def rest_pose(path):
 
     Muting the clips is not enough: the importer makes the first clip it
     reads each node's active action and writes that clip's first frame into
-    the node, so a node left alone would show that frame instead."""
+    the node, so a node left alone would show that frame instead, and which
+    clip that is would hang on the order of the file's clips. A pose to show
+    is then played on purpose: see `STANCES` and `play`."""
 
     for animation in _animations():
         animation.action = None
@@ -234,8 +241,16 @@ def dress(root, variant, form, weapons=None, weapon=None, clothing="robe"):
         hide_tree(held, kind != weapon)
 
 
+def stand(root, variant, form, weapons=None, weapon=None):
+    """`dress`es a reaper and puts it in its stance for `form` (`STANCES`)."""
+
+    dress(root, variant, form, weapons, weapon)
+    play(STANCES[form], 0.0)
+
+
 def reaper(glb, calling, out, cel_look=None):
-    """The sheets of one reaper class, from its built model at rest:
+    """The sheets of one reaper class, from its built model in its idle
+    stance (`STANCES`):
 
     - `reaper_<class>_spirit.png` and `reaper_<class>_humanoid.png`: a row
       for each variant (robe, head and mantle), holding the class's weapon,
@@ -257,7 +272,7 @@ def reaper(glb, calling, out, cel_look=None):
         return f"{calling} {form}, robe {variant}, head {head}, mantle {mantle}"
 
     for form in FORMS:
-        rows = [preview.row(label(form, variant), lambda variant=variant, form=form: dress(root, variant, form, weapons, own)) for variant in range(VARIANTS)]
+        rows = [preview.row(label(form, variant), lambda variant=variant, form=form: stand(root, variant, form, weapons, own)) for variant in range(VARIANTS)]
         preview.render_grid(preview.sheet_path(out, f"reaper_{calling}_{form}", cel_look), rows, tile=(400, 600), cel_look=cel_look)
 
     armoury = []
@@ -265,7 +280,7 @@ def reaper(glb, calling, out, cel_look=None):
     for view in ("threequarter", "silhouette"):
         armoury.append(
             [
-                {"label": f"{kind} {view}", "setup": lambda kind=kind: dress(root, 0, "spirit", weapons, kind), "view": view, "look": None}
+                {"label": f"{kind} {view}", "setup": lambda kind=kind: stand(root, 0, "spirit", weapons, kind), "view": view, "look": None}
                 for kind in WEAPON_KINDS
             ]
         )

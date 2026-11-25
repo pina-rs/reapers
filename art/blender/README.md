@@ -76,11 +76,11 @@ Add `--preview art/build/previews` to any driver for its review sheets (see [Rev
 
 A model is judged by eye, from its review sheets. Every sheet is a grid: a row for each thing to compare, framed on what that row shows so nothing leaves the frame, at one scale across the row. Most rows show the front, three-quarter, side and back, then the model in black with the same silhouette beside it at the size a phone shows it in a list (96 pixels tall), since that is where a shape is hardest to read. A silhouette leaves out the floor shadow, which is not the model's shape.
 
-A model is reviewed at its bind pose: every node and morph where the file exported it, before any clip moves it. The glTF importer leaves each node at the first frame of the first clip it reads, so `review.py` puts every node a clip moves back where the file has it. To see a class in its idle stance instead, render `review_motions.py --clip idle --phase 0`.
+The glTF importer leaves each node at the first frame of whichever clip it reads first, so the review puts every node a clip moves back at the transform and morph weights the file exported (its bind pose), and then plays any pose it shows on purpose. A reaper is shown in the first key of its idle clip, `idle` for the spirit and `humanoid_idle` for the humanoid (`review.STANCES`): a reaper file's own rest transforms put every joint at its parent's origin, which is no pose at all, and the game always plays a clip. Every other model has no clips and is shown as exported.
 
 | Sheet | What it shows |
 | --- | --- |
-| `reaper_<class>_spirit.png`, `reaper_<class>_humanoid.png` | The class at its bind pose, holding its own weapon: a row for each robe, with the matching head and mantle (the last of them again where a class has fewer heads or mantles than robes; the row's label says which). |
+| `reaper_<class>_spirit.png`, `reaper_<class>_humanoid.png` | The class in its idle stance, holding its own weapon: a row for each robe, with the matching head and mantle (the last of them again where a class has fewer heads or mantles than robes; the row's label says which). |
 | `reaper_<class>_armoury.png` | The class holding each of the eight weapons, then each in silhouette, so a weapon is judged in a hand at its true size. |
 | `weapon_<kind>.png` | One weapon alone, framed on itself. |
 | `weapons.png` | All eight side by side at one scale, and in silhouette. |
@@ -101,7 +101,7 @@ blender --background --python-exit-code 1 --python art/blender/review.py -- \
 
 The first-person sheets are staged from the rig itself: `lib/review.py` reads the arms' rest place and turn, each weapon's hold, the camera's field of view and the reload and throw constants out of `crates/reapers_app/src/render/viewmodel.rs` and `arms.rs`, so they follow the game. The few numbers a pose works out inside a function (where the left hand is at the top of a reload and while a throw is held) are copied into `review.moment_stages`, which says where each comes from. If the rig's source changes shape, the review stops and names the constant it could not find.
 
-`review_check.py` checks the harness itself against the built models: every reaper reviewed at exactly its bind pose, the trail finding the off-hand flaps in thrust, slash and parry and none in idle or a walk, the first-person moments staged where the game puts them, and a face found for every variant. It prints a `CHECK` line for each and fails if any did, in about three minutes:
+`review_check.py` checks the harness itself against the built models: every reaper imported at exactly its bind pose whatever clip the importer read first, and shown in the first key of its form's idle clip, the trail finding the off-hand flaps in thrust, slash and parry and none in idle or a walk, the first-person moments staged where the game puts them, and a face found for every variant. It prints a `CHECK` line for each and fails if any did, in about three minutes:
 
 ```sh
 blender --background --python-exit-code 1 --python art/blender/review_check.py [-- --models art/build/models]

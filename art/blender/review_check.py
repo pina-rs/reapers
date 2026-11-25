@@ -4,7 +4,11 @@ right can be trusted to be right:
     blender --background --python-exit-code 1 --python art/blender/review_check.py
 
 - Every reaper imports at its bind pose: the pose an import with its clips
-  stripped out shows, node for node and morph for morph.
+  stripped out shows, node for node and morph for morph, whatever clip the
+  importer read first.
+- Every reaper's sheets show it in its idle stance: every node the spirit's
+  `idle` (or the humanoid's `humanoid_idle`) moves where that clip's first
+  key in the file puts it.
 - The trail finds the off-hand flaps docs/animations.md lists (thrust,
   slash and parry drop `elbow_l` onto its bind pose) and none in idle or a
   walk.
@@ -31,13 +35,15 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(HERE)
 
 import bpy  # noqa: E402
-from mathutils import Vector  # noqa: E402
+from mathutils import Quaternion, Vector  # noqa: E402
 
 import review_trail  # noqa: E402
 from lib import core, review  # noqa: E402
 from viewmodel import MOMENTS  # noqa: E402
 
 CALLINGS = tuple(review.CLASS_WEAPONS)
+# The clip each form's sheets must stand in.
+STANCES = {"spirit": "idle", "humanoid": "humanoid_idle"}
 # (clip, joints that must flap, joints that must not)
 FLAPS = (
     ("thrust", {"elbow_l"}, set()),
@@ -63,6 +69,9 @@ def main():
 
     for calling in CALLINGS:
         check(f"rest pose of reaper_{calling}", _rest(os.path.join(options.models, f"reaper_{calling}.glb")))
+
+        for form, clip in STANCES.items():
+            check(f"{form} stance of reaper_{calling}", _stance(options.models, calling, form, clip))
         check(f"faces of reaper_{calling}", _faces(options.models, calling))
 
     for clip, flapping, steady in FLAPS:
@@ -119,6 +128,66 @@ def _rest(path):
 
         if moved > 1e-5 or morphed > 1e-5:
             problems.append(f"{name} is off its bind pose")
+
+    return problems
+
+
+def _first_keys(path, clip):
+    """Each node's translation and rotation at the first key of `clip`, as
+    the file stores them (glTF's frame)."""
+
+    with open(path, "rb") as source:
+        data = source.read()
+
+    length = struct.unpack_from("<I", data, 12)[0]
+    document = json.loads(data[20 : 20 + length])
+    binary = data[20 + length + 8 :]
+    animation = next(animation for animation in document["animations"] if animation["name"] == clip)
+    widths = {"VEC3": 3, "VEC4": 4}
+    keys = {}
+
+    for channel in animation["channels"]:
+        path_name = channel["target"]["path"]
+
+        if path_name not in ("translation", "rotation"):
+            continue
+
+        accessor = document["accessors"][animation["samplers"][channel["sampler"]]["output"]]
+
+        if accessor["componentType"] != 5126 or "sparse" in accessor:
+            raise ValueError(f"{path}: {clip} stores {path_name} in a way this check does not read")
+
+        view = document["bufferViews"][accessor["bufferView"]]
+        start = view.get("byteOffset", 0) + accessor.get("byteOffset", 0)
+        value = struct.unpack_from(f"<{widths[accessor['type']]}f", binary, start)
+        keys.setdefault(document["nodes"][channel["target"]["node"]]["name"], {})[path_name] = value
+
+    return keys
+
+
+def _stance(models, calling, form, clip):
+    """What is off the first key of `clip` once a reaper stands in it."""
+
+    path = os.path.join(models, f"reaper_{calling}.glb")
+    core.reset_scene()
+    review.import_glb(path)
+    root = bpy.data.objects["reaper"]
+    review.stand(root, 0, form)
+    problems = []
+
+    for name, key in _first_keys(path, clip).items():
+        obj = bpy.data.objects[name]
+
+        if "translation" in key:
+            x, y, z = key["translation"]
+
+            if (obj.location - Vector((x, -z, y))).length > 1e-4:
+                problems.append(f"{name} is not where {clip} starts it")
+        if "rotation" in key:
+            x, y, z, w = key["rotation"]
+
+            if abs(obj.rotation_quaternion.dot(Quaternion((w, x, -z, y)))) < 1 - 1e-6:
+                problems.append(f"{name} is not turned as {clip} starts it")
 
     return problems
 
