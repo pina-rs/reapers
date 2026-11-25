@@ -13,7 +13,7 @@ use crate::lookups::class_name;
 use crate::routes::Hunt;
 use crate::routes::Route;
 use crate::seams::ReaperStageProps;
-use crate::seams::reaper_stage;
+use crate::seams::reaper_hero;
 use crate::state::Game;
 use crate::theme::ASH;
 use crate::theme::BONE;
@@ -195,7 +195,7 @@ pub fn page(player: &PlayerState) -> Element {
 		.child(
 			View()
 				.class("relative w-full h-[52vh] shrink-0")
-				.child(reaper_stage(&ReaperStageProps::new(
+				.child(reaper_hero(&ReaperStageProps::new(
 					genome,
 					weapon,
 					player.outfit(),

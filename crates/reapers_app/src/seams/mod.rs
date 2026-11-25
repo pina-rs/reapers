@@ -11,6 +11,7 @@
 //! | Seam | Flutter | Replaced by |
 //! | --- | --- | --- |
 //! | [`reaper_stage`] | `render/reaper_stage*.dart` | a `leptoskit_3d` scene of the reaper's GLB |
+//! | [`reaper_hero`] | the sanctum's `ReaperStage` | the same scene, framed as the sanctum's hero |
 //! | [`husk_portrait`] | `widgets/nft_thumbnail.dart`, `render/nft_image.dart` | the bundled portrait, natively too |
 //! | [`hunt_view`] | `hunt/hunt_screen.dart`'s arena | `leptoskit_xr`'s camera, pose and planes, and the 3D husk |
 //! | [`rift_view`] | `rift/rift_screen.dart` | the same arena in rift mode |
@@ -33,6 +34,7 @@ pub use husk::HuskPortraitProps;
 pub use husk::husk_portrait;
 pub use husk::portrait_source;
 pub use reaper::ReaperStageProps;
+pub use reaper::reaper_hero;
 pub use reaper::reaper_stage;
 pub use rift::RiftViewProps;
 pub use rift::rift_view;

@@ -29,6 +29,7 @@ use crate::render::appearance::ReaperAppearance;
 use crate::render::camera::STUDIO_DISTANCE;
 use crate::render::playback::ReaperPlayback;
 use crate::render::playback::expression;
+use crate::render::print::Framing;
 use crate::render::stage::StageShow;
 
 /// The seed the Flutter studio drew its first specimen from, and counted
@@ -212,6 +213,7 @@ impl Specimen {
 			turns_on_its_own: self.spinning,
 			focus_face: self.focus_face,
 			distance: STUDIO_DISTANCE,
+			framing: Framing::Figure,
 		}
 	}
 

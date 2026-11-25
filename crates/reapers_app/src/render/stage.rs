@@ -22,15 +22,18 @@ use reapers_rules::ReaperMotion;
 use reapers_rules::Weapon;
 
 use super::appearance::ReaperAppearance;
+use super::camera::HERO_DISTANCE;
 use super::camera::STAGE_DISTANCE;
+use super::camera::hero_camera;
 use super::camera::stage_camera;
 use super::playback::ReaperPlayback;
 use super::pointer::Gesture;
+use super::print::Framing;
 use super::rig::ReaperRig;
 use super::rig::stature;
 use super::scene::GameScene;
 use super::scene::Key;
-use super::scene::light_sanctum;
+use super::scene::light_stage;
 use super::scene::scene;
 
 /// How fast a stage turns by itself, in radians a second.
@@ -49,6 +52,9 @@ pub struct StageShow {
 	pub focus_face: bool,
 	/// How far back the camera stands.
 	pub distance: f32,
+	/// How the reaper is framed, which sets its light, line and hatch: the
+	/// sanctum's hero, or a figure everywhere else.
+	pub framing: Framing,
 }
 
 /// Where a stage's model has got to, for the view to show a stand-in until
@@ -130,11 +136,12 @@ impl Stage {
 		let ops = self.scene.ops();
 		let before = self.shown;
 		let fresh = before.is_none_or(|before| before.genome != show.genome);
+		if before.is_none_or(|before| before.framing != show.framing) {
+			light_stage(ops, show.framing);
+		}
 		if fresh {
 			if let Some(rig) = self.rig.take() {
 				rig.remove(ops);
-			} else {
-				light_sanctum(ops);
 			}
 			self.loading.set(Loading::Waiting);
 			let mut rig = ReaperRig::spawn(
@@ -210,9 +217,12 @@ impl Stage {
 		let face = show
 			.focus_face
 			.then(|| (show.genome.reaper_class, stature(&show.genome)));
-		self.scene
-			.ops()
-			.push(stage_camera(self.turn, show.distance, face));
+		let camera = if show.framing == Framing::Hero && face.is_none() {
+			hero_camera(self.turn)
+		} else {
+			stage_camera(self.turn, show.distance, face)
+		};
+		self.scene.ops().push(camera);
 	}
 
 	fn tick(&mut self, delta: f64) {
@@ -373,7 +383,7 @@ pub fn stage_view(key: Key, show: StageShow) -> (Rc<RefCell<Stage>>, Element) {
 	(stage, view)
 }
 
-/// The defaults the seam's props leave out.
+/// The defaults the seam's props leave out: a figure, seen whole.
 pub const fn plain_show(
 	genome: ReaperGenome,
 	weapon: Weapon,
@@ -394,6 +404,17 @@ pub const fn plain_show(
 		turns_on_its_own,
 		focus_face,
 		distance: STAGE_DISTANCE,
+		framing: Framing::Figure,
+	}
+}
+
+/// The sanctum's hero: the bound reaper close, and lit from behind so the
+/// rim carries its silhouette (art bible §5.4, §9).
+pub const fn hero_show(genome: ReaperGenome, weapon: Weapon, outfit: Outfit) -> StageShow {
+	StageShow {
+		distance: HERO_DISTANCE,
+		framing: Framing::Hero,
+		..plain_show(genome, weapon, outfit, false, false)
 	}
 }
 
@@ -525,6 +546,16 @@ mod tests {
 		assert!(camera(&stage)[2] < 2.0);
 		stage.show(show(3));
 		assert!(camera(&stage)[2] > 8.0);
+		let hero = |seed| {
+			let show = show(seed);
+			hero_show(show.genome, show.weapon, show.outfit)
+		};
+		stage.show(hero(3));
+		assert!(
+			(camera(&stage)[2] - HERO_DISTANCE).abs() < 1e-4,
+			"the hero stands closer"
+		);
+		stage.show(show(3));
 		let mut gestures = super::super::pointer::NativeGestures::default();
 		for (phase, dx) in [
 			(leptoskit::scene3d::PointerPhase::Down, 0.0),
@@ -548,6 +579,48 @@ mod tests {
 		assert!(stage.dragging);
 		stage.gesture(Gesture::Up);
 		assert!(!stage.dragging);
+	}
+
+	#[test]
+	fn a_stage_prints_for_its_framing_once() {
+		let style = |sent: &[Op]| {
+			sent.iter()
+				.filter_map(|op| {
+					match op {
+						Op::SetStyle(style) => Some(style.ink.map(|ink| ink.width)),
+						_ => None,
+					}
+				})
+				.collect::<Vec<_>>()
+		};
+		let stage = stage(Key::Fixed("test-e"));
+		let mut stage = stage.borrow_mut();
+		stage.show(show(9));
+		let figure = style(&stage.scene.sent());
+		assert_eq!(figure.len(), 1, "a stage is styled once");
+		stage.show(show(10));
+		assert_eq!(style(&stage.scene.sent()).len(), 1, "a new reaper keeps it");
+		let shown = show(10);
+		stage.show(hero_show(shown.genome, shown.weapon, shown.outfit));
+		let both = style(&stage.scene.sent());
+		assert_eq!(both.len(), 2, "the hero is styled afresh");
+		assert_ne!(both[0], both[1], "the hero's line is its own");
+		assert!(
+			stage
+				.scene
+				.sent()
+				.iter()
+				.any(|op| matches!(op, Op::SetPrint { .. })),
+			"the reaper prints"
+		);
+		assert!(
+			!stage
+				.scene
+				.sent()
+				.iter()
+				.any(|op| matches!(op, Op::SetMaterial { .. })),
+			"nothing on a stage is tinted outside the print"
+		);
 	}
 
 	#[test]

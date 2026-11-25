@@ -13,7 +13,6 @@ use std::rc::Rc;
 
 use leptoskit::scene3d::Backdrop;
 use leptoskit::scene3d::Event;
-use leptoskit::scene3d::Light;
 use leptoskit::scene3d::Op;
 use leptoskit::scene3d::SceneId;
 use leptoskit::scene3d::client::Scene;
@@ -230,20 +229,12 @@ pub async fn wait_for_scene(id: SceneId) -> Result<(), leptoskit::scene3d::clien
 	scene.submissions.ready().await
 }
 
-/// The light a reaper stands in alone in the dark: a cold key from above
-/// and in front, which leaves the face in the shadow of whatever the reaper
-/// wears on its head, and a dim sky. The Flutter `VeilLook.sanctum`.
-pub fn light_sanctum(scene: &Scene) {
-	scene.push(Op::SetLight(Light {
-		direction: [-0.35, -1.0, -0.55],
-		color: [0.82, 0.9, 1.0],
-		intensity: 4.6,
-		ambient: 0.55,
-		shadow: 0.55,
-		camera_space: false,
-	}));
+/// A stage's print: a reaper alone on transparent ground over the page's
+/// ink, lit and lined for how the stage frames it (art bible §5.4).
+pub fn light_stage(scene: &Scene, framing: Framing) {
+	framing.apply(scene);
 	scene.push(Op::SetBackdrop(Backdrop::Transparent));
-	scene.push(Op::SetExposure(1.3));
+	scene.push(Op::SetExposure(1.0));
 }
 
 /// The hunt's print, over the camera's picture or over what the page draws
