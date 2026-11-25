@@ -116,7 +116,7 @@ What leptoskit cannot do yet:
 
 ## Build and review
 
-`ReaperMotion` in `reapers_rules` owns clip IDs, durations, loop flags, contact fractions and weapon capabilities. `cargo xtask build-art` writes those timings to `art/build/motions.json`; `art/blender/lib/motion.py` authors the poses and bakes them at 30 FPS into matching NLA tracks. The renderer plays the exported GLB clips and never reimplements joint animation; cloth morphs follow the same clock and preserve genome traits.
+`ReaperMotion` in `reapers_rules` owns clip IDs, durations, loop flags, contact fractions and weapon capabilities. `cargo xtask build-art` writes those timings to `art/build/motions.json`; `art/blender/lib/motion.py` authors the poses and bakes them at 60 keys a second into matching NLA tracks, with the robe's `sway_x`, `sway_y` and `billow` weights (and the Hollow's lantern) keyed from the body's own motion by a damped spring. The renderer plays the exported GLB clips and never reimplements joint animation or that cloth: it sets only the genome and fit morphs by hand, and must not set those three, since a weight set by hand overrides the clip's.
 
 ```sh
 cargo xtask build-art reapers
@@ -141,7 +141,7 @@ blender --background --python-exit-code 1 --python art/blender/review_trail.py -
   --out art/build/previews/trail_harvester_finisherReap.png
 ```
 
-`--phase` runs from 0, the clip's first frame, to 1, its last. All three read the models in `art/build/models` and take `--humanoid` (`--form humanoid` for the catalogue) and `--cel`. On a trail sheet each path has a dot at every key, at the 30 keys a second the clips are baked at, so bunched dots are slow and spread ones fast; a green dot marks a dead stop mid-clip and a red one a flap of a joint of that arm: a joint snapping onto its bind pose (the stiff flap a key pose that leaves a joint out makes) or jittering out and back. The script prints each path's length, top speed, stops and flaps, and a `FLAP` line naming each flapping joint. [The art README](../art/blender/README.md#motion) has every option.
+`--phase` runs from 0, the clip's first frame, to 1, its last. All three read the models in `art/build/models` and take `--humanoid` (`--form humanoid` for the catalogue) and `--cel`. On a trail sheet each path has a dot at every key, at the 60 keys a second the clips are baked at, so bunched dots are slow and spread ones fast; a green dot marks a dead stop mid-clip and a red one a flap of a joint of that arm: a joint snapping onto its bind pose (the stiff flap a key pose that left a joint out once made) or jittering out and back. The script prints each path's length, top speed, stops and flaps, and a `FLAP` line naming each flapping joint. [The art README](../art/blender/README.md#motion) has every option.
 
 Only `cargo xtask build-art` writes `assets/models`, compressed; a model built by hand into `art/build/models` is for review. Commit the source and all rebuilt models together, and rebuild the app after changing one: its `build.rs` mirrors `assets/models` into the bundle. Reduced-motion settings stop automatic character motion as well as rotation; manual timeline scrubbing remains available.
 

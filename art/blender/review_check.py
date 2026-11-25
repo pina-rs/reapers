@@ -9,9 +9,9 @@ right can be trusted to be right:
 - Every reaper's sheets show it in its idle stance: every node the spirit's
   `idle` (or the humanoid's `humanoid_idle`) moves where that clip's first
   key in the file puts it.
-- The trail finds the off-hand flaps docs/animations.md lists (thrust,
-  slash and parry drop `elbow_l` onto its bind pose) and none in idle or a
-  walk.
+- The trail's flap detector finds a drop and a jitter made on purpose, and
+  no flap in the harvester's thrust, slash, parry, idle or walk: a joint a
+  key pose leaves out holds, so no off hand drops onto its bind pose.
 - The first-person view is staged as the game places it: in a reload and a
   throw the right hand is low on the right and the left hand left of it,
   both in front of the eye, the pistol and the left palm in its view, and
@@ -46,9 +46,9 @@ CALLINGS = tuple(review.CLASS_WEAPONS)
 STANCES = {"spirit": "idle", "humanoid": "humanoid_idle"}
 # (clip, joints that must flap, joints that must not)
 FLAPS = (
-    ("thrust", {"elbow_l"}, set()),
-    ("slash", {"elbow_l"}, set()),
-    ("parry", {"elbow_l"}, set()),
+    ("thrust", set(), set(review_trail.JOINTS)),
+    ("slash", set(), set(review_trail.JOINTS)),
+    ("parry", set(), set(review_trail.JOINTS)),
     ("idle", set(), set(review_trail.JOINTS)),
     ("walk", set(), set(review_trail.JOINTS)),
 )
@@ -73,6 +73,8 @@ def main():
         for form, clip in STANCES.items():
             check(f"{form} stance of reaper_{calling}", _stance(options.models, calling, form, clip))
         check(f"faces of reaper_{calling}", _faces(options.models, calling))
+
+    check("the flap detector", _detector())
 
     for clip, flapping, steady in FLAPS:
         check(f"flaps in harvester {clip}", _flaps(options.models, clip, flapping, steady))
@@ -200,6 +202,34 @@ def _faces(models, calling):
     shown = [f"face_{review.shown_variant(counts, 'face_', variant)}" for variant in range(review.VARIANTS)]
 
     return [f"variant {variant} shows {name}, which is not in the model" for variant, name in enumerate(shown) if review.find(root, name) is None]
+
+
+def _detector():
+    """What the trail's flap detector misses or invents in turns made to
+    flap, and to sweep without flapping, at the clips' rate."""
+
+    rate = review.CLIP_RATE
+
+    def turns(degrees):
+        return [Quaternion((1, 0, 0), math.radians(angle)) for angle in degrees]
+
+    held = [60.0] * rate
+    # Out at 60° and onto the bind pose in 50 ms (1200°/s): the old bug.
+    drop = held + [60.0 * (1 - key / (rate // 20)) for key in range(1, rate // 20 + 1)] + [0.0] * rate
+    # Held 30° out, then 40° further and back in 100 ms.
+    jitter = [30.0] * rate + [30.0 + 40.0 * math.sin(math.pi * key / (rate // 10)) for key in range(rate // 10 + 1)] + [30.0] * rate
+    # 90° out and home over a second: a swing, not a flap.
+    sweep = [45.0 * (1 - math.cos(math.tau * key / rate)) for key in range(rate + 1)]
+    problems = []
+
+    if [flap[0] for flap in review_trail.flaps(turns(drop), rate)] != ["drop"]:
+        problems.append("the drop is not found as one drop")
+    if [flap[0] for flap in review_trail.flaps(turns(jitter), rate)] != ["jitter"]:
+        problems.append("the jitter is not found as one jitter")
+    if review_trail.flaps(turns(sweep), rate):
+        problems.append("a sweep is found as a flap")
+
+    return problems
 
 
 def _flaps(models, clip, flapping, steady):

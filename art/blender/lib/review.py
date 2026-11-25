@@ -14,13 +14,19 @@ import re
 import struct
 
 import bpy
+from bpy_extras import anim_utils
 from mathutils import Matrix, Quaternion, Vector
 
 from . import cel, core, preview
 
-# The rate every clip is baked at (`motion.py`). A model is imported at it,
-# so each key lands on a whole frame, as the game samples it.
-CLIP_RATE = 30
+# The rate every clip is baked at (`motion.RATE`). A model is imported at
+# it, so each key lands on a whole frame, as the game samples it.
+CLIP_RATE = 60
+# The robe's morphs a clip keys (`motion.robe_weights`). glTF animates a
+# mesh's morph weights all together, so an imported clip also keys the
+# genome and fit morphs `dress` sets; the game sets those by hand, which
+# overrides the clip, and `dress` mutes them for the same effect.
+CLIP_MORPHS = ("sway_x", "sway_y", "billow")
 
 # The weapon each reaper class is shown holding, and the order the eight
 # weapons are shown in. The keys are the modules in `weapon_kinds/`.
@@ -246,8 +252,27 @@ def dress(root, variant, form, weapons=None, weapon=None, clothing="robe"):
             if garment is not None:
                 keys[garment].value = 1.0
 
+            _mute_fit_morphs(node.data.shape_keys)
+
     for kind, held in (weapons or {}).items():
         hide_tree(held, kind != weapon)
+
+
+def _mute_fit_morphs(shape_keys):
+    """Mutes every morph an imported clip keys on a robe but `CLIP_MORPHS`,
+    so the weights `dress` sets hold while a clip plays."""
+
+    animation = shape_keys.animation_data
+    strips = [] if animation is None else [strip for track in animation.nla_tracks for strip in track.strips if strip.action is not None]
+
+    for strip in strips:
+        # A clip's action holds every node's channels, each in its own slot:
+        # only this robe's are touched.
+        bag = anim_utils.action_get_channelbag_for_slot(strip.action, strip.action_slot)
+
+        for curve in [] if bag is None else bag.fcurves:
+            if not any(f'["{name}"]' in curve.data_path for name in CLIP_MORPHS):
+                curve.mute = True
 
 
 def play_stance(form):
