@@ -129,7 +129,8 @@ pub enum HuskPlace {
 	InWallet,
 	/// The wallet released it into the program's escrow.
 	Escrowed,
-	/// It was absorbed: Core's one-byte tombstone.
+	/// Core's one-byte tombstone: the asset was burned (on-chain tombstones
+	/// record no prior owner or burner).
 	Burned,
 }
 
@@ -224,8 +225,10 @@ impl Cluster {
 		}
 	}
 
-	/// Every demo husk the server's manifest names that `wallet` owns, has
-	/// in escrow, or has burned, read at a confirmed slot.
+	/// Every demo husk the server's manifest names that `wallet` owns or has
+	/// in escrow, plus any tombstoned manifest asset (reported as
+	/// [`HuskPlace::Burned`], because on-chain Core tombstones do not record
+	/// who burned them), read at a confirmed slot.
 	pub async fn wallet_husks(
 		&self,
 		husks: &[Husks],
@@ -696,6 +699,9 @@ fn custom_code(error: &Value) -> Option<(usize, u32)> {
 }
 
 /// Where a husk is: its asset account and its escrow's, against `wallet`.
+///
+/// Any one-byte Core tombstone is reported as [`HuskPlace::Burned`] regardless
+/// of `wallet`, since Metaplex Core tombstones store no prior owner or burner.
 fn place_of(
 	asset: Option<&AccountData>,
 	escrow: Option<&AccountData>,
@@ -704,6 +710,7 @@ fn place_of(
 ) -> Option<HuskPlace> {
 	let asset = asset.filter(|asset| asset.owner == program::core_program())?;
 	if asset.data == [0] {
+		// Core tombstones keep no prior owner; any burned manifest asset maps here.
 		return Some(HuskPlace::Burned);
 	}
 	// An `AssetV1`: its key, then its owner.
