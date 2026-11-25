@@ -500,8 +500,9 @@ impl Arena {
 				} => {
 					// A shot's impact frame (art bible §11.2): the husk alone
 					// is held, three frames on the body and five on a seal, and
-					// printed in the reaper's spot. Its reaction is never held
-					// again on top, so the hold is the frames it says.
+					// printed flat in the reaper's spot, no more often than it
+					// may without flashing. Its reaction is never held again on
+					// top, so the hold is the frames it says.
 					let Rgb(red, green, blue) = self.spot;
 					let spot = u32::from_be_bytes([0, red, green, blue]);
 					self.rig.print(crate::render::look::linear(spot));

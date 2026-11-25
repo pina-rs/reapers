@@ -78,6 +78,12 @@ const RIM: f32 = 0.12;
 const FLASH_DECAY: f64 = 7.0;
 /// How long a blow prints the husk in the reaper's spot: four frames.
 pub const PRINT_SECONDS: f64 = 4.0 / 60.0;
+/// The least time from one print's start to the next: 21 frames. A print
+/// changes the colour of much of the screen, so it may come at most 60 / 21,
+/// about 2.9, times a second, under the three flashes a second WCAG 2.3.1
+/// allows (art bible §2, rule 9). The pistol fires every 18 ticks, so at
+/// most every other shot prints.
+pub const PRINT_GAP_SECONDS: f64 = 21.0 / 60.0;
 
 /// How dark a shadow is at its darkest, under a body standing on it.
 const SHADOW_OPACITY: f64 = 0.55;
@@ -214,8 +220,10 @@ pub struct HuskRig {
 	flash: f64,
 	punch: f64,
 	/// A blow's print in the reaper's spot, and how long it has left, in
-	/// seconds; and how long the husk is held still by a blow.
+	/// seconds; how long ago the last one began, in real time; and how long
+	/// the husk is held still by a blow.
 	print: Option<([f32; 3], f64)>,
+	printed_ago: f64,
 	stopped: f64,
 	frost: f64,
 	burn: f64,
@@ -328,6 +336,7 @@ impl HuskRig {
 			flash: 0.0,
 			punch: 0.0,
 			print: None,
+			printed_ago: f64::INFINITY,
 			stopped: 0.0,
 			frost: 0.0,
 			burn: 0.0,
@@ -373,11 +382,11 @@ impl HuskRig {
 		};
 		let frost = self.frost as f32;
 		let burn = self.burn as f32;
-		let flash = self.flash as f32;
-		// A blow's print takes the place of the flash in the husk's light.
-		let (glow, flash) = match self.print {
-			Some((spot, _)) => (spot, 1.0),
-			None => (self.light, flash),
+		// A blow's print takes the place of the flash: ink, not light.
+		let flash = if self.print.is_some() {
+			0.0
+		} else {
+			self.flash as f32
 		};
 		let mut change = match material {
 			"body" => {
@@ -447,8 +456,19 @@ impl HuskRig {
 				}
 			}
 		};
+		// A blow prints it flat in the reaper's spot, lit as it is lit, with
+		// no rim and no glow of its own: ink on the dead (art bible §11.2).
+		// Its mouth and sockets stay key, and its eyes and seals their own.
+		if let Some((spot, _)) = self.print
+			&& !matches!(material, "dark" | "accent" | "glow")
+		{
+			change.color = Some([spot[0], spot[1], spot[2], 1.0]);
+			// An override left empty keeps what was last sent: the rim is
+			// put out, not left.
+			change.rim = rim(0.0);
+		}
 		// Ice whitens and blues it; fire lights it from within; a strike
-		// flashes it in its own light, or prints it in the reaper's spot.
+		// flashes it in its own light.
 		if let Some(colour) = change.color.as_mut() {
 			for (channel, ice) in colour.iter_mut().zip([0.55, 0.75, 0.95]) {
 				*channel += (ice - *channel) * 0.6 * frost;
@@ -457,7 +477,7 @@ impl HuskRig {
 		if material != "accent" && material != "glow" {
 			let ember = [1.0, 0.36, 0.08];
 			change.emissive =
-				Some([0, 1, 2].map(|channel| ember[channel] * burn + glow[channel] * flash));
+				Some([0, 1, 2].map(|channel| ember[channel] * burn + self.light[channel] * flash));
 			change.emissive_strength = Some(1.5 * burn + 2.0 * flash);
 		}
 		change.opacity = Some((1.0 - self.dissolved) as f32);
@@ -577,12 +597,20 @@ impl HuskRig {
 		self.punch = self.punch.max(strength);
 	}
 
-	/// Prints the husk in the reaper's `spot`, linear RGB, for
-	/// [`PRINT_SECONDS`], as a blow lands (art bible §11.2): in place of its
-	/// flash, at full strength.
+	/// Prints the husk flat in the reaper's `spot`, linear RGB, for
+	/// [`PRINT_SECONDS`], as a blow lands (art bible §11.2). A print never
+	/// begins within [`PRINT_GAP_SECONDS`] of the last, so it cannot flash,
+	/// nor for a player who asks for less motion, who has the splat without
+	/// the whole husk changing colour (§14). Either way the blow punches it.
 	pub fn print(&mut self, spot: [f32; 3]) {
-		self.print = Some((spot, PRINT_SECONDS));
 		self.punch = 1.0;
+		// Counted in whole frames, as the print is: a gap less than half a
+		// frame short is the gap.
+		if crate::platform::reduced_motion() || self.printed_ago < PRINT_GAP_SECONDS - 0.5 / 60.0 {
+			return;
+		}
+		self.print = Some((spot, PRINT_SECONDS));
+		self.printed_ago = 0.0;
 	}
 
 	/// Holds the husk's animation still for `frames` sixtieths of a second,
@@ -601,6 +629,7 @@ impl HuskRig {
 	fn hold(&mut self, delta: f64) -> f64 {
 		let stopping = self.stopped > delta / 2.0;
 		self.stopped = (self.stopped - delta).max(0.0);
+		self.printed_ago += delta;
 		self.print = self
 			.print
 			.map(|(spot, left)| (spot, left - delta))
@@ -1309,6 +1338,74 @@ mod tests {
 				assert_eq!(held, stopped * per, "{fps} fps: held {frames} frames");
 			}
 		}
+		let _ = scene.take_ops();
+	}
+
+	/// A blow prints the husk flat in the spot, as ink: the colour, lit as the
+	/// husk is lit, with its rim put out and no glow; its mouth stays key and
+	/// its eyes and seals their own. Shot after shot at the pistol's fastest
+	/// it prints at most every 21 frames, under three times a second, and
+	/// never for a player who asks for less motion.
+	#[test]
+	fn a_print_is_flat_ink_at_most_every_twenty_one_frames_and_none_with_less_motion() {
+		let scene = Scene::new(leptoskit::scene3d::SceneId(43));
+		let nft = market_listings()[0];
+		let spot = [0.9, 0.6, 0.2];
+		let spawned = || {
+			let mut rig = HuskRig::spawn(&scene, nft.collection.vessel(), &nft);
+			rig.place(&HuskPose::new(
+				nft.collection.vessel(),
+				reapers_rules::Vec3::new(0.0, 0.0, -2.0),
+				std::f64::consts::PI,
+			));
+			rig
+		};
+		let step = |rig: &mut HuskRig| {
+			rig.animate(
+				&scene,
+				1.0 / 60.0,
+				HuskMood::default(),
+				HuskPlight::default(),
+			);
+		};
+		let mut rig = spawned();
+		step(&mut rig);
+		let at_rest = rig.surface("dark", 1.0);
+		rig.print(spot);
+		for material in ["body", "trim", "detail"] {
+			let printed = rig.surface(material, 1.0);
+			assert_eq!(printed.color, Some([0.9, 0.6, 0.2, 1.0]), "{material}");
+			assert_eq!(printed.emissive, Some([0.0; 3]), "{material}: no glow");
+			assert_eq!(printed.emissive_strength, Some(0.0));
+			assert_eq!(printed.rim.map(|rim| rim.strength), Some(0.0));
+		}
+		assert_eq!(rig.surface("dark", 1.0), at_rest, "its mouth stays key");
+		assert_eq!(
+			rig.surface("accent", 1.0).emissive,
+			Some(rig.light),
+			"its eyes keep their own light"
+		);
+		// The pistol fires every 18 ticks: every other shot prints.
+		for (every, prints) in [(18, [0, 36, 72, 108]), (21, [0, 21, 42, 63])] {
+			let mut rig = spawned();
+			let mut began = Vec::new();
+			for frame in 0..=prints[3] {
+				if frame % every == 0 {
+					rig.print(spot);
+					if rig.printed_ago == 0.0 {
+						began.push(frame);
+					}
+				}
+				step(&mut rig);
+			}
+			assert_eq!(began, prints, "a shot every {every} frames");
+		}
+		crate::platform::set_reduced_motion(true);
+		let mut steady = spawned();
+		steady.print(spot);
+		let printed = steady.print.is_some();
+		crate::platform::set_reduced_motion(false);
+		assert!(!printed, "with less motion the husk keeps its colours");
 		let _ = scene.take_ops();
 	}
 
