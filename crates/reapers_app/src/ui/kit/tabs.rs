@@ -182,7 +182,7 @@ fn tab(tab: Tab, spot: Rgb, seed: u32) -> Element {
 	};
 	let mut cell = Pressable(text.clone())
 		.class(format!(
-			"relative w-[{}px] h-[{}px] items-center justify-start pt-[8px] gap-[3px] {hachure_ink}",
+			"relative w-[{}px] h-[{}px] items-center justify-start pt-[2px] {hachure_ink}",
 			space::TAB_WIDTH,
 			space::TAB_HEIGHT
 		))
@@ -192,7 +192,7 @@ fn tab(tab: Tab, spot: Rgb, seed: u32) -> Element {
 	if active {
 		cell = cell.aria_current(Current::Page).child(
 			View()
-				.class("absolute left-[25px] bottom-[2px] w-[28px] h-[4px]")
+				.class("absolute left-[25px] bottom-[3px] w-[28px] h-[4px]")
 				.child(
 					Plate::new(28.0, 4.0)
 						.stroke(

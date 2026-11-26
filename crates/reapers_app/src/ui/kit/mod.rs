@@ -273,6 +273,7 @@ mod tests {
 					.test_id("quiet")
 					.on_press(press(presses)),
 			)
+			.child(Slip::new("A slip").test_id("slip").on_press(press(presses)))
 			.child(
 				Row::new("Penguin #1")
 					.status("Loose")
@@ -322,6 +323,7 @@ mod tests {
 			"secondary",
 			"secondary-busy",
 			"quiet",
+			"slip",
 			"row",
 			"switch",
 			"checkbox",
@@ -356,16 +358,17 @@ mod tests {
 			("primary", 1),
 			("secondary", 2),
 			("quiet", 3),
-			("row", 4),
-			("switch", 5),
-			("tab-box", 6),
+			("slip", 4),
+			("row", 5),
+			("switch", 6),
+			("tab-box", 7),
 		] {
 			tester.tap(&Finder::test_id(id)).unwrap();
 			assert_eq!(presses.load(Ordering::SeqCst), count, "{id}");
 		}
 		for id in ["primary-disabled", "secondary-busy"] {
 			let _refused = tester.tap(&Finder::test_id(id));
-			assert_eq!(presses.load(Ordering::SeqCst), 6, "{id} took a press");
+			assert_eq!(presses.load(Ordering::SeqCst), 7, "{id} took a press");
 		}
 	}
 

@@ -300,7 +300,7 @@ impl Slip {
 		let content = |element: Element| {
 			element
 				.class(format!(
-					"relative self-center max-w-full bg-[{}] {inset} pr-4 py-[10px] {turn} {motion_class} {hatch_ink}",
+					"relative self-center justify-center min-h-[{HEIGHT}px] max-w-full bg-[{}] {inset} pr-4 py-[10px] {turn} {motion_class} {hatch_ink}",
 					PAPER.hex()
 				))
 				.child(plate.over())

@@ -249,34 +249,51 @@
 
   "sanctumOverline": "Sanctum",
   "sanctumLoose": "Loose in the veil",
-  "sanctumNothingLoose": "Nothing is loose. Release an NFT from your vault and it will surface here as a husk.",
+  "sanctumNothingLoose": "Nothing is loose. Release an NFT from your vault to hunt it.",
   "sanctumSurfacing": "Surfacing in {seconds}s",
   "@sanctumSurfacing": {
     "placeholders": { "seconds": { "type": "int" } }
   },
-  "sanctumHunt": "Hunt",
+  "sanctumSurfacingSoon": "{seconds}s",
+  "@sanctumSurfacingSoon": {
+    "placeholders": { "seconds": { "type": "int" } }
+  },
+  "sanctumLooseOne": "{first} is loose in the veil.",
+  "@sanctumLooseOne": {
+    "placeholders": { "first": { "type": "String" } }
+  },
+  "sanctumLooseTwo": "{first} and {second} are loose in the veil.",
+  "@sanctumLooseTwo": {
+    "placeholders": { "first": { "type": "String" }, "second": { "type": "String" } }
+  },
+  "sanctumLooseThree": "{first}, {second} and {third} are loose in the veil.",
+  "@sanctumLooseThree": {
+    "placeholders": { "first": { "type": "String" }, "second": { "type": "String" }, "third": { "type": "String" } }
+  },
+  "sanctumLooseSlot": "Release an NFT from your vault",
+  "sanctumTaken": "Taken",
+  "sanctumLampWaxing": "{earned}/{needed} XP to {level} · the lamp is waxing",
+  "@sanctumLampWaxing": {
+    "placeholders": { "earned": { "type": "int" }, "needed": { "type": "int" }, "level": { "type": "String" } }
+  },
+  "sanctumLampFull": "Level {level} · the lamp is full",
+  "@sanctumLampFull": {
+    "placeholders": { "level": { "type": "String" } }
+  },
+  "sanctumGoHunting": "Go hunting",
+  "sanctumNearby": "{count} nearby",
+  "@sanctumNearby": {
+    "placeholders": { "count": { "type": "int" } }
+  },
   "sanctumSightedBanner": "Husk sighted: {name}",
   "@sanctumSightedBanner": {
     "placeholders": { "name": { "type": "String" } }
   },
   "sanctumVault": "Vault",
-  "sanctumVaultDetail": "{count, plural, =0{Empty} =1{1 held} other{{count} held}}",
-  "@sanctumVaultDetail": {
-    "placeholders": { "count": { "type": "int" } }
-  },
   "sanctumArmory": "Armory",
   "sanctumCodex": "Codex",
-  "sanctumCodexDetail": "{count, plural, =0{Nothing absorbed} =1{1 absorbed} other{{count} absorbed}}",
-  "@sanctumCodexDetail": {
-    "placeholders": { "count": { "type": "int" } }
-  },
   "sanctumRifts": "Rifts",
-  "sanctumRiftsDetail": "{count, plural, =0{Hunt together} =1{1 sealed} other{{count} sealed}}",
-  "@sanctumRiftsDetail": {
-    "placeholders": { "count": { "type": "int" } }
-  },
   "sanctumColophon": "Colophon",
-  "sanctumColophonDetail": "Music and credits",
   "colophonOverline": "Colophon",
   "colophonTitle": "What this is made of",
   "colophonEffects": "Sound effects",
@@ -919,7 +936,10 @@
   "refusalReaperBusy": "Finish your loose hunts before switching reapers.",
   "refusalWalletUnproven": "The wallet proof could not be verified. Connect your wallet again.",
   "refusalChainUnconfigured": "Reaper NFT trading is waiting for the collection to open.",
-  "sanctumRoster": "Your reapers",
+  "sanctumRoster": "{count, plural, =1{1 reaper} other{{count} reapers}}",
+  "@sanctumRoster": {
+    "placeholders": { "count": { "type": "int" } }
+  },
   "sanctumStudio": "Reaper studio",
   "sanctumStudioDetail": "Explore traits and growth",
   "rosterTitle": "Your reapers",
@@ -941,14 +961,6 @@
   "rosterBalance": "Wallet SOL",
   "rosterNetwork": "Network",
   "rosterUnconfigured": "NFT imports are unavailable until a reaper collection is configured. Your starter remains yours.",
-  "rosterCount": "{count, plural, =1{1 reaper} other{{count} reapers}}",
-  "@rosterCount": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "studioModelFailed": "This specimen could not be drawn.",
   "studioWebGLUnavailable": "Your browser needs WebGL 2 to draw this specimen. Try another browser or open the studio on Android or iOS.",
   "studioXp": "XP",

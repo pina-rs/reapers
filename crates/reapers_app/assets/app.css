@@ -114,6 +114,13 @@ input:focus-visible {
   outline: none;
 }
 
+/* A field's placeholder prints in ash, which holds words on the page (4.83
+   on vigil, §15.1); the browser's own grey would not. */
+input::placeholder {
+  color: #a39c93;
+  opacity: 1;
+}
+
 /* Reduced motion (§14): nothing printed slides, rises or shrinks. The kit
    leaves its motion out under the setting; this holds the rest of the page
    to it. */

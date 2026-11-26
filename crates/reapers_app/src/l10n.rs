@@ -1507,8 +1507,6 @@ pub trait Messages: Send + Sync {
 	fn roster_buy_help(&self) -> &'static str;
 	/// `Connect Solana wallet`
 	fn roster_connect(&self) -> &'static str;
-	/// `{count, plural, =1{1 reaper} other{{count} reapers}}`
-	fn roster_count(&self, count: i64) -> String;
 	/// `Import owned reaper`
 	fn roster_import(&self) -> &'static str;
 	/// `Paste the address of a Reapers NFT already owned by your linked wallet.`
@@ -1541,17 +1539,27 @@ pub trait Messages: Send + Sync {
 	fn sanctum_armory(&self) -> &'static str;
 	/// `Codex`
 	fn sanctum_codex(&self) -> &'static str;
-	/// `{count, plural, =0{Nothing absorbed} =1{1 absorbed} other{{count} absorbed}}`
-	fn sanctum_codex_detail(&self, count: i64) -> String;
 	/// `Colophon`
 	fn sanctum_colophon(&self) -> &'static str;
-	/// `Music and credits`
-	fn sanctum_colophon_detail(&self) -> &'static str;
-	/// `Hunt`
-	fn sanctum_hunt(&self) -> &'static str;
+	/// `Go hunting`
+	fn sanctum_go_hunting(&self) -> &'static str;
+	/// `Level {level} · the lamp is full`
+	fn sanctum_lamp_full(&self, level: &str) -> String;
+	/// `{earned}/{needed} XP to {level} · the lamp is waxing`
+	fn sanctum_lamp_waxing(&self, earned: i64, needed: i64, level: &str) -> String;
 	/// `Loose in the veil`
 	fn sanctum_loose(&self) -> &'static str;
-	/// `Nothing is loose. Release an NFT from your vault and it will surface here as a husk.`
+	/// `{first} is loose in the veil.`
+	fn sanctum_loose_one(&self, first: &str) -> String;
+	/// `Release an NFT from your vault`
+	fn sanctum_loose_slot(&self) -> &'static str;
+	/// `{first}, {second} and {third} are loose in the veil.`
+	fn sanctum_loose_three(&self, first: &str, second: &str, third: &str) -> String;
+	/// `{first} and {second} are loose in the veil.`
+	fn sanctum_loose_two(&self, first: &str, second: &str) -> String;
+	/// `{count} nearby`
+	fn sanctum_nearby(&self, count: i64) -> String;
+	/// `Nothing is loose. Release an NFT from your vault to hunt it.`
 	fn sanctum_nothing_loose(&self) -> &'static str;
 	/// `Sanctum`
 	fn sanctum_overline(&self) -> &'static str;
@@ -1561,10 +1569,8 @@ pub trait Messages: Send + Sync {
 	fn sanctum_practice_detail(&self) -> &'static str;
 	/// `Rifts`
 	fn sanctum_rifts(&self) -> &'static str;
-	/// `{count, plural, =0{Hunt together} =1{1 sealed} other{{count} sealed}}`
-	fn sanctum_rifts_detail(&self, count: i64) -> String;
-	/// `Your reapers`
-	fn sanctum_roster(&self) -> &'static str;
+	/// `{count, plural, =1{1 reaper} other{{count} reapers}}`
+	fn sanctum_roster(&self, count: i64) -> String;
 	/// `Husk sighted: {name}`
 	fn sanctum_sighted_banner(&self, name: &str) -> String;
 	/// `Simnet ledger`
@@ -1585,10 +1591,12 @@ pub trait Messages: Send + Sync {
 	fn sanctum_studio_detail(&self) -> &'static str;
 	/// `Surfacing in {seconds}s`
 	fn sanctum_surfacing(&self, seconds: i64) -> String;
+	/// `{seconds}s`
+	fn sanctum_surfacing_soon(&self, seconds: i64) -> String;
+	/// `Taken`
+	fn sanctum_taken(&self) -> &'static str;
 	/// `Vault`
 	fn sanctum_vault(&self) -> &'static str;
-	/// `{count, plural, =0{Empty} =1{1 held} other{{count} held}}`
-	fn sanctum_vault_detail(&self, count: i64) -> String;
 	/// `Bring the ring onto the next light.`
 	fn scan_aim(&self) -> &'static str;
 	/// `Drag down to the next light.`
@@ -4899,14 +4907,6 @@ impl Messages for En {
 		"Connect Solana wallet"
 	}
 
-	fn roster_count(&self, count: i64) -> String {
-		if count == 1 {
-			"1 reaper".to_owned()
-		} else {
-			format!("{count} reapers")
-		}
-	}
-
 	fn roster_import(&self) -> &'static str {
 		"Import owned reaper"
 	}
@@ -4971,34 +4971,48 @@ impl Messages for En {
 		"Codex"
 	}
 
-	fn sanctum_codex_detail(&self, count: i64) -> String {
-		if count == 0 {
-			"Nothing absorbed".to_owned()
-		} else if count == 1 {
-			"1 absorbed".to_owned()
-		} else {
-			format!("{count} absorbed")
-		}
-	}
-
 	fn sanctum_colophon(&self) -> &'static str {
 		"Colophon"
 	}
 
-	fn sanctum_colophon_detail(&self) -> &'static str {
-		"Music and credits"
+	fn sanctum_go_hunting(&self) -> &'static str {
+		"Go hunting"
 	}
 
-	fn sanctum_hunt(&self) -> &'static str {
-		"Hunt"
+	fn sanctum_lamp_full(&self, level: &str) -> String {
+		format!("Level {level} · the lamp is full")
+	}
+
+	fn sanctum_lamp_waxing(&self, earned: i64, needed: i64, level: &str) -> String {
+		format!("{earned}/{needed} XP to {level} · the lamp is waxing")
 	}
 
 	fn sanctum_loose(&self) -> &'static str {
 		"Loose in the veil"
 	}
 
+	fn sanctum_loose_one(&self, first: &str) -> String {
+		format!("{first} is loose in the veil.")
+	}
+
+	fn sanctum_loose_slot(&self) -> &'static str {
+		"Release an NFT from your vault"
+	}
+
+	fn sanctum_loose_three(&self, first: &str, second: &str, third: &str) -> String {
+		format!("{first}, {second} and {third} are loose in the veil.")
+	}
+
+	fn sanctum_loose_two(&self, first: &str, second: &str) -> String {
+		format!("{first} and {second} are loose in the veil.")
+	}
+
+	fn sanctum_nearby(&self, count: i64) -> String {
+		format!("{count} nearby")
+	}
+
 	fn sanctum_nothing_loose(&self) -> &'static str {
-		"Nothing is loose. Release an NFT from your vault and it will surface here as a husk."
+		"Nothing is loose. Release an NFT from your vault to hunt it."
 	}
 
 	fn sanctum_overline(&self) -> &'static str {
@@ -5017,18 +5031,12 @@ impl Messages for En {
 		"Rifts"
 	}
 
-	fn sanctum_rifts_detail(&self, count: i64) -> String {
-		if count == 0 {
-			"Hunt together".to_owned()
-		} else if count == 1 {
-			"1 sealed".to_owned()
+	fn sanctum_roster(&self, count: i64) -> String {
+		if count == 1 {
+			"1 reaper".to_owned()
 		} else {
-			format!("{count} sealed")
+			format!("{count} reapers")
 		}
-	}
-
-	fn sanctum_roster(&self) -> &'static str {
-		"Your reapers"
 	}
 
 	fn sanctum_sighted_banner(&self, name: &str) -> String {
@@ -5075,18 +5083,16 @@ impl Messages for En {
 		format!("Surfacing in {seconds}s")
 	}
 
-	fn sanctum_vault(&self) -> &'static str {
-		"Vault"
+	fn sanctum_surfacing_soon(&self, seconds: i64) -> String {
+		format!("{seconds}s")
 	}
 
-	fn sanctum_vault_detail(&self, count: i64) -> String {
-		if count == 0 {
-			"Empty".to_owned()
-		} else if count == 1 {
-			"1 held".to_owned()
-		} else {
-			format!("{count} held")
-		}
+	fn sanctum_taken(&self) -> &'static str {
+		"Taken"
+	}
+
+	fn sanctum_vault(&self) -> &'static str {
+		"Vault"
 	}
 
 	fn scan_aim(&self) -> &'static str {

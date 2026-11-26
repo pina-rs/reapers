@@ -326,8 +326,8 @@ fn local_backend_serializes_concurrent_mutations_without_losing_updates() {
 
 #[test]
 fn icu_plurals_and_probe_localization_render_grammatically() {
-	assert_eq!(En.roster_count(1), "1 reaper");
-	assert_eq!(En.roster_count(3), "3 reapers");
+	assert_eq!(En.sanctum_roster(1), "1 reaper");
+	assert_eq!(En.sanctum_roster(3), "3 reapers");
 	assert_eq!(En.soul_milestone(5, 1, "Unseen"), "Level 5 · 1 Unseen mark");
 	assert_eq!(
 		En.soul_milestone(12, 4, "Unseen"),
