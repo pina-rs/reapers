@@ -49,6 +49,51 @@ pub fn root() -> PathBuf {
 		.to_path_buf()
 }
 
+/// Inherited variables from the outer `cargo xtask` process that point child
+/// toolchain drivers at that toolchain's concrete binaries instead of
+/// rustup's proxies on `PATH`.
+///
+/// - `CARGO`: set by Cargo to the active toolchain's raw `cargo` binary,
+///   which rejects `+toolchain` directives (breaking `pina build`'s
+///   `+1.89.0-sbpf-solana-v1.54`) and bypasses `PATH` shims.
+/// - `RUSTUP_TOOLCHAIN`: set by rustup to the outer workspace's toolchain,
+///   which outranks `rust-toolchain.toml` and overrides child toolchain
+///   selection.
+/// - `RUSTC` and `RUSTDOC`: if inherited from an outer Cargo invocation, pin
+///   children to that toolchain's compiler instead of the one their own
+///   toolchain selects.
+pub const OUTER_TOOLCHAIN_VARS: [&str; 4] = ["CARGO", "RUSTUP_TOOLCHAIN", "RUSTC", "RUSTDOC"];
+
+/// Programs `xtask` starts that themselves drive Cargo or rustup toolchains.
+const TOOLCHAIN_DRIVERS: [&str; 3] = ["cargo", "pina", "leptoskit"];
+
+/// Builds a command for `program` in `directory`.
+///
+/// When `program` drives Cargo toolchains (`cargo`, `pina`, `leptoskit`),
+/// removes [`OUTER_TOOLCHAIN_VARS`] so the child resolves its own toolchain
+/// through `PATH` and `rustup` instead of inheriting the outer `cargo xtask`
+/// toolchain.
+pub fn command<I, S>(program: &str, arguments: I, directory: &Path) -> Command
+where
+	I: IntoIterator<Item = S>,
+	S: AsRef<OsStr>,
+{
+	let mut command = Command::new(program);
+
+	command.args(arguments).current_dir(directory);
+	if TOOLCHAIN_DRIVERS.contains(&program) {
+		strip_outer_toolchain(&mut command);
+	}
+
+	command
+}
+
+fn strip_outer_toolchain(command: &mut Command) {
+	for inherited in OUTER_TOOLCHAIN_VARS {
+		command.env_remove(inherited);
+	}
+}
+
 /// Runs `program` in `directory` with the terminal's input and output, and
 /// returns its exit code. A program that cannot be started at all fails
 /// with the reason.
@@ -57,9 +102,7 @@ where
 	I: IntoIterator<Item = S>,
 	S: AsRef<OsStr>,
 {
-	let status = Command::new(program)
-		.args(arguments)
-		.current_dir(directory)
+	let status = command(program, arguments, directory)
 		.status()
 		.map_err(|error| {
 			Failure::with_code(format!("Could not run {program}: {error}."), UNAVAILABLE)
@@ -158,5 +201,58 @@ mod tests {
 
 		assert_eq!(failure.code, UNAVAILABLE);
 		assert!(!on_path("reapers-no-such-program"));
+	}
+
+	#[test]
+	fn toolchain_drivers_drop_the_outer_cargo_environment() {
+		fn removed_of(cmd: &Command) -> Vec<&OsStr> {
+			cmd.get_envs()
+				.filter_map(|(key, value)| value.is_none().then_some(key))
+				.collect()
+		}
+
+		for driver in ["pina", "leptoskit", "cargo"] {
+			let cmd = command(driver, ["--version"], &root());
+			let removed = removed_of(&cmd);
+
+			assert_eq!(
+				removed.len(),
+				OUTER_TOOLCHAIN_VARS.len(),
+				"{driver} removed unexpected variables: {removed:?}"
+			);
+			for var in OUTER_TOOLCHAIN_VARS {
+				assert!(
+					removed.contains(&OsStr::new(var)),
+					"{driver} did not remove {var}"
+				);
+			}
+		}
+
+		let plain = command("curl", ["--version"], &root());
+		assert_eq!(removed_of(&plain), Vec::<&OsStr>::new());
+	}
+
+	#[cfg(unix)]
+	#[test]
+	fn stripped_children_do_not_see_the_outer_toolchain() {
+		let mut cmd = Command::new("sh");
+		cmd.args([
+			"-c",
+			r#"printf '%s|%s|%s|%s|%s' "${CARGO-}" "${RUSTUP_TOOLCHAIN-}" "${RUSTC-}" "${RUSTDOC-}" "${CARGO_HOME-}""#,
+		])
+		.current_dir(root())
+		.env("CARGO", "/outer/toolchain/bin/cargo")
+		.env("RUSTUP_TOOLCHAIN", "nightly-outer")
+		.env("RUSTC", "/outer/toolchain/bin/rustc")
+		.env("RUSTDOC", "/outer/toolchain/bin/rustdoc")
+		.env("CARGO_HOME", "/kept/cargo-home");
+		strip_outer_toolchain(&mut cmd);
+
+		let output = cmd.output().unwrap();
+		assert!(output.status.success());
+		assert_eq!(
+			String::from_utf8_lossy(&output.stdout),
+			"||||/kept/cargo-home"
+		);
 	}
 }

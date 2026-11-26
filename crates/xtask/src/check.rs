@@ -380,10 +380,12 @@ fn postgres_available() -> bool {
 /// default members. The app's native runners are members too, but build only
 /// after `leptoskit build` has generated their registrants.
 fn default_members(root: &Path) -> Outcome<Vec<String>> {
-	let output = std::process::Command::new("cargo")
-		.args(["metadata", "--locked", "--no-deps", "--format-version", "1"])
-		.current_dir(root)
-		.output()?;
+	let output = run::command(
+		"cargo",
+		["metadata", "--locked", "--no-deps", "--format-version", "1"],
+		root,
+	)
+	.output()?;
 
 	if !output.status.success() {
 		return Err(Failure::new(format!(
@@ -642,5 +644,34 @@ mod tests {
 			assert!(names.contains(&wanted.to_owned()), "{wanted}");
 		}
 		assert!(!names.iter().any(|name| name.starts_with("reapers_app_")));
+	}
+
+	#[test]
+	fn check_steps_strip_the_outer_cargo_environment() {
+		let root = run::root();
+
+		for step in steps(&plan(false, true, true)) {
+			let Action::Run {
+				program,
+				arguments,
+				directory,
+			} = step.action
+			else {
+				continue;
+			};
+			let command = run::command(program, &arguments, &root.join(directory));
+			let removed: Vec<&std::ffi::OsStr> = command
+				.get_envs()
+				.filter_map(|(key, value)| value.is_none().then_some(key))
+				.collect();
+
+			for var in run::OUTER_TOOLCHAIN_VARS {
+				assert!(
+					removed.contains(&std::ffi::OsStr::new(var)),
+					"step `{}` ({program}) did not remove {var}",
+					step.name
+				);
+			}
+		}
 	}
 }
