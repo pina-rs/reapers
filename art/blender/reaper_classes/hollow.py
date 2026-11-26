@@ -424,7 +424,7 @@ def _idle_turn(chain, calling="hollow"):
     joints from the waist out to a hand, read from lib/motion.py itself so
     that nothing here repeats its numbers."""
 
-    _, rotations = motion.performance("idle", 0.0, False, calling)
+    _, rotations = motion.performance("idle", 0.0, False, calling, motion.TIMINGS["idle"])
     turn = Quaternion()
 
     for joint in chain:
