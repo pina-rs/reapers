@@ -60,6 +60,9 @@ type GatheringMap = Arc<Mutex<HashMap<(RiftSite, bool), Arc<HostedRift>>>>;
 pub struct RiftHall {
 	beat: Duration,
 	ticks_per_beat: Option<i64>,
+	/// While `false`, rift clocks in this hall wait before advancing. Always
+	/// `true` unless a test calls [`Self::hold`].
+	running: watch::Sender<bool>,
 	gathering: GatheringMap,
 	seats: Arc<Mutex<HashMap<Id<Account>, Seat>>>,
 	tickets: AtomicU64,
@@ -91,11 +94,25 @@ impl RiftHall {
 		Self {
 			beat,
 			ticks_per_beat,
+			running: watch::channel(true).0,
 			gathering: Arc::new(Mutex::new(HashMap::new())),
 			seats: Arc::new(Mutex::new(HashMap::new())),
 			tickets: AtomicU64::new(0),
 			active_rooms: Arc::new(AtomicUsize::new(0)),
 		}
+	}
+
+	/// Holds rift clocks in this hall until [`Self::release`] is called.
+	///
+	/// Tests use this to seat several reapers into one gathering circle before
+	/// its clock starts moving.
+	pub fn hold(&self) {
+		self.running.send_replace(false);
+	}
+
+	/// Lets held rift clocks run.
+	pub fn release(&self) {
+		self.running.send_replace(true);
 	}
 
 	/// Seats `entrant`, for `account`, in the rift gathering at `site`,
@@ -221,7 +238,7 @@ impl RiftHall {
 
 		let beats = rift.beats.subscribe();
 
-		rift.start(self.beat, self.ticks_per_beat);
+		rift.start(self.beat, self.ticks_per_beat, self.running.subscribe());
 
 		Ok(Chair {
 			rift,
@@ -429,7 +446,12 @@ impl HostedRift {
 	}
 
 	/// Starts the rift's clock, if it has not started yet.
-	fn start(self: &Arc<Self>, beat: Duration, ticks_per_beat: Option<i64>) {
+	fn start(
+		self: &Arc<Self>,
+		beat: Duration,
+		ticks_per_beat: Option<i64>,
+		mut running: watch::Receiver<bool>,
+	) {
 		let mut clock = locked(&self.clock);
 
 		if clock.is_some() {
@@ -438,6 +460,10 @@ impl HostedRift {
 
 		let rift = Arc::downgrade(self);
 		let task = tokio::spawn(async move {
+			if !*running.borrow() && running.wait_for(|&go| go).await.is_err() {
+				return;
+			}
+
 			let started = Instant::now();
 			let mut played = 0;
 			let mut interval = tokio::time::interval(beat);
@@ -451,6 +477,10 @@ impl HostedRift {
 
 			loop {
 				interval.tick().await;
+
+				if !*running.borrow() && running.wait_for(|&go| go).await.is_err() {
+					return;
+				}
 
 				let Some(rift) = rift.upgrade() else {
 					return;

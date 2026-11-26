@@ -30,13 +30,15 @@ use support::*;
 
 const SITE: &str = "londonBridge";
 
+type RiftStream = futures::stream::BoxStream<'static, rpc::Result<RiftFrame>>;
+
 /// Enters the rift at `site` as `who`, through the operation's keeper.
 async fn enter(
 	world: &World,
 	who: Option<Id<Account>>,
 	site: &str,
 	demo: bool,
-) -> rpc::Result<futures::stream::BoxStream<'static, rpc::Result<RiftFrame>>> {
+) -> rpc::Result<RiftStream> {
 	let cx = rpc::QueryCx::new(world.db.clone(), world.identity(who));
 
 	Shared(std::sync::Arc::clone(&world.keeper))
@@ -78,9 +80,9 @@ impl Reaper {
 		self.frames.last().expect("a frame")
 	}
 
-	/// Plays the rift at `SITE` until the keeper ends it.
-	async fn play(&mut self, world: &World, demo: bool) {
-		let mut stream = enter(world, Some(self.account), SITE, demo)
+	/// Enters the rift at `SITE` and stands ready, returning its frame stream.
+	async fn join(&self, world: &World, demo: bool) -> RiftStream {
+		let stream = enter(world, Some(self.account), SITE, demo)
 			.await
 			.expect("the rift opens");
 
@@ -96,6 +98,11 @@ impl Reaper {
 		.await
 		.expect("ready");
 
+		stream
+	}
+
+	/// Follows an already-opened rift stream until the keeper ends it.
+	async fn follow(&mut self, world: &World, mut stream: RiftStream) {
 		let mut seat: Option<(RiftSeat, HuntBot)> = None;
 
 		while let Some(frame) = stream.next().await {
@@ -129,6 +136,34 @@ impl Reaper {
 			let _ = report(world, self.account, seat.report()).await;
 		}
 	}
+
+	/// Plays the rift at `SITE` until the keeper ends it.
+	async fn play(&mut self, world: &World, demo: bool) {
+		let stream = self.join(world, demo).await;
+
+		self.follow(world, stream).await;
+	}
+}
+
+/// Seats two reapers while the hall's clocks are held so both arrive inside
+/// the gathering window regardless of host load, then releases the clocks and
+/// plays both streams to completion.
+async fn play_together(
+	world: &World,
+	first: &mut Reaper,
+	first_demo: bool,
+	second: &mut Reaper,
+	second_demo: bool,
+) {
+	world.keeper.hall().hold();
+	let first_stream = first.join(world, first_demo).await;
+	let second_stream = second.join(world, second_demo).await;
+	world.keeper.hall().release();
+
+	tokio::join!(
+		first.follow(world, first_stream),
+		second.follow(world, second_stream),
+	);
 }
 
 /// Takes `who` through the oath and one absorbed Tin Saint, which is what
@@ -366,7 +401,7 @@ async fn when_two_reapers_come_then_they_share_one_circle_and_one_ward() {
 	let mut first = Reaper::new(one, &attune(&world, one).await);
 	let mut second = Reaper::new(two, &attune(&world, two).await);
 
-	tokio::join!(first.play(&world, false), second.play(&world, false));
+	play_together(&world, &mut first, false, &mut second, false).await;
 
 	assert_eq!(first.last().phase, RiftPhase::Sealed);
 	assert_eq!(second.last().phase, RiftPhase::Sealed);
@@ -401,7 +436,7 @@ async fn when_two_reapers_join_the_demo_then_they_share_one_enemy_and_each_is_pa
 	let mut first = Reaper::new(one, &first_before);
 	let mut second = Reaper::new(two, &second_before);
 
-	tokio::join!(first.play(&world, true), second.play(&world, true));
+	play_together(&world, &mut first, true, &mut second, true).await;
 
 	let (a, b) = (first.last(), second.last());
 
@@ -462,7 +497,7 @@ async fn when_a_demo_and_an_ordinary_circle_share_a_site_they_do_not_mix() {
 
 	let mut second = Reaper::new(two, &world.call(two, Load {}).await.unwrap());
 
-	tokio::join!(first.play(&world, false), second.play(&world, true));
+	play_together(&world, &mut first, false, &mut second, true).await;
 
 	assert_eq!(
 		first
@@ -510,7 +545,7 @@ async fn when_they_say_where_they_stand_then_the_rift_takes_one_place_for_both()
 		observed_at: Some(now()),
 	});
 
-	tokio::join!(first.play(&world, false), second.play(&world, false));
+	play_together(&world, &mut first, false, &mut second, false).await;
 
 	let anchor = first.last().anchor.expect("an anchor");
 
