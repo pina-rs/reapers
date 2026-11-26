@@ -335,7 +335,7 @@ pub fn appearance(specimen: &Specimen) -> Element {
 				.accessibility_label(words.studio_genome().to_owned())
 				.test_id("studio-code")
 				.class(format!(
-					"w-full min-h-[44px] px-3 text-[13px] text-[{}] border border-[#e9e4d42e]",
+					"w-full min-h-[44px] px-3 text-[13px] text-[{}] border border-[#ece3cf2e]",
 					BONE.hex()
 				)),
 		);

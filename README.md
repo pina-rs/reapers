@@ -222,6 +222,7 @@ The following recordings and fonts keep their own licences:
 | --- | --- | --- |
 | The music, by Kevin MacLeod | CC BY 4.0 | [assets/music/CREDITS.md](assets/music/CREDITS.md) |
 | Recorded combat effects | CC0 1.0 | [assets/sfx/CREDITS.md](assets/sfx/CREDITS.md) |
-| DM Sans and Fraunces | SIL Open Font License 1.1 | [assets/fonts/](assets/fonts/) |
+| The game's faces: Skribble Black, Skribble Noto Sketch and Skribble Mono Gentle (from Recursive and Noto Sans) | SIL Open Font License 1.1 | [assets/fonts/CREDITS.md](assets/fonts/CREDITS.md) |
+| The landing page's faces: DM Sans and Fraunces | SIL Open Font License 1.1 | [assets/fonts/](assets/fonts/) |
 
 The five collections' names belong to their holders and are not covered by the licence; see [docs/nfts.md](docs/nfts.md).

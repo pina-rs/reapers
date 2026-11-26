@@ -701,7 +701,7 @@ pub fn page() -> Element {
 /// What the arms are drawn over, zoomed by the dive lens about its middle.
 fn plate(ground: Ground, zoom: f32) -> Element {
 	let backing = match ground {
-		Ground::Dark => View().class("absolute inset-0 bg-[#07080b]"),
+		Ground::Dark => View().class("absolute inset-0 bg-[#16121a]"),
 		Ground::Grey => View().class("absolute inset-0 bg-[#7f7f7f]"),
 		Ground::Bright => bright_room(),
 	};
@@ -870,9 +870,9 @@ fn controls(state: &Bench) -> Element {
 		),
 	];
 	let outcomes = [
-		(Outcome::Seal, "arms-seal", words.arms_bench_seal()),
-		(Outcome::Body, "arms-body", words.arms_bench_body()),
-		(Outcome::Miss, "arms-miss", words.arms_bench_miss()),
+		(Outcome::Seal, "arms-blow-seal", words.arms_bench_seal()),
+		(Outcome::Body, "arms-blow-body", words.arms_bench_body()),
+		(Outcome::Miss, "arms-blow-miss", words.arms_bench_miss()),
 	]
 	.map(|(outcome, id, name)| {
 		quiet_chip(id, name, state.outcome == outcome, move |bench| {
@@ -991,13 +991,13 @@ fn pressable_chip(
 	press: impl Fn(&mut Bench) + Send + Sync + 'static,
 ) -> Element {
 	let (colour, filled) = if chosen {
-		(INK, "bg-[#e9e4d4]")
+		(INK, "bg-[#ece3cf]")
 	} else {
-		(BONE, "bg-[#0f1116]")
+		(BONE, "bg-[#2b272c]")
 	};
 	Pressable(text.to_owned())
 		.class(format!(
-			"min-h-[44px] min-w-[44px] px-3 justify-center items-center border border-[#e9e4d45c] {filled}"
+			"min-h-[44px] min-w-[44px] px-3 justify-center items-center border border-[#ece3cf5c] {filled}"
 		))
 		.aria_pressed(chosen)
 		.test_id(id)

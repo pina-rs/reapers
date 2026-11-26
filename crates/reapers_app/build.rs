@@ -54,8 +54,10 @@ fn should_mirror(group: &str, file_name: &str) -> bool {
 		// Runtime screens use the WebP marks; PNGs stay in git for native
 		// launcher icon generation (`leptoskit.toml`) and OpenGraph meta tags.
 		"branding" => has_ext("webp"),
-		// Ship only WOFF2 web fonts and their required OFL license files.
-		"fonts" => has_ext("woff2") || file_name.ends_with("-LICENSE.txt"),
+		// Ship the three Skribble faces as TrueType, which the web loads by
+		// `@font-face` and leptoskit's native font loading takes as they
+		// are, and the OFL licence each must travel with.
+		"fonts" => has_ext("ttf") || file_name.ends_with("-LICENSE.txt"),
 		// Credits and manifest metadata are compiled in or checked by tests
 		// from the repository root; do not ship them in the runtime bundle.
 		"music" | "sfx" => has_ext("ogg"),

@@ -224,6 +224,13 @@
   },
   "commonRetry": "Try again",
   "commonUnreachable": "The keeper of the books could not be reached. Try again to recover your place in the veil.",
+  "commonOn": "On",
+  "commonOff": "Off",
+  "dialSoul": "Soul",
+  "dialNeeds": "Needs {soul}",
+  "@dialNeeds": {
+    "placeholders": { "soul": { "type": "int" } }
+  },
 
   "thresholdTagline": "The dead market did not stay dead. What it left behind still drifts between worlds, and someone has to bring it in.",
   "thresholdOath": "Take the oath",
@@ -242,34 +249,51 @@
 
   "sanctumOverline": "Sanctum",
   "sanctumLoose": "Loose in the veil",
-  "sanctumNothingLoose": "Nothing is loose. Release an NFT from your vault and it will surface here as a husk.",
+  "sanctumNothingLoose": "Nothing is loose. Release an NFT from your vault to hunt it.",
   "sanctumSurfacing": "Surfacing in {seconds}s",
   "@sanctumSurfacing": {
     "placeholders": { "seconds": { "type": "int" } }
   },
-  "sanctumHunt": "Hunt",
+  "sanctumSurfacingSoon": "{seconds}s",
+  "@sanctumSurfacingSoon": {
+    "placeholders": { "seconds": { "type": "int" } }
+  },
+  "sanctumLooseOne": "{first} is loose in the veil.",
+  "@sanctumLooseOne": {
+    "placeholders": { "first": { "type": "String" } }
+  },
+  "sanctumLooseTwo": "{first} and {second} are loose in the veil.",
+  "@sanctumLooseTwo": {
+    "placeholders": { "first": { "type": "String" }, "second": { "type": "String" } }
+  },
+  "sanctumLooseThree": "{first}, {second} and {third} are loose in the veil.",
+  "@sanctumLooseThree": {
+    "placeholders": { "first": { "type": "String" }, "second": { "type": "String" }, "third": { "type": "String" } }
+  },
+  "sanctumLooseSlot": "Release an NFT from your vault",
+  "sanctumTaken": "Taken",
+  "sanctumLampWaxing": "{earned}/{needed} XP to {level} · the lamp is waxing",
+  "@sanctumLampWaxing": {
+    "placeholders": { "earned": { "type": "int" }, "needed": { "type": "int" }, "level": { "type": "String" } }
+  },
+  "sanctumLampFull": "Level {level} · the lamp is full",
+  "@sanctumLampFull": {
+    "placeholders": { "level": { "type": "String" } }
+  },
+  "sanctumGoHunting": "Go hunting",
+  "sanctumNearby": "{count} nearby",
+  "@sanctumNearby": {
+    "placeholders": { "count": { "type": "int" } }
+  },
   "sanctumSightedBanner": "Husk sighted: {name}",
   "@sanctumSightedBanner": {
     "placeholders": { "name": { "type": "String" } }
   },
   "sanctumVault": "Vault",
-  "sanctumVaultDetail": "{count, plural, =0{Empty} =1{1 held} other{{count} held}}",
-  "@sanctumVaultDetail": {
-    "placeholders": { "count": { "type": "int" } }
-  },
   "sanctumArmory": "Armory",
   "sanctumCodex": "Codex",
-  "sanctumCodexDetail": "{count, plural, =0{Nothing absorbed} =1{1 absorbed} other{{count} absorbed}}",
-  "@sanctumCodexDetail": {
-    "placeholders": { "count": { "type": "int" } }
-  },
   "sanctumRifts": "Rifts",
-  "sanctumRiftsDetail": "{count, plural, =0{Hunt together} =1{1 sealed} other{{count} sealed}}",
-  "@sanctumRiftsDetail": {
-    "placeholders": { "count": { "type": "int" } }
-  },
   "sanctumColophon": "Colophon",
-  "sanctumColophonDetail": "Music and credits",
   "colophonOverline": "Colophon",
   "colophonTitle": "What this is made of",
   "colophonEffects": "Sound effects",
@@ -294,8 +318,8 @@
   "colophonDepthCredit": "Lihe Yang and others. Released under the Apache License 2.0. It runs on this phone; no picture leaves it.",
   "colophonTypeHeading": "Type",
   "colophonType": "Set in",
-  "colophonTypePiece": "Fraunces and DM Sans",
-  "colophonTypeCredit": "Both released under the SIL Open Font License 1.1.",
+  "colophonTypePiece": "Skribble Black, Skribble Noto Sketch and Skribble Mono Gentle",
+  "colophonTypeCredit": "Hand-drawn cuts of Recursive and Noto Sans by the Skribble authors, all three released under the SIL Open Font License 1.1.",
   "sanctumPractice": "Practice hunt",
   "sanctumPracticeDetail": "A stray",
   "sanctumStatStrike": "Strike",
@@ -912,7 +936,10 @@
   "refusalReaperBusy": "Finish your loose hunts before switching reapers.",
   "refusalWalletUnproven": "The wallet proof could not be verified. Connect your wallet again.",
   "refusalChainUnconfigured": "Reaper NFT trading is waiting for the collection to open.",
-  "sanctumRoster": "Your reapers",
+  "sanctumRoster": "{count, plural, =1{1 reaper} other{{count} reapers}}",
+  "@sanctumRoster": {
+    "placeholders": { "count": { "type": "int" } }
+  },
   "sanctumStudio": "Reaper studio",
   "sanctumStudioDetail": "Explore traits and growth",
   "rosterTitle": "Your reapers",
@@ -934,14 +961,6 @@
   "rosterBalance": "Wallet SOL",
   "rosterNetwork": "Network",
   "rosterUnconfigured": "NFT imports are unavailable until a reaper collection is configured. Your starter remains yours.",
-  "rosterCount": "{count, plural, =1{1 reaper} other{{count} reapers}}",
-  "@rosterCount": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "studioModelFailed": "This specimen could not be drawn.",
   "studioWebGLUnavailable": "Your browser needs WebGL 2 to draw this specimen. Try another browser or open the studio on Android or iOS.",
   "studioXp": "XP",
@@ -1429,6 +1448,72 @@
   "probeWaiting": "No look yet: it needs a phone whose AR measures depth (ARKit on LiDAR iPhones, ARCore's Depth API).",
   "probeIdle": "Start to follow the platform.",
   "probeStart": "Start",
+  "kitOverline": "Second Ink",
+  "kitTitle": "The kit",
+  "kitIntro": "Every control and mark of the interface, in every state it can be in, on the vigil page. Debug builds only.",
+  "kitSectionType": "Type",
+  "kitSectionPrimary": "Primary",
+  "kitSectionSecondary": "Secondary and destructive",
+  "kitSectionQuiet": "Quiet",
+  "kitSectionRows": "Rows",
+  "kitSectionTabs": "Tabs",
+  "kitSectionSlips": "Slips and notices",
+  "kitSectionStamps": "Stamps and marks",
+  "kitSectionDial": "Soul dial",
+  "kitSectionLamp": "Lamp",
+  "kitSectionMeter": "Meter",
+  "kitSectionTally": "Tally",
+  "kitSectionSheet": "Sheet",
+  "kitSectionFields": "Fields",
+  "kitSectionToggles": "Switches, checkboxes and radios",
+  "kitSectionInk": "Ink",
+  "kitStateRest": "Rest",
+  "kitStatePressed": "Pressed",
+  "kitStateFocused": "Focused",
+  "kitStateBusy": "Busy",
+  "kitStateDisabled": "Disabled",
+  "kitStateDestructive": "Destructive",
+  "kitStateActive": "Active",
+  "kitStateEntering": "Entering",
+  "kitStateLeaving": "Leaving",
+  "kitStateError": "Error",
+  "kitStateEmpty": "Empty",
+  "kitStateFilled": "Filled",
+  "kitStateOn": "On",
+  "kitStateOff": "Off",
+  "kitStateUnder": "Under 40",
+  "kitStateReady": "Ready",
+  "kitStateWaxing": "Waxing",
+  "kitStateFull": "Full",
+  "kitStateDraining": "Draining",
+  "kitStateCritical": "Critical, a loss",
+  "kitStateWard": "Critical, a ward",
+  "kitStateNewest": "The newest in the spot",
+  "kitStateOpen": "Open",
+  "kitSamplePrimary": "Go hunting",
+  "kitSampleNearby": "2 nearby",
+  "kitSampleReason": "Needs 40 soul",
+  "kitSampleSecondary": "Back to the sanctum",
+  "kitSampleStatus": "Loose",
+  "kitSampleSlip": "Sworn to the Ferryman. This light is borrowed.",
+  "kitSampleError": "The keeper could not be reached.",
+  "kitSampleField": "Name",
+  "kitSampleFieldValue": "Umbra of the Slow Water",
+  "kitSampleFieldError": "A name needs at least one letter.",
+  "kitSampleSwitch": "Steady print",
+  "kitSampleCheckbox": "Haptics",
+  "kitSampleRadio": "Night",
+  "kitSampleResolve": "Resolve 1 of 6",
+  "kitSampleSheet": "Release Penguin #1 into the veil? It becomes a husk, and you will have to hunt it down.",
+  "kitSampleCancel": "Keep it",
+  "kitInk": "This build of the page drew {drawn} strokes and asked for {asked}. {total} have been drawn since the game started.",
+  "@kitInk": {
+    "placeholders": {
+      "drawn": { "type": "int" },
+      "asked": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
   "probeRaysLabel": "{columns} by {rows} rays",
   "@probeRaysLabel": {
     "placeholders": {

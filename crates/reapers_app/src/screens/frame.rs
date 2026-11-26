@@ -18,7 +18,7 @@ use crate::state::Slip;
 use crate::theme::ASH;
 use crate::theme::BONE;
 use crate::theme::CONTENT_WIDTH;
-use crate::theme::WOUND;
+use crate::theme::class;
 use crate::theme::seed_for;
 use crate::theme::short_address;
 use crate::theme::sol_amount;
@@ -30,6 +30,7 @@ use crate::ui::figure;
 use crate::ui::label;
 use crate::ui::light;
 use crate::ui::sketch;
+use crate::ui::wound_words;
 
 /// The frame around `children`, the matched route.
 pub fn frame(children: &Children) -> Element {
@@ -38,7 +39,11 @@ pub fn frame(children: &Children) -> Element {
 	// scroll container, avoiding nested ScrollViews on 3D stages and AR views
 	// while keeping sheets, dialogs, and slips pinned to the viewport.
 	let mut root = View()
-		.class("relative w-full h-screen overflow-hidden bg-[#07080b] text-[#e9e4d4]")
+		.class(format!(
+			"relative w-full h-screen overflow-hidden {} {}",
+			class::KEY_BG,
+			class::PAPER
+		))
 		.child(
 			View()
 				.class("flex-1 w-full overflow-hidden")
@@ -100,7 +105,7 @@ fn notice(game: Game, title: &str, text: &str) -> Element {
 		game,
 		title,
 		vec![
-			label(title, 11, WOUND),
+			wound_words(label(title, 11, BONE), 11),
 			display(text, 24, BONE),
 			View().class("h-2"),
 			LedgerButton::new(words.common_dismiss())
@@ -140,7 +145,8 @@ fn slip_view(slip: &Slip) -> Element {
 	}
 	View()
 		.class(format!(
-			"relative w-full {CONTENT_WIDTH} flex-row items-center gap-3 px-4 py-3 bg-[#0f1116]"
+			"relative w-full {CONTENT_WIDTH} flex-row items-center gap-3 px-4 py-3 {}",
+			class::SCRIM_BG
 		))
 		.test_id("simnet-slip")
 		.aria_live(leptoskit::native::Live::Polite)
@@ -170,7 +176,10 @@ fn slip_view(slip: &Slip) -> Element {
 fn arrival() -> Element {
 	let words = use_l10n();
 	View()
-		.class("absolute inset-0 items-center justify-center bg-[#07080b] gap-6")
+		.class(format!(
+			"absolute inset-0 items-center justify-center gap-6 {}",
+			class::KEY_BG
+		))
 		.accessibility_label(words.app_title())
 		.test_id("arrival")
 		.child(reapers_mark(288, true))

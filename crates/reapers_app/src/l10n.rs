@@ -369,11 +369,11 @@ pub trait Messages: Send + Sync {
 	fn colophon_title(&self) -> &'static str;
 	/// `Set in`
 	fn colophon_type(&self) -> &'static str;
-	/// `Both released under the SIL Open Font License 1.1.`
+	/// `Hand-drawn cuts of Recursive and Noto Sans by the Skribble authors, all three released under the SIL Open Font License 1.1.`
 	fn colophon_type_credit(&self) -> &'static str;
 	/// `Type`
 	fn colophon_type_heading(&self) -> &'static str;
-	/// `Fraunces and DM Sans`
+	/// `Skribble Black, Skribble Noto Sketch and Skribble Mono Gentle`
 	fn colophon_type_piece(&self) -> &'static str;
 	/// `Anima`
 	fn common_anima(&self) -> &'static str;
@@ -391,6 +391,10 @@ pub trait Messages: Send + Sync {
 	fn common_level(&self) -> &'static str;
 	/// `Parting the veil…`
 	fn common_loading(&self) -> &'static str;
+	/// `Off`
+	fn common_off(&self) -> &'static str;
+	/// `On`
+	fn common_on(&self) -> &'static str;
 	/// `Refused`
 	fn common_refused_title(&self) -> &'static str;
 	/// `Try again`
@@ -399,6 +403,10 @@ pub trait Messages: Send + Sync {
 	fn common_sol(&self, amount: &str) -> String;
 	/// `The keeper of the books could not be reached. Try again to recover your place in the veil.`
 	fn common_unreachable(&self) -> &'static str;
+	/// `Needs {soul}`
+	fn dial_needs(&self, soul: i64) -> String;
+	/// `Soul`
+	fn dial_soul(&self) -> &'static str;
 	/// `Easy`
 	fn difficulty_easy(&self) -> &'static str;
 	/// `Hard`
@@ -821,6 +829,124 @@ pub trait Messages: Send + Sync {
 	fn hunt_tracking_pause(&self) -> &'static str;
 	/// `Ward`
 	fn hunt_ward(&self) -> &'static str;
+	/// `This build of the page drew {drawn} strokes and asked for {asked}. {total} have been drawn since the game started.`
+	fn kit_ink(&self, drawn: i64, asked: i64, total: i64) -> String;
+	/// `Every control and mark of the interface, in every state it can be in, on the vigil page. Debug builds only.`
+	fn kit_intro(&self) -> &'static str;
+	/// `Second Ink`
+	fn kit_overline(&self) -> &'static str;
+	/// `Keep it`
+	fn kit_sample_cancel(&self) -> &'static str;
+	/// `Haptics`
+	fn kit_sample_checkbox(&self) -> &'static str;
+	/// `The keeper could not be reached.`
+	fn kit_sample_error(&self) -> &'static str;
+	/// `Name`
+	fn kit_sample_field(&self) -> &'static str;
+	/// `A name needs at least one letter.`
+	fn kit_sample_field_error(&self) -> &'static str;
+	/// `Umbra of the Slow Water`
+	fn kit_sample_field_value(&self) -> &'static str;
+	/// `2 nearby`
+	fn kit_sample_nearby(&self) -> &'static str;
+	/// `Go hunting`
+	fn kit_sample_primary(&self) -> &'static str;
+	/// `Night`
+	fn kit_sample_radio(&self) -> &'static str;
+	/// `Needs 40 soul`
+	fn kit_sample_reason(&self) -> &'static str;
+	/// `Resolve 1 of 6`
+	fn kit_sample_resolve(&self) -> &'static str;
+	/// `Back to the sanctum`
+	fn kit_sample_secondary(&self) -> &'static str;
+	/// `Release Penguin #1 into the veil? It becomes a husk, and you will have to hunt it down.`
+	fn kit_sample_sheet(&self) -> &'static str;
+	/// `Sworn to the Ferryman. This light is borrowed.`
+	fn kit_sample_slip(&self) -> &'static str;
+	/// `Loose`
+	fn kit_sample_status(&self) -> &'static str;
+	/// `Steady print`
+	fn kit_sample_switch(&self) -> &'static str;
+	/// `Soul dial`
+	fn kit_section_dial(&self) -> &'static str;
+	/// `Fields`
+	fn kit_section_fields(&self) -> &'static str;
+	/// `Ink`
+	fn kit_section_ink(&self) -> &'static str;
+	/// `Lamp`
+	fn kit_section_lamp(&self) -> &'static str;
+	/// `Meter`
+	fn kit_section_meter(&self) -> &'static str;
+	/// `Primary`
+	fn kit_section_primary(&self) -> &'static str;
+	/// `Quiet`
+	fn kit_section_quiet(&self) -> &'static str;
+	/// `Rows`
+	fn kit_section_rows(&self) -> &'static str;
+	/// `Secondary and destructive`
+	fn kit_section_secondary(&self) -> &'static str;
+	/// `Sheet`
+	fn kit_section_sheet(&self) -> &'static str;
+	/// `Slips and notices`
+	fn kit_section_slips(&self) -> &'static str;
+	/// `Stamps and marks`
+	fn kit_section_stamps(&self) -> &'static str;
+	/// `Tabs`
+	fn kit_section_tabs(&self) -> &'static str;
+	/// `Tally`
+	fn kit_section_tally(&self) -> &'static str;
+	/// `Switches, checkboxes and radios`
+	fn kit_section_toggles(&self) -> &'static str;
+	/// `Type`
+	fn kit_section_type(&self) -> &'static str;
+	/// `Active`
+	fn kit_state_active(&self) -> &'static str;
+	/// `Busy`
+	fn kit_state_busy(&self) -> &'static str;
+	/// `Critical, a loss`
+	fn kit_state_critical(&self) -> &'static str;
+	/// `Destructive`
+	fn kit_state_destructive(&self) -> &'static str;
+	/// `Disabled`
+	fn kit_state_disabled(&self) -> &'static str;
+	/// `Draining`
+	fn kit_state_draining(&self) -> &'static str;
+	/// `Empty`
+	fn kit_state_empty(&self) -> &'static str;
+	/// `Entering`
+	fn kit_state_entering(&self) -> &'static str;
+	/// `Error`
+	fn kit_state_error(&self) -> &'static str;
+	/// `Filled`
+	fn kit_state_filled(&self) -> &'static str;
+	/// `Focused`
+	fn kit_state_focused(&self) -> &'static str;
+	/// `Full`
+	fn kit_state_full(&self) -> &'static str;
+	/// `Leaving`
+	fn kit_state_leaving(&self) -> &'static str;
+	/// `The newest in the spot`
+	fn kit_state_newest(&self) -> &'static str;
+	/// `Off`
+	fn kit_state_off(&self) -> &'static str;
+	/// `On`
+	fn kit_state_on(&self) -> &'static str;
+	/// `Open`
+	fn kit_state_open(&self) -> &'static str;
+	/// `Pressed`
+	fn kit_state_pressed(&self) -> &'static str;
+	/// `Ready`
+	fn kit_state_ready(&self) -> &'static str;
+	/// `Rest`
+	fn kit_state_rest(&self) -> &'static str;
+	/// `Under 40`
+	fn kit_state_under(&self) -> &'static str;
+	/// `Critical, a ward`
+	fn kit_state_ward(&self) -> &'static str;
+	/// `Waxing`
+	fn kit_state_waxing(&self) -> &'static str;
+	/// `The kit`
+	fn kit_title(&self) -> &'static str;
 	/// `The hunt began with an ambush`
 	fn ledger_ambush(&self) -> &'static str;
 	/// `Expected XP for this scenario: {xp}. Anima: {anima}. Expectation uses each rounded reward and its weight.`
@@ -1381,8 +1507,6 @@ pub trait Messages: Send + Sync {
 	fn roster_buy_help(&self) -> &'static str;
 	/// `Connect Solana wallet`
 	fn roster_connect(&self) -> &'static str;
-	/// `{count, plural, =1{1 reaper} other{{count} reapers}}`
-	fn roster_count(&self, count: i64) -> String;
 	/// `Import owned reaper`
 	fn roster_import(&self) -> &'static str;
 	/// `Paste the address of a Reapers NFT already owned by your linked wallet.`
@@ -1415,17 +1539,27 @@ pub trait Messages: Send + Sync {
 	fn sanctum_armory(&self) -> &'static str;
 	/// `Codex`
 	fn sanctum_codex(&self) -> &'static str;
-	/// `{count, plural, =0{Nothing absorbed} =1{1 absorbed} other{{count} absorbed}}`
-	fn sanctum_codex_detail(&self, count: i64) -> String;
 	/// `Colophon`
 	fn sanctum_colophon(&self) -> &'static str;
-	/// `Music and credits`
-	fn sanctum_colophon_detail(&self) -> &'static str;
-	/// `Hunt`
-	fn sanctum_hunt(&self) -> &'static str;
+	/// `Go hunting`
+	fn sanctum_go_hunting(&self) -> &'static str;
+	/// `Level {level} · the lamp is full`
+	fn sanctum_lamp_full(&self, level: &str) -> String;
+	/// `{earned}/{needed} XP to {level} · the lamp is waxing`
+	fn sanctum_lamp_waxing(&self, earned: i64, needed: i64, level: &str) -> String;
 	/// `Loose in the veil`
 	fn sanctum_loose(&self) -> &'static str;
-	/// `Nothing is loose. Release an NFT from your vault and it will surface here as a husk.`
+	/// `{first} is loose in the veil.`
+	fn sanctum_loose_one(&self, first: &str) -> String;
+	/// `Release an NFT from your vault`
+	fn sanctum_loose_slot(&self) -> &'static str;
+	/// `{first}, {second} and {third} are loose in the veil.`
+	fn sanctum_loose_three(&self, first: &str, second: &str, third: &str) -> String;
+	/// `{first} and {second} are loose in the veil.`
+	fn sanctum_loose_two(&self, first: &str, second: &str) -> String;
+	/// `{count} nearby`
+	fn sanctum_nearby(&self, count: i64) -> String;
+	/// `Nothing is loose. Release an NFT from your vault to hunt it.`
 	fn sanctum_nothing_loose(&self) -> &'static str;
 	/// `Sanctum`
 	fn sanctum_overline(&self) -> &'static str;
@@ -1435,10 +1569,8 @@ pub trait Messages: Send + Sync {
 	fn sanctum_practice_detail(&self) -> &'static str;
 	/// `Rifts`
 	fn sanctum_rifts(&self) -> &'static str;
-	/// `{count, plural, =0{Hunt together} =1{1 sealed} other{{count} sealed}}`
-	fn sanctum_rifts_detail(&self, count: i64) -> String;
-	/// `Your reapers`
-	fn sanctum_roster(&self) -> &'static str;
+	/// `{count, plural, =1{1 reaper} other{{count} reapers}}`
+	fn sanctum_roster(&self, count: i64) -> String;
 	/// `Husk sighted: {name}`
 	fn sanctum_sighted_banner(&self, name: &str) -> String;
 	/// `Simnet ledger`
@@ -1459,10 +1591,12 @@ pub trait Messages: Send + Sync {
 	fn sanctum_studio_detail(&self) -> &'static str;
 	/// `Surfacing in {seconds}s`
 	fn sanctum_surfacing(&self, seconds: i64) -> String;
+	/// `{seconds}s`
+	fn sanctum_surfacing_soon(&self, seconds: i64) -> String;
+	/// `Taken`
+	fn sanctum_taken(&self) -> &'static str;
 	/// `Vault`
 	fn sanctum_vault(&self) -> &'static str;
-	/// `{count, plural, =0{Empty} =1{1 held} other{{count} held}}`
-	fn sanctum_vault_detail(&self, count: i64) -> String;
 	/// `Bring the ring onto the next light.`
 	fn scan_aim(&self) -> &'static str;
 	/// `Drag down to the next light.`
@@ -2524,7 +2658,7 @@ impl Messages for En {
 	}
 
 	fn colophon_type_credit(&self) -> &'static str {
-		"Both released under the SIL Open Font License 1.1."
+		"Hand-drawn cuts of Recursive and Noto Sans by the Skribble authors, all three released under the SIL Open Font License 1.1."
 	}
 
 	fn colophon_type_heading(&self) -> &'static str {
@@ -2532,7 +2666,7 @@ impl Messages for En {
 	}
 
 	fn colophon_type_piece(&self) -> &'static str {
-		"Fraunces and DM Sans"
+		"Skribble Black, Skribble Noto Sketch and Skribble Mono Gentle"
 	}
 
 	fn common_anima(&self) -> &'static str {
@@ -2567,6 +2701,14 @@ impl Messages for En {
 		"Parting the veil…"
 	}
 
+	fn common_off(&self) -> &'static str {
+		"Off"
+	}
+
+	fn common_on(&self) -> &'static str {
+		"On"
+	}
+
 	fn common_refused_title(&self) -> &'static str {
 		"Refused"
 	}
@@ -2581,6 +2723,14 @@ impl Messages for En {
 
 	fn common_unreachable(&self) -> &'static str {
 		"The keeper of the books could not be reached. Try again to recover your place in the veil."
+	}
+
+	fn dial_needs(&self, soul: i64) -> String {
+		format!("Needs {soul}")
+	}
+
+	fn dial_soul(&self) -> &'static str {
+		"Soul"
 	}
 
 	fn difficulty_easy(&self) -> &'static str {
@@ -3400,6 +3550,244 @@ impl Messages for En {
 
 	fn hunt_ward(&self) -> &'static str {
 		"Ward"
+	}
+
+	fn kit_ink(&self, drawn: i64, asked: i64, total: i64) -> String {
+		format!(
+			"This build of the page drew {drawn} strokes and asked for {asked}. {total} have been drawn since the game started."
+		)
+	}
+
+	fn kit_intro(&self) -> &'static str {
+		"Every control and mark of the interface, in every state it can be in, on the vigil page. Debug builds only."
+	}
+
+	fn kit_overline(&self) -> &'static str {
+		"Second Ink"
+	}
+
+	fn kit_sample_cancel(&self) -> &'static str {
+		"Keep it"
+	}
+
+	fn kit_sample_checkbox(&self) -> &'static str {
+		"Haptics"
+	}
+
+	fn kit_sample_error(&self) -> &'static str {
+		"The keeper could not be reached."
+	}
+
+	fn kit_sample_field(&self) -> &'static str {
+		"Name"
+	}
+
+	fn kit_sample_field_error(&self) -> &'static str {
+		"A name needs at least one letter."
+	}
+
+	fn kit_sample_field_value(&self) -> &'static str {
+		"Umbra of the Slow Water"
+	}
+
+	fn kit_sample_nearby(&self) -> &'static str {
+		"2 nearby"
+	}
+
+	fn kit_sample_primary(&self) -> &'static str {
+		"Go hunting"
+	}
+
+	fn kit_sample_radio(&self) -> &'static str {
+		"Night"
+	}
+
+	fn kit_sample_reason(&self) -> &'static str {
+		"Needs 40 soul"
+	}
+
+	fn kit_sample_resolve(&self) -> &'static str {
+		"Resolve 1 of 6"
+	}
+
+	fn kit_sample_secondary(&self) -> &'static str {
+		"Back to the sanctum"
+	}
+
+	fn kit_sample_sheet(&self) -> &'static str {
+		"Release Penguin #1 into the veil? It becomes a husk, and you will have to hunt it down."
+	}
+
+	fn kit_sample_slip(&self) -> &'static str {
+		"Sworn to the Ferryman. This light is borrowed."
+	}
+
+	fn kit_sample_status(&self) -> &'static str {
+		"Loose"
+	}
+
+	fn kit_sample_switch(&self) -> &'static str {
+		"Steady print"
+	}
+
+	fn kit_section_dial(&self) -> &'static str {
+		"Soul dial"
+	}
+
+	fn kit_section_fields(&self) -> &'static str {
+		"Fields"
+	}
+
+	fn kit_section_ink(&self) -> &'static str {
+		"Ink"
+	}
+
+	fn kit_section_lamp(&self) -> &'static str {
+		"Lamp"
+	}
+
+	fn kit_section_meter(&self) -> &'static str {
+		"Meter"
+	}
+
+	fn kit_section_primary(&self) -> &'static str {
+		"Primary"
+	}
+
+	fn kit_section_quiet(&self) -> &'static str {
+		"Quiet"
+	}
+
+	fn kit_section_rows(&self) -> &'static str {
+		"Rows"
+	}
+
+	fn kit_section_secondary(&self) -> &'static str {
+		"Secondary and destructive"
+	}
+
+	fn kit_section_sheet(&self) -> &'static str {
+		"Sheet"
+	}
+
+	fn kit_section_slips(&self) -> &'static str {
+		"Slips and notices"
+	}
+
+	fn kit_section_stamps(&self) -> &'static str {
+		"Stamps and marks"
+	}
+
+	fn kit_section_tabs(&self) -> &'static str {
+		"Tabs"
+	}
+
+	fn kit_section_tally(&self) -> &'static str {
+		"Tally"
+	}
+
+	fn kit_section_toggles(&self) -> &'static str {
+		"Switches, checkboxes and radios"
+	}
+
+	fn kit_section_type(&self) -> &'static str {
+		"Type"
+	}
+
+	fn kit_state_active(&self) -> &'static str {
+		"Active"
+	}
+
+	fn kit_state_busy(&self) -> &'static str {
+		"Busy"
+	}
+
+	fn kit_state_critical(&self) -> &'static str {
+		"Critical, a loss"
+	}
+
+	fn kit_state_destructive(&self) -> &'static str {
+		"Destructive"
+	}
+
+	fn kit_state_disabled(&self) -> &'static str {
+		"Disabled"
+	}
+
+	fn kit_state_draining(&self) -> &'static str {
+		"Draining"
+	}
+
+	fn kit_state_empty(&self) -> &'static str {
+		"Empty"
+	}
+
+	fn kit_state_entering(&self) -> &'static str {
+		"Entering"
+	}
+
+	fn kit_state_error(&self) -> &'static str {
+		"Error"
+	}
+
+	fn kit_state_filled(&self) -> &'static str {
+		"Filled"
+	}
+
+	fn kit_state_focused(&self) -> &'static str {
+		"Focused"
+	}
+
+	fn kit_state_full(&self) -> &'static str {
+		"Full"
+	}
+
+	fn kit_state_leaving(&self) -> &'static str {
+		"Leaving"
+	}
+
+	fn kit_state_newest(&self) -> &'static str {
+		"The newest in the spot"
+	}
+
+	fn kit_state_off(&self) -> &'static str {
+		"Off"
+	}
+
+	fn kit_state_on(&self) -> &'static str {
+		"On"
+	}
+
+	fn kit_state_open(&self) -> &'static str {
+		"Open"
+	}
+
+	fn kit_state_pressed(&self) -> &'static str {
+		"Pressed"
+	}
+
+	fn kit_state_ready(&self) -> &'static str {
+		"Ready"
+	}
+
+	fn kit_state_rest(&self) -> &'static str {
+		"Rest"
+	}
+
+	fn kit_state_under(&self) -> &'static str {
+		"Under 40"
+	}
+
+	fn kit_state_ward(&self) -> &'static str {
+		"Critical, a ward"
+	}
+
+	fn kit_state_waxing(&self) -> &'static str {
+		"Waxing"
+	}
+
+	fn kit_title(&self) -> &'static str {
+		"The kit"
 	}
 
 	fn ledger_ambush(&self) -> &'static str {
@@ -4519,14 +4907,6 @@ impl Messages for En {
 		"Connect Solana wallet"
 	}
 
-	fn roster_count(&self, count: i64) -> String {
-		if count == 1 {
-			"1 reaper".to_owned()
-		} else {
-			format!("{count} reapers")
-		}
-	}
-
 	fn roster_import(&self) -> &'static str {
 		"Import owned reaper"
 	}
@@ -4591,34 +4971,48 @@ impl Messages for En {
 		"Codex"
 	}
 
-	fn sanctum_codex_detail(&self, count: i64) -> String {
-		if count == 0 {
-			"Nothing absorbed".to_owned()
-		} else if count == 1 {
-			"1 absorbed".to_owned()
-		} else {
-			format!("{count} absorbed")
-		}
-	}
-
 	fn sanctum_colophon(&self) -> &'static str {
 		"Colophon"
 	}
 
-	fn sanctum_colophon_detail(&self) -> &'static str {
-		"Music and credits"
+	fn sanctum_go_hunting(&self) -> &'static str {
+		"Go hunting"
 	}
 
-	fn sanctum_hunt(&self) -> &'static str {
-		"Hunt"
+	fn sanctum_lamp_full(&self, level: &str) -> String {
+		format!("Level {level} · the lamp is full")
+	}
+
+	fn sanctum_lamp_waxing(&self, earned: i64, needed: i64, level: &str) -> String {
+		format!("{earned}/{needed} XP to {level} · the lamp is waxing")
 	}
 
 	fn sanctum_loose(&self) -> &'static str {
 		"Loose in the veil"
 	}
 
+	fn sanctum_loose_one(&self, first: &str) -> String {
+		format!("{first} is loose in the veil.")
+	}
+
+	fn sanctum_loose_slot(&self) -> &'static str {
+		"Release an NFT from your vault"
+	}
+
+	fn sanctum_loose_three(&self, first: &str, second: &str, third: &str) -> String {
+		format!("{first}, {second} and {third} are loose in the veil.")
+	}
+
+	fn sanctum_loose_two(&self, first: &str, second: &str) -> String {
+		format!("{first} and {second} are loose in the veil.")
+	}
+
+	fn sanctum_nearby(&self, count: i64) -> String {
+		format!("{count} nearby")
+	}
+
 	fn sanctum_nothing_loose(&self) -> &'static str {
-		"Nothing is loose. Release an NFT from your vault and it will surface here as a husk."
+		"Nothing is loose. Release an NFT from your vault to hunt it."
 	}
 
 	fn sanctum_overline(&self) -> &'static str {
@@ -4637,18 +5031,12 @@ impl Messages for En {
 		"Rifts"
 	}
 
-	fn sanctum_rifts_detail(&self, count: i64) -> String {
-		if count == 0 {
-			"Hunt together".to_owned()
-		} else if count == 1 {
-			"1 sealed".to_owned()
+	fn sanctum_roster(&self, count: i64) -> String {
+		if count == 1 {
+			"1 reaper".to_owned()
 		} else {
-			format!("{count} sealed")
+			format!("{count} reapers")
 		}
-	}
-
-	fn sanctum_roster(&self) -> &'static str {
-		"Your reapers"
 	}
 
 	fn sanctum_sighted_banner(&self, name: &str) -> String {
@@ -4695,18 +5083,16 @@ impl Messages for En {
 		format!("Surfacing in {seconds}s")
 	}
 
-	fn sanctum_vault(&self) -> &'static str {
-		"Vault"
+	fn sanctum_surfacing_soon(&self, seconds: i64) -> String {
+		format!("{seconds}s")
 	}
 
-	fn sanctum_vault_detail(&self, count: i64) -> String {
-		if count == 0 {
-			"Empty".to_owned()
-		} else if count == 1 {
-			"1 held".to_owned()
-		} else {
-			format!("{count} held")
-		}
+	fn sanctum_taken(&self) -> &'static str {
+		"Taken"
+	}
+
+	fn sanctum_vault(&self) -> &'static str {
+		"Vault"
 	}
 
 	fn scan_aim(&self) -> &'static str {

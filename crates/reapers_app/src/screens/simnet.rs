@@ -21,7 +21,6 @@ use crate::state::Game;
 use crate::state::Overlay;
 use crate::theme::ASH;
 use crate::theme::BONE;
-use crate::theme::WOUND;
 use crate::theme::short_address;
 use crate::theme::sol_amount;
 use crate::ui::LedgerButton;
@@ -38,6 +37,7 @@ use crate::ui::ledger_row;
 use crate::ui::light;
 use crate::ui::margin;
 use crate::ui::sheet;
+use crate::ui::wound_words;
 
 /// An address in full, under its name, for copying.
 fn address(name: &str, value: impl Into<String>) -> Element {
@@ -67,7 +67,7 @@ pub fn page() -> Element {
 		entries.push(gap(18));
 	} else if let Some(problem) = game.surfpool_problem.get() {
 		entries.push(
-			body(words.simnet_local_rpc_config(&problem), 13, WOUND)
+			wound_words(body(words.simnet_local_rpc_config(&problem), 13, BONE), 13)
 				.test_id("simnet-local-rpc-config"),
 		);
 		entries.push(gap(18));
@@ -263,7 +263,10 @@ pub fn transaction_sheet(game: Game, signature: &str) -> Element {
 				));
 			}
 			Some(Err(reason)) => {
-				entries.push(body(words.simnet_local_rpc_failure(&reason), 13, WOUND));
+				entries.push(wound_words(
+					body(words.simnet_local_rpc_failure(&reason), 13, BONE),
+					13,
+				));
 			}
 			None => {}
 		}
@@ -465,7 +468,7 @@ fn surfpool_panel(game: Game, rpc: &Rc<SurfpoolRpc>, wallet: &str) -> Element {
 	}
 	if let Some(detail) = local.failure.get() {
 		panel = panel.child(gap(6)).child(
-			body(words.simnet_local_rpc_failure(&detail), 13, WOUND)
+			wound_words(body(words.simnet_local_rpc_failure(&detail), 13, BONE), 13)
 				.test_id("simnet-local-rpc-failure"),
 		);
 	}

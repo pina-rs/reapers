@@ -14,6 +14,8 @@ pub mod hunt {
 }
 #[path = "routes/index.rs"]
 pub mod index;
+#[path = "routes/kit.rs"]
+pub mod kit;
 #[path = "routes/_layout.rs"]
 pub mod layout;
 #[path = "routes/+not-found.rs"]
@@ -52,6 +54,8 @@ pub enum Route {
     Codex,
     /// `/colophon`
     Colophon,
+    /// `/kit`
+    Kit,
     /// `/oath`
     Oath,
     /// `/practice`
@@ -95,11 +99,12 @@ const _: () = ::leptoskit_router::__private::require_field(
 );
 /// Each route's pattern, in the order of the variants: what its href
 /// writes.
-const PATTERNS: [::leptoskit_router::Pattern; 14] = [
+const PATTERNS: [::leptoskit_router::Pattern; 15] = [
     ::leptoskit_router::Pattern::new(&[]),
     ::leptoskit_router::Pattern::new(&[::leptoskit_router::Segment::Static("armory")]),
     ::leptoskit_router::Pattern::new(&[::leptoskit_router::Segment::Static("codex")]),
     ::leptoskit_router::Pattern::new(&[::leptoskit_router::Segment::Static("colophon")]),
+    ::leptoskit_router::Pattern::new(&[::leptoskit_router::Segment::Static("kit")]),
     ::leptoskit_router::Pattern::new(&[::leptoskit_router::Segment::Static("oath")]),
     ::leptoskit_router::Pattern::new(&[::leptoskit_router::Segment::Static("practice")]),
     ::leptoskit_router::Pattern::new(&[::leptoskit_router::Segment::Static("rifts")]),
@@ -129,7 +134,7 @@ const PATTERNS: [::leptoskit_router::Pattern; 14] = [
 const ROUTES: [(
     ::leptoskit_router::__private::Shape,
     ::leptoskit_router::__private::ReadRoute<Route>,
-); 14] = [
+); 15] = [
     (
         ::leptoskit_router::__private::Shape::new(&[], &[]),
         |_, _| ::core::option::Option::Some(Route::Index),
@@ -154,6 +159,13 @@ const ROUTES: [(
             &[],
         ),
         |_, _| ::core::option::Option::Some(Route::Colophon),
+    ),
+    (
+        ::leptoskit_router::__private::Shape::new(
+            &[::leptoskit_router::Segment::Static("kit")],
+            &[],
+        ),
+        |_, _| ::core::option::Option::Some(Route::Kit),
     ),
     (
         ::leptoskit_router::__private::Shape::new(
@@ -255,16 +267,17 @@ impl ::leptoskit_router::Routable for Route {
             Self::Armory => PATTERNS[1].static_href(),
             Self::Codex => PATTERNS[2].static_href(),
             Self::Colophon => PATTERNS[3].static_href(),
-            Self::Oath => PATTERNS[4].static_href(),
-            Self::Practice => PATTERNS[5].static_href(),
-            Self::Rifts => PATTERNS[6].static_href(),
-            Self::Roster => PATTERNS[7].static_href(),
-            Self::Simnet => PATTERNS[8].static_href(),
-            Self::Studio => PATTERNS[9].static_href(),
-            Self::Vault => PATTERNS[10].static_href(),
-            Self::Hunt(route) => PATTERNS[11].href(route),
-            Self::Rift(route) => PATTERNS[12].href(route),
-            Self::NotFound(route) => PATTERNS[13].href(route),
+            Self::Kit => PATTERNS[4].static_href(),
+            Self::Oath => PATTERNS[5].static_href(),
+            Self::Practice => PATTERNS[6].static_href(),
+            Self::Rifts => PATTERNS[7].static_href(),
+            Self::Roster => PATTERNS[8].static_href(),
+            Self::Simnet => PATTERNS[9].static_href(),
+            Self::Studio => PATTERNS[10].static_href(),
+            Self::Vault => PATTERNS[11].static_href(),
+            Self::Hunt(route) => PATTERNS[12].href(route),
+            Self::Rift(route) => PATTERNS[13].href(route),
+            Self::NotFound(route) => PATTERNS[14].href(route),
         }
     }
 }
@@ -279,8 +292,10 @@ pub fn axum_route_list() -> ::std::vec::Vec<::std::string::String> {
         [::leptoskit_router::Segment::Static("codex")]).axum_path(),
         ::leptoskit_router::Pattern::new(&
         [::leptoskit_router::Segment::Static("colophon")]).axum_path(),
-        ::leptoskit_router::Pattern::new(& [::leptoskit_router::Segment::Static("oath")])
+        ::leptoskit_router::Pattern::new(& [::leptoskit_router::Segment::Static("kit")])
         .axum_path(), ::leptoskit_router::Pattern::new(&
+        [::leptoskit_router::Segment::Static("oath")]).axum_path(),
+        ::leptoskit_router::Pattern::new(&
         [::leptoskit_router::Segment::Static("practice")]).axum_path(),
         ::leptoskit_router::Pattern::new(&
         [::leptoskit_router::Segment::Static("rifts")]).axum_path(),
@@ -342,6 +357,16 @@ impl ::leptoskit_router::Render for Route {
             Self::Colophon => {
                 let view = ::leptoskit_router::__private::IntoView::into_view(
                     colophon::Page(),
+                );
+                ::leptoskit_router::__private::IntoView::into_view(
+                    layout::Layout(
+                        ::leptoskit_router::__private::Fragment::new().with(view),
+                    ),
+                )
+            }
+            Self::Kit => {
+                let view = ::leptoskit_router::__private::IntoView::into_view(
+                    kit::Page(),
                 );
                 ::leptoskit_router::__private::IntoView::into_view(
                     layout::Layout(

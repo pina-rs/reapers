@@ -159,8 +159,15 @@ fn the_main_screen_gives_the_reaper_a_visible_phone_sized_stage() {
 		.props
 		.scene3d;
 	assert!(scene_id.is_some());
+	// The studio's row waits under the stage, below a phone's fold: make the
+	// page tall enough to tap it, then come back to the phone's height to
+	// compare the stage that returns.
+	harness.tester.resize(390.0, 1400.0).unwrap();
+	harness.settle();
 	harness.tap("sanctum-studio");
 	harness.tap("ledger-back");
+	harness.tester.resize(390.0, 844.0).unwrap();
+	harness.settle();
 	let returned = harness
 		.tester
 		.find(&Finder::test_id("reaper-scene"))
@@ -189,6 +196,86 @@ fn the_oath_binds_a_reaper_and_the_sanctum_shows_it() {
 		panic!("the books are open");
 	};
 	assert!(harness.shows(&player.genome().name()));
+}
+
+/// The sanctum gives the reaper the stage and prints nothing over it: the
+/// name sits under the stage, the primary and the tab bar under the page.
+#[test]
+fn the_sanctum_prints_the_name_under_the_stage_and_never_over_the_reaper() {
+	let mut harness = Harness::offline();
+	harness.take_oath();
+	let frame = |id: &str| {
+		harness
+			.tester
+			.find(&Finder::test_id(id))
+			.unwrap_or_else(|error| panic!("{id}: {error:?}"))
+			.frame
+	};
+	let stage = frame("reaper-stage");
+	let stage_foot = stage.y + stage.height;
+	for id in ["sanctum-name", "sanctum-hunt", "sanctum-vault"] {
+		let below = frame(id);
+		assert!(
+			below.y >= stage_foot - 0.5,
+			"{id} is printed over the stage: {below:?} under {stage:?}"
+		);
+	}
+	let hunt = frame("sanctum-hunt");
+	let tab = frame("sanctum-vault");
+	assert!(
+		hunt.y + hunt.height <= tab.y,
+		"the primary sits over the tab bar"
+	);
+	assert!(tab.y + tab.height <= 844.5, "the tab bar is on the phone");
+}
+
+/// One reaper is one reaper: the roster's row counts in the singular and the
+/// plural.
+#[test]
+fn the_sanctum_counts_one_reaper_in_the_singular() {
+	let mut harness = Harness::offline();
+	harness.take_oath();
+	// The rows sit at the foot of the page, under a phone's fold; the tester
+	// does not scroll a scroll view's content, so the page is made tall
+	// enough to show every row at once.
+	harness.tester.resize(390.0, 1600.0).unwrap();
+	harness.settle();
+	assert!(harness.has("sanctum-roster"), "{}", harness.tester.tree());
+	assert!(harness.shows(&En.sanctum_roster(1)));
+	assert_eq!(En.sanctum_roster(1), "1 reaper");
+	assert_eq!(En.sanctum_roster(2), "2 reapers");
+	assert!(harness.has("sanctum-practice"));
+	assert!(harness.has("sanctum-colophon"));
+}
+
+/// With nothing loose the primary sends the reaper after a stray; with a
+/// husk sighted it says how many are near and hunts the first.
+#[test]
+fn going_hunting_from_the_sanctum_hunts_what_is_near_or_a_stray() {
+	let mut harness = Harness::offline();
+	harness.take_oath();
+	assert!(harness.shows(&En.sanctum_practice_detail().to_uppercase()));
+	harness.tap("sanctum-hunt");
+	assert!(harness.has("hunt-view"), "{}", harness.tester.tree());
+
+	harness.open(Route::Vault);
+	harness.tap(&format!("vault-nft-{}", SAINT.id()));
+	harness.tap("vault-buy");
+	harness.tap("vault-release");
+	let Books::Open(player) = harness.game.books.get_untracked() else {
+		panic!("the books are open");
+	};
+	let sighting = player.sightings()[0];
+	harness.game.now.set(sighting.surfaces_at);
+	harness.settle();
+	assert!(
+		harness.shows(&En.sanctum_nearby(1).to_uppercase()),
+		"{}",
+		harness.tester.tree()
+	);
+	assert!(harness.shows(&En.sanctum_loose_one(&sighting.nft.title())));
+	harness.tap("sanctum-hunt");
+	assert!(harness.has("hunt-view"), "{}", harness.tester.tree());
 }
 
 #[test]
@@ -285,6 +372,109 @@ fn every_screen_renders_for_a_bound_player() {
 	harness.open(Route::Codex);
 	harness.tap("codex-soul");
 	assert!(harness.shows(En.soul_marks().to_uppercase().as_str()));
+}
+
+/// Second Ink's strokes are generated once and kept (`ui::ink`): a screen
+/// built a second time, after the player has been elsewhere, draws no new
+/// stroke. The counts are printed so a run with `--nocapture` shows them.
+#[test]
+fn a_screen_built_again_draws_no_new_ink() {
+	use reapers_app::ui::ink;
+
+	let mut harness = Harness::offline();
+	// The oath lands on the sanctum: its first build is the sanctum's cold
+	// one.
+	harness.open(Route::Oath);
+	harness.tap("oath-speak");
+	let (drawn, asked) = (ink::drawn(), ink::asked());
+	harness.tap("oath-enter");
+	assert!(harness.has("sanctum"), "{}", harness.tester.tree());
+	println!(
+		"ink: cold sanctum, first build: {} drawn, {} asked for",
+		ink::drawn() - drawn,
+		ink::asked() - asked
+	);
+	let rounds = [
+		Route::Index,
+		Route::Colophon,
+		Route::Vault,
+		Route::Kit,
+		Route::Index,
+	];
+	// Opens each route in turn, printing what each drew and asked for.
+	let mut round = |name: &str| {
+		for route in rounds.clone() {
+			let (drawn, asked) = (ink::drawn(), ink::asked());
+			harness.open(route.clone());
+			println!(
+				"ink: {name} {route:?}: {} drawn, {} asked for",
+				ink::drawn() - drawn,
+				ink::asked() - asked
+			);
+		}
+	};
+	let before = ink::drawn();
+	round("cold");
+	let cold = ink::drawn() - before;
+	let asked = ink::asked();
+	round("again");
+	let again = ink::drawn() - before - cold;
+	println!(
+		"ink: {cold} strokes generated on the first build, {again} on the second ({} asked for again)",
+		ink::asked() - asked
+	);
+	assert!(cold > 0, "the screens print some ink");
+	assert_eq!(again, 0, "a second build must not regenerate a stroke");
+	assert!(
+		ink::asked() > asked,
+		"the second build asked for its strokes"
+	);
+}
+
+/// The kit page prints every section of the kit, with a live control of
+/// each kind a test can press, and says what its build drew.
+#[test]
+fn the_kit_page_prints_every_component_in_every_state() {
+	let mut harness = Harness::offline();
+	harness.take_oath();
+	harness.open(Route::Kit);
+	assert!(harness.has("kit"), "{}", harness.tester.tree());
+	// A screen tall enough to show the whole page at once.
+	harness.tester.resize(390.0, 24_000.0).unwrap();
+	harness.settle();
+	for section in [
+		"type",
+		"primary",
+		"secondary",
+		"quiet",
+		"rows",
+		"tabs",
+		"slips",
+		"stamps",
+		"dial",
+		"lamp",
+		"meter",
+		"tally",
+		"sheet",
+		"fields",
+		"toggles",
+		"ink",
+	] {
+		assert!(harness.has(&format!("kit-section-{section}")), "{section}");
+	}
+	for live in [
+		"kit-live-primary",
+		"kit-live-secondary",
+		"kit-live-quiet",
+		"kit-live-row",
+		"kit-live-tab",
+		"field-kit-live",
+		"kit-ink",
+	] {
+		assert!(harness.has(live), "{live}");
+	}
+	harness.tap("kit-live-primary");
+	assert!(harness.has("kit"), "a press on the kit stays on the kit");
 }
 
 #[test]
@@ -437,7 +627,12 @@ fn the_simnet_build_posts_the_airdrop_and_shows_it_in_the_explorer() {
 	});
 	harness.take_oath();
 	assert!(harness.has("simnet-slip"), "{}", harness.tester.tree());
-	assert!(harness.has("sanctum-simnet"));
+	// The ledger's row sits last with the sanctum's other rows at the foot of
+	// its page, under the fold of a phone; the tester does not scroll a
+	// scroll view's content, so the screen is made tall enough to show it.
+	harness.tester.resize(390.0, 1600.0).unwrap();
+	harness.settle();
+	assert!(harness.has("sanctum-simnet"), "{}", harness.tester.tree());
 	harness.tap("sanctum-simnet");
 	assert!(harness.shows(&En.simnet_instruction_airdrop().to_uppercase()));
 	let airdrop = harness.game.ledger.get_untracked()[0].signature.clone();
@@ -513,6 +708,9 @@ fn the_arms_bench_plays_every_weapon_motion_and_orb_ending() {
 		}
 	}
 	for button in [
+		"arms-blow-seal",
+		"arms-blow-body",
+		"arms-blow-miss",
 		"arms-seal",
 		"arms-break-1",
 		"arms-break-2",

@@ -68,7 +68,7 @@ const TARGET: f64 = 48.0;
 /// the words hold over the brightest room, or the reaper's bone-white arms.
 const GROUND_ALPHA: f64 = 0.9;
 /// The ink every word over the room sits on, at `GROUND_ALPHA`.
-pub const SCRIM: &str = "bg-[#07080be6]";
+pub const SCRIM: &str = "bg-[#16121ae6]";
 /// How much of a state's colour a lit button's ground carries.
 const TINT: f64 = 0.25;
 /// The contrast every word over the room holds at the worst, with white

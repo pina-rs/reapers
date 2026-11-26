@@ -1218,7 +1218,7 @@ fn briefing(state: &HuntState, props: &HuntViewProps) -> Element {
 			.on_press(|| with_hunt(HuntState::begin)),
 	);
 	ScrollView()
-		.class("absolute inset-0 pt-safe pb-safe bg-[#07080bd1]")
+		.class("absolute inset-0 pt-safe pb-safe bg-[#16121ad1]")
 		.child(column)
 }
 

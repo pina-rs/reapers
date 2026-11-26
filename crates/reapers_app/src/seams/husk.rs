@@ -57,11 +57,11 @@ fn nft_seed(nft: Nft) -> u32 {
 pub fn husk_portrait(props: HuskPortraitProps) -> Element {
 	let HuskPortraitProps { nft, size, spent } = props;
 	let plate = match size {
-		48 => View().class("relative w-[48px] h-[48px] overflow-hidden bg-[#0f1116]"),
-		44 => View().class("relative w-[44px] h-[44px] overflow-hidden bg-[#0f1116]"),
+		48 => View().class("relative w-[48px] h-[48px] overflow-hidden bg-[#2b272c]"),
+		44 => View().class("relative w-[44px] h-[44px] overflow-hidden bg-[#2b272c]"),
 		_ => {
 			View().class(format!(
-				"relative w-[{size}px] h-[{size}px] overflow-hidden bg-[#0f1116]"
+				"relative w-[{size}px] h-[{size}px] overflow-hidden bg-[#2b272c]"
 			))
 		}
 	}
