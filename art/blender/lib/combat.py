@@ -397,7 +397,11 @@ CLASS_KEYS = {
     # in front of the face, under the brim, on the block.
     "harvester": {
         "thrust": {
-            0.45: (dict(arm_r=(-30, 0, 10), elbow_r=(-28, 0, 0), wrist_r=(130, 0, 25)), {"elbow_r": stab(0.05, 0.1, 0.2)}),
+            # Still under the head's height, but swung on to -50 degrees:
+            # on the harvester's long, low arm (reaper_classes/harvester.py)
+            # a shallower swing reaches its contact early and stops on it,
+            # under the 60% a strike needs (`motion.check_strike`).
+            0.45: (dict(arm_r=(-50, 0, 10), elbow_r=(-40, 0, 0), wrist_r=(130, 0, 25)), {"elbow_r": stab(0.05, 0.1, 0.2)}),
         },
         "parry": {
             0.32: dict(arm_r=(-24, 30, -22), elbow_r=(-75, 0, 0), wrist_r=(55, 15, 52)),
