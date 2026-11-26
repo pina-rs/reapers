@@ -295,12 +295,9 @@ The three axes are orthogonal: each changes one thing, so any combination stays 
 | --- | --- | --- |
 | **Colourway** (the shuffle) | How much light is in the cloth | **Night**: robe `cloth`. **Ember**: robe `cloth_alt`. **Ash**: robe key-only (.52/.10, .82/.06, .94/0). |
 | **Omen** (the shuffle) | How the spot is treated | **None** (80%): as drawn. **Ashen** (12%): the reaper's spot coverage is halved on every family (Ferryman Night lit becomes `#8B6852`); the HUD keeps the full light, because legibility comes first. **Gilded** (6%): the `metal` family prints as `gold`, so every buckle and blade is gilt in the class light, not a new gold hue. **Eclipsed** (2%): the spot leaves the body (cloth at Ash coverages); it survives as the rim, the eyes and the weapon's light, and the sanctum lamp prints as a key disc with a spot corona. |
-| **Outfit** (earned) | Key marks and voids, driven by the model's `COLOR_0` masks (R grime, G char, B wear, A hollow) | **Shrouded**: no marks; spot coverage in the cloth ×0.55 (undyed). **Sworn**: a key running stitch (1 pt, dashes 4 pt on, 3 pt off, in object space) where wear B crosses 0.5. **Scorched**: char hatch climbing from the hem, a key crosshatch at any N·L where G > 1 − 0.5, edged by a 1.5 pt spot ember line at the front. **Hollowed**: char at 0.8, and faces where A > 1 − 0.42 print flat key with no line (void); headless. |
+| **Outfit** (earned) | Key marks and voids, driven by the model's masks in `COLOR_1` (G char, B wear, A hollow; R is the ink weight) | **Shrouded**: no marks; spot coverage in the cloth ×0.55 (undyed). **Sworn**: a key running stitch (1 pt, dashes 4 pt on, 3 pt off, in object space) where wear B crosses 0.5. **Scorched**: char hatch climbing from the hem, a key crosshatch at any N·L where G > 1 − 0.5, edged by a 1.5 pt spot ember line at the front. **Hollowed**: char at 0.8, and faces where A > 1 − 0.42 print flat key with no line (void); headless. |
 
-**Dependency.** `crates/reapers_app/build.rs` strips `COLOR_0` from every model today, so the outfit axis cannot draw.
-
-- Keep the masks: rename the attribute to a custom `_MASK` attribute in the art build, so nothing draws them as colours. `build.rs` keeps `_MASK` and goes on removing `COLOR_0`.
-- Until that lands, outfits are not provable, and the proofs do not show them.
+**Dependency.** The masks ride in `COLOR_1` beside the ink weight (art/blender/README.md, "The ink weight"): a custom attribute such as `_MASK` would not survive gltfpack. The game reads only the weight from it so far, so the outfit axis cannot draw until its shader reads green, blue and alpha; until then, outfits are not provable, and the proofs do not show them.
 
 ### 3.6 Husks: the ghost wash
 
@@ -406,7 +403,7 @@ Per vertex of the hull:
 - **`paint`** is an artist's multiplier, 0 to 2 (default 1), painted as a Blender vertex group `ink_weight`. Use it sparingly: a hood's opening heavier, a seam lighter.
 - **Thickness clamp** (from Nightcut): the push may never exceed **40% of the local thickness**, measured by a ray cast inward along −N at build time. Fingers, chains and ears never balloon.
 
-The build bakes `part × wobble × contact × paint × clamp` into one custom vertex attribute, `_INK_W`. The runtime multiplies by `side` and the screen-constant width. The cost on the GPU is one multiply-add per vertex.
+The build bakes `part × wobble × contact × paint × clamp` into one vertex attribute, `_INK_W`, which reaches the game as the red of `COLOR_1` (weight / 2). The runtime multiplies by `side` and the screen-constant width. The cost on the GPU is one multiply-add per vertex.
 
 ### 4.4 Weld and normals
 
@@ -527,7 +524,7 @@ It is one quad and one fragment function per source, and it replaces today's add
 | Item | Cost |
 | --- | --- |
 | Base draw, per mesh | One unlit material per family. Fragment: one N·L, one N·H, one N·V, up to two dot-fract hatches with `fwidth` antialiasing, three steps. No textures except the page grain and the reliquary portraits (16). No environment maps anywhere. That is safer for the Seeker's fragile GPU. |
-| Key hull, per mesh | One draw, vertex shader only (push by `_INK_W × side × width`), flat key fragment |
+| Key hull, per mesh | One draw, vertex shader only (push by the weight × side × width), flat key fragment |
 | Paper knockout | One draw per figure (merged silhouette), flat paper |
 | Halo | One quad per light source |
 | Husk | At most 4 meshes, so at most 9 draws (4 base, 4 key hulls, 1 knockout) |
@@ -555,7 +552,7 @@ Measure on the Seeker, opening and closing hunts while reading its log (AGENTS.m
 4. **One light part per weapon** (`glow` or `accent`), so the spot lives on the tool as well as the robe. There is **one spot band** where the hand meets the weapon (`gold` family): the reaper's light running into the tool. A bought weapon (axe, greatsword) gets the same band. That band makes it yours.
 5. **One asymmetry per figure**: a weapon side, a mantle on one shoulder, a torn hem rising on one side. Symmetric figures read as icons, not characters.
 6. **Faces hidden** (rule 8).
-7. **Materials are families.** Name every material by its family (3.3). Keep the `COLOR_0` masks as `_MASK` (3.5).
+7. **Materials are families.** Name every material by its family (3.3). Keep the masks in `COLOR_1` (3.5).
 
 ### 6.2 Reapers
 
@@ -1247,13 +1244,13 @@ Each item is its own task.
 
 1. **leptoskit native fonts.** Load bundled TTFs on iOS, macOS and Android. This blocks shipping (7.3).
 2. **Native reduced motion.** The guest reports the OS setting (14).
-3. **`leptoskit_3d` print material.** Accept a custom unlit material per family with the uniforms below, plus a hull pass with front-face culling and a per-vertex push from `_INK_W`. Today `look.rs` can only say tint, glow and rim.
+3. **`leptoskit_3d` print material.** Accept a custom unlit material per family with the uniforms below, plus a hull pass with front-face culling and a per-vertex push from the weight in `COLOR_1` red. Today `look.rs` can only say tint, glow and rim.
    - `(k, s)` × 3 bands;
    - `t_lit`, `t_deep`, `t_cross`;
    - `spec`, `rim`, `hatch_per_m`;
    - the light in camera space;
    - the spot.
-4. **Art build.** Write `_INK_W` (4.3) and `_MASK` (3.5) per vertex. Bake the proofs' overrides into `art/blender`:
+4. **Art build.** Write the ink weight (4.3) and the masks (3.5) per vertex, in `COLOR_1`. Bake the proofs' overrides into `art/blender`:
    - hands ×1.4;
    - the lantern flame ×2.6;
    - the bird's body ×1.3;
@@ -1264,7 +1261,7 @@ Each item is its own task.
    - fewer ape forms.
 
    Then rebuild with `cargo xtask build-art`.
-5. **`crates/reapers_app/build.rs`.** Keep `_MASK`; go on stripping `COLOR_0`.
+5. **`crates/reapers_app/build.rs`.** Keep `COLOR_1`; go on stripping `COLOR_0`.
 6. **`theme.rs` and `render/look.rs`.**
    - Replace `accents` with one light per class (3.2).
    - Colourways become coverages, omens treatments, outfits marks (3.5).

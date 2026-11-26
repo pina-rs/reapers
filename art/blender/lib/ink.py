@@ -24,9 +24,10 @@ and the surface, which the game knows and the build does not.
 
 The weight is stored on the mesh as a float point attribute, `_INK_W`
 (`ATTRIBUTE`), which the review sheets draw with (`lib/cel.py`), so what a
-sheet shows is what the game will draw. It reaches the game through one
-glTF channel, `CARRIER`, written by `carry` and read back by `read`: the one
-place that decides it. See art/blender/README.md, "Ink weight".
+sheet shows is what the game will draw. It reaches the game in the red of
+the second colour set, `COLOR_1` (`CARRIER`), as weight / `COLOR_SCALE`,
+written by `carry` and read back by `read`: the one place that decides it.
+See art/blender/README.md, "Ink weight".
 
 Every number is in `[weight]` of art/blender/cel.toml.
 """
@@ -44,24 +45,19 @@ ATTRIBUTE = "_INK_W"
 # The vertex group an artist paints the multiplier in.
 PAINT_GROUP = "ink_weight"
 
-# The glTF channels the weight can travel in. The game's renderer has not yet
-# said which it reads:
-#
-# - "TEXCOORD_1": the u of a second UV set, named `CARRIER_UV`. Blender
-#   exports it; gltfpack 0.25 keeps it only with `-kv`
-#   (`GLTFPACK_FLAGS` in crates/xtask/src/art.rs).
-# - "COLOR_0.r": the red channel of the mask colour, scaled into 0..1 by
-#   `COLOR_SCALE`. Red is the grime mask, which no outfit reads (3.5);
-#   gltfpack keeps it as an 8-bit channel.
-# - "_INK_W": the custom attribute itself. Blender exports it, and gltfpack
-#   0.25 always drops it.
-CARRIERS = ("TEXCOORD_1", "COLOR_0.r", "_INK_W")
+# Where the weight travels in a glTF file: the red of the second colour set.
+# The game's renderer reads its weight there, as 2 x red; gltfpack 0.25
+# keeps `COLOR_1` with the flags in crates/xtask/src/art.rs (`-kv` is not
+# needed), where it drops a second UV set and every custom attribute.
+CARRIER = "COLOR_1.r"
 
-# The one line to change when the renderer chooses.
-CARRIER = "TEXCOORD_1"
-
-CARRIER_UV = "ink"
-COLOR_SCALE = 2.5
+# Every exported mesh has two colour sets, in this order: `COLOUR`
+# (`COLOR_0`, the active one) is constant white, which gltfpack strips, and
+# `INK_COLOUR` (`COLOR_1`) is (weight / `COLOR_SCALE`, char, wear, hollow),
+# the outfit masks `core.paint_masks` painted, or 0 where a mesh has none.
+COLOUR = "Color"
+INK_COLOUR = "Ink"
+COLOR_SCALE = 2.0
 
 # Families that draw no line: their weight is 0 (lib/cel.py draws them, and
 # cel.toml's `line = 0` says which).
@@ -332,75 +328,71 @@ def carry(root, kind=None):
         weigh(root, kind)
 
     for obj in meshes(root):
-        values = weights(obj)
-
-        if CARRIER == "TEXCOORD_1":
-            _carry_uv(obj.data, values)
-        elif CARRIER == "COLOR_0.r":
-            _carry_colour(obj.data, values)
-        elif CARRIER != "_INK_W":
-            raise ValueError(f"CARRIER must be one of {CARRIERS}, not {CARRIER!r}")
+        _carry_colour(obj.data, weights(obj))
 
     return export_options()
 
 
 def export_options():
-    """What the glTF exporter needs to write `CARRIER`."""
+    """What the glTF exporter needs to write `CARRIER`: the active colour set
+    as `COLOR_0` and the next as `COLOR_1`, on every mesh, material or none."""
 
-    return {"export_attributes": CARRIER == "_INK_W"}
-
-
-def _carry_uv(mesh, values):
-    # The weight is the second UV set: a mesh with none gets an empty first.
-    layer = mesh.uv_layers.get(CARRIER_UV)
-
-    if layer is not None:
-        mesh.uv_layers.remove(layer)
-
-    if not mesh.uv_layers:
-        mesh.uv_layers.new(name="UVMap")
-
-    if len(mesh.uv_layers) != 1:
-        raise ValueError(f"{mesh.name}: the ink weight must be the second UV set, but the mesh has {len(mesh.uv_layers)} already")
-
-    layer = mesh.uv_layers.new(name=CARRIER_UV, do_init=False)
-    # Textures keep reading the first.
-    mesh.uv_layers.active = mesh.uv_layers[0]
-    mesh.uv_layers[0].active_render = True
-    corners = [0.0] * (len(mesh.loops) * 2)
-
-    for index, loop in enumerate(mesh.loops):
-        corners[2 * index] = values[loop.vertex_index]
-
-    layer.data.foreach_set("uv", corners)
+    return {
+        "export_vertex_color": "ACTIVE",
+        "export_all_vertex_colors": True,
+        "export_active_vertex_color_when_no_material": True,
+    }
 
 
 def _carry_colour(mesh, values):
-    from .core import COLOR_ATTRIBUTE
+    """Gives `mesh` exactly two colour sets on its points: `COLOUR`, white
+    and active, then `INK_COLOUR`, the weight in red over the outfit masks
+    `COLOUR` held (char, wear and hollow, in green, blue and alpha)."""
 
-    attribute = mesh.color_attributes.get(COLOR_ATTRIBUTE)
+    count = len(mesh.vertices)
+    unknown = [attribute.name for attribute in mesh.color_attributes if attribute.name not in (COLOUR, INK_COLOUR)]
 
-    if attribute is None:
-        attribute = mesh.color_attributes.new(COLOR_ATTRIBUTE, "FLOAT_COLOR", "POINT")
-        attribute.data.foreach_set("color", [1.0] * (len(mesh.vertices) * 4))
+    if unknown:
+        raise ValueError(f"{mesh.name}: the ink weight needs the colour sets to be {COLOUR!r} and {INK_COLOUR!r} alone, but it also has {unknown}")
 
-    if attribute.domain != "POINT":
-        raise ValueError(f"{mesh.name}: the mask colour must be on points to carry the ink weight")
+    masks = [0.0] * (count * 4)
+    painted = mesh.color_attributes.get(COLOUR)
 
-    colours = [0.0] * (len(mesh.vertices) * 4)
-    attribute.data.foreach_get("color", colours)
+    if painted is not None:
+        if painted.domain != "POINT":
+            raise ValueError(f"{mesh.name}: the outfit masks must be on points to travel with the ink weight")
+
+        painted.data.foreach_get("color", masks)
+
+    for name in (INK_COLOUR, COLOUR):
+        if name in mesh.color_attributes:
+            mesh.color_attributes.remove(mesh.color_attributes[name])
+
+    white = mesh.color_attributes.new(COLOUR, "FLOAT_COLOR", "POINT")
+    white.data.foreach_set("color", [1.0] * (count * 4))
+    ink = mesh.color_attributes.new(INK_COLOUR, "FLOAT_COLOR", "POINT")
+    colours = [0.0] * (count * 4)
 
     for index, value in enumerate(values):
         colours[4 * index] = max(0.0, min(1.0, value / COLOR_SCALE))
 
-    attribute.data.foreach_set("color", colours)
-    mesh.color_attributes.active_color = attribute
+        # Grime (red) gives way to the weight: no outfit reads it.
+        if painted is not None:
+            colours[4 * index + 1 : 4 * index + 4] = masks[4 * index + 1 : 4 * index + 4]
+
+    ink.data.foreach_set("color", colours)
+    mesh.color_attributes.active_color = white
+    mesh.color_attributes.render_color_index = 0
 
 
 def read(obj, kind="reaper"):
     """Puts `CARRIER`'s weights back into `ATTRIBUTE` on an imported mesh,
     or weighs it afresh when the model was built without them. Returns the
-    weights."""
+    weights.
+
+    Blender's importer names `COLOR_1` `Color.001` and stores it on the
+    corners in 8 bits, which is close enough for a review sheet; it cannot
+    read a gltfpack-packed file at all."""
 
     mesh = obj.data
 
@@ -408,21 +400,20 @@ def read(obj, kind="reaper"):
         return weights(obj)
 
     values = None
+    sets = mesh.color_attributes
+    carried = sets.get(INK_COLOUR) or (sets[1] if len(sets) >= 2 else None)
 
-    if CARRIER == "TEXCOORD_1" and len(mesh.uv_layers) >= 2:
-        corners = [0.0] * (len(mesh.loops) * 2)
-        mesh.uv_layers[1].data.foreach_get("uv", corners)
-        values = [0.0] * len(mesh.vertices)
+    if carried is not None:
+        colours = [0.0] * (len(carried.data) * 4)
+        carried.data.foreach_get("color", colours)
 
-        for index, loop in enumerate(mesh.loops):
-            values[loop.vertex_index] = corners[2 * index]
-    elif CARRIER == "COLOR_0.r":
-        attribute = mesh.color_attributes.get("Color") or (mesh.color_attributes[0] if mesh.color_attributes else None)
-
-        if attribute is not None and attribute.domain == "POINT":
-            colours = [0.0] * (len(mesh.vertices) * 4)
-            attribute.data.foreach_get("color", colours)
+        if carried.domain == "POINT":
             values = [colours[4 * index] * COLOR_SCALE for index in range(len(mesh.vertices))]
+        elif carried.domain == "CORNER":
+            values = [0.0] * len(mesh.vertices)
+
+            for index, loop in enumerate(mesh.loops):
+                values[loop.vertex_index] = colours[4 * index] * COLOR_SCALE
 
     if values is None:
         _weigh(obj, settings()["kinds"][kind], None, settings())

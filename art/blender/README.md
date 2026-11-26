@@ -185,25 +185,20 @@ Every vertex of every model carries an ink weight: how heavy the key line is the
 
 A mesh drawn only in families whose `line` is 0 (`void`, `dark`, `accent`, `glow`) weighs 0. The game multiplies the weight by the terms the build leaves to it: the side (x1.30 away from the light, down to x0.62 where it is lit), the wobble, and the line's width on screen. The review sheets draw with the same weights: a fast sheet reads them from the build, a sheet of an exported model from the file.
 
-**How it reaches the game.** `core.export_glb` calls `ink.carry`, the one function that writes the weight into a model, and `ink.CARRIER` names where:
+**How it reaches the game.** `core.export_glb` calls `ink.carry`, the one function that writes the weight into a model, and `ink.read` is the one that reads it back. The weight travels in the red of the second colour set, `COLOR_1`, where the game's renderer reads it (weight = 2 x red):
 
-```python
-CARRIER = "TEXCOORD_1"
-```
+| Colour set | Blender attribute | Exported as | Holds |
+| --- | --- | --- | --- |
+| 0 | `Color` (`FLOAT_COLOR`, points, active) | `COLOR_0` | White, on every vertex. gltfpack strips a colour set that is white throughout, so packed models carry no `COLOR_0`. |
+| 1 | `Ink` (`FLOAT_COLOR`, points) | `COLOR_1` | (clamp(weight / 2, 0, 1), char, wear, hollow): the outfit masks `paint_masks` wrote into `Color` move here, and red gives up the grime mask, which no outfit reads. A mesh that was never finished gets 0 for the masks. |
 
-| `CARRIER` | Where the weight is |
-| --- | --- |
-| `"TEXCOORD_1"` (today) | U of the second UV set, `ink` (V is 0). A mesh with no UV set gets an empty first one, so the weight is always `TEXCOORD_1`. |
-| `"COLOR_0.r"` | Red of `COLOR_0`, as weight / 2.5, over the grime mask. The app's build strips `COLOR_0` today (`crates/reapers_app/build.rs`), so it would have to keep it. |
-| `"_INK_W"` | A custom attribute, `_INK_W`, written by the exporter's `export_attributes`. gltfpack drops it. |
-
-gltfpack drops a UV set no material reads. With the flags in `crates/xtask/src/art.rs` today, line 65,
+`ink.carry` gives every mesh both sets in that order, finished or not, and `ink.export_options` asks the exporter for them (`export_vertex_color="ACTIVE"`, `export_all_vertex_colors=True`, `export_active_vertex_color_when_no_material=True`). The packer's flags in `crates/xtask/src/art.rs` stay as they are,
 
 ```rust
 pub const GLTFPACK_FLAGS: [&str; 4] = ["-cc", "-kn", "-km", "-ke"];
 ```
 
-the packed models in `assets/models` carry `TEXCOORD_0` only; the full-size ones in `art/build/models` carry the weight. When the game's renderer reads it, add `"-kv"` (keep vertex attributes) to that line, making it `[&str; 5]`, and rebuild every model. Measured on the penguin with gltfpack 0.25: `TEXCOORD_1` kept, 235 KiB packed becoming 244 KiB, so the size ceilings in `crates/xtask/src/art/report.rs` rise by about 4%.
+and keep `COLOR_1` as 8-bit normalised RGBA, so a packed weight is within 1/255 of the baked one in red (2/255 in weight). Do not add `-kv`: gltfpack drops a second UV set without it and corrupts one with it, and drops a custom attribute such as `_INK_W` either way. Blender's importer reads `COLOR_1` back as `Color.001`, in 8 bits on the corners, which the review sheets read (`ink.read`); it cannot import a gltfpack-packed file.
 
 ### Motion
 
@@ -241,7 +236,7 @@ The budgets are in `crates/xtask/src/art/report.rs`. Triangles follow the guidel
 - **Units and axes.** Metres, Z up. A reaper faces -Y, so its right hand (the weapon hand) is at -X. The exporter converts to glTF's Y up.
 - **Two forms share one character.** Spirits float with quiet arms and trailing cloth. Humanoids have articulated legs and planted walking steps; their long robes hang outside the hips and stride, while short tunics expose the knees.
 - **Landmarks.** `lib/figure.py` holds the shared heights: shoulders 1.64, neck 1.73, head centre 1.88. A class that hunches carries all of them forward (toward -Y) by the same amount.
-- **Masks, not colours.** Every mesh that should react to an outfit must be passed through `finish()`. It paints four mask channels (grime, char, wear, hollow) into the `Color` attribute, exported as `COLOR_0`, and writes one UV channel, `UVMap` (`TEXCOORD_0`): a box projection of each vertex's object-space position at 3.5 per metre (`core.box_uvs`). The ink weight follows it as `TEXCOORD_1`. The app's build strips `COLOR_0` from every model today (`crates/reapers_app/build.rs`), so the masks show only on the review sheets. Image-bearing parts keep their own UVs (`finish(..., rest_position=False)`), and the first-person parts point theirs at a palette instead (`viewmodel_parts/common.py`). Parts that are pure light (`accent`) or pure dark (`void`) are not finished.
+- **Masks, not colours.** Every mesh that should react to an outfit must be passed through `finish()`. It paints four mask channels (grime, char, wear, hollow) into the `Color` attribute and writes one UV channel, `UVMap` (`TEXCOORD_0`): a box projection of each vertex's object-space position at 3.5 per metre (`core.box_uvs`). On export the char, wear and hollow masks travel in `COLOR_1` with the ink weight, and `COLOR_0` is white ("The ink weight"). Image-bearing parts keep their own UVs (`finish(..., rest_position=False)`), and the first-person parts point theirs at a palette instead (`viewmodel_parts/common.py`). Parts that are pure light (`accent`) or pure dark (`void`) are not finished.
 - **Materials are names.** The game throws the Blender material away and keeps its name, which picks a surface in the renderer's reaper look and a family in Second Ink (`cel.toml` `[families]`). Use only these: `cloth`, `cloth_alt`, `bone`, `metal`, `wood`, `rope`, `feather`, `gold`, `paper`, `accent`, `void`.
 - **No surface textures.** Second Ink draws every material in flat bands, so no model carries a texture (art bible, 5.6). The procedural normal, ORM and albedo maps every material once had are gone, and so is `lib/textures.py`. What is kept: `TEXCOORD_0` on every finished mesh, the reliquary's portraits (the one exception the bible makes), and the first-person palette (`viewmodel_parts/common.py`), whose cells are how the game colours those parts.
 - **One light per reaper.** `accent` is the only thing that glows: eyes, a blade edge, a lantern flame, a bell's mouth. Keep it small.

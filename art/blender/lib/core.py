@@ -8,8 +8,8 @@ Conventions used throughout:
 
 - Metres, Z up, the character facing -Y (Blender's front view). The glTF
   exporter converts to Y up on the way out.
-- Every mesh carries one colour attribute named `Color`. The game's material
-  reads its channels as masks, not as a colour:
+- Every finished mesh carries one colour attribute named `Color` while it
+  is built. Its channels are masks, not a colour:
     R  ambient occlusion and grime (1 is clean and open)
     G  char: how soon this spot burns as an outfit darkens (1 burns first)
     B  wear: raised edges that catch the light
@@ -17,8 +17,10 @@ Conventions used throughout:
 - Every finished mesh carries one UV channel, `UVMap` (`TEXCOORD_0`): a box
   projection of each vertex's object-space position at 3.5 per metre
   (`box_uvs`). No model carries a surface texture: Second Ink draws every
-  material in flat bands (docs/art-bible.md, 5.6). Each vertex's ink weight
-  rides in a second UV channel (`TEXCOORD_1`, lib/ink.py).
+  material in flat bands (docs/art-bible.md, 5.6).
+- On export (`export_glb`) the masks move into a second colour set, `Ink`
+  (`COLOR_1`), whose red they give up to each vertex's ink weight, and
+  `Color` is left white, so gltfpack drops it (lib/ink.py).
 """
 
 import math
@@ -698,9 +700,6 @@ def export_glb(path, root, animations=False):
         export_apply=False,
         export_morph=True,
         export_morph_normal=True,
-        export_vertex_color="ACTIVE",
-        export_all_vertex_colors=False,
-        export_active_vertex_color_when_no_material=True,
         export_animations=animations,
         export_animation_mode="NLA_TRACKS",
         export_nla_strips=True,
