@@ -52,7 +52,7 @@ src/
 ├── app.rs, lib.rs, guest.rs  The app, its routes and the native guest's entry.
 ├── routes/                   One file per screen; leptoskit writes routes.rs from them.
 ├── screens/                  Threshold, oath, sanctum, vault, armory, codex, roster, rifts, colophon.
-├── ui/, theme.rs             The "funeral ledger" kit: hand-drawn boxes over straight rules, rows and marks.
+├── ui/, theme.rs             The Second Ink kit (crates/reapers_app/DESIGN.md): Skribble strokes, tokens in theme.rs.
 ├── state.rs                  The state every screen reads.
 ├── backend/                  Who keeps the books: the device, or the server.
 ├── simnet/                   The pretend devnet on the device.
@@ -109,7 +109,7 @@ assets/app.css       What leptoskit has no utility for: the two typefaces, line 
                      and the capture's scroll-pinned stage.
 ```
 
-It shares the game's look (the funeral ledger: ink, bone and ash, Fraunces over DM Sans) but none of its code: it depends on `reapers_rules` only in its tests, to hold the callings it shows to the rules'. Its drawings are leptoskit vectors and its pictures are the husks' portraits from the art build, which `build.rs` mirrors from `assets/` with the typefaces and the mark; no screenshot of a camera is shown, since a camera's picture is someone's home. Its motion is CSS, driven by the scroll where the browser can, and still for anyone who asks for reduced motion. Its strings are in `locales/en.arb`, and the music's credit lines on it are `assets/music/CREDITS.md`'s, held word for word by a test.
+It keeps the game's earlier look (the funeral ledger: ink, bone and ash, Fraunces over DM Sans), which the game itself has left for Second Ink, and shares none of the game's code: it depends on `reapers_rules` only in its tests, to hold the callings it shows to the rules'. Its drawings are leptoskit vectors and its pictures are the husks' portraits from the art build, which `build.rs` mirrors from `assets/` with the typefaces and the mark; no screenshot of a camera is shown, since a camera's picture is someone's home. Its motion is CSS, driven by the scroll where the browser can, and still for anyone who asks for reduced motion. Its strings are in `locales/en.arb`, and the music's credit lines on it are `assets/music/CREDITS.md`'s, held word for word by a test.
 
 `tests/page.rs` builds the page headlessly at a phone's and a desk's width with leptoskit's layout engine, which also checks every Tailwind class: in the browser, a class leptoskit cannot draw is a blank page.
 

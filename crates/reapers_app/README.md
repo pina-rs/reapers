@@ -79,7 +79,7 @@ REAPERS_SERVER_URL=http://127.0.0.1:8080/ REAPERS_CLUSTER=localnet leptoskit dev
 | `src/wallet.rs`, `src/wallet/` | The wallet: Mobile Wallet Adapter on Android through `solana_kit_leptoskit`, the Wallet Standard in the browser. |
 | `src/state.rs` | `Game`: the state every screen reads, as `Copy` signals, provided as context. |
 | `src/screens/`, `src/routes/` | The screens, and the file routes that show them (`routes.rs` is generated). |
-| `src/ui/`, `src/theme.rs` | The funeral-ledger kit: hand-drawn boxes, rows, meters, pips, sheets and dialogs. |
+| `src/ui/`, `src/theme.rs` | The Second Ink kit ([DESIGN.md](DESIGN.md)): `theme.rs` holds every colour, type step and space; `ui/kit/` draws buttons, rows, tabs, slips, stamps, the dial, meters, sheets and fields in Skribble strokes. |
 | `src/seams/` | Where the 3D and camera views plug in. |
 | `src/render/` | 3D on `leptoskit_3d`: the reaper rig, its look and appearance, cloth and playback, the stage, the husk rig and how it reacts, and the scenes, ticker and pointer they share. |
 | `src/hunt/` | The hunt: the arena, the controller that keeps the log, the reaper's arms as the rules' events move them (`arms.rs`), the thumb controls (FIRE ringed by its rounds and reload band, ORB ringed by its soul, and the weapon rail), the lessons a first practice teaches through the caption (`lessons.rs`), the pose (`leptoskit_xr`, or a finger), the HUD and what is drawn over the scene. |

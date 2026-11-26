@@ -22,8 +22,8 @@ Birth traits define a fixed reaper; weapons and outfits change through progressi
 
 ## Capabilities and Constraints
 
-Actual game models and shared deterministic rules are authoritative. Every platform draws them with `leptoskit_3d` on the GPU: Metal on Apple, OpenGL ES on Android, WebGPU or WebGL 2 in the browser. Solana Kit provides wallet proof, RPC and Core ownership decoding. Android has Mobile Wallet Adapter support; iOS wallet transport remains undecided. The web studio opens no wallet. Collection, app identity and marketplace are deployment inputs the user has not supplied. On a cluster, husks are escrowed and burned by the Reapers program with the keeper's receipt; elsewhere they stay simulated. NFT rifts await result verification.
+Actual game models and shared deterministic rules are authoritative. Every platform draws them with `leptoskit_3d` on the GPU: Metal on Apple, OpenGL ES on Android, WebGPU or WebGL 2 in the browser. Solana Kit provides wallet proof, RPC and Core ownership decoding. Android has Mobile Wallet Adapter support; the browser reaches its wallets through the Wallet Standard; iOS wallet transport remains undecided. Collection, app identity and marketplace are deployment inputs the user has not supplied. On a cluster, husks are escrowed and burned by the Reapers program with the keeper's receipt; elsewhere they stay simulated. NFT rifts await result verification.
 
 ## Voice and Assets
 
-Retain the incumbent funeral-ledger identity, authored 3D reapers and credited music. Player-facing text is localized. Native accessibility, reduced motion and save preservation are requirements.
+The identity is Second Ink, set out in [DESIGN.md](DESIGN.md) and the Second Ink art bible: a relief print of hand-drawn Skribble strokes on the dark vigil page, set in the three Skribble faces, with the bound reaper's light as the screen's one spot colour. It replaced the funeral-ledger look, which the landing page still keeps. Keep the authored 3D reapers and the credited music. Player-facing text is localized. Native accessibility, reduced motion and save preservation are requirements.
