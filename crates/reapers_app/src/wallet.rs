@@ -91,6 +91,25 @@ pub fn signed_message_signature(
 	Ok(BASE64.encode(&bytes[expected.len()..]))
 }
 
+/// Mobile Wallet Adapter's codes for an operation the player refused:
+/// `ERROR_AUTHORIZATION_FAILED` on an authorize and `ERROR_NOT_SIGNED` on a
+/// signature, the numbers `solana_kit_wallet::mwa::ProtocolError` names.
+#[cfg(any(test, all(target_arch = "wasm32", feature = "android")))]
+const DECLINE_CODES: [i32; 2] = [-1, -3];
+
+/// Whether the wallet's answer is the player refusing: one of the adapter's
+/// own decline codes, or the wallet's words for a refusal. A code is the
+/// whole number, so the digits of a message (`-32603`, the `-1` in a date)
+/// are never a decline.
+#[cfg(any(test, all(target_arch = "wasm32", feature = "android")))]
+fn declined_by_the_player(code: i32, message: &str) -> bool {
+	if DECLINE_CODES.contains(&code) {
+		return true;
+	}
+	let words = message.to_ascii_lowercase();
+	words.contains("declin") || words.contains("reject") || words.contains("cancel")
+}
+
 /// No wallet on this device.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct NoWallet;
@@ -143,6 +162,7 @@ mod mobile {
 	use serde_json::json;
 	use solana_kit_core::Address;
 	use solana_kit_leptoskit::GuestMobileWallet;
+	use solana_kit_leptoskit::WalletSessionError;
 	use solana_kit_wallet::mwa::Method;
 
 	use super::BASE64;
@@ -154,6 +174,7 @@ mod mobile {
 	use super::KeeperResult;
 	use super::WalletProof;
 	use super::WalletProver;
+	use super::declined_by_the_player;
 	use super::signed_message_signature;
 
 	/// Mobile Wallet Adapter, through the Android host's `solana-wallet`
@@ -168,17 +189,57 @@ mod mobile {
 		}
 	}
 
+	/// Why a wallet session stopped: the adapter's own answer, or a reply this
+	/// build cannot read.
+	enum SessionError {
+		/// What the adapter reported. Its code says whether the player
+		/// refused; the platform never hands the text through.
+		Adapter(WalletSessionError),
+		/// A reply that did not keep its contract.
+		Malformed(&'static str),
+	}
+
+	impl SessionError {
+		/// Whether the player, at the wallet, said no.
+		fn declined(&self) -> bool {
+			match self {
+				Self::Adapter(WalletSessionError::Rejected(rejected)) => {
+					declined_by_the_player(rejected.code, &rejected.message)
+				}
+				Self::Adapter(_) | Self::Malformed(_) => false,
+			}
+		}
+
+		/// What the game tells the player about the end of the session.
+		fn chain_failure(self) -> ChainFailure {
+			if self.declined() {
+				ChainFailure::Declined
+			} else {
+				ChainFailure::Unreachable(self.to_string())
+			}
+		}
+	}
+
+	impl std::fmt::Display for SessionError {
+		fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+			match self {
+				Self::Adapter(error) => error.fmt(formatter),
+				Self::Malformed(reason) => formatter.write_str(reason),
+			}
+		}
+	}
+
 	/// An authorized session with the wallet, and the account it chose, as
 	/// MWA's base64 and as an address.
 	async fn authorize(
 		events: &mut Events,
 		status: &ChainStatus,
-	) -> Result<(GuestMobileWallet, String, Address), String> {
+	) -> Result<(GuestMobileWallet, String, Address), SessionError> {
 		// Nothing else in the game listens for plugin events, so whatever
 		// else arrives while the wallet is open is let go.
 		let mut wallet = GuestMobileWallet::connect_android(events, |_| Ok(()))
 			.await
-			.map_err(|error| error.to_string())?;
+			.map_err(SessionError::Adapter)?;
 		let authorized = wallet
 			.call(
 				Method::Authorize,
@@ -189,7 +250,7 @@ mod mobile {
 			)
 			.await;
 		let account = authorized
-			.map_err(|error| error.to_string())
+			.map_err(SessionError::Adapter)
 			.and_then(|authorized| {
 				authorized
 					.get("accounts")
@@ -197,7 +258,7 @@ mod mobile {
 					.and_then(|account| account.get("address"))
 					.and_then(Value::as_str)
 					.map(str::to_owned)
-					.ok_or_else(|| "no authorized wallet account".to_owned())
+					.ok_or(SessionError::Malformed("no authorized wallet account"))
 			});
 		let account = match account {
 			Ok(account) => account,
@@ -212,27 +273,9 @@ mod mobile {
 			.and_then(|bytes| bytes.try_into().ok());
 		let Some(key) = key else {
 			let _ = wallet.close().await;
-			return Err("invalid wallet address".to_owned());
+			return Err(SessionError::Malformed("invalid wallet address"));
 		};
 		Ok((wallet, account, Address::from_bytes(key)))
-	}
-
-	fn is_declined(reason: &str) -> bool {
-		let lower = reason.to_ascii_lowercase();
-		lower.contains("declin")
-			|| lower.contains("reject")
-			|| lower.contains("cancel")
-			|| lower.contains("-1")
-			|| lower.contains("-3")
-	}
-
-	fn classify_error(error: impl std::fmt::Display) -> ChainFailure {
-		let reason = error.to_string();
-		if is_declined(&reason) {
-			ChainFailure::Declined
-		} else {
-			ChainFailure::Unreachable(reason)
-		}
 	}
 
 	#[async_trait::async_trait(?Send)]
@@ -249,7 +292,7 @@ mod mobile {
 			let mut events = Events::take().map_err(KeeperError::unavailable)?;
 			let (mut wallet, account, address) = authorize(&mut events, status)
 				.await
-				.map_err(|reason| KeeperError::Chain(classify_error(reason)))?;
+				.map_err(|error| KeeperError::Chain(error.chain_failure()))?;
 
 			let proof = async {
 				let issued = challenge(address.to_string()).await?;
@@ -263,7 +306,9 @@ mod mobile {
 						})),
 					)
 					.await
-					.map_err(|error| KeeperError::Chain(classify_error(error)))?;
+					.map_err(|error| {
+						KeeperError::Chain(SessionError::Adapter(error).chain_failure())
+					})?;
 				let payloads = signed
 					.get("signed_payloads")
 					.and_then(Value::as_array)
@@ -294,14 +339,14 @@ mod mobile {
 				Events::take().map_err(|error| ChainFailure::Unreachable(error.to_string()))?;
 			let (mut wallet, _account, _address) = authorize(&mut events, status)
 				.await
-				.map_err(classify_error)?;
+				.map_err(SessionError::chain_failure)?;
 			let signed = wallet
 				.call(
 					Method::SignTransactions,
 					object(json!({ "payloads": [BASE64.encode(&transaction)] })),
 				)
 				.await
-				.map_err(classify_error);
+				.map_err(|error| SessionError::Adapter(error).chain_failure());
 			let _ = wallet.close().await;
 			signed?
 				.get("signed_payloads")
@@ -350,5 +395,24 @@ mod tests {
 	#[test]
 	fn no_wallet_is_unavailable() {
 		assert!(!NoWallet.available());
+	}
+
+	#[test]
+	fn a_decline_is_the_adapters_code_and_never_the_digits_in_a_message() {
+		// A real decline: the player refused to authorize (-1) or to sign (-3).
+		assert!(declined_by_the_player(-1, ""));
+		assert!(declined_by_the_player(-3, ""));
+		// A wallet that reports another code and says no in words still declined.
+		assert!(declined_by_the_player(
+			-32603,
+			"the user declined the request"
+		));
+		// Unrelated failures that happen to spell the same digits are not
+		// declines: a JSON-RPC code, a simulation failure, an attestation
+		// code, a date.
+		assert!(!declined_by_the_player(-32603, "internal error"));
+		assert!(!declined_by_the_player(-32002, "simulation failed"));
+		assert!(!declined_by_the_player(-100, "code -100"));
+		assert!(!declined_by_the_player(0, "2026-11-25T12:00:00Z timed out"));
 	}
 }

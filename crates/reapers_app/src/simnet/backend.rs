@@ -64,6 +64,18 @@ impl SimnetBackend {
 	fn wallet(&self) -> SimnetAccount {
 		SimnetAccount::new(SimnetRole::Wallet, &self.chain.wallet())
 	}
+
+	/// Posts `post` to the chain, and puts the books back as `before` when the
+	/// chain refuses it: the ledger and the books must tell the same story,
+	/// so a player never keeps a husk the ledger will not release, nor a
+	/// settlement the ledger will not burn.
+	async fn post(&self, post: SimnetPost, before: PlayerState) -> KeeperResult<()> {
+		if let Err(error) = self.chain.submit(post).await {
+			self.books.restore(before).await?;
+			return Err(error);
+		}
+		Ok(())
+	}
 }
 
 /// The receipt for `absorption`: the player is the burner wallet, and the
@@ -98,9 +110,10 @@ impl GameBackend for SimnetBackend {
 	}
 
 	async fn take_oath(&self) -> KeeperResult<PlayerState> {
+		let before = self.books.load().await?;
 		let state = self.books.take_oath().await?;
-		self.chain
-			.submit(SimnetPost {
+		self.post(
+			SimnetPost {
 				lamports: state.lamports(),
 				..SimnetPost::new(
 					SimnetInstruction::Airdrop,
@@ -109,8 +122,10 @@ impl GameBackend for SimnetBackend {
 						self.wallet(),
 					],
 				)
-			})
-			.await?;
+			},
+			before,
+		)
+		.await?;
 		Ok(state)
 	}
 
@@ -119,9 +134,10 @@ impl GameBackend for SimnetBackend {
 	}
 
 	async fn acquire(&self, nft: Nft) -> KeeperResult<PlayerState> {
+		let before = self.books.load().await?;
 		let state = self.books.acquire(nft).await?;
-		self.chain
-			.submit(SimnetPost {
+		self.post(
+			SimnetPost {
 				lamports: nft.rarity().lamports(),
 				nft: Some(nft),
 				..SimnetPost::new(
@@ -132,15 +148,18 @@ impl GameBackend for SimnetBackend {
 						SimnetAccount::new(SimnetRole::Mint, &SimnetChain::mint_for(nft)),
 					],
 				)
-			})
-			.await?;
+			},
+			before,
+		)
+		.await?;
 		Ok(state)
 	}
 
 	async fn release(&self, nft: Nft) -> KeeperResult<PlayerState> {
+		let before = self.books.load().await?;
 		let state = self.books.release(nft).await?;
-		self.chain
-			.submit(SimnetPost {
+		self.post(
+			SimnetPost {
 				nft: Some(nft),
 				..SimnetPost::new(
 					SimnetInstruction::Escrow,
@@ -151,8 +170,10 @@ impl GameBackend for SimnetBackend {
 						SimnetAccount::new(SimnetRole::Program, &SimnetChain::program()),
 					],
 				)
-			})
-			.await?;
+			},
+			before,
+		)
+		.await?;
 		Ok(state)
 	}
 
@@ -160,6 +181,7 @@ impl GameBackend for SimnetBackend {
 	/// burn carries the receipt the keeper signed; one that got away stays in
 	/// escrow, still huntable.
 	async fn settle_hunt(&self, sighting_id: i64, log: &HuntLog) -> KeeperResult<HuntSettlement> {
+		let before = self.books.load().await?;
 		let settlement = self.books.settle_hunt(sighting_id, log).await?;
 		if !settlement.outcome.absorbed() {
 			return Ok(settlement);
@@ -177,8 +199,8 @@ impl GameBackend for SimnetBackend {
 			.ok_or_else(|| KeeperError::unavailable("an absorption without its receipt"))?;
 		let nft = absorption.nft;
 
-		self.chain
-			.submit(SimnetPost {
+		self.post(
+			SimnetPost {
 				nft: Some(nft),
 				receipt: Some(receipt_for(&self.chain, absorption)),
 				receipt_signature: Some(signature),
@@ -192,8 +214,10 @@ impl GameBackend for SimnetBackend {
 						SimnetAccount::new(SimnetRole::Keeper, &SimnetChain::keeper()),
 					],
 				)
-			})
-			.await?;
+			},
+			before,
+		)
+		.await?;
 		Ok(settlement)
 	}
 
@@ -245,7 +269,9 @@ mod tests {
 
 	use super::*;
 	use crate::backend::SeededDice;
+	use crate::chain::ChainFailure;
 	use crate::platform::MemoryPrefs;
+	use crate::platform::PlatformError;
 	use crate::platform::Prefs;
 
 	const SAINT: Nft = Nft::new(NftCollection::DegenApes, 1);
@@ -253,6 +279,8 @@ mod tests {
 	struct World {
 		prefs: Rc<MemoryPrefs>,
 		now: Rc<Cell<Timestamp>>,
+		/// Whether the simnet's ledger still takes new transactions.
+		ledger_open: Rc<Cell<bool>>,
 	}
 
 	impl World {
@@ -260,6 +288,7 @@ mod tests {
 			Self {
 				prefs: Rc::new(MemoryPrefs::new()),
 				now: Rc::new(Cell::new(Timestamp::utc(2026, 11, 4, 12, 0, 0))),
+				ledger_open: Rc::new(Cell::new(true)),
 			}
 		}
 
@@ -271,12 +300,21 @@ mod tests {
 		fn chain(&self) -> Rc<SimnetChain> {
 			Rc::new(
 				block_on(SimnetChain::open(
-					self.prefs.clone(),
+					Rc::new(Ledger {
+						inner: self.prefs.clone(),
+						open: self.ledger_open.clone(),
+					}),
 					self.clock(),
 					Duration::ZERO,
 				))
 				.unwrap(),
 			)
+		}
+
+		/// Stops the ledger taking transactions, as a store that is full or
+		/// locked does.
+		fn close_ledger(&self) {
+			self.ledger_open.set(false);
 		}
 
 		fn books(&self) -> LocalBackend {
@@ -295,22 +333,52 @@ mod tests {
 		}
 	}
 
+	/// The device's preferences, with the simnet's ledger refusing new
+	/// transactions once it is closed.
+	struct Ledger {
+		inner: Rc<MemoryPrefs>,
+		open: Rc<Cell<bool>>,
+	}
+
+	#[async_trait::async_trait(?Send)]
+	impl Prefs for Ledger {
+		async fn get(&self, key: &str) -> Result<Option<serde_json::Value>, PlatformError> {
+			self.inner.get(key).await
+		}
+
+		async fn set(&self, key: &str, value: serde_json::Value) -> Result<(), PlatformError> {
+			if key == SimnetChain::STORAGE_KEY && !self.open.get() {
+				return Err(PlatformError::Unavailable("the ledger is closed"));
+			}
+			self.inner.set(key, value).await
+		}
+
+		async fn remove(&self, key: &str) -> Result<(), PlatformError> {
+			self.inner.remove(key).await
+		}
+	}
+
 	/// Plays the one loose husk with the shared bot and settles it.
-	fn hunt(keeper: &SimnetBackend) -> HuntSettlement {
-		let state = block_on(keeper.load()).unwrap();
+	fn play(keeper: &SimnetBackend) -> KeeperResult<HuntSettlement> {
+		let state = block_on(keeper.load())?;
 		let [sighting] = state.sightings() else {
-			panic!("expected one sighting");
+			return Err(KeeperError::unavailable("expected one sighting"));
 		};
 		let mut sim = HuntSim::open(
 			sighting.seed,
 			sighting.nft.collection.vessel(),
 			sighting.nft.rarity(),
 			sighting.nft.rarity().ward(),
-			&HuntStats::derive(&state.loadout(), 1.0).unwrap(),
+			&HuntStats::derive(&state.loadout(), 1.0).expect("a loadout the stats can read"),
 		);
 		let mut bot = HuntBot::careful(&sim);
 		bot.play(&mut sim);
-		block_on(keeper.settle_hunt(sighting.id, &HuntLog::new(bot.recorded))).unwrap()
+		block_on(keeper.settle_hunt(sighting.id, &HuntLog::new(bot.recorded)))
+	}
+
+	/// Plays the one loose husk with the shared bot and settles it.
+	fn hunt(keeper: &SimnetBackend) -> HuntSettlement {
+		play(keeper).expect("the hunt settles")
 	}
 
 	#[test]
@@ -502,5 +570,145 @@ mod tests {
 			block_on(world.prefs.get(LocalBackend::DEFAULT_STORAGE_KEY)).unwrap(),
 			offline_save
 		);
+	}
+
+	#[test]
+	fn simnet_submit_refuses_burn_with_forged_receipt_signature() {
+		let world = World::new();
+		let chain = world.chain();
+		let keeper = world.keeper(chain.clone());
+
+		block_on(keeper.take_oath()).unwrap();
+		block_on(keeper.acquire(SAINT)).unwrap();
+		block_on(keeper.release(SAINT)).unwrap();
+		world.later(60);
+		hunt(&keeper);
+
+		let valid_burn = chain.transactions().last().unwrap().clone();
+		let mut forged_sig = valid_burn.receipt_signature.clone().unwrap();
+		forged_sig[0] ^= 0xFF;
+
+		let result = block_on(chain.submit(SimnetPost {
+			nft: Some(SAINT),
+			receipt: valid_burn.receipt.clone(),
+			receipt_signature: Some(forged_sig),
+			..SimnetPost::new(SimnetInstruction::Burn, valid_burn.accounts.clone())
+		}));
+		assert!(
+			result.is_err(),
+			"SimnetChain::submit must verify the Ed25519 receipt signature before recording a burn (docs/solana.md:78)"
+		);
+	}
+
+	#[test]
+	fn simnet_submit_refuses_a_burn_whose_receipt_is_not_the_ninety_eight_bytes() {
+		let world = World::new();
+		let chain = world.chain();
+		let keeper = world.keeper(chain.clone());
+
+		block_on(keeper.take_oath()).unwrap();
+		block_on(keeper.acquire(SAINT)).unwrap();
+		block_on(keeper.release(SAINT)).unwrap();
+		world.later(60);
+		hunt(&keeper);
+
+		let valid_burn = chain.transactions().last().unwrap().clone();
+		let mut malformed = valid_burn.receipt.clone().unwrap();
+		malformed.truncate(crate::receipt::LEN - 1);
+		let refused = block_on(chain.submit(SimnetPost {
+			nft: Some(SAINT),
+			receipt: Some(malformed),
+			receipt_signature: valid_burn.receipt_signature.clone(),
+			..SimnetPost::new(SimnetInstruction::Burn, valid_burn.accounts.clone())
+		}))
+		.unwrap_err();
+
+		assert!(
+			matches!(refused, KeeperError::Chain(ChainFailure::Rejected(_))),
+			"a receipt the program cannot read must be refused, not recorded: {refused}"
+		);
+		assert_eq!(
+			chain.transactions().len(),
+			4,
+			"the refused burn is not on the ledger"
+		);
+	}
+
+	#[test]
+	fn simnet_submit_refuses_a_burn_carrying_another_husks_receipt() {
+		let world = World::new();
+		let chain = world.chain();
+		let keeper = world.keeper(chain.clone());
+
+		block_on(keeper.take_oath()).unwrap();
+		block_on(keeper.acquire(SAINT)).unwrap();
+		block_on(keeper.release(SAINT)).unwrap();
+		world.later(60);
+		hunt(&keeper);
+
+		let valid_burn = chain.transactions().last().unwrap().clone();
+		let other = Nft::new(NftCollection::DegenApes, 2);
+		let refused = block_on(chain.submit(SimnetPost {
+			nft: Some(other),
+			receipt: valid_burn.receipt.clone(),
+			receipt_signature: valid_burn.receipt_signature.clone(),
+			..SimnetPost::new(SimnetInstruction::Burn, valid_burn.accounts.clone())
+		}))
+		.unwrap_err();
+
+		assert!(
+			matches!(refused, KeeperError::Chain(ChainFailure::Rejected(_))),
+			"the receipt names its husk, so another husk's receipt must be refused: {refused}"
+		);
+	}
+
+	#[test]
+	fn a_ledger_that_refuses_the_burn_leaves_the_books_as_they_were() {
+		let world = World::new();
+		let chain = world.chain();
+		let keeper = world.keeper(chain.clone());
+
+		block_on(keeper.take_oath()).unwrap();
+		block_on(keeper.acquire(SAINT)).unwrap();
+		block_on(keeper.release(SAINT)).unwrap();
+		world.later(60);
+		let before = block_on(keeper.load()).unwrap();
+
+		world.close_ledger();
+		let refused = play(&keeper).unwrap_err();
+
+		assert!(matches!(refused, KeeperError::Unavailable(_)), "{refused}");
+		assert_eq!(
+			block_on(keeper.load()).unwrap(),
+			before,
+			"the books must not keep a settlement the ledger refused"
+		);
+		assert_eq!(
+			chain.transactions().len(),
+			3,
+			"the ledger keeps no transaction it could not write"
+		);
+	}
+
+	#[test]
+	fn a_ledger_that_refuses_the_escrow_leaves_the_books_as_they_were() {
+		let world = World::new();
+		let chain = world.chain();
+		let keeper = world.keeper(chain.clone());
+
+		block_on(keeper.take_oath()).unwrap();
+		block_on(keeper.acquire(SAINT)).unwrap();
+		let before = block_on(keeper.load()).unwrap();
+
+		world.close_ledger();
+		let refused = block_on(keeper.release(SAINT)).unwrap_err();
+
+		assert!(matches!(refused, KeeperError::Unavailable(_)), "{refused}");
+		assert_eq!(
+			block_on(keeper.load()).unwrap(),
+			before,
+			"the husk stays in the vault while the ledger has no escrow for it"
+		);
+		assert_eq!(chain.transactions().len(), 2);
 	}
 }
