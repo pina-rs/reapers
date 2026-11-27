@@ -12,8 +12,8 @@ publish = false
 # The program is a cdylib only, so its source is included with
 # `#[path = "../../../src/lib.rs"]` in src/lib.rs instead of linked. Its `pina`
 # features are mirrored here so the included source compiles identically.
-pina = { version = "0.24.0", features = ["account-resize", "logs", "derive", "token"] }
-pina_test = "0.24.0"
+pina = { version = "0.25.1", features = ["account-resize", "logs", "derive", "token"] }
+pina_test = "0.25.1"
 reapers_receipt = { path = "../../../reapers_receipt" }
 
 [lints.rust.unexpected_cfgs]
