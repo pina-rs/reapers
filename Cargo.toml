@@ -29,7 +29,7 @@ reapers_world = { path = "crates/reapers_world" }
 bs58 = "0.5.1"
 ed25519-dalek = { version = "2.2.0", features = ["rand_core"] }
 sha2 = "0.10.9"
-pina = { version = "0.24.0", default-features = false }
+pina = { version = "0.25.1", default-features = false }
 reapers_program_client = { path = "crates/reapers_program_client" }
 
 # The deploy and rehearsal tool. Solana Kit's crates on crates.io are name
