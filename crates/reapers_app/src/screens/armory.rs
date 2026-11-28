@@ -380,11 +380,7 @@ fn outfit_row(
 fn art_row(game: Game, art: Art, reaper: &ReaperState, light: Rgb) -> Element {
 	let words = use_l10n();
 	let rank = reaper.art_rank(art);
-	let absorbed = reaper
-		.codex()
-		.iter()
-		.filter(|entry| art.vessels().contains(&entry.nft.collection.vessel()))
-		.count();
+	let absorbed = reaper.art_absorbed_count(art);
 	// How many more it takes to go deeper, once the art is known at all.
 	let next = (rank > 0 && rank < ArtRules::MAX_RANK)
 		.then(|| ArtRules::ABSORBED_FOR_RANK[rank as usize] as i64 - absorbed as i64);

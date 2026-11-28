@@ -371,6 +371,46 @@ fn traded_reaper_cannot_double_count_same_husk_or_clobber_earlier_signature() {
 }
 
 #[test]
+fn one_husk_absorbed_four_times_counts_once_toward_its_art() {
+	let target = husk(); // DegenApes:1 (carries Art::Cinder)
+	let absorption = Absorption {
+		nft: target,
+		grade: CaptureGrade::Great,
+		feeding: Feeding::roll(1),
+		xp: 100,
+		anima: 10,
+		nonce: 1,
+		at: now(),
+		signature: None,
+	};
+	let player = pair();
+	let reaper = player.reapers().first().unwrap();
+	// Four absorptions of the same husk, as a reaper collects when it changes
+	// hands and every owner hunts the same NFT.
+	let reaper = ReaperState::new(
+		reaper.id().to_owned(),
+		*reaper.genome(),
+		reaper.xp(),
+		reaper.weapons().to_vec(),
+		reaper.outfits().to_vec(),
+		reaper.weapon(),
+		reaper.outfit(),
+		vec![absorption; 4],
+		reaper.hunts_lost(),
+		reaper.rifts_sealed(),
+		*reaper.memory(),
+		reaper.art(),
+	)
+	.unwrap();
+
+	assert_eq!(reaper.codex().len(), 4);
+	assert_eq!(reaper.art_absorbed_count(Art::Cinder), 1);
+	assert_eq!(reaper.art_rank(Art::Cinder), 1);
+	assert_eq!(reaper.art_absorbed_count(Art::Rime), 0);
+	assert_eq!(reaper.art_rank(Art::Rime), 0);
+}
+
+#[test]
 fn repeated_absorptions_of_same_husk_never_stack_sets_or_art_rank() {
 	let target = husk(); // DegenApes:1 (carries Art::Cinder)
 	let mut traded = pair()
@@ -410,6 +450,13 @@ fn repeated_absorptions_of_same_husk_never_stack_sets_or_art_rank() {
 		assert_eq!(settled.completed_sets(), 0);
 		assert_eq!(settled.loadout().completed_sets, 0);
 		assert_eq!(settled.active_reaper().unwrap().art_rank(Art::Cinder), 1);
+		assert_eq!(
+			settled
+				.active_reaper()
+				.unwrap()
+				.art_absorbed_count(Art::Cinder),
+			1
+		);
 
 		traded = settled.active_reaper().unwrap().clone();
 	}
