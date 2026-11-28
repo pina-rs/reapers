@@ -177,6 +177,50 @@ async fn out_of_order_uploads_cannot_replace_a_newer_location() {
 }
 
 #[tokio::test]
+async fn a_location_is_kept_at_most_once_every_report_interval() {
+	let world = World::new().await;
+	let player = world.player().await;
+	let first = measured(4.0, GeoPoint::new(51.5, -0.08), 10);
+	let too_soon = measured(4.0, GeoPoint::new(51.501, -0.08), 8);
+	let in_time = measured(4.0, GeoPoint::new(51.502, -0.08), 5);
+	let kept = async || world.call(player, Location {}).await.unwrap().map(|f| f.at);
+
+	for fix in [first, too_soon] {
+		world
+			.call(
+				player,
+				UpdateLocation {
+					fix: shared(Some(fix)),
+				},
+			)
+			.await
+			.unwrap();
+	}
+
+	assert_eq!(
+		kept().await,
+		Some(first.at),
+		"a reading 2 s after the one kept is ignored"
+	);
+
+	world
+		.call(
+			player,
+			UpdateLocation {
+				fix: shared(Some(in_time)),
+			},
+		)
+		.await
+		.unwrap();
+
+	assert_eq!(
+		kept().await,
+		Some(in_time.at),
+		"a reading 5 s after the one kept replaces it"
+	);
+}
+
+#[tokio::test]
 async fn a_same_instant_refinement_replaces_a_coarser_location() {
 	let world = World::new().await;
 	let player = world.player().await;
@@ -186,8 +230,9 @@ async fn a_same_instant_refinement_replaces_a_coarser_location() {
 		accuracy: 20.0,
 		observed_at: observed,
 	};
+	// About 11 m from the coarse reading: inside its 20 m circle.
 	let tight = GeoFix {
-		at: GeoPoint::new(51.501, -0.081),
+		at: GeoPoint::new(51.5001, -0.08),
 		accuracy: 4.0,
 		observed_at: observed,
 	};
@@ -213,6 +258,71 @@ async fn a_same_instant_refinement_replaces_a_coarser_location() {
 		world.call(player, Location {}).await.unwrap().map(|f| f.at),
 		Some(tight.at),
 		"the tighter reading of that instant is kept"
+	);
+}
+
+/// A refinement of the same instant lies within the reading it refines, so
+/// however many a client sends, the player never moves further than the
+/// first reading's accuracy within one report interval.
+#[tokio::test]
+async fn same_instant_refinements_cannot_walk_around_the_report_interval() {
+	let world = World::new().await;
+	let player = world.player().await;
+	let observed = now();
+	let mut kept = None;
+	let mut moves = 0;
+
+	for step in 0..20_i32 {
+		let fix = GeoFix {
+			at: GeoPoint::new(51.5 + f64::from(step) * 0.001, -0.08),
+			accuracy: 20.0 - f64::from(step) * 0.001,
+			observed_at: observed,
+		};
+
+		world
+			.call(
+				player,
+				UpdateLocation {
+					fix: shared(Some(fix)),
+				},
+			)
+			.await
+			.unwrap();
+
+		let now_kept = world.call(player, Location {}).await.unwrap().map(|f| f.at);
+
+		if now_kept != kept {
+			moves += 1;
+			kept = now_kept;
+		}
+	}
+
+	assert_eq!(
+		moves, 1,
+		"refinements 111 m apart, each outside the last one's circle, moved the player"
+	);
+}
+
+/// Pausing sends a clear, and the reading after a clear is kept whenever
+/// it was observed: the clear starts the report interval again.
+#[tokio::test]
+async fn a_clear_starts_the_report_interval_again() {
+	let world = World::new().await;
+	let player = world.player().await;
+	let first = measured(4.0, GeoPoint::new(51.5, -0.08), 10);
+	let soon = measured(4.0, GeoPoint::new(51.6, -0.08), 9);
+
+	for fix in [Some(first), None, Some(soon)] {
+		world
+			.call(player, UpdateLocation { fix: shared(fix) })
+			.await
+			.unwrap();
+	}
+
+	assert_eq!(
+		world.call(player, Location {}).await.unwrap().map(|f| f.at),
+		Some(soon.at),
+		"a reading 1 s after the last one kept, with a clear between, is kept"
 	);
 }
 
@@ -1205,4 +1315,33 @@ async fn invalid_eye_settlement_changes_nothing() {
 		Refusal::HuntUnproven,
 	);
 	assert_eq!(world.call(player, Load {}).await.unwrap(), before);
+}
+
+/// An `Idempotency-Key` belongs to the session that sent it: two players'
+/// sessions that happen to send the same key each settle their own hunt.
+#[tokio::test]
+async fn one_idempotency_key_from_two_sessions_settles_each_hunt() {
+	let world = World::new().await;
+	let key = "0123456789abcdef0123456789abcdef";
+
+	for session in ["the first player's session", "the second player's session"] {
+		let player = world.player().await;
+		let before = with_loose_husk(&world, player).await;
+		let sighting = before.sightings()[0];
+		let settled = world
+			.call_keyed(
+				player,
+				session,
+				key,
+				SettleHunt {
+					sighting: sighting.id,
+					log: packed(&play(&before, &sighting)),
+				},
+			)
+			.await
+			.expect("each session settles its own hunt");
+
+		assert!(settled.settlement.outcome.absorbed());
+		assert_eq!(world.stored(player).await, settled.settlement.state);
+	}
 }

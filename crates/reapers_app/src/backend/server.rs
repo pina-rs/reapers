@@ -3,7 +3,8 @@
 //!
 //! Every operation is `reapers_api`'s own argument struct, sent the way
 //! `leptoskit_rpc`'s client sends one: `POST /api/<name>` with the arguments
-//! as JSON, a fresh idempotency key on every mutation, and the session's
+//! as JSON, a fresh idempotency key on every mutation (and on
+//! `settle_hunt`, one the same hunt always sends), and the session's
 //! access token as `Authorization: Bearer`. A failure is read with
 //! `leptoskit_rpc`'s own wire decoding, and a refusal by
 //! `reapers_api::refusal_of`. The requests go through the game's
@@ -324,6 +325,12 @@ impl Client {
 			Kind::Mutation => Some(idempotency_key().await?),
 			_ => None,
 		};
+		self.call_with(op, key).await
+	}
+
+	/// Calls the operation `op` as the signed-in player, with `key` as its
+	/// idempotency key when there is one.
+	async fn call_with<O: Operation>(&self, op: O, key: Option<String>) -> ApiResult<O::Output> {
 		let reply = self
 			.signed_post(&format!("/api/{}", O::NAME), key, &op)
 			.await?;
@@ -347,6 +354,27 @@ async fn idempotency_key() -> ApiResult<String> {
 		let _ = write!(key, "{byte:02x}");
 		key
 	}))
+}
+
+/// The idempotency key of settling `sighting` with `log`: a SHA-256 of
+/// both, in hexadecimal. A hunt sent again after the network lost the
+/// answer is the same call, so the keeper answers it with the settlement it
+/// made, rather than refusing a sighting already settled or counting an
+/// escape twice.
+fn settlement_key(sighting: i64, log: &str) -> String {
+	use std::fmt::Write as _;
+
+	use sha2::Digest as _;
+
+	let mut hash = sha2::Sha256::new();
+	hash.update(sighting.to_le_bytes());
+	hash.update(log.as_bytes());
+	hash.finalize()
+		.iter()
+		.fold(String::with_capacity(64), |mut key, byte| {
+			let _ = write!(key, "{byte:02x}");
+			key
+		})
 }
 
 fn decode<T: DeserializeOwned>(reply: &HttpReply) -> ApiResult<T> {
@@ -443,11 +471,17 @@ impl ReapersApi for ServerApi {
 	}
 
 	async fn settle_hunt(&self, sighting_id: i64, log: Vec<u8>) -> ApiResult<SettledHunt> {
+		let log = player::encode_log(&log);
+		let key = settlement_key(sighting_id, &log);
+
 		self.0
-			.call(player::SettleHunt {
-				sighting: sighting_id,
-				log: player::encode_log(&log),
-			})
+			.call_with(
+				player::SettleHunt {
+					sighting: sighting_id,
+					log,
+				},
+				Some(key),
+			)
 			.await
 	}
 

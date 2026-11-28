@@ -380,3 +380,86 @@ fn depth_probe_renders_localized_copy_and_mounts_cleanly() {
 	assert!(tester.find(&Finder::test_id("probe-start")).is_ok());
 	assert!(tester.find(&Finder::text(En.probe_title())).is_ok());
 }
+
+/// Answers each request with the next reply, keeping the URL and headers
+/// it came with.
+struct RecordingTransport {
+	replies: RefCell<Vec<HttpReply>>,
+	requests: RefCell<Vec<(String, Vec<Header>)>>,
+}
+
+#[async_trait(?Send)]
+impl HttpTransport for RecordingTransport {
+	async fn post(
+		&self,
+		url: &str,
+		headers: Vec<Header>,
+		_body: Vec<u8>,
+		_timeout: Duration,
+	) -> Result<HttpReply, PlatformError> {
+		self.requests.borrow_mut().push((url.to_owned(), headers));
+		let mut replies = self.replies.borrow_mut();
+		if replies.is_empty() {
+			return Err(PlatformError::Failed("unexpected request".into()));
+		}
+		Ok(replies.remove(0))
+	}
+}
+
+#[test]
+fn a_hunt_sent_again_carries_the_same_idempotency_key() {
+	block_on(async {
+		let guest = serde_json::to_vec(&serde_json::json!({
+			"account": "guest-1",
+			"access_token": "access",
+			"refresh_token": "refresh",
+			"expires_in": 900
+		}))
+		.unwrap();
+		let lost = || {
+			HttpReply {
+				status: 503,
+				body: b"the answer was lost".to_vec(),
+			}
+		};
+		let transport = Rc::new(RecordingTransport {
+			replies: RefCell::new(vec![
+				HttpReply {
+					status: 200,
+					body: guest,
+				},
+				lost(),
+				lost(),
+				lost(),
+			]),
+			requests: RefCell::new(Vec::new()),
+		});
+		let api = ServerApi::new(
+			"https://keeper.invalid",
+			transport.clone(),
+			Rc::new(MemoryPrefs::new()),
+		);
+
+		assert!(api.settle_hunt(7, vec![1, 2, 3]).await.is_err());
+		assert!(api.settle_hunt(7, vec![1, 2, 3]).await.is_err());
+		assert!(api.settle_hunt(7, vec![1, 2, 4]).await.is_err());
+
+		let keys: Vec<Option<String>> = transport
+			.requests
+			.borrow()
+			.iter()
+			.filter(|(url, _)| url.ends_with("/api/settle_hunt"))
+			.map(|(_, headers)| {
+				headers
+					.iter()
+					.find(|(name, _)| *name == "idempotency-key")
+					.map(|(_, value)| value.clone())
+			})
+			.collect();
+
+		assert_eq!(keys.len(), 3);
+		assert!(keys[0].is_some(), "settle_hunt carries an idempotency key");
+		assert_eq!(keys[0], keys[1], "the same hunt, the same key");
+		assert_ne!(keys[0], keys[2], "another hunt, another key");
+	});
+}

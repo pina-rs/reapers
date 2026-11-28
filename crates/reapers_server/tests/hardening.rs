@@ -371,12 +371,19 @@ async fn link_wallet_and_oath(
 
 #[tokio::test]
 async fn losing_nft_reaper_frees_unabsorbed_escrow_and_mutated_uri_does_not_brick_account() {
-	let world = World::new().await;
+	let husk_mint = Address::from_bytes([22; 32]);
+	let mut assets = vec![husk_mint];
+	assets.extend((2..=8).map(|n| Address::from_bytes([60 + n; 32])));
+	let manifest = solana().with_husks(vec![HuskCollection {
+		collection: reapers_rules::NftCollection::DegenApes,
+		address: Address::from_bytes([24; 32]),
+		assets,
+	}]);
+	let world = World::reading(RunMode::Test, quick_hall(), manifest).await;
 	let player = world.player().await;
 	let wallet = Keypair::from_seed(&[11; 32]);
 	let other_wallet = Keypair::from_seed(&[12; 32]);
 	let reaper_asset = Address::from_bytes([21; 32]);
-	let husk_mint = Address::from_bytes([22; 32]);
 	let genome = ReaperGenome::shuffle(7);
 
 	link_wallet_and_oath(&world, player, &wallet).await;

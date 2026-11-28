@@ -76,6 +76,7 @@ use tower_http::decompression::DecompressionLayer;
 use crate::chain::Gateway;
 use crate::config::RunMode;
 use crate::keeper::Keeper;
+use crate::keeper::RequestKey;
 use crate::keeper::Shared;
 use crate::rift::RiftHall;
 use crate::sign_in;
@@ -457,7 +458,21 @@ impl Identify for KeeperIdentity {
 		&'a self,
 		request: &'a http::request::Parts,
 	) -> BoxFuture<'a, rpc::Result<Identity>> {
-		Box::pin(async move { Ok(self.with_keeper(self.auth.identify(request).await?)) })
+		Box::pin(async move {
+			let mut identity = self.with_keeper(self.auth.identify(request).await?);
+
+			// Mutations' keys are `leptoskit_rpc`'s; `settle_hunt`, an
+			// action, finds its own here.
+			if let Some(key) = request.headers.get(rpc::server::IDEMPOTENCY_KEY) {
+				let key = key.to_str().map_err(|_| {
+					rpc::Error::invalid("the idempotency key must be printable ASCII")
+				})?;
+
+				identity.context = identity.context.with(RequestKey(key.to_owned()));
+			}
+
+			Ok(identity)
+		})
 	}
 
 	fn lease<'a>(&'a self, identity: &'a Identity) -> BoxFuture<'a, rpc::Result<IdentityLease>> {

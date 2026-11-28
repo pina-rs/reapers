@@ -15,6 +15,7 @@ use leptoskit_auth::Keys;
 use reapers_api::auth::SignedIn;
 use reapers_rules::PlayerState;
 use reapers_rules::Refusal;
+use reapers_rules::Sighting;
 use reapers_server::chain::Gateway;
 use reapers_server::config::RunMode;
 use reapers_server::server::Options;
@@ -337,4 +338,177 @@ async fn the_web_game_on_its_own_origin_may_call_the_keeper() {
 	.await;
 
 	assert_eq!(status, StatusCode::OK);
+}
+
+/// A keeper over HTTP, and a guest on it with one released husk surfaced
+/// and ready to hunt: the router, the guest's bearer token, the books and
+/// the sighting.
+async fn ready_to_hunt() -> (Router, String, PlayerState, Sighting) {
+	let db = database().await;
+	let reapers = reapers_server::server::start(
+		&db,
+		Keys::single("test", [3; 32]),
+		Options {
+			mode: RunMode::Test,
+			gateway: Gateway::new(solana(), Chain::default()),
+			signer: ReceiptSigner::development(),
+			hall: quick_hall(),
+			origin: None,
+		},
+	)
+	.expect("the keeper starts");
+	let router = reapers.router;
+	let signed_in = guest(&router).await;
+	let token = Some(signed_in.access_token.as_str());
+
+	let (status, _) = post(&router, "/api/take_oath", token, json!({})).await;
+	assert_eq!(status, StatusCode::OK);
+
+	let (status, _) = post(
+		&router,
+		"/api/acquire",
+		token,
+		json!({ "nft": "degenApes:1" }),
+	)
+	.await;
+	assert_eq!(status, StatusCode::OK);
+
+	let (status, body) = post(
+		&router,
+		"/api/release",
+		token,
+		json!({ "nft": "degenApes:1" }),
+	)
+	.await;
+	assert_eq!(status, StatusCode::OK, "{body}");
+
+	let released: PlayerState = serde_json::from_value(body).expect("released state");
+	let sighting = released.sightings()[0];
+
+	// Surface the sighting in Postgres so settle_hunt can run immediately.
+	let mut state_json = serde_json::to_value(&released).expect("serialize state");
+	for item in state_json["sightings"].as_array_mut().expect("sightings") {
+		item["surfacesAt"] = json!("2026-01-01T00:00:00.000Z");
+	}
+	let surfaced: PlayerState = serde_json::from_value(state_json).expect("surfaced state");
+	reapers_server::tables::PlayerBooks::update()
+		.set(|books| books.state, leptoskit_db::Json(surfaced.clone()))
+		.run(&db)
+		.await
+		.expect("surface sighting");
+
+	(router, signed_in.access_token, surfaced, sighting)
+}
+
+/// Posts `settle_hunt` with `payload`, under the `Idempotency-Key` `key`.
+async fn settle_with_key(
+	router: &Router,
+	token: &str,
+	key: &str,
+	payload: &Value,
+) -> (StatusCode, Value) {
+	let request = Request::post("/api/settle_hunt")
+		.header("content-type", "application/json")
+		.header("authorization", format!("Bearer {token}"))
+		.header("idempotency-key", key)
+		.body(Body::from(payload.to_string()))
+		.expect("request");
+	let response = router.clone().oneshot(request).await.expect("response");
+	let status = response.status();
+	let bytes = response.into_body().collect().await.unwrap().to_bytes();
+	let value = serde_json::from_slice::<Value>(&bytes)
+		.unwrap_or_else(|_| Value::String(String::from_utf8_lossy(&bytes).into_owned()));
+
+	(status, value)
+}
+
+#[tokio::test]
+async fn settle_hunt_replays_cached_result_for_retried_idempotency_key() {
+	let (router, token, surfaced, sighting) = ready_to_hunt().await;
+	let payload = json!({
+		"sighting": sighting.id,
+		"log": packed(&play(&surfaced, &sighting)),
+	});
+	let key = "0123456789abcdef0123456789abcdef";
+	let (first_status, first_body) = settle_with_key(&router, &token, key, &payload).await;
+	assert_eq!(first_status, StatusCode::OK, "{first_body}");
+	assert!(
+		!first_body["settlement"]["outcome"]["grade"].is_null(),
+		"the hunt absorbed the husk: {first_body}"
+	);
+
+	// Simulate a dropped HTTP response and client retry with the same Idempotency-Key.
+	let (retry_status, retry_body) = settle_with_key(&router, &token, key, &payload).await;
+	assert_eq!(
+		retry_status,
+		StatusCode::OK,
+		"retrying settle_hunt with the same Idempotency-Key must replay the cached settlement instead of returning {retry_status}: {retry_body}"
+	);
+	assert_eq!(retry_body, first_body);
+
+	// The same key for another call is refused rather than answered with this one.
+	let other = json!({ "sighting": sighting.id + 1, "log": payload["log"] });
+	let (status, body) = settle_with_key(&router, &token, key, &other).await;
+	assert_eq!(status, StatusCode::CONFLICT, "{body}");
+
+	// So is the same key for the same sighting with another log.
+	let other = json!({
+		"sighting": sighting.id,
+		"log": packed(&escape(&surfaced, &sighting)),
+	});
+	let (status, body) = settle_with_key(&router, &token, key, &other).await;
+	assert_eq!(status, StatusCode::CONFLICT, "{body}");
+}
+
+#[tokio::test]
+async fn an_escape_retried_with_the_same_idempotency_key_is_lost_once() {
+	let (router, token, surfaced, sighting) = ready_to_hunt().await;
+	let payload = json!({
+		"sighting": sighting.id,
+		"log": packed(&escape(&surfaced, &sighting)),
+	});
+	let key = "fedcba9876543210fedcba9876543210";
+	let (first_status, first_body) = settle_with_key(&router, &token, key, &payload).await;
+	assert_eq!(first_status, StatusCode::OK, "{first_body}");
+	assert!(
+		!first_body["settlement"]["outcome"]["escape"].is_null(),
+		"the husk got away: {first_body}"
+	);
+
+	let (retry_status, retry_body) = settle_with_key(&router, &token, key, &payload).await;
+	assert_eq!(retry_status, StatusCode::OK, "{retry_body}");
+	assert_eq!(retry_body, first_body);
+
+	let (status, body) = post(&router, "/api/load", Some(&token), json!({})).await;
+	assert_eq!(status, StatusCode::OK, "{body}");
+	let state: PlayerState = serde_json::from_value(body).expect("a player");
+
+	assert_eq!(state.hunts_lost(), 1, "the escape is counted once");
+}
+
+/// A phone that times out sends the hunt again while the first request is
+/// still settling. Both answers are the one settlement, and the escape is
+/// counted once.
+#[tokio::test]
+async fn an_escape_sent_twice_at_once_with_one_key_is_lost_once() {
+	let (router, token, surfaced, sighting) = ready_to_hunt().await;
+	let payload = json!({
+		"sighting": sighting.id,
+		"log": packed(&escape(&surfaced, &sighting)),
+	});
+	let key = "00112233445566778899aabbccddeeff";
+	let ((first_status, first_body), (second_status, second_body)) = tokio::join!(
+		settle_with_key(&router, &token, key, &payload),
+		settle_with_key(&router, &token, key, &payload),
+	);
+
+	assert_eq!(first_status, StatusCode::OK, "{first_body}");
+	assert_eq!(second_status, StatusCode::OK, "{second_body}");
+	assert_eq!(first_body, second_body);
+
+	let (status, body) = post(&router, "/api/load", Some(&token), json!({})).await;
+	assert_eq!(status, StatusCode::OK, "{body}");
+	let state: PlayerState = serde_json::from_value(body).expect("a player");
+
+	assert_eq!(state.hunts_lost(), 1, "the escape is counted once");
 }

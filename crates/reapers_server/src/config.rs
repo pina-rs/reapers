@@ -509,6 +509,47 @@ pub fn validate_origin(origin: Option<&str>, mode: RunMode) -> Result<Option<Str
 	Ok(Some(raw.trim_end_matches('/').to_owned()))
 }
 
+/// The keepers the program trusted before this one, from
+/// `REAPERS_RETIRED_KEEPERS`: their public keys as Solana addresses,
+/// separated by commas. Public keys only; never a secret.
+///
+/// A husk settled under one of them and not yet burned has its receipt signed
+/// again with the current key, which the program now trusts instead.
+///
+/// Outside the simulated economy the development key is refused: anyone can
+/// derive it, so trusting what it signed would let anyone who can write an
+/// escrow row have it signed again with the real key.
+///
+/// # Errors
+///
+/// When an entry is not an address, or is the development key's outside
+/// development and test.
+pub fn retired_keepers(value: Option<&str>, mode: RunMode) -> Result<Vec<Address>, ConfigError> {
+	let development = ReceiptSigner::development().address();
+
+	value
+		.unwrap_or_default()
+		.split(',')
+		.map(str::trim)
+		.filter(|entry| !entry.is_empty())
+		.map(|entry| {
+			let address = entry.parse::<Address>().map_err(|_| {
+				ConfigError(format!(
+					"REAPERS_RETIRED_KEEPERS: not a public key: {entry}"
+				))
+			})?;
+
+			if address == development && !mode.simulates() {
+				return Err(ConfigError(format!(
+					"REAPERS_RETIRED_KEEPERS: refusing to trust the development key in \"{mode}\" mode"
+				)));
+			}
+
+			Ok(address)
+		})
+		.collect()
+}
+
 /// Every secret a deployed keeper cannot run without: the database's URL
 /// (with its password), the keys sign-in seals and hashes with, and the
 /// secret the receipt signing key is derived from.
@@ -666,6 +707,47 @@ mod tests {
 
 		for mode in [RunMode::Development, RunMode::Test] {
 			assert_eq!(mode.require_simulation(), Ok(()));
+		}
+	}
+
+	#[test]
+	fn retired_keepers_are_public_keys_separated_by_commas() {
+		let first = ReceiptSigner::development().address();
+		let second = ReceiptSigner::from_secret("another").address();
+
+		assert_eq!(
+			retired_keepers(None, RunMode::Test).unwrap(),
+			Vec::<Address>::new()
+		);
+		assert_eq!(
+			retired_keepers(Some(" "), RunMode::Test).unwrap(),
+			Vec::<Address>::new()
+		);
+		assert_eq!(
+			retired_keepers(Some(&format!(" {first} ,{second},")), RunMode::Test).unwrap(),
+			vec![first, second]
+		);
+		assert!(retired_keepers(Some("not a key"), RunMode::Test).is_err());
+	}
+
+	#[test]
+	fn a_deployed_keeper_never_trusts_the_development_key_as_retired() {
+		let development = ReceiptSigner::development().address();
+		let other = ReceiptSigner::from_secret("another").address();
+		let both = format!("{other},{development}");
+
+		for mode in [RunMode::Staging, RunMode::Production] {
+			assert!(retired_keepers(Some(&both), mode).is_err(), "{mode}");
+			assert_eq!(
+				retired_keepers(Some(&other.to_string()), mode).unwrap(),
+				vec![other]
+			);
+		}
+		for mode in [RunMode::Development, RunMode::Test] {
+			assert_eq!(
+				retired_keepers(Some(&both), mode).unwrap(),
+				vec![other, development]
+			);
 		}
 	}
 

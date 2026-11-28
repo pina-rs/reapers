@@ -58,7 +58,7 @@ pub const TIMEOUT: Duration = Duration::from_secs(8);
 /// decoding work before the decoder reads its strings.
 const MAX_ASSET_BYTES: usize = 32 * 1024;
 
-/// How long a finalized blockhash stays cached on live RPC gateways. Blockhashes
+/// How long a confirmed blockhash stays cached on live RPC gateways. Blockhashes
 /// remain valid for ~150 slots (~60 s), so 3 s saves redundant RPC round trips
 /// across bursts without risking stale lifetimes.
 const BLOCKHASH_TTL: Duration = Duration::from_secs(3);
@@ -289,8 +289,13 @@ impl Gateway {
 		Ok(balance.value)
 	}
 
-	/// The newest finalized blockhash and the height it lasts until, for a
+	/// The newest confirmed blockhash and the height it lasts until, for a
 	/// transaction the keeper hands a wallet to sign.
+	///
+	/// Confirmed rather than finalized: a finalized blockhash is already some
+	/// 32 slots (about 13 s) old, time the player then no longer has to
+	/// approve the burn in their wallet. A blockhash only dates the
+	/// transaction; ownership is still read at finalized.
 	pub async fn latest_blockhash(&self) -> Result<(Hash, u64), Refusal> {
 		if self.cache_blockhash
 			&& let Some((hash, height, at)) = *self
@@ -304,7 +309,12 @@ impl Gateway {
 
 		self.check_cluster().await?;
 
-		let latest = self.call(LatestBlockhash(Some(finalized()))).await?;
+		let latest = self
+			.call(LatestBlockhash(Some(ReadConfig {
+				commitment: Some(Commitment::Confirmed),
+				min_context_slot: None,
+			})))
+			.await?;
 		let pair = (latest.value.blockhash, latest.value.last_valid_block_height);
 
 		if self.cache_blockhash {

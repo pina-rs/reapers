@@ -18,10 +18,15 @@ use solana_kit_core::crypto::Keypair;
 /// only has to keep a string and the key it had before is the key it has
 /// now. Whoever holds that secret can sign an absorption of anything, so it
 /// is one of the secrets a deployed keeper refuses to start without.
+///
+/// After the program's keeper is rotated, the keys it trusted before can be
+/// named as retired: receipts a hunt was settled with under one of them are
+/// signed again with this key, and nothing else is.
 pub struct ReceiptSigner {
 	keypair: Keypair,
 	address: Address,
 	development: bool,
+	retired: Vec<Address>,
 }
 
 impl ReceiptSigner {
@@ -41,7 +46,16 @@ impl ReceiptSigner {
 			address: keypair.address(),
 			keypair,
 			development: secret == Self::DEVELOPMENT_SECRET,
+			retired: Vec::new(),
 		}
+	}
+
+	/// The same signer, trusting the settlements signed with the public keys
+	/// in `retired`: the keepers the program trusted before this one.
+	#[must_use]
+	pub fn with_retired(mut self, retired: Vec<Address>) -> Self {
+		self.retired = retired;
+		self
 	}
 
 	/// The signer anyone can derive, for development and tests.
@@ -69,6 +83,16 @@ impl ReceiptSigner {
 		solana_kit_core::crypto::verify(&self.address, message, signature).is_ok()
 	}
 
+	/// Whether `signature` over `message` is this signer's or a retired
+	/// keeper's: whether a settlement signed it, before or after a rotation.
+	pub fn settled(&self, message: &[u8], signature: &Signature) -> bool {
+		self.verifies(message, signature)
+			|| self
+				.retired
+				.iter()
+				.any(|key| solana_kit_core::crypto::verify(key, message, signature).is_ok())
+	}
+
 	/// The key, as the game asks for it.
 	pub fn key(&self) -> KeeperKey {
 		KeeperKey {
@@ -84,6 +108,14 @@ impl fmt::Debug for ReceiptSigner {
 		f.debug_struct("ReceiptSigner")
 			.field("address", &self.address.to_string())
 			.field("development", &self.development)
+			.field(
+				"retired",
+				&self
+					.retired
+					.iter()
+					.map(ToString::to_string)
+					.collect::<Vec<_>>(),
+			)
 			.finish_non_exhaustive()
 	}
 }
@@ -113,6 +145,21 @@ mod tests {
 		assert!(ours.verifies(&message, &ours.sign(&message)));
 		assert!(ours.is_development());
 		assert!(!theirs.is_development());
+	}
+
+	#[test]
+	fn a_settlement_holds_under_this_key_or_a_retired_one_and_no_other() {
+		let retired = ReceiptSigner::development();
+		let stranger = ReceiptSigner::from_secret("a key nobody named");
+		let signer =
+			ReceiptSigner::from_secret("the rotated secret").with_retired(vec![retired.address()]);
+		let message = [7; 98];
+
+		assert!(signer.settled(&message, &signer.sign(&message)));
+		assert!(signer.settled(&message, &retired.sign(&message)));
+		assert!(!signer.settled(&message, &stranger.sign(&message)));
+		assert!(!signer.verifies(&message, &retired.sign(&message)));
+		assert!(!signer.settled(&[8; 98], &retired.sign(&message)));
 	}
 
 	#[test]

@@ -51,11 +51,12 @@ curl -X POST -H "authorization: Bearer <access_token>" -H "content-type: applica
 | `REAPERS_ORIGIN`              | none                            | The web game's origin: the live socket checks browser pages against it, and the routes answer it across origins (CORS). Native apps send none. |
 | `REAPERS_SOLANA_CHAIN`        | `solana:devnet`                 | Or `solana:mainnet`, or `solana:localnet` (a validator on this machine, development and test only).                    |
 | `REAPERS_SOLANA_RPC_URL`      | the chain's public RPC          | HTTPS. Its genesis must match the chain, checked on every read. A localnet's is `http://127.0.0.1:8899` by default, on this machine, and has no genesis check. |
-| `REAPERS_DEMO_HUSKS`          | none                            | The path of the manifest `reapers_ops mint-demo --out` writes. `chain_status` lists its husks for the game, and a release with an escrow must escrow the asset its husk stands for. |
+| `REAPERS_DEMO_HUSKS`          | none                            | The path of the manifest `reapers_ops mint-demo --out` writes. `chain_status` lists its husks for the game, and a release with an escrow must escrow the asset its husk stands for. Without it, escrowed releases are refused. |
 | `REAPERS_WALLET_IDENTITY_URI` | `https://reapers.invalid/`      | The HTTPS identity origin, with a trailing slash. The placeholder turns wallets off. Required with a collection.        |
 | `REAPERS_REAPER_COLLECTION`   | none                            | The verified Metaplex Core collection NFT reapers come from. Without it, imports are refused.                          |
 | `REAPERS_REAPER_MARKET_URL`   | none                            | HTTPS page where players buy and trade the collection.                                                                 |
 | `REAPERS_PROGRAM_ID`          | none                            | The Reapers program husks are escrowed with and burned by. Without it, escrowed releases are refused.                  |
+| `REAPERS_RETIRED_KEEPERS`     | none                            | After `ops set-keeper`, the public keys (addresses, comma-separated) of the keepers the program trusted before. A husk settled under one of them and not yet burned is signed again with the current key. Public keys only. |
 
 The secrets, as `REAPERS_SECRET_<name>`:
 
