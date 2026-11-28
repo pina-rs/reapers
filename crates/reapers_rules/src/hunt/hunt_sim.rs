@@ -1874,16 +1874,22 @@ impl HuntSim {
 		events.push(HuntEvent::ChargeBegan);
 	}
 
+	/// Knocks the husk out of its charge where it stands, stuns it for
+	/// `stun_ticks`, emits [`HuntEvent::Parried`], and exposes every seal.
+	fn turn_aside_charge(&mut self, stun_ticks: i64, events: &mut Vec<HuntEvent>) {
+		self.end_charge();
+		self.move_start = -1;
+		self.stun(stun_ticks);
+		events.push(HuntEvent::Parried);
+		self.expose_all_seals(events);
+	}
+
 	/// The reaper swung in time. The husk is knocked out of its run and
 	/// stands stunned where it got to, close, every seal in view open.
 	fn parry(&mut self, events: &mut Vec<HuntEvent>) {
-		self.end_charge();
-		self.move_start = -1;
-		self.stun(HuntRules::STAGGER_TICKS);
-		events.push(HuntEvent::Parried);
+		self.turn_aside_charge(HuntRules::STAGGER_TICKS, events);
 		self.parries += 1;
 		self.gain_soul(CaptureRules::PARRY_SOUL);
-		self.expose_all_seals(events);
 
 		if self.stats.gift == Some(ReaperGift::Reprisal) {
 			self.chosen_blow_ready = true;
@@ -1904,12 +1910,13 @@ impl HuntSim {
 	fn strike_reaper(&mut self, events: &mut Vec<HuntEvent>) {
 		if self.passage_ready {
 			self.passage_ready = false;
-			self.parry(events);
 			// This is the gift's protection, not an input the player
-			// performed, and it pays no soul.
-			self.parries -= 1;
-			self.soul = math::max(0.0, self.soul - CaptureRules::PARRY_SOUL);
-			self.stun(SoulRules::PASSAGE_STAGGER_TICKS_PER_STRENGTH * self.stats.gift_strength());
+			// performed: it turns the charge aside and exposes every seal,
+			// but pays no soul and does not count as a player parry.
+			self.turn_aside_charge(
+				SoulRules::PASSAGE_STAGGER_TICKS_PER_STRENGTH * self.stats.gift_strength(),
+				events,
+			);
 			events.push(HuntEvent::GiftStirred(ReaperGift::Passage));
 			return;
 		}
@@ -2447,7 +2454,7 @@ impl HuntSim {
 						self.open_until[other] = self.open_until[other].max(
 							self.tick
 								+ HuntRules::EXPOSED_TICKS
-								+ SoulRules::GATHERING_TICKS_PER_STRENGTH
+								+ SoulRules::AFTERMATH_TICKS_PER_STRENGTH
 									* self.stats.gift_strength(),
 						);
 					} else {

@@ -1,5 +1,7 @@
 //! The progression that travels with one reaper.
 
+use std::collections::BTreeSet;
+
 use serde::Deserialize;
 use serde::Serialize;
 use serde::Serializer;
@@ -280,16 +282,28 @@ impl ReaperState {
 		SoulRules::rank(self.level(), &self.memory, self.soul().gift)
 	}
 
+	/// How many distinct husks carrying `art` the reaper has absorbed.
+	///
+	/// The codex keeps every absorption, including the same NFT absorbed
+	/// again by a later owner, so the count is over distinct NFTs: absorbing
+	/// one husk twice still teaches the art once.
+	pub fn art_absorbed_count(&self, art: Art) -> usize {
+		let mut seen = BTreeSet::new();
+
+		for entry in &self.codex {
+			if art.carried_by_vessel(entry.nft.collection.vessel()) {
+				seen.insert(entry.nft);
+			}
+		}
+
+		seen.len()
+	}
+
 	/// How deep `art` runs in this reaper: 0 until it has absorbed a husk
-	/// that carries it. It is read from the codex, so it travels with the
-	/// reaper and cannot be bought.
+	/// that carries it. It is read from distinct husks in the codex, so it
+	/// travels with the reaper and cannot be bought.
 	pub fn art_rank(&self, art: Art) -> i64 {
-		Art::rank_for(
-			self.codex
-				.iter()
-				.filter(|entry| art.carried_by_vessel(entry.nft.collection.vessel()))
-				.count(),
-		)
+		Art::rank_for(self.art_absorbed_count(art))
 	}
 
 	/// The art the reaper throws, at the rank it knows it.

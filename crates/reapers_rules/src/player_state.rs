@@ -1,6 +1,8 @@
 //! Everything one player owns and has done, and every request they can
 //! make of the rules.
 
+use std::collections::BTreeSet;
+
 use serde::Deserialize;
 use serde::Serialize;
 use serde::Serializer;
@@ -735,12 +737,17 @@ impl PlayerState {
 			.count() as i64
 	}
 
-	/// How many of `collection` the reaper has absorbed.
+	/// How many distinct NFTs of `collection` the reaper has absorbed.
 	pub fn absorbed_from(&self, collection: NftCollection) -> usize {
-		self.codex()
-			.iter()
-			.filter(|entry| entry.nft.collection == collection)
-			.count()
+		let mut seen = BTreeSet::new();
+
+		for entry in self.codex() {
+			if entry.nft.collection == collection {
+				seen.insert(entry.nft);
+			}
+		}
+
+		seen.len()
 	}
 
 	/// What the reaper takes into a hunt.
@@ -924,21 +931,20 @@ impl PlayerState {
 		Ok(next)
 	}
 
-	/// Attaches the keeper's `signature` to the absorption of `nft`.
+	/// Attaches the keeper's `signature` to the most recent unsigned absorption
+	/// of `nft`, leaving earlier signed entries untouched.
 	#[must_use]
 	pub fn sign_absorption(&self, nft: Nft, signature: &str) -> Self {
 		self.with_active(|reaper| {
-			let codex = reaper
-				.codex()
-				.iter()
-				.map(|entry| {
-					if entry.nft == nft {
-						entry.signed_with(signature)
-					} else {
-						entry.clone()
-					}
-				})
-				.collect();
+			let mut codex = reaper.codex().to_vec();
+
+			if let Some(entry) = codex
+				.iter_mut()
+				.rev()
+				.find(|entry| entry.nft == nft && entry.signature.is_none())
+			{
+				*entry = entry.signed_with(signature);
+			}
 
 			reaper.with_codex(codex)
 		})

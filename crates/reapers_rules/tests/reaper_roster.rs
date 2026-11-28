@@ -311,3 +311,161 @@ fn preview_birth_trait_edits_keep_names_valid_and_reject_out_of_range_parts() {
 	);
 	assert_eq!(original, ReaperGenome::shuffle(11));
 }
+
+#[test]
+fn traded_reaper_cannot_double_count_same_husk_or_clobber_earlier_signature() {
+	let target = husk();
+	// Previous owner absorbed `target` with `verified-asset` and got `sig-first`.
+	let traded = pair()
+		.select_reaper("verified-asset")
+		.unwrap()
+		.acquire(target)
+		.unwrap()
+		.release(target, 1, now())
+		.unwrap()
+		.settle_hunt(1, &CUT, now().plus_seconds(60), 5)
+		.unwrap()
+		.sign_absorption(target, "sig-first")
+		.active_reaper()
+		.unwrap()
+		.clone();
+	assert_eq!(traded.codex()[0].signature.as_deref(), Some("sig-first"));
+
+	// Buyer acquires `target` before importing `traded`, then switches to `traded`
+	// and hunts `target` again.
+	let buyer = PlayerState::initial()
+		.take_oath(9)
+		.unwrap()
+		.acquire(target)
+		.unwrap()
+		.reconcile_reapers(vec![traded])
+		.unwrap()
+		.select_reaper("verified-asset")
+		.unwrap();
+	let released = buyer.release(target, 2, now());
+	if let Ok(released) = released {
+		let settled = released
+			.settle_hunt(1, &CUT, now().plus_seconds(60), 6)
+			.unwrap()
+			.sign_absorption(target, "sig-second");
+		assert_eq!(
+			settled.absorbed_from(target.collection),
+			1,
+			"absorbing the same NFT twice must not double-count toward completed_sets"
+		);
+		assert_eq!(
+			settled.codex()[0].signature.as_deref(),
+			Some("sig-first"),
+			"signing the new absorption must not overwrite the previous entry's signature"
+		);
+		assert_eq!(
+			settled.codex()[1].signature.as_deref(),
+			Some("sig-second"),
+			"signing attaches the new signature to the newly settled absorption"
+		);
+		// Calling sign_absorption again once all entries are signed leaves them untouched.
+		let resigned = settled.sign_absorption(target, "sig-third");
+		assert_eq!(resigned.codex()[0].signature.as_deref(), Some("sig-first"));
+		assert_eq!(resigned.codex()[1].signature.as_deref(), Some("sig-second"));
+	}
+}
+
+#[test]
+fn one_husk_absorbed_four_times_counts_once_toward_its_art() {
+	let target = husk(); // DegenApes:1 (carries Art::Cinder)
+	let absorption = Absorption {
+		nft: target,
+		grade: CaptureGrade::Great,
+		feeding: Feeding::roll(1),
+		xp: 100,
+		anima: 10,
+		nonce: 1,
+		at: now(),
+		signature: None,
+	};
+	let player = pair();
+	let reaper = player.reapers().first().unwrap();
+	// Four absorptions of the same husk, as a reaper collects when it changes
+	// hands and every owner hunts the same NFT.
+	let reaper = ReaperState::new(
+		reaper.id().to_owned(),
+		*reaper.genome(),
+		reaper.xp(),
+		reaper.weapons().to_vec(),
+		reaper.outfits().to_vec(),
+		reaper.weapon(),
+		reaper.outfit(),
+		vec![absorption; 4],
+		reaper.hunts_lost(),
+		reaper.rifts_sealed(),
+		*reaper.memory(),
+		reaper.art(),
+	)
+	.unwrap();
+
+	assert_eq!(reaper.codex().len(), 4);
+	assert_eq!(reaper.art_absorbed_count(Art::Cinder), 1);
+	assert_eq!(reaper.art_rank(Art::Cinder), 1);
+	assert_eq!(reaper.art_absorbed_count(Art::Rime), 0);
+	assert_eq!(reaper.art_rank(Art::Rime), 0);
+}
+
+#[test]
+fn repeated_absorptions_of_same_husk_never_stack_sets_or_art_rank() {
+	let target = husk(); // DegenApes:1 (carries Art::Cinder)
+	let mut traded = pair()
+		.select_reaper("verified-asset")
+		.unwrap()
+		.acquire(target)
+		.unwrap()
+		.release(target, 1, now())
+		.unwrap()
+		.settle_hunt(1, &CUT, now().plus_seconds(60), 10)
+		.unwrap()
+		.sign_absorption(target, "sig-1")
+		.active_reaper()
+		.unwrap()
+		.clone();
+
+	// Trade the reaper through three more owners who each acquired `target`
+	// before importing it, giving 4 codex entries for the exact same NFT.
+	for owner in 2..=4 {
+		let buyer = PlayerState::initial()
+			.take_oath(owner * 10)
+			.unwrap()
+			.acquire(target)
+			.unwrap()
+			.reconcile_reapers(vec![traded])
+			.unwrap()
+			.select_reaper("verified-asset")
+			.unwrap();
+		let settled = buyer
+			.release(target, owner, now())
+			.unwrap()
+			.settle_hunt(1, &CUT, now().plus_seconds(60), owner * 100)
+			.unwrap()
+			.sign_absorption(target, &format!("sig-{owner}"));
+
+		assert_eq!(settled.absorbed_from(target.collection), 1);
+		assert_eq!(settled.completed_sets(), 0);
+		assert_eq!(settled.loadout().completed_sets, 0);
+		assert_eq!(settled.active_reaper().unwrap().art_rank(Art::Cinder), 1);
+		assert_eq!(
+			settled
+				.active_reaper()
+				.unwrap()
+				.art_absorbed_count(Art::Cinder),
+			1
+		);
+
+		traded = settled.active_reaper().unwrap().clone();
+	}
+
+	assert_eq!(traded.codex().len(), 4);
+	for (index, entry) in traded.codex().iter().enumerate() {
+		assert_eq!(
+			entry.signature.as_deref(),
+			Some(format!("sig-{}", index + 1).as_str()),
+		);
+	}
+}
