@@ -50,6 +50,8 @@ use crate::chain::ChainFailure;
 use crate::chain::Cluster;
 use crate::chain::HuskPlace;
 use crate::chain::WalletHusk;
+use crate::chain::husk_of;
+use crate::chain::reject_reaper_collection;
 use crate::wallet::WalletProver;
 
 /// How the server answered a call that did not succeed.
@@ -116,6 +118,13 @@ pub struct WalletChallenge {
 /// device. Every method answers in the rules' types.
 #[async_trait(?Send)]
 pub trait ReapersApi {
+	/// Monotonic counter incremented whenever the underlying auth session
+	/// switches accounts (such as silent guest fallback after 401 or wallet
+	/// login).
+	fn session_generation(&self) -> u64 {
+		0
+	}
+
 	/// Restores the stored session, or opens a guest account.
 	async fn sign_in(&self) -> ApiResult<()>;
 
@@ -162,9 +171,10 @@ pub struct RemoteBackend<A> {
 	/// Whether this install has signed in. A failed sign-in is tried again
 	/// on the next request.
 	signed_in: RefCell<bool>,
-	/// Cached chain configuration & linked wallet; invalidated on login or
+	/// Cached chain configuration & linked wallet, keyed by the
+	/// `api.session_generation()` it was asked under; invalidated on login or
 	/// session reset.
-	cached_status: RefCell<Option<ChainStatus>>,
+	cached_status: RefCell<Option<(u64, ChainStatus)>>,
 	/// The cluster real husks live on, and the wallet that moves them, on
 	/// a cluster build.
 	cluster: Option<(Rc<Cluster>, Rc<dyn WalletProver>)>,
@@ -206,13 +216,33 @@ impl<A: ReapersApi + 'static> RemoteBackend<A> {
 		}
 	}
 
+	/// The chain status, from the cache when it is this session's.
 	async fn status_cached(&self) -> KeeperResult<ChainStatus> {
-		if let Some(status) = self.cached_status.borrow().clone() {
-			return Ok(status);
+		let generation = self.api.session_generation();
+		if let Some((cached_generation, status)) = self.cached_status.borrow().as_ref()
+			&& *cached_generation == generation
+		{
+			return Ok(status.clone());
 		}
-		let status = self.ask(async |api| api.chain_status().await).await?;
-		*self.cached_status.borrow_mut() = Some(status.clone());
-		Ok(status)
+		self.status_fresh().await
+	}
+
+	/// The chain status, asked for now and kept for the session it was asked
+	/// under. A reply that lands after the session changed (a 401 that
+	/// opened a new guest, or a wallet login) was the previous account's: it
+	/// is dropped and asked for again, once, under the new session.
+	async fn status_fresh(&self) -> KeeperResult<ChainStatus> {
+		for _ in 0..2 {
+			let generation = self.api.session_generation();
+			let status = self.ask(async |api| api.chain_status().await).await?;
+			if self.api.session_generation() == generation {
+				*self.cached_status.borrow_mut() = Some((generation, status.clone()));
+				return Ok(status);
+			}
+		}
+		Err(KeeperError::unavailable(
+			"the session changed while its chain status was read",
+		))
 	}
 }
 
@@ -281,8 +311,12 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 				.await;
 		};
 		let status = self.status_cached().await?;
+		// Only a husk the manifest maps touches the cluster: a linked wallet
+		// alone does not make one. Without a mapping the release is the
+		// server's, whatever program it names.
 		let held = match status.wallet.as_deref() {
-			Some(_) => {
+			Some(_) if husk_of(&status.husks, nft).is_some() => {
+				cluster.check_status(&status)?;
 				let address = linked(&status)?;
 				cluster
 					.wallet_husk(&status.husks, &address, nft)
@@ -290,17 +324,33 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 					.filter(|husk| husk.place != HuskPlace::Burned)
 					.map(|husk| (address, husk))
 			}
-			None => None,
+			_ => None,
 		};
 		let Some((address, husk)) = held else {
 			return self
 				.ask(async |api| api.release(&nft.id(), None).await)
 				.await;
 		};
-		let player = self.ask(async |api| api.load().await).await?;
-		if !player.vault().contains(&nft) {
-			self.ask(async |api| api.acquire(&nft.id()).await).await?;
+		// A manifest that names the reaper collection would have the wallet
+		// escrow a reaper, which leaves the escrow only by being burned. It
+		// is refused before the husk is acquired.
+		if husk.place == HuskPlace::InWallet {
+			reject_reaper_collection(&status, husk.collection)?;
 		}
+		let player = self.ask(async |api| api.load().await).await?;
+		if !player.oath_taken() {
+			return Err(Refusal::OathRequired.into());
+		}
+		if player.sightings().len() >= PlayerState::MAX_SIGHTINGS {
+			return Err(Refusal::VeilCrowded.into());
+		}
+		let player = if player.vault().contains(&nft) {
+			player
+		} else {
+			player.acquire(nft)?;
+			self.ask(async |api| api.acquire(&nft.id()).await).await?
+		};
+		player.release(nft, 0, reapers_rules::Timestamp::from_unix_seconds(0))?;
 		if husk.place == HuskPlace::InWallet {
 			cluster
 				.release(&status, wallet.as_ref(), &address, &husk)
@@ -371,9 +421,7 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 	}
 
 	async fn chain_status(&self) -> KeeperResult<Option<ChainStatus>> {
-		let status = self.ask(async |api| api.chain_status().await).await?;
-		*self.cached_status.borrow_mut() = Some(status.clone());
-		Ok(Some(status))
+		self.status_fresh().await.map(Some)
 	}
 
 	async fn connect_wallet(
@@ -405,6 +453,8 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 		let Some((cluster, wallet)) = &self.cluster else {
 			return Err(KeeperError::unavailable("this build moves no husk"));
 		};
+		let status = self.status_cached().await?;
+		cluster.check_status(&status)?;
 		let receipt = self
 			.ask(async |api| api.absorb_transaction(&nft.id()).await)
 			.await?;
@@ -416,9 +466,13 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 			return Ok(Vec::new());
 		};
 		let status = self.status_cached().await?;
-		if status.wallet.is_none() {
+		// Without a linked wallet there is nothing to read, and without a
+		// manifest nothing names a husk: either way the cluster is untouched,
+		// whatever program the server reports.
+		if status.wallet.is_none() || status.husks.is_empty() {
 			return Ok(Vec::new());
 		}
+		cluster.check_status(&status)?;
 		Ok(cluster
 			.wallet_husks(&status.husks, &linked(&status)?)
 			.await?)
@@ -441,13 +495,23 @@ impl<A: ReapersApi + 'static> RemoteBackend<A> {
 			return Err(ChainFailure::Rejected("the server built no burn".into()).into());
 		};
 		let status = self.status_cached().await?;
+		cluster.check_status(&status)?;
 		let address = linked(&status)?;
-		if receipt.wallet != address.to_string() {
+		if receipt.wallet.parse::<solana_kit_core::Address>().ok() != Some(address) {
 			return Err(ChainFailure::WrongWallet.into());
 		}
+		let mint: solana_kit_core::Address = receipt
+			.mint
+			.parse()
+			.map_err(|_| ChainFailure::Rejected("invalid receipt mint".into()))?;
 		let message = STANDARD
 			.decode(&receipt.message)
 			.map_err(|error| ChainFailure::Rejected(error.to_string()))?;
+		let decoded = crate::receipt::Receipt::decode(&message)
+			.map_err(|error| ChainFailure::Rejected(error.to_string()))?;
+		if solana_kit_core::Address::from_bytes(decoded.mint) != mint {
+			return Err(ChainFailure::Rejected("receipt mint mismatch".into()).into());
+		}
 		let signature = STANDARD
 			.decode(&receipt.signature)
 			.map_err(|error| ChainFailure::Rejected(error.to_string()))?;
@@ -724,7 +788,9 @@ mod tests {
 	}
 
 	/// What the server answers for the saint's burn, built again: the
-	/// keeper's receipt for `wallet` and its unsigned transaction.
+	/// keeper's receipt for `wallet` and its unsigned transaction. The saint
+	/// is `degenApes:1`, which [`demo_manifest`] maps to the asset `[1; 32]`
+	/// of the collection `[9; 32]`.
 	fn saint_burn(wallet: &solana_kit_core::Address) -> ChainReceipt {
 		use base64::Engine as _;
 		use base64::engine::general_purpose::STANDARD;
@@ -735,7 +801,8 @@ mod tests {
 		use solana_kit_core::transaction::Version;
 
 		let keeper = solana_kit_core::crypto::Keypair::from_seed(&[5; 32]);
-		let mint = solana_kit_core::Address::from_bytes([2; 32]);
+		let mint = solana_kit_core::Address::from_bytes([1; 32]);
+		let collection = solana_kit_core::Address::from_bytes([9; 32]);
 		let receipt = crate::receipt::Receipt {
 			player: *wallet.as_bytes(),
 			mint: *mint.as_bytes(),
@@ -747,8 +814,12 @@ mod tests {
 			nonce: 7,
 		};
 		let signature = keeper.sign(&receipt.encode());
-		let instructions =
-			crate::program::absorb_core(&keeper.address(), signature.as_bytes(), &receipt, None);
+		let instructions = crate::program::absorb_core(
+			&keeper.address(),
+			signature.as_bytes(),
+			&receipt,
+			Some(&collection),
+		);
 		let message = Message::compile(
 			Version::Legacy,
 			*wallet,
@@ -779,7 +850,7 @@ mod tests {
 			collection: None,
 			marketplace_uri: None,
 			program: Some(crate::program::program_id().to_string()),
-			husks: Vec::new(),
+			husks: demo_manifest(),
 		}
 	}
 
@@ -875,6 +946,28 @@ mod tests {
 	}
 
 	#[test]
+	fn finish_burn_refuses_mismatched_chain_receipt_mint() {
+		let keypair = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]);
+		let address = keypair.address();
+		let saint = Nft::parse("degenApes:1").unwrap();
+		let rpc = Rc::new(Burning::default());
+		let mut burn = saint_burn(&address);
+		burn.mint = solana_kit_core::Address::from_bytes([99; 32]).to_string();
+		let keeper = RemoteBackend::new(Refusing {
+			chain: Some(linked_to(&address)),
+			burn: Some(burn),
+			..Refusing::default()
+		})
+		.with_cluster(cluster(&rpc), Rc::new(Wallet(Some(keypair))));
+
+		assert!(matches!(
+			block_on(keeper.finish_burn(saint)),
+			Err(KeeperError::Chain(ChainFailure::Rejected(_)))
+		));
+		assert!(rpc.calls.borrow().is_empty(), "nothing reached the cluster");
+	}
+
+	#[test]
 	fn an_invalid_identity_turns_wallets_off() {
 		let status = ChainStatus {
 			chain: "solana:devnet".into(),
@@ -893,6 +986,1072 @@ mod tests {
 				..status
 			}
 			.wallets_enabled()
+		);
+	}
+
+	/// RPC stub that serves a wallet-owned Core asset, a member of
+	/// `collection`, and accepts `ReleaseCore`.
+	struct ReleasingRpc {
+		owner: solana_kit_core::Address,
+		collection: solana_kit_core::Address,
+		calls: RefCell<Vec<String>>,
+	}
+
+	impl ReleasingRpc {
+		/// `owner` holds every asset asked for, each a member of
+		/// [`demo_manifest`]'s collection.
+		fn holding(owner: solana_kit_core::Address) -> Self {
+			Self {
+				owner,
+				collection: solana_kit_core::Address::from_bytes([9; 32]),
+				calls: RefCell::new(Vec::new()),
+			}
+		}
+	}
+
+	#[async_trait(?Send)]
+	impl crate::platform::HttpTransport for ReleasingRpc {
+		async fn post(
+			&self,
+			_url: &str,
+			_headers: Vec<crate::platform::Header>,
+			body: Vec<u8>,
+			_timeout: std::time::Duration,
+		) -> Result<crate::platform::HttpReply, crate::platform::PlatformError> {
+			use base64::Engine as _;
+			use serde_json::json;
+
+			let request: serde_json::Value = serde_json::from_slice(&body).unwrap();
+			let method = request["method"].as_str().unwrap().to_owned();
+			self.calls.borrow_mut().push(method.clone());
+			// An `AssetV1`: its key, its owner, then its update authority,
+			// which for a member of a collection is `2` and the collection.
+			let mut asset_data = vec![1u8];
+			asset_data.extend_from_slice(self.owner.as_bytes());
+			asset_data.push(2);
+			asset_data.extend_from_slice(self.collection.as_bytes());
+			let result = match method.as_str() {
+				"getMultipleAccounts" => {
+					let count = request["params"][0].as_array().map_or(2, Vec::len);
+					let half = count / 2;
+					let encoded = base64::engine::general_purpose::STANDARD.encode(asset_data);
+					let mut values = Vec::with_capacity(count);
+					for index in 0..count {
+						if index < half {
+							values.push(json!({
+								"owner": crate::program::core_program().to_string(),
+								"data": [encoded, "base64"],
+							}));
+						} else {
+							values.push(serde_json::Value::Null);
+						}
+					}
+					json!({ "value": values })
+				}
+				"getLatestBlockhash" => {
+					json!({ "value": {
+						"blockhash": solana_kit_core::Hash::from_bytes([7; 32]).to_string(),
+						"lastValidBlockHeight": 100
+					} })
+				}
+				"sendTransaction" => json!("escrowed-sig"),
+				"getSignatureStatuses" => {
+					json!({ "value": [{ "slot": 11, "confirmationStatus": "finalized", "err": null }] })
+				}
+				other => panic!("unexpected RPC method {other}"),
+			};
+			Ok(crate::platform::HttpReply {
+				status: 200,
+				body: serde_json::to_vec(
+					&json!({ "jsonrpc": "2.0", "id": request["id"], "result": result }),
+				)
+				.unwrap(),
+			})
+		}
+	}
+
+	struct CountingWallet {
+		keypair: solana_kit_core::crypto::Keypair,
+		signed: Cell<u32>,
+	}
+
+	#[async_trait(?Send)]
+	impl WalletProver for CountingWallet {
+		fn available(&self) -> bool {
+			true
+		}
+
+		async fn prove(
+			&self,
+			_status: &ChainStatus,
+			_challenge: crate::wallet::ChallengeFn<'_>,
+		) -> KeeperResult<crate::wallet::WalletProof> {
+			unimplemented!()
+		}
+
+		async fn sign_transaction(
+			&self,
+			_status: &ChainStatus,
+			transaction: Vec<u8>,
+		) -> crate::chain::ChainResult<Vec<u8>> {
+			use solana_kit_core::transaction::Transaction;
+
+			self.signed.set(self.signed.get() + 1);
+			Transaction::decode(&transaction)
+				.and_then(|tx| tx.sign(&self.keypair))
+				.and_then(|tx| tx.encode(true))
+				.map_err(|_| ChainFailure::WrongWallet)
+		}
+	}
+
+	struct ReleaseStub {
+		player: PlayerState,
+		chain: ChainStatus,
+		release_refusal: &'static str,
+		/// How many times the server was asked to acquire a husk.
+		acquires: Cell<u32>,
+	}
+
+	impl ReleaseStub {
+		fn new(player: PlayerState, chain: ChainStatus, release_refusal: &'static str) -> Self {
+			Self {
+				player,
+				chain,
+				release_refusal,
+				acquires: Cell::new(0),
+			}
+		}
+	}
+
+	#[async_trait(?Send)]
+	impl ReapersApi for ReleaseStub {
+		async fn sign_in(&self) -> ApiResult<()> {
+			Ok(())
+		}
+
+		async fn load(&self) -> ApiResult<PlayerState> {
+			Ok(self.player.clone())
+		}
+
+		async fn update_location(&self, _fix: Option<GeoFix>) -> ApiResult<()> {
+			unimplemented!()
+		}
+
+		async fn take_oath(&self) -> ApiResult<PlayerState> {
+			unimplemented!()
+		}
+
+		async fn select_reaper(&self, _id: &str) -> ApiResult<PlayerState> {
+			unimplemented!()
+		}
+
+		async fn acquire(&self, _nft_id: &str) -> ApiResult<PlayerState> {
+			self.acquires.set(self.acquires.get() + 1);
+			Ok(self.player.clone())
+		}
+
+		async fn release(&self, _nft_id: &str, _escrow: Option<&str>) -> ApiResult<PlayerState> {
+			Err(ApiError::Refused(self.release_refusal.into()))
+		}
+
+		async fn settle_hunt(&self, _sighting_id: i64, _log: Vec<u8>) -> ApiResult<SettledHunt> {
+			unimplemented!()
+		}
+
+		async fn absorb_transaction(&self, _nft_id: &str) -> ApiResult<ChainReceipt> {
+			unimplemented!()
+		}
+
+		async fn buy_weapon(&self, _weapon_id: &str) -> ApiResult<PlayerState> {
+			unimplemented!()
+		}
+
+		async fn wield(&self, _weapon_id: &str) -> ApiResult<PlayerState> {
+			unimplemented!()
+		}
+
+		async fn buy_outfit(&self, _outfit: &str) -> ApiResult<PlayerState> {
+			unimplemented!()
+		}
+
+		async fn wear(&self, _outfit: &str) -> ApiResult<PlayerState> {
+			unimplemented!()
+		}
+
+		async fn attune(&self, _art: &str) -> ApiResult<PlayerState> {
+			unimplemented!()
+		}
+
+		async fn chain_status(&self) -> ApiResult<ChainStatus> {
+			Ok(self.chain.clone())
+		}
+
+		async fn import_reaper(&self, _asset: &str) -> ApiResult<PlayerState> {
+			unimplemented!()
+		}
+
+		async fn challenge(&self, _address: &str) -> ApiResult<WalletChallenge> {
+			unimplemented!()
+		}
+
+		async fn login(&self, _challenge_id: &str, _signature: &str) -> ApiResult<()> {
+			unimplemented!()
+		}
+
+		async fn enter_rift(
+			&self,
+			_site: &str,
+			_demo: bool,
+			_reports: LocalBoxStream<'static, RiftReport>,
+		) -> ApiResult<LocalBoxStream<'static, ApiResult<RiftFrame>>> {
+			unimplemented!()
+		}
+	}
+
+	fn demo_manifest() -> Vec<Husks> {
+		vec![Husks {
+			collection: "degenApes".into(),
+			address: solana_kit_core::Address::from_bytes([9; 32]).to_string(),
+			assets: (1..=8_u8)
+				.map(|n| solana_kit_core::Address::from_bytes([n; 32]).to_string())
+				.collect(),
+		}]
+	}
+
+	#[test]
+	fn release_checks_veil_capacity_before_irreversible_on_chain_escrow() {
+		let keypair = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]);
+		let address = keypair.address();
+		let now = reapers_rules::Timestamp::utc(2026, 11, 4, 12, 0, 0);
+		let mut player = PlayerState::initial().take_oath(1).unwrap();
+		for serial in 1..=3 {
+			let nft = Nft::new(reapers_rules::NftCollection::DegenApes, serial);
+			player = player
+				.acquire(nft)
+				.unwrap()
+				.release(nft, serial as i64, now)
+				.unwrap();
+		}
+		let fourth = Nft::new(reapers_rules::NftCollection::DegenApes, 4);
+		player = player.acquire(fourth).unwrap();
+		assert_eq!(player.sightings().len(), PlayerState::MAX_SIGHTINGS);
+
+		let rpc = Rc::new(ReleasingRpc::holding(address));
+		let cluster = Rc::new(
+			Cluster::new(
+				crate::chain::ClusterName::Localnet,
+				"http://rpc",
+				rpc.clone(),
+			)
+			.with_pause(Rc::new(|_| Box::pin(async { true }))),
+		);
+		let wallet = Rc::new(CountingWallet {
+			keypair,
+			signed: Cell::new(0),
+		});
+		let status = ChainStatus {
+			husks: demo_manifest(),
+			..linked_to(&address)
+		};
+		let keeper = RemoteBackend::new(ReleaseStub::new(player, status, "veilCrowded"))
+			.with_cluster(cluster, wallet.clone());
+
+		let error = block_on(keeper.release(fourth)).unwrap_err();
+		assert_eq!(error.refusal(), Some(Refusal::VeilCrowded));
+		assert_eq!(
+			wallet.signed.get(),
+			0,
+			"must not ask wallet to sign irreversible ReleaseCore when 3 husks are already loose"
+		);
+		assert!(
+			!rpc.calls.borrow().iter().any(|m| m == "sendTransaction"),
+			"must not broadcast ReleaseCore when veil is crowded"
+		);
+	}
+
+	#[test]
+	fn release_checks_oath_before_irreversible_on_chain_escrow() {
+		let keypair = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]);
+		let address = keypair.address();
+		let player = PlayerState::initial();
+		assert!(!player.oath_taken());
+		let saint = Nft::new(reapers_rules::NftCollection::DegenApes, 1);
+
+		let rpc = Rc::new(ReleasingRpc::holding(address));
+		let cluster = Rc::new(
+			Cluster::new(
+				crate::chain::ClusterName::Localnet,
+				"http://rpc",
+				rpc.clone(),
+			)
+			.with_pause(Rc::new(|_| Box::pin(async { true }))),
+		);
+		let wallet = Rc::new(CountingWallet {
+			keypair,
+			signed: Cell::new(0),
+		});
+		let status = ChainStatus {
+			husks: demo_manifest(),
+			..linked_to(&address)
+		};
+		let keeper = RemoteBackend::new(ReleaseStub::new(player, status, "oathRequired"))
+			.with_cluster(cluster, wallet.clone());
+
+		let error = block_on(keeper.release(saint)).unwrap_err();
+		assert_eq!(error.refusal(), Some(Refusal::OathRequired));
+		assert_eq!(
+			wallet.signed.get(),
+			0,
+			"must not ask wallet to sign irreversible ReleaseCore before taking the oath"
+		);
+		assert!(
+			!rpc.calls.borrow().iter().any(|m| m == "sendTransaction"),
+			"must not broadcast ReleaseCore when oath has not been taken"
+		);
+	}
+
+	#[test]
+	fn release_checks_acquire_affordability_before_irreversible_on_chain_escrow() {
+		let keypair = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]);
+		let address = keypair.address();
+		let mut value = serde_json::to_value(PlayerState::initial().take_oath(1).unwrap()).unwrap();
+		value["lamports"] = serde_json::json!(0);
+		let player: PlayerState = serde_json::from_value(value).unwrap();
+		let expensive = Nft::new(reapers_rules::NftCollection::DegenApes, 8);
+		assert!(!player.vault().contains(&expensive));
+		assert!(player.lamports() < expensive.rarity().lamports());
+
+		let rpc = Rc::new(ReleasingRpc::holding(address));
+		let cluster = Rc::new(
+			Cluster::new(
+				crate::chain::ClusterName::Localnet,
+				"http://rpc",
+				rpc.clone(),
+			)
+			.with_pause(Rc::new(|_| Box::pin(async { true }))),
+		);
+		let wallet = Rc::new(CountingWallet {
+			keypair,
+			signed: Cell::new(0),
+		});
+		let status = ChainStatus {
+			husks: demo_manifest(),
+			..linked_to(&address)
+		};
+		let keeper = RemoteBackend::new(ReleaseStub::new(player, status, "insufficientFunds"))
+			.with_cluster(cluster, wallet.clone());
+
+		let error = block_on(keeper.release(expensive)).unwrap_err();
+		assert_eq!(error.refusal(), Some(Refusal::InsufficientFunds));
+		assert_eq!(wallet.signed.get(), 0);
+		assert!(!rpc.calls.borrow().iter().any(|m| m == "sendTransaction"));
+	}
+
+	#[test]
+	fn release_refuses_when_server_chain_mismatches_client_cluster() {
+		let keypair = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]);
+		let address = keypair.address();
+		let saint = Nft::new(reapers_rules::NftCollection::DegenApes, 1);
+		let player = PlayerState::initial()
+			.take_oath(1)
+			.unwrap()
+			.acquire(saint)
+			.unwrap();
+
+		let rpc = Rc::new(ReleasingRpc::holding(address));
+		// Client is built for Devnet, but server reports Localnet.
+		let cluster = Rc::new(
+			Cluster::new(crate::chain::ClusterName::Devnet, "http://rpc", rpc.clone())
+				.with_pause(Rc::new(|_| Box::pin(async { true }))),
+		);
+		let wallet = Rc::new(CountingWallet {
+			keypair,
+			signed: Cell::new(0),
+		});
+		let status = ChainStatus {
+			chain: "solana:localnet".into(),
+			husks: demo_manifest(),
+			..linked_to(&address)
+		};
+		let keeper = RemoteBackend::new(ReleaseStub::new(player, status, "notInVault"))
+			.with_cluster(cluster, wallet.clone());
+
+		let result = block_on(keeper.release(saint));
+		assert!(matches!(
+			result,
+			Err(KeeperError::Chain(ChainFailure::Rejected(_)))
+		));
+		assert_eq!(
+			wallet.signed.get(),
+			0,
+			"must not sign ReleaseCore on devnet when the server runs on solana:localnet"
+		);
+		assert!(
+			!rpc.calls.borrow().iter().any(|m| m == "sendTransaction"),
+			"must not broadcast ReleaseCore when client cluster and server chain disagree"
+		);
+	}
+
+	#[test]
+	fn release_refuses_when_server_program_mismatches_or_is_missing() {
+		let address = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]).address();
+		let saint = Nft::new(reapers_rules::NftCollection::DegenApes, 1);
+		let player = PlayerState::initial()
+			.take_oath(1)
+			.unwrap()
+			.acquire(saint)
+			.unwrap();
+
+		let wrong_program = Some(solana_kit_core::Address::from_bytes([88; 32]).to_string());
+		for program in [wrong_program, None] {
+			let rpc = Rc::new(ReleasingRpc::holding(address));
+			let cluster = Rc::new(
+				Cluster::new(
+					crate::chain::ClusterName::Localnet,
+					"http://rpc",
+					rpc.clone(),
+				)
+				.with_pause(Rc::new(|_| Box::pin(async { true }))),
+			);
+			let wallet = Rc::new(CountingWallet {
+				keypair: solana_kit_core::crypto::Keypair::from_seed(&[6; 32]),
+				signed: Cell::new(0),
+			});
+			let status = ChainStatus {
+				program,
+				husks: demo_manifest(),
+				..linked_to(&address)
+			};
+			assert!(!cluster.matches(&status));
+			let keeper = RemoteBackend::new(ReleaseStub::new(player.clone(), status, "notInVault"))
+				.with_cluster(cluster, wallet.clone());
+
+			let result = block_on(keeper.release(saint));
+			assert!(matches!(
+				result,
+				Err(KeeperError::Chain(ChainFailure::Rejected(_)))
+			));
+			assert_eq!(wallet.signed.get(), 0);
+			assert!(rpc.calls.borrow().is_empty());
+		}
+	}
+
+	#[test]
+	fn wallet_husks_and_finish_burn_refuse_on_cluster_or_program_mismatch() {
+		let keypair = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]);
+		let address = keypair.address();
+		let saint = Nft::parse("degenApes:1").unwrap();
+		let rpc = Rc::new(Burning::default());
+		let devnet_cluster = Rc::new(
+			Cluster::new(crate::chain::ClusterName::Devnet, "http://rpc", rpc.clone())
+				.with_pause(Rc::new(|_| Box::pin(async { true }))),
+		);
+		let wallet = Rc::new(CountingWallet {
+			keypair,
+			signed: Cell::new(0),
+		});
+		// Server reports localnet while client cluster is devnet.
+		let keeper = RemoteBackend::new(Refusing {
+			chain: Some(linked_to(&address)),
+			burn: Some(saint_burn(&address)),
+			..Refusing::default()
+		})
+		.with_cluster(devnet_cluster, wallet.clone());
+
+		assert!(matches!(
+			block_on(keeper.wallet_husks()),
+			Err(KeeperError::Chain(ChainFailure::Rejected(_)))
+		));
+		assert!(matches!(
+			block_on(keeper.finish_burn(saint)),
+			Err(KeeperError::Chain(ChainFailure::Rejected(_)))
+		));
+		assert_eq!(wallet.signed.get(), 0);
+		assert!(rpc.calls.borrow().is_empty());
+	}
+
+	/// A player with no linked wallet releases through the server alone,
+	/// touching neither the cluster nor a wallet, so a server that names no
+	/// program (or another chain) does not stop it.
+	#[test]
+	fn a_guest_release_reaches_the_server_when_it_names_no_program() {
+		let keypair = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]);
+		let address = keypair.address();
+		let saint = Nft::new(reapers_rules::NftCollection::DegenApes, 1);
+		let player = PlayerState::initial()
+			.take_oath(1)
+			.unwrap()
+			.acquire(saint)
+			.unwrap();
+		let rpc = Rc::new(ReleasingRpc::holding(address));
+		let cluster = Rc::new(
+			Cluster::new(
+				crate::chain::ClusterName::Localnet,
+				"http://rpc",
+				rpc.clone(),
+			)
+			.with_pause(Rc::new(|_| Box::pin(async { true }))),
+		);
+		let wallet = Rc::new(CountingWallet {
+			keypair,
+			signed: Cell::new(0),
+		});
+		let status = ChainStatus {
+			wallet: None,
+			program: None,
+			..linked_to(&address)
+		};
+		let keeper = RemoteBackend::new(ReleaseStub::new(player, status, "veilCrowded"))
+			.with_cluster(cluster, wallet.clone());
+
+		let error = block_on(keeper.release(saint)).unwrap_err();
+		assert_eq!(
+			error.refusal(),
+			Some(Refusal::VeilCrowded),
+			"the server was never asked; the player is shown {error:?}"
+		);
+		assert_eq!(wallet.signed.get(), 0);
+		assert!(rpc.calls.borrow().is_empty());
+	}
+
+	/// A player with no linked wallet has no husks on the cluster to read,
+	/// whatever program the server names.
+	#[test]
+	fn a_guests_wallet_husks_are_empty_when_the_server_names_no_program() {
+		let address = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]).address();
+		let rpc = Rc::new(Burning::default());
+		let keeper = RemoteBackend::new(Refusing {
+			chain: Some(ChainStatus {
+				wallet: None,
+				program: None,
+				..linked_to(&address)
+			}),
+			..Refusing::default()
+		})
+		.with_cluster(cluster(&rpc), Rc::new(Wallet(None)));
+
+		assert_eq!(block_on(keeper.wallet_husks()), Ok(Vec::new()));
+		assert!(rpc.calls.borrow().is_empty());
+	}
+
+	/// A linked wallet on a server whose manifest maps no husk is no reason
+	/// to touch the cluster: the release is the server's alone, and the
+	/// wallet has no husks to read, so a server that names no program (or
+	/// another chain) does not stop either.
+	#[test]
+	fn a_manifest_that_maps_no_husk_keeps_release_and_wallet_husks_off_the_cluster() {
+		let keypair = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]);
+		let address = keypair.address();
+		let saint = Nft::new(reapers_rules::NftCollection::DegenApes, 1);
+		let player = PlayerState::initial()
+			.take_oath(1)
+			.unwrap()
+			.acquire(saint)
+			.unwrap();
+		let status = ChainStatus {
+			wallet: Some(address.to_string()),
+			program: None,
+			husks: Vec::new(),
+			..linked_to(&address)
+		};
+		let rpc = Rc::new(Burning::default());
+		let chain = cluster(&rpc);
+		assert!(
+			!chain.matches(&status),
+			"the fixture must be a status the cluster refuses, or the test proves nothing"
+		);
+		let wallet = Rc::new(CountingWallet {
+			keypair,
+			signed: Cell::new(0),
+		});
+		let keeper = RemoteBackend::new(ReleaseStub::new(player, status, "notInVault"))
+			.with_cluster(chain, wallet.clone());
+
+		let error = block_on(keeper.release(saint)).unwrap_err();
+		assert_eq!(
+			error.refusal(),
+			Some(Refusal::NotInVault),
+			"the server was never asked; the player is shown {error:?}"
+		);
+		assert_eq!(block_on(keeper.wallet_husks()), Ok(Vec::new()));
+
+		assert_eq!(wallet.signed.get(), 0);
+		assert!(
+			rpc.calls.borrow().is_empty(),
+			"the cluster was read: {:?}",
+			rpc.calls.borrow()
+		);
+	}
+
+	/// A player who does not hold the husk is charged for it by
+	/// `api.acquire` before anything is escrowed. A manifest that names the
+	/// reaper collection as a demo collection is refused before that
+	/// acquire, so no lamports are spent on a husk the wallet may not
+	/// escrow.
+	#[test]
+	fn release_refuses_the_reaper_collection_before_acquiring_it() {
+		let keypair = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]);
+		let address = keypair.address();
+		let saint = Nft::new(reapers_rules::NftCollection::DegenApes, 1);
+		let player = PlayerState::initial().take_oath(1).unwrap();
+		assert!(
+			!player.vault().contains(&saint),
+			"the fixture must not hold the husk, or no acquire is at stake"
+		);
+		let manifest = demo_manifest();
+		let status = ChainStatus {
+			collection: Some(manifest[0].address.clone()),
+			husks: manifest,
+			..linked_to(&address)
+		};
+		let rpc = Rc::new(ReleasingRpc::holding(address));
+		let cluster = Rc::new(
+			Cluster::new(
+				crate::chain::ClusterName::Localnet,
+				"http://rpc",
+				rpc.clone(),
+			)
+			.with_pause(Rc::new(|_| Box::pin(async { true }))),
+		);
+		let wallet = Rc::new(CountingWallet {
+			keypair,
+			signed: Cell::new(0),
+		});
+		let keeper = RemoteBackend::new(ReleaseStub::new(player, status, "notInVault"))
+			.with_cluster(cluster, wallet.clone());
+
+		let error = block_on(keeper.release(saint)).unwrap_err();
+		match &error {
+			KeeperError::Chain(ChainFailure::Rejected(detail)) => {
+				assert!(
+					detail.contains("reaper collection"),
+					"refused for another reason: {error:?}"
+				);
+			}
+			other => panic!("the release went ahead: {other:?}"),
+		}
+		assert_eq!(
+			keeper.api.acquires.get(),
+			0,
+			"the server was asked to acquire the reaper"
+		);
+		assert_eq!(wallet.signed.get(), 0);
+		assert!(
+			!rpc.calls
+				.borrow()
+				.iter()
+				.any(|method| method == "sendTransaction"),
+			"the cluster was asked to move the reaper: {:?}",
+			rpc.calls.borrow()
+		);
+	}
+
+	/// A keeper whose wallet holds every asset `rpc` serves, releasing the
+	/// saint, `degenApes:1`, under `status`; and that wallet.
+	fn releasing_the_saint(
+		rpc: &Rc<ReleasingRpc>,
+		status: ChainStatus,
+	) -> (RemoteBackend<ReleaseStub>, Rc<CountingWallet>) {
+		let saint = Nft::new(reapers_rules::NftCollection::DegenApes, 1);
+		let player = PlayerState::initial()
+			.take_oath(1)
+			.unwrap()
+			.acquire(saint)
+			.unwrap();
+		let cluster = Rc::new(
+			Cluster::new(
+				crate::chain::ClusterName::Localnet,
+				"http://rpc",
+				rpc.clone(),
+			)
+			.with_pause(Rc::new(|_| Box::pin(async { true }))),
+		);
+		let wallet = Rc::new(CountingWallet {
+			keypair: solana_kit_core::crypto::Keypair::from_seed(&[6; 32]),
+			signed: Cell::new(0),
+		});
+		let keeper = RemoteBackend::new(ReleaseStub::new(player, status, "notInVault"))
+			.with_cluster(cluster, wallet.clone());
+		(keeper, wallet)
+	}
+
+	/// The reaper collection is never a demo collection. A manifest that
+	/// names it as one (here as the degenApes) would have the wallet move a
+	/// reaper into an escrow only a burn lets it out of.
+	#[test]
+	fn release_refuses_the_reaper_collection_named_as_a_demo_collection() {
+		let address = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]).address();
+		let rpc = Rc::new(ReleasingRpc::holding(address));
+		let manifest = demo_manifest();
+		let status = ChainStatus {
+			collection: Some(manifest[0].address.clone()),
+			husks: manifest,
+			..linked_to(&address)
+		};
+		let (keeper, wallet) = releasing_the_saint(&rpc, status);
+
+		let result = block_on(keeper.release(Nft::new(reapers_rules::NftCollection::DegenApes, 1)));
+		assert_eq!(
+			wallet.signed.get(),
+			0,
+			"the wallet signed ReleaseCore for an asset of the reaper collection; rpc={:?}",
+			rpc.calls.borrow()
+		);
+		assert!(!rpc.calls.borrow().iter().any(|m| m == "sendTransaction"));
+		assert!(
+			matches!(result, Err(KeeperError::Chain(ChainFailure::Rejected(_)))),
+			"{result:?}"
+		);
+	}
+
+	/// The asset the manifest names for a husk must be a member of the
+	/// collection the manifest names with it: any other Core asset the
+	/// wallet holds is no demo husk, and the wallet is never asked to
+	/// escrow it.
+	#[test]
+	fn release_refuses_an_asset_outside_the_manifests_collection() {
+		let address = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]).address();
+		let rpc = Rc::new(ReleasingRpc {
+			collection: solana_kit_core::Address::from_bytes([77; 32]),
+			..ReleasingRpc::holding(address)
+		});
+		let (keeper, wallet) = releasing_the_saint(&rpc, linked_to(&address));
+
+		let _ = block_on(keeper.release(Nft::new(reapers_rules::NftCollection::DegenApes, 1)));
+		assert_eq!(
+			wallet.signed.get(),
+			0,
+			"the wallet signed ReleaseCore for an asset of another collection; rpc={:?}",
+			rpc.calls.borrow()
+		);
+		assert!(!rpc.calls.borrow().iter().any(|m| m == "sendTransaction"));
+	}
+
+	struct SequenceHttp {
+		replies: RefCell<Vec<crate::platform::HttpReply>>,
+	}
+
+	#[async_trait(?Send)]
+	impl crate::platform::HttpTransport for SequenceHttp {
+		async fn post(
+			&self,
+			_url: &str,
+			_headers: Vec<crate::platform::Header>,
+			_body: Vec<u8>,
+			_timeout: std::time::Duration,
+		) -> Result<crate::platform::HttpReply, crate::platform::PlatformError> {
+			Ok(self.replies.borrow_mut().remove(0))
+		}
+	}
+
+	#[test]
+	fn session_reset_on_401_invalidates_cached_chain_status() {
+		use crate::backend::ServerApi;
+		use crate::platform::HttpReply;
+		use crate::platform::MemoryPrefs;
+		use crate::platform::Prefs;
+
+		let wallet = solana_kit_core::Address::from_bytes([6; 32]);
+		let secrets = Rc::new(MemoryPrefs::new());
+		block_on(secrets.set("reapers.server.refresh", serde_json::json!("old-refresh"))).unwrap();
+
+		let old_chain = reapers_api::chain::Chain {
+			chain: "solana:localnet".into(),
+			identity_uri: "https://reapers.localhost/".into(),
+			collection: None,
+			marketplace_uri: None,
+			program: Some(crate::program::program_id().to_string()),
+			husks: demo_manifest(),
+			wallet: Some(wallet.to_string()),
+			lamports: Some(1_000_000),
+		};
+		let new_guest_chain = reapers_api::chain::Chain {
+			wallet: None,
+			lamports: None,
+			..old_chain.clone()
+		};
+		let http = Rc::new(SequenceHttp {
+			replies: RefCell::new(vec![
+				// 1. Initial sign_in via /auth/refresh for the wallet-linked account.
+				HttpReply {
+					status: 200,
+					body: serde_json::to_vec(&serde_json::json!({
+						"access_token": "old-access",
+						"refresh_token": "old-refresh-2",
+						"expires_in": 900
+					}))
+					.unwrap(),
+				},
+				// 2. chain_status populates RemoteBackend::cached_status with old wallet.
+				HttpReply {
+					status: 200,
+					body: serde_json::to_vec(&old_chain).unwrap(),
+				},
+				// 3. load() fails with 401 (session revoked).
+				HttpReply {
+					status: 401,
+					body: b"unauthorized".to_vec(),
+				},
+				// 4. /auth/refresh fails with 401 -> ServerApi forgets refresh token.
+				HttpReply {
+					status: 401,
+					body: b"revoked".to_vec(),
+				},
+				// 5. /auth/guest silently opens a brand-new unlinked guest account.
+				HttpReply {
+					status: 200,
+					body: serde_json::to_vec(&serde_json::json!({
+						"account": "fresh-guest",
+						"access_token": "new-access",
+						"refresh_token": "new-refresh",
+						"expires_in": 900
+					}))
+					.unwrap(),
+				},
+				// 6. Retried /api/load succeeds as the new unlinked guest.
+				HttpReply {
+					status: 200,
+					body: serde_json::to_vec(&PlayerState::initial()).unwrap(),
+				},
+				// 7. If cached_status was invalidated, wallet_husks fetches fresh chain_status.
+				HttpReply {
+					status: 200,
+					body: serde_json::to_vec(&new_guest_chain).unwrap(),
+				},
+			]),
+		});
+
+		let rpc = Rc::new(ReleasingRpc::holding(wallet));
+		let cluster = Rc::new(
+			Cluster::new(
+				crate::chain::ClusterName::Localnet,
+				"http://rpc",
+				rpc.clone(),
+			)
+			.with_pause(Rc::new(|_| Box::pin(async { true }))),
+		);
+		let api = ServerApi::new("https://keeper.invalid", http, secrets);
+		let keeper = RemoteBackend::new(api).with_cluster(cluster, Rc::new(Wallet(None)));
+
+		// Populate cached_status for the wallet-linked account.
+		let initial = block_on(keeper.chain_status()).unwrap().unwrap();
+		assert_eq!(initial.wallet.as_deref(), Some(wallet.to_string().as_str()));
+
+		// Session is revoked -> ServerApi silently creates a new unlinked guest.
+		let _ = block_on(keeper.load()).unwrap();
+
+		// The new unlinked guest must NOT see the previous account's wallet husks.
+		let husks = block_on(keeper.wallet_husks()).unwrap();
+		assert!(
+			husks.is_empty(),
+			"RemoteBackend::cached_status still held the previous account's linked wallet after 401 guest fallback"
+		);
+	}
+
+	/// Answers each route from its own queue; the first `chain_status`
+	/// waits until `gate` opens, as a reply still on the wire would.
+	struct GatedHttp {
+		routes: RefCell<
+			std::collections::HashMap<
+				&'static str,
+				std::collections::VecDeque<crate::platform::HttpReply>,
+			>,
+		>,
+		gate: RefCell<Option<futures::channel::oneshot::Receiver<()>>>,
+		seen: RefCell<Vec<(String, Option<String>)>>,
+	}
+
+	#[async_trait(?Send)]
+	impl crate::platform::HttpTransport for GatedHttp {
+		async fn post(
+			&self,
+			url: &str,
+			headers: Vec<crate::platform::Header>,
+			_body: Vec<u8>,
+			_timeout: std::time::Duration,
+		) -> Result<crate::platform::HttpReply, crate::platform::PlatformError> {
+			let path = url.trim_start_matches("https://keeper.invalid").to_owned();
+			let bearer = headers
+				.iter()
+				.find(|(name, _)| *name == "authorization")
+				.map(|(_, value)| value.clone());
+			self.seen.borrow_mut().push((path.clone(), bearer));
+			if path == "/api/chain_status" {
+				let gate = self.gate.borrow_mut().take();
+				if let Some(gate) = gate {
+					let _ = gate.await;
+				}
+			}
+			let reply = self
+				.routes
+				.borrow_mut()
+				.get_mut(path.as_str())
+				.and_then(std::collections::VecDeque::pop_front);
+			Ok(reply.unwrap_or_else(|| panic!("unscripted request {path}")))
+		}
+	}
+
+	/// A keeper on the real `ServerApi`, signed in as the account `wallet`
+	/// is linked to. The first `chain_status` reply (the linked account's)
+	/// is held back until the returned sender fires; the next `load` after
+	/// the first finds the session revoked, and the client opens a new
+	/// guest, whose status names no wallet.
+	fn a_session_about_to_reset(
+		wallet: solana_kit_core::Address,
+	) -> (
+		RemoteBackend<crate::backend::ServerApi>,
+		Rc<GatedHttp>,
+		futures::channel::oneshot::Sender<()>,
+	) {
+		use std::collections::HashMap;
+		use std::collections::VecDeque;
+
+		use crate::backend::ServerApi;
+		use crate::platform::HttpReply;
+		use crate::platform::MemoryPrefs;
+		use crate::platform::Prefs;
+
+		let secrets = Rc::new(MemoryPrefs::new());
+		block_on(secrets.set("reapers.server.refresh", serde_json::json!("old-refresh"))).unwrap();
+		let linked_chain = reapers_api::chain::Chain {
+			chain: "solana:localnet".into(),
+			identity_uri: "https://reapers.localhost/".into(),
+			collection: None,
+			marketplace_uri: None,
+			program: Some(crate::program::program_id().to_string()),
+			husks: demo_manifest(),
+			wallet: Some(wallet.to_string()),
+			lamports: Some(1_000_000),
+		};
+		let guest_chain = reapers_api::chain::Chain {
+			wallet: None,
+			lamports: None,
+			..linked_chain.clone()
+		};
+		let ok = |value: serde_json::Value| {
+			HttpReply {
+				status: 200,
+				body: serde_json::to_vec(&value).unwrap(),
+			}
+		};
+		let revoked = || {
+			HttpReply {
+				status: 401,
+				body: b"unauthorized".to_vec(),
+			}
+		};
+		let tokens = |access: &str, refresh: &str| {
+			serde_json::json!({
+				"account": "an-account",
+				"access_token": access,
+				"refresh_token": refresh,
+				"expires_in": 900
+			})
+		};
+		let player = serde_json::to_value(PlayerState::initial()).unwrap();
+		let (open, gate) = futures::channel::oneshot::channel::<()>();
+		let mut routes: HashMap<&'static str, VecDeque<HttpReply>> = HashMap::new();
+		routes.insert(
+			"/auth/refresh",
+			VecDeque::from([ok(tokens("old-access", "old-refresh-2")), revoked()]),
+		);
+		routes.insert(
+			"/auth/guest",
+			VecDeque::from([ok(tokens("new-access", "new-refresh"))]),
+		);
+		routes.insert(
+			"/api/load",
+			VecDeque::from([ok(player.clone()), revoked(), ok(player)]),
+		);
+		routes.insert(
+			"/api/chain_status",
+			VecDeque::from([
+				ok(serde_json::to_value(&linked_chain).unwrap()),
+				ok(serde_json::to_value(&guest_chain).unwrap()),
+				ok(serde_json::to_value(&guest_chain).unwrap()),
+			]),
+		);
+		let http = Rc::new(GatedHttp {
+			routes: RefCell::new(routes),
+			gate: RefCell::new(Some(gate)),
+			seen: RefCell::new(Vec::new()),
+		});
+		let rpc = Rc::new(ReleasingRpc::holding(wallet));
+		let cluster = Rc::new(
+			Cluster::new(
+				crate::chain::ClusterName::Localnet,
+				"http://rpc",
+				rpc.clone(),
+			)
+			.with_pause(Rc::new(|_| Box::pin(async { true }))),
+		);
+		let api = ServerApi::new("https://keeper.invalid", http.clone(), secrets);
+		let keeper = RemoteBackend::new(api).with_cluster(cluster, Rc::new(Wallet(None)));
+		(keeper, http, open)
+	}
+
+	/// A status the linked account was answered with, still on the wire
+	/// while another request finds the session revoked and opens a new
+	/// guest, is that account's: it is neither shown to the guest nor kept
+	/// as the guest's.
+	#[test]
+	fn a_status_fetched_across_a_session_reset_is_not_kept_for_the_new_session() {
+		let wallet = solana_kit_core::Address::from_bytes([6; 32]);
+		let (keeper, http, open) = a_session_about_to_reset(wallet);
+		block_on(keeper.load()).unwrap();
+
+		let (during, reset) = block_on(futures::future::join(keeper.wallet_husks(), async {
+			let reset = keeper.load().await;
+			open.send(()).unwrap();
+			reset
+		}));
+		reset.unwrap();
+		let during = during.unwrap();
+		assert!(
+			during.is_empty(),
+			"the new guest was shown {} husks of the old wallet {wallet}; requests: {:?}",
+			during.len(),
+			http.seen.borrow()
+		);
+
+		let husks = block_on(keeper.wallet_husks()).unwrap();
+		assert!(
+			husks.is_empty(),
+			"the new guest was served {} husks of the old wallet {wallet}; requests: {:?}",
+			husks.len(),
+			http.seen.borrow()
+		);
+	}
+
+	/// The same race through `chain_status`, which the roster asks for
+	/// directly: the guest is answered with its own status, and that is
+	/// the one kept.
+	#[test]
+	fn a_chain_status_read_across_a_session_reset_is_the_new_sessions() {
+		let wallet = solana_kit_core::Address::from_bytes([6; 32]);
+		let (keeper, http, open) = a_session_about_to_reset(wallet);
+		block_on(keeper.load()).unwrap();
+
+		let (during, reset) = block_on(futures::future::join(keeper.chain_status(), async {
+			let reset = keeper.load().await;
+			open.send(()).unwrap();
+			reset
+		}));
+		reset.unwrap();
+		let during = during.unwrap().expect("a status");
+		assert_eq!(
+			during.wallet,
+			None,
+			"the new guest was told it is linked to the old wallet; requests: {:?}",
+			http.seen.borrow()
+		);
+
+		let husks = block_on(keeper.wallet_husks()).unwrap();
+		assert!(
+			husks.is_empty(),
+			"the new guest was served {} husks of the old wallet {wallet}; requests: {:?}",
+			husks.len(),
+			http.seen.borrow()
 		);
 	}
 }
