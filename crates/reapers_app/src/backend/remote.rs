@@ -50,6 +50,8 @@ use crate::chain::ChainFailure;
 use crate::chain::Cluster;
 use crate::chain::HuskPlace;
 use crate::chain::WalletHusk;
+use crate::chain::husk_of;
+use crate::chain::reject_reaper_collection;
 use crate::wallet::WalletProver;
 
 /// How the server answered a call that did not succeed.
@@ -309,10 +311,11 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 				.await;
 		};
 		let status = self.status_cached().await?;
-		// Only a linked wallet touches the cluster; without one the release
-		// is the server's alone.
+		// Only a husk the manifest maps touches the cluster: a linked wallet
+		// alone does not make one. Without a mapping the release is the
+		// server's, whatever program it names.
 		let held = match status.wallet.as_deref() {
-			Some(_) => {
+			Some(_) if husk_of(&status.husks, nft).is_some() => {
 				cluster.check_status(&status)?;
 				let address = linked(&status)?;
 				cluster
@@ -321,13 +324,19 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 					.filter(|husk| husk.place != HuskPlace::Burned)
 					.map(|husk| (address, husk))
 			}
-			None => None,
+			_ => None,
 		};
 		let Some((address, husk)) = held else {
 			return self
 				.ask(async |api| api.release(&nft.id(), None).await)
 				.await;
 		};
+		// A manifest that names the reaper collection would have the wallet
+		// escrow a reaper, which leaves the escrow only by being burned. It
+		// is refused before the husk is acquired.
+		if husk.place == HuskPlace::InWallet {
+			reject_reaper_collection(&status, husk.collection)?;
+		}
 		let player = self.ask(async |api| api.load().await).await?;
 		if !player.oath_taken() {
 			return Err(Refusal::OathRequired.into());
@@ -457,7 +466,10 @@ impl<A: ReapersApi + 'static> GameBackend for RemoteBackend<A> {
 			return Ok(Vec::new());
 		};
 		let status = self.status_cached().await?;
-		if status.wallet.is_none() {
+		// Without a linked wallet there is nothing to read, and without a
+		// manifest nothing names a husk: either way the cluster is untouched,
+		// whatever program the server reports.
+		if status.wallet.is_none() || status.husks.is_empty() {
 			return Ok(Vec::new());
 		}
 		cluster.check_status(&status)?;
@@ -1096,6 +1108,19 @@ mod tests {
 		player: PlayerState,
 		chain: ChainStatus,
 		release_refusal: &'static str,
+		/// How many times the server was asked to acquire a husk.
+		acquires: Cell<u32>,
+	}
+
+	impl ReleaseStub {
+		fn new(player: PlayerState, chain: ChainStatus, release_refusal: &'static str) -> Self {
+			Self {
+				player,
+				chain,
+				release_refusal,
+				acquires: Cell::new(0),
+			}
+		}
 	}
 
 	#[async_trait(?Send)]
@@ -1121,6 +1146,7 @@ mod tests {
 		}
 
 		async fn acquire(&self, _nft_id: &str) -> ApiResult<PlayerState> {
+			self.acquires.set(self.acquires.get() + 1);
 			Ok(self.player.clone())
 		}
 
@@ -1227,12 +1253,8 @@ mod tests {
 			husks: demo_manifest(),
 			..linked_to(&address)
 		};
-		let keeper = RemoteBackend::new(ReleaseStub {
-			player,
-			chain: status,
-			release_refusal: "veilCrowded",
-		})
-		.with_cluster(cluster, wallet.clone());
+		let keeper = RemoteBackend::new(ReleaseStub::new(player, status, "veilCrowded"))
+			.with_cluster(cluster, wallet.clone());
 
 		let error = block_on(keeper.release(fourth)).unwrap_err();
 		assert_eq!(error.refusal(), Some(Refusal::VeilCrowded));
@@ -1272,12 +1294,8 @@ mod tests {
 			husks: demo_manifest(),
 			..linked_to(&address)
 		};
-		let keeper = RemoteBackend::new(ReleaseStub {
-			player,
-			chain: status,
-			release_refusal: "oathRequired",
-		})
-		.with_cluster(cluster, wallet.clone());
+		let keeper = RemoteBackend::new(ReleaseStub::new(player, status, "oathRequired"))
+			.with_cluster(cluster, wallet.clone());
 
 		let error = block_on(keeper.release(saint)).unwrap_err();
 		assert_eq!(error.refusal(), Some(Refusal::OathRequired));
@@ -1320,12 +1338,8 @@ mod tests {
 			husks: demo_manifest(),
 			..linked_to(&address)
 		};
-		let keeper = RemoteBackend::new(ReleaseStub {
-			player,
-			chain: status,
-			release_refusal: "insufficientFunds",
-		})
-		.with_cluster(cluster, wallet.clone());
+		let keeper = RemoteBackend::new(ReleaseStub::new(player, status, "insufficientFunds"))
+			.with_cluster(cluster, wallet.clone());
 
 		let error = block_on(keeper.release(expensive)).unwrap_err();
 		assert_eq!(error.refusal(), Some(Refusal::InsufficientFunds));
@@ -1359,12 +1373,8 @@ mod tests {
 			husks: demo_manifest(),
 			..linked_to(&address)
 		};
-		let keeper = RemoteBackend::new(ReleaseStub {
-			player,
-			chain: status,
-			release_refusal: "notInVault",
-		})
-		.with_cluster(cluster, wallet.clone());
+		let keeper = RemoteBackend::new(ReleaseStub::new(player, status, "notInVault"))
+			.with_cluster(cluster, wallet.clone());
 
 		let result = block_on(keeper.release(saint));
 		assert!(matches!(
@@ -1413,12 +1423,8 @@ mod tests {
 				..linked_to(&address)
 			};
 			assert!(!cluster.matches(&status));
-			let keeper = RemoteBackend::new(ReleaseStub {
-				player: player.clone(),
-				chain: status,
-				release_refusal: "notInVault",
-			})
-			.with_cluster(cluster, wallet.clone());
+			let keeper = RemoteBackend::new(ReleaseStub::new(player.clone(), status, "notInVault"))
+				.with_cluster(cluster, wallet.clone());
 
 			let result = block_on(keeper.release(saint));
 			assert!(matches!(
@@ -1495,12 +1501,8 @@ mod tests {
 			program: None,
 			..linked_to(&address)
 		};
-		let keeper = RemoteBackend::new(ReleaseStub {
-			player,
-			chain: status,
-			release_refusal: "veilCrowded",
-		})
-		.with_cluster(cluster, wallet.clone());
+		let keeper = RemoteBackend::new(ReleaseStub::new(player, status, "veilCrowded"))
+			.with_cluster(cluster, wallet.clone());
 
 		let error = block_on(keeper.release(saint)).unwrap_err();
 		assert_eq!(
@@ -1532,6 +1534,118 @@ mod tests {
 		assert!(rpc.calls.borrow().is_empty());
 	}
 
+	/// A linked wallet on a server whose manifest maps no husk is no reason
+	/// to touch the cluster: the release is the server's alone, and the
+	/// wallet has no husks to read, so a server that names no program (or
+	/// another chain) does not stop either.
+	#[test]
+	fn a_manifest_that_maps_no_husk_keeps_release_and_wallet_husks_off_the_cluster() {
+		let keypair = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]);
+		let address = keypair.address();
+		let saint = Nft::new(reapers_rules::NftCollection::DegenApes, 1);
+		let player = PlayerState::initial()
+			.take_oath(1)
+			.unwrap()
+			.acquire(saint)
+			.unwrap();
+		let status = ChainStatus {
+			wallet: Some(address.to_string()),
+			program: None,
+			husks: Vec::new(),
+			..linked_to(&address)
+		};
+		let rpc = Rc::new(Burning::default());
+		let chain = cluster(&rpc);
+		assert!(
+			!chain.matches(&status),
+			"the fixture must be a status the cluster refuses, or the test proves nothing"
+		);
+		let wallet = Rc::new(CountingWallet {
+			keypair,
+			signed: Cell::new(0),
+		});
+		let keeper = RemoteBackend::new(ReleaseStub::new(player, status, "notInVault"))
+			.with_cluster(chain, wallet.clone());
+
+		let error = block_on(keeper.release(saint)).unwrap_err();
+		assert_eq!(
+			error.refusal(),
+			Some(Refusal::NotInVault),
+			"the server was never asked; the player is shown {error:?}"
+		);
+		assert_eq!(block_on(keeper.wallet_husks()), Ok(Vec::new()));
+
+		assert_eq!(wallet.signed.get(), 0);
+		assert!(
+			rpc.calls.borrow().is_empty(),
+			"the cluster was read: {:?}",
+			rpc.calls.borrow()
+		);
+	}
+
+	/// A player who does not hold the husk is charged for it by
+	/// `api.acquire` before anything is escrowed. A manifest that names the
+	/// reaper collection as a demo collection is refused before that
+	/// acquire, so no lamports are spent on a husk the wallet may not
+	/// escrow.
+	#[test]
+	fn release_refuses_the_reaper_collection_before_acquiring_it() {
+		let keypair = solana_kit_core::crypto::Keypair::from_seed(&[6; 32]);
+		let address = keypair.address();
+		let saint = Nft::new(reapers_rules::NftCollection::DegenApes, 1);
+		let player = PlayerState::initial().take_oath(1).unwrap();
+		assert!(
+			!player.vault().contains(&saint),
+			"the fixture must not hold the husk, or no acquire is at stake"
+		);
+		let manifest = demo_manifest();
+		let status = ChainStatus {
+			collection: Some(manifest[0].address.clone()),
+			husks: manifest,
+			..linked_to(&address)
+		};
+		let rpc = Rc::new(ReleasingRpc::holding(address));
+		let cluster = Rc::new(
+			Cluster::new(
+				crate::chain::ClusterName::Localnet,
+				"http://rpc",
+				rpc.clone(),
+			)
+			.with_pause(Rc::new(|_| Box::pin(async { true }))),
+		);
+		let wallet = Rc::new(CountingWallet {
+			keypair,
+			signed: Cell::new(0),
+		});
+		let keeper = RemoteBackend::new(ReleaseStub::new(player, status, "notInVault"))
+			.with_cluster(cluster, wallet.clone());
+
+		let error = block_on(keeper.release(saint)).unwrap_err();
+		match &error {
+			KeeperError::Chain(ChainFailure::Rejected(detail)) => {
+				assert!(
+					detail.contains("reaper collection"),
+					"refused for another reason: {error:?}"
+				);
+			}
+			other => panic!("the release went ahead: {other:?}"),
+		}
+		assert_eq!(
+			keeper.api.acquires.get(),
+			0,
+			"the server was asked to acquire the reaper"
+		);
+		assert_eq!(wallet.signed.get(), 0);
+		assert!(
+			!rpc.calls
+				.borrow()
+				.iter()
+				.any(|method| method == "sendTransaction"),
+			"the cluster was asked to move the reaper: {:?}",
+			rpc.calls.borrow()
+		);
+	}
+
 	/// A keeper whose wallet holds every asset `rpc` serves, releasing the
 	/// saint, `degenApes:1`, under `status`; and that wallet.
 	fn releasing_the_saint(
@@ -1556,12 +1670,8 @@ mod tests {
 			keypair: solana_kit_core::crypto::Keypair::from_seed(&[6; 32]),
 			signed: Cell::new(0),
 		});
-		let keeper = RemoteBackend::new(ReleaseStub {
-			player,
-			chain: status,
-			release_refusal: "notInVault",
-		})
-		.with_cluster(cluster, wallet.clone());
+		let keeper = RemoteBackend::new(ReleaseStub::new(player, status, "notInVault"))
+			.with_cluster(cluster, wallet.clone());
 		(keeper, wallet)
 	}
 

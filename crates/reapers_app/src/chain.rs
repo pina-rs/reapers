@@ -154,6 +154,27 @@ pub fn husk_of(husks: &[Husks], nft: Nft) -> Option<(Address, Address)> {
 	Some((asset, husks.address.parse().ok()?))
 }
 
+/// Refuses `collection` when it is the reaper collection `status` names.
+///
+/// A reaper is never a demo husk, and one the wallet escrows leaves the
+/// escrow only by being burned, so the wallet is never asked to release it.
+pub(crate) fn reject_reaper_collection(
+	status: &ChainStatus,
+	collection: Address,
+) -> ChainResult<()> {
+	if status
+		.collection
+		.as_deref()
+		.and_then(|collection| collection.parse::<Address>().ok())
+		== Some(collection)
+	{
+		return Err(ChainFailure::Rejected(format!(
+			"{collection} is the reaper collection, not a demo collection"
+		)));
+	}
+	Ok(())
+}
+
 /// Waits for a duration; `false` where the host has no timer.
 pub type Pause = Rc<dyn Fn(Duration) -> LocalBoxFuture<'static, bool>>;
 
@@ -360,17 +381,7 @@ impl Cluster {
 		husk: &WalletHusk,
 	) -> ChainResult<SimnetTransaction> {
 		self.check_status(status)?;
-		if status
-			.collection
-			.as_deref()
-			.and_then(|collection| collection.parse::<Address>().ok())
-			== Some(husk.collection)
-		{
-			return Err(ChainFailure::Rejected(format!(
-				"{} is the reaper collection, not a demo collection",
-				husk.collection
-			)));
-		}
+		reject_reaper_collection(status, husk.collection)?;
 		let instruction = program::release_core(wallet, &husk.asset, Some(&husk.collection));
 		let (blockhash, last_valid_block_height) = self.rpc.latest_blockhash().await?;
 		let message = Message::compile(
@@ -555,6 +566,10 @@ struct VerifiedReceipt {
 /// Decodes and cryptographically verifies an absorption receipt against
 /// `wallet`, `status.husks`, and `keeper`.
 ///
+/// The server must name the wallet the burn is for: a status with none is
+/// refused rather than read as a guest's, since only an escrowed husk of a
+/// linked wallet is ever burned.
+///
 /// The husk must be one the manifest maps: the game escrows only those, so
 /// a burn of any other was never asked for, and nothing would bind the
 /// receipt's mint or the collection the burn writes to.
@@ -566,9 +581,10 @@ fn verify_absorb_receipt(
 	receipt_signature: &[u8],
 	keeper: &str,
 ) -> ChainResult<VerifiedReceipt> {
-	if let Some(linked) = status.wallet.as_deref()
-		&& linked.parse::<Address>().ok() != Some(*wallet)
-	{
+	let Some(linked) = status.wallet.as_deref() else {
+		return Err(ChainFailure::WrongWallet);
+	};
+	if linked.parse::<Address>().ok() != Some(*wallet) {
 		return Err(ChainFailure::WrongWallet);
 	}
 	let decoded =
@@ -1524,6 +1540,59 @@ mod tests {
 			&keeper.address().to_string(),
 		));
 		assert!(result.is_err());
+		assert_eq!(prover.signed.get(), 0);
+		assert!(rpc.calls.borrow().is_empty());
+	}
+
+	/// An absorb is always for the wallet the server linked: a status that
+	/// names none is refused before the transaction is read, rather than
+	/// letting a direct caller burn under a guest's status.
+	#[test]
+	fn absorb_refuses_a_status_with_no_linked_wallet() {
+		use std::cell::Cell;
+
+		use futures::executor::block_on;
+		use solana_kit_core::crypto::Keypair;
+
+		let wallet = Keypair::from_seed(&[6; 32]);
+		let keeper = Keypair::from_seed(&[5; 32]);
+		let mint = Address::from_bytes([2; 32]);
+		let receipt = sample_receipt(&wallet.address(), &mint);
+		let receipt_bytes = receipt.encode();
+		let receipt_sig = keeper.sign(&receipt_bytes);
+		let ixs = program::absorb_core(
+			&keeper.address(),
+			receipt_sig.as_bytes(),
+			&receipt,
+			Some(&saint_collection()),
+		);
+		let tx = encode_tx(Version::Legacy, wallet.address(), &ixs);
+
+		let rpc = Rc::new(RecordingRpc {
+			calls: RefCell::new(Vec::new()),
+		});
+		let cluster = Cluster::new(ClusterName::Devnet, "http://rpc", rpc.clone())
+			.with_pause(Rc::new(|_| Box::pin(async { true })));
+		let prover = CountingWallet {
+			keypair: wallet,
+			signed: Cell::new(0),
+		};
+		let status = ChainStatus {
+			wallet: None,
+			..devnet_status(&prover.keypair.address(), saint_manifest())
+		};
+
+		let result = block_on(cluster.absorb(
+			&status,
+			&prover,
+			&prover.keypair.address(),
+			Nft::parse("degenApes:1").unwrap(),
+			&tx,
+			&receipt_bytes,
+			receipt_sig.as_bytes(),
+			&keeper.address().to_string(),
+		));
+		assert_eq!(result, Err(ChainFailure::WrongWallet));
 		assert_eq!(prover.signed.get(), 0);
 		assert!(rpc.calls.borrow().is_empty());
 	}
